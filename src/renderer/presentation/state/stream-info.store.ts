@@ -1,21 +1,23 @@
 import { signal, type ReadonlySignal } from '@platform/ui-base/reactive';
 import { EventChannels } from '@platform/events';
-import type { EventBusLike, DisposableFunction } from '@platform/core';
+import type { EventBusLike } from '@platform/core';
 import type { StreamInfoSettings } from '@renderer/presentation/features/streaming/streaming-controls.component.js';
+import { ReactiveStore } from './reactive-store.base.js';
 
 export interface StreamInfoStoreDependencies {
   eventBus: EventBusLike;
 }
 
-export class StreamInfoStore {
+export class StreamInfoStore extends ReactiveStore {
   private readonly _resolution = signal<string>('—');
   private readonly _fps = signal<string>('—');
-  private readonly _unsubs: DisposableFunction[] = [];
 
   constructor(private readonly dependencies: StreamInfoStoreDependencies) {
+    super();
+
     const bus = this.dependencies.eventBus;
 
-    this._unsubs.push(
+    this.track(
       bus.subscribe(EventChannels.UI.STREAM_INFO, (payload: unknown) => {
         const data = typeof payload === 'object' && payload !== null ? (payload as { settings?: unknown }).settings : null;
         if (data && typeof data === 'object' && 'width' in data && 'height' in data && 'frameRate' in data) {
@@ -28,7 +30,7 @@ export class StreamInfoStore {
       })
     );
 
-    this._unsubs.push(
+    this.track(
       bus.subscribe(EventChannels.STREAM.STOPPED, () => {
         this.reset();
       })
@@ -41,10 +43,5 @@ export class StreamInfoStore {
   reset(): void {
     this._resolution.value = '—';
     this._fps.value = '—';
-  }
-
-  dispose(): void {
-    this._unsubs.forEach((unsub) => unsub());
-    this._unsubs.length = 0;
   }
 }

@@ -79,7 +79,6 @@ export function createPerformanceStateServiceMock(overrides = {}) {
   return /** @type {any} */ ({
     initialize: vi.fn(),
     setPerformanceModeEnabled: vi.fn(() => true),
-    setCapabilities: vi.fn(),
     setStreaming: vi.fn(),
     dispose: vi.fn(),
     ...overrides

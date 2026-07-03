@@ -1,6 +1,7 @@
 import { signal, computed, type ReadonlySignal } from '@platform/ui-base/reactive';
 import { EventChannels } from '@platform/events';
-import type { EventBusLike, DisposableFunction } from '@platform/core';
+import type { EventBusLike } from '@platform/core';
+import { ReactiveStore } from './reactive-store.base.js';
 
 export interface DeviceStatusPayloadLike {
   connected: boolean;
@@ -14,7 +15,7 @@ export interface DeviceStatusStoreDependencies {
   deviceConnectedSignal: ReadonlySignal<boolean>;
 }
 
-export class DeviceStatusStore {
+export class DeviceStatusStore extends ReactiveStore {
   private readonly _connected = signal(false);
   private readonly _deviceName = signal('—');
   private readonly _overlayVisible = signal(true);
@@ -22,15 +23,15 @@ export class DeviceStatusStore {
   private readonly _overlayReady = signal(false);
   private readonly _overlayWaiting = signal(true);
 
-  private readonly _unsubs: DisposableFunction[] = [];
-
   constructor(private readonly dependencies: DeviceStatusStoreDependencies) {
+    super();
+
     // Initial values
     this._connected.value = this.dependencies.deviceConnectedSignal.value;
 
     const bus = this.dependencies.eventBus;
 
-    this._unsubs.push(
+    this.track(
       bus.subscribe(EventChannels.UI.DEVICE_STATUS, (payload: unknown) => {
         const data = typeof payload === 'object' && payload !== null ? (payload as { status?: unknown }).status : null;
         if (data && typeof data === 'object' && 'connected' in data) {
@@ -46,7 +47,7 @@ export class DeviceStatusStore {
       })
     );
 
-    this._unsubs.push(
+    this.track(
       bus.subscribe(EventChannels.UI.OVERLAY_MESSAGE, (payload: unknown) => {
         const data = typeof payload === 'object' && payload !== null ? (payload as { deviceConnected?: unknown }) : {};
         const deviceConnected = typeof data.deviceConnected === 'boolean' ? data.deviceConnected : false;
@@ -56,7 +57,7 @@ export class DeviceStatusStore {
       })
     );
 
-    this._unsubs.push(
+    this.track(
       bus.subscribe(EventChannels.UI.OVERLAY_VISIBLE, (payload: unknown) => {
         const data = typeof payload === 'object' && payload !== null ? (payload as { visible?: unknown }) : {};
         if (typeof data.visible === 'boolean') {
@@ -65,7 +66,7 @@ export class DeviceStatusStore {
       })
     );
 
-    this._unsubs.push(
+    this.track(
       bus.subscribe(EventChannels.UI.OVERLAY_ERROR, (payload: unknown) => {
         const data = typeof payload === 'object' && payload !== null ? (payload as { message?: unknown }) : {};
         const message = typeof data.message === 'string' ? data.message : '';
@@ -87,8 +88,4 @@ export class DeviceStatusStore {
   readonly deviceStatusText = computed(() => this._connected.value ? 'Connected' : 'Disconnected');
   readonly streamOverlayHidden = computed(() => !this._overlayVisible.value);
 
-  dispose(): void {
-    this._unsubs.forEach((unsub) => unsub());
-    this._unsubs.length = 0;
-  }
 }

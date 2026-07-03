@@ -41,7 +41,7 @@ describe('PerformanceAnimationOrchestrator', () => {
   });
 
   it('should delegate performance state updates to the service and apply body classes', async () => {
-    await orchestrator.onInitialize();
+    await orchestrator.initialize();
 
     const performanceState = {
       performanceModeEnabled: true,
@@ -66,14 +66,14 @@ describe('PerformanceAnimationOrchestrator', () => {
   });
 
   it('should not duplicate canonical streaming-mode state', async () => {
-    await orchestrator.onInitialize();
+    await orchestrator.initialize();
 
     expect(handlers[EventChannels.STREAM.STARTED]).toBeUndefined();
     expect(handlers[EventChannels.STREAM.STOPPED]).toBeUndefined();
   });
 
   it('should preserve animationsOff while applying performance state changes', async () => {
-    await orchestrator.onInitialize();
+    await orchestrator.initialize();
 
     mockPerformanceAnimationService.setPerformanceState.mockReturnValue({
       idle: false,

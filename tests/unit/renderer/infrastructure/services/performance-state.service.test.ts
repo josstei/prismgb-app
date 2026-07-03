@@ -130,14 +130,6 @@ describe('PerformanceStateService', () => {
     expect(states[states.length - 1].performanceModeEnabled).toBe(true);
   });
 
-  it('should detect weak GPU based on capabilities', () => {
-    service.initialize({ onStateChange: (state) => states.push(state) });
-
-    service.setCapabilities({ webgpu: false, preferredBackend: 'canvas2d', maxTextureSize: 1024 });
-
-    expect(states[states.length - 1].weakGpuDetected).toBe(true);
-  });
-
   it('should clear idle when streaming starts', () => {
     service.initialize({ onStateChange: (state) => states.push(state) });
 

@@ -7,7 +7,8 @@
 
 import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
-import { EventChannels } from '@platform/events';
+import { EventChannels, OnEvent } from '@platform/events';
+import type { PerformanceStatePayload } from '@platform/events';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 import type {
   AnimationPerformanceState,
@@ -27,15 +28,8 @@ export class PerformanceAnimationOrchestrator extends BaseOrchestrator {
     super({ loggerFactory, eventBus }, 'PerformanceAnimationOrchestrator');
   }
 
-  async onInitialize(): Promise<void> {
-    this.subscribeWithCleanup({
-      [EventChannels.PERFORMANCE.STATE_CHANGED]: (state) => {
-        this._handlePerformanceStateChanged(state);
-      }
-    });
-  }
-
-  _handlePerformanceStateChanged(performanceState: unknown): void {
+  @OnEvent(EventChannels.PERFORMANCE.STATE_CHANGED)
+  _handlePerformanceStateChanged(performanceState: PerformanceStatePayload): void {
     const state = this.animationPerformanceService.setPerformanceState(performanceState);
     this._applyBodyClasses(state);
   }

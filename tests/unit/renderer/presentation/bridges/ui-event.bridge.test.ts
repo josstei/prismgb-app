@@ -110,14 +110,6 @@ describe('UIEventBridge', () => {
       expect(mockPresentationModeService.handleStreamingMode).toHaveBeenCalledWith(true);
     });
 
-    it('ignores invalid streaming mode payloads', () => {
-      subscribedHandlers[EventChannels.UI.STREAMING_MODE]({ enabled: 'true' });
-
-      expect(mockPresentationModeService.handleStreamingMode).not.toHaveBeenCalled();
-      expect(mockLogger.warn).toHaveBeenCalledWith('Ignoring invalid streaming mode payload');
-    });
-
-
     it('routes visual effects events', () => {
       subscribedHandlers[EventChannels.UI.SHUTTER_FLASH]();
       subscribedHandlers[EventChannels.UI.RECORD_BUTTON_POP]();

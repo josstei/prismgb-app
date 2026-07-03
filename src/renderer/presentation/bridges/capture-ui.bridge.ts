@@ -1,7 +1,12 @@
 import { injectable, inject } from 'inversify';
-import { BaseService, type ServiceEventDescriptor } from '@platform/core';
-import { EventChannels } from '@platform/events';
-import type { UiButtonFeedbackPayload } from '@platform/events';
+import { BaseService } from '@platform/core';
+import { EventChannels, OnEvent } from '@platform/events';
+import type {
+  RecordingDegradedPayload,
+  RecordingErrorPayload,
+  ScreenshotReadyPayload,
+  UiButtonFeedbackPayload
+} from '@platform/events';
 import { TIMING } from '@platform/config';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
@@ -12,15 +17,6 @@ type CaptureUiControllerLike = {
 
 @injectable()
 class CaptureUIBridge extends BaseService {
-  private static readonly eventDescriptors = [
-    [EventChannels.CAPTURE.SCREENSHOT_TRIGGERED, (bridge) => bridge._handleScreenshotTriggered()],
-    [EventChannels.CAPTURE.SCREENSHOT_READY, (bridge, data) => bridge._handleScreenshotReady(data)],
-    [EventChannels.CAPTURE.RECORDING_STARTED, (bridge) => bridge._handleRecordingStarted()],
-    [EventChannels.CAPTURE.RECORDING_STOPPED, (bridge) => bridge._handleRecordingStopped()],
-    [EventChannels.CAPTURE.RECORDING_ERROR, (bridge, data) => bridge._handleRecordingError(data)],
-    [EventChannels.CAPTURE.RECORDING_DEGRADED, (bridge, data) => bridge._handleRecordingDegraded(data)]
-  ] satisfies readonly ServiceEventDescriptor<CaptureUIBridge>[];
-
   constructor(
     @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
     @inject(TOKENS.uiController) private readonly uiController: CaptureUiControllerLike,
@@ -30,7 +26,7 @@ class CaptureUIBridge extends BaseService {
   }
 
   initialize() {
-    this.listenToDescriptors(CaptureUIBridge.eventDescriptors);
+    this.bindEventHandlers();
     this.logger.info('CaptureUIBridge initialized');
   }
 
@@ -40,6 +36,7 @@ class CaptureUIBridge extends BaseService {
     return disposed;
   }
 
+  @OnEvent(EventChannels.CAPTURE.SCREENSHOT_TRIGGERED)
   _handleScreenshotTriggered() {
     const payload = {
       elementKey: 'screenshotBtn',
@@ -49,34 +46,28 @@ class CaptureUIBridge extends BaseService {
     this.eventBus.publish(EventChannels.UI.BUTTON_FEEDBACK, payload);
   }
 
-  _handleScreenshotReady(data: unknown) {
-    const payload = typeof data === 'object' && data !== null
-      ? data as { blob?: Blob; filename?: string }
-      : {};
-    const { blob, filename } = payload;
-    if (!(blob instanceof Blob) || typeof filename !== 'string') {
-      return;
-    }
-    this.uiController.triggerDownload(blob, filename);
+  @OnEvent(EventChannels.CAPTURE.SCREENSHOT_READY)
+  _handleScreenshotReady(data: ScreenshotReadyPayload) {
+    this.uiController.triggerDownload(data.blob, data.filename);
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Screenshot saved!' });
   }
 
+  @OnEvent(EventChannels.CAPTURE.RECORDING_STARTED)
   _handleRecordingStarted() {
     this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_POP);
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Recording started' });
     this.eventBus.publish(EventChannels.UI.RECORDING_STATE, { active: true });
   }
 
+  @OnEvent(EventChannels.CAPTURE.RECORDING_STOPPED)
   _handleRecordingStopped() {
     this.eventBus.publish(EventChannels.UI.RECORD_BUTTON_PRESS);
     this.eventBus.publish(EventChannels.UI.RECORDING_STATE, { active: false });
   }
 
-  _handleRecordingError(data: unknown) {
-    const payload = typeof data === 'object' && data !== null
-      ? data as { error?: unknown }
-      : {};
-    const { error } = payload;
+  @OnEvent(EventChannels.CAPTURE.RECORDING_ERROR)
+  _handleRecordingError(data: RecordingErrorPayload) {
+    const { error } = data;
     this.logger.error('Recording error:', error);
     this.eventBus.publish(EventChannels.UI.RECORDING_STATE, { active: false });
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
@@ -85,11 +76,9 @@ class CaptureUIBridge extends BaseService {
     });
   }
 
-  _handleRecordingDegraded(data: unknown) {
-    const payload = typeof data === 'object' && data !== null
-      ? data as { droppedFrames?: number }
-      : {};
-    const droppedFrames = typeof payload.droppedFrames === 'number' ? payload.droppedFrames : 0;
+  @OnEvent(EventChannels.CAPTURE.RECORDING_DEGRADED)
+  _handleRecordingDegraded(data: RecordingDegradedPayload) {
+    const droppedFrames = data.droppedFrames ?? 0;
     const reason = `Recording quality degraded: ${droppedFrames} frames dropped`;
     this.logger.warn('Recording degraded:', reason);
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {

@@ -1,6 +1,7 @@
 import { signal, computed, type ReadonlySignal } from '@platform/ui-base/reactive';
 import { EventChannels } from '@platform/events';
-import type { EventBusLike, DisposableFunction } from '@platform/core';
+import type { EventBusLike } from '@platform/core';
+import { ReactiveStore } from './reactive-store.base.js';
 
 function readBooleanField(payload: unknown, key: string): boolean | null {
   if (typeof payload !== 'object' || payload === null) return null;
@@ -19,17 +20,18 @@ export interface PresentationModeStoreDependencies {
  * cinematic = cinematicEnabled && streaming; minimalist = minimalist && fullscreen && streaming.
  * Each input is fed from the same bus channel / signal the imperative service consumed.
  */
-export class PresentationModeStore {
+export class PresentationModeStore extends ReactiveStore {
   private readonly _streamingActive = signal(false);
   private readonly _fullscreenActive = signal(Boolean(document.fullscreenElement));
   private readonly _minimalistEnabled = signal(false);
   private readonly cinematicEnabled: ReadonlySignal<boolean>;
-  private readonly _unsubscribes: DisposableFunction[] = [];
 
   readonly cinematicActive: ReadonlySignal<boolean>;
   readonly minimalistActive: ReadonlySignal<boolean>;
 
   constructor(private readonly dependencies: PresentationModeStoreDependencies) {
+    super();
+
     this.cinematicEnabled = dependencies.cinematicEnabled;
 
     this.cinematicActive = computed(
@@ -40,13 +42,11 @@ export class PresentationModeStore {
     );
 
     const bus = this.dependencies.eventBus;
-    this._unsubscribes.push(
-      bus.subscribe(EventChannels.UI.STREAMING_MODE, (payload: unknown) => this.applyStreaming(payload)),
-      bus.subscribe(EventChannels.UI.FULLSCREEN_STATE, (payload: unknown) => this.applyFullscreen(payload)),
-      bus.subscribe(EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED, (payload: unknown) =>
-        this.applyMinimalist(payload)
-      )
-    );
+    this.track(bus.subscribe(EventChannels.UI.STREAMING_MODE, (payload: unknown) => this.applyStreaming(payload)));
+    this.track(bus.subscribe(EventChannels.UI.FULLSCREEN_STATE, (payload: unknown) => this.applyFullscreen(payload)));
+    this.track(bus.subscribe(EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED, (payload: unknown) =>
+      this.applyMinimalist(payload)
+    ));
   }
 
   get fullscreenActive(): ReadonlySignal<boolean> {
@@ -65,10 +65,5 @@ export class PresentationModeStore {
 
   private applyMinimalist(payload: unknown): void {
     if (typeof payload === 'boolean') this._minimalistEnabled.value = payload;
-  }
-
-  dispose(): void {
-    this._unsubscribes.forEach((unsubscribe) => unsubscribe());
-    this._unsubscribes.length = 0;
   }
 }

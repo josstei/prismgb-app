@@ -87,7 +87,7 @@ describe('StreamingOrchestrator', () => {
 
   describe('onInitialize', () => {
     it('should wire stream and device events', async () => {
-      await orchestrator.onInitialize();
+      await orchestrator.initialize();
 
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:started', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:stopped', expect.any(Function));

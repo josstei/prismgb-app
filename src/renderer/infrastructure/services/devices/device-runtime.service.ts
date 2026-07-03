@@ -1,7 +1,8 @@
 import { injectable, inject } from 'inversify';
 import { BaseService, getErrorMessage } from '@platform/core';
 import { EventChannels } from '@platform/events';
-import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
+import type { TypedEventBusLike } from '@platform/events';
+import type { LoggerFactoryLike } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 import {
   getDeviceAcquisitionProfile,
@@ -100,7 +101,7 @@ export class RendererDeviceRuntime extends BaseService {
     @inject(TOKENS.deviceStatusPort) private readonly deviceStatusPort: DeviceStatusPort,
     @inject(TOKENS.mediaDevicesPort) private readonly mediaDevicesPort: MediaDevicesPort,
     @inject(TOKENS.devicePreferenceStore) private readonly devicePreferenceStore: DevicePreferenceStore,
-    @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
+    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike,
     private readonly now: () => number = Date.now
   ) {

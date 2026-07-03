@@ -89,7 +89,6 @@ export const EventChannels = {
 
   // Render events (GPU rendering pipeline)
   RENDER: {
-    CAPABILITY_DETECTED: getRendererChannel('render', 'capability-detected'),
     PIPELINE_READY: getRendererChannel('render', 'pipeline-ready'),
     PIPELINE_ERROR: getRendererChannel('render', 'pipeline-error'),
     STATS_UPDATE: getRendererChannel('render', 'stats-update'),

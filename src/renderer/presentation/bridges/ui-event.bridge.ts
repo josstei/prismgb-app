@@ -1,9 +1,10 @@
 import { injectable, inject } from 'inversify';
-import { BaseService, type ServiceEventDescriptor } from '@platform/core';
-import { EventChannels } from '@platform/events';
+import { BaseService } from '@platform/core';
+import { EventChannels, OnEvent } from '@platform/events';
 import type {
   TypedEventBusLike,
-  UiButtonFeedbackPayload
+  UiButtonFeedbackPayload,
+  UiStreamingModePayload
 } from '@platform/events';
 import type { LoggerFactoryLike } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
@@ -40,19 +41,6 @@ function getBooleanPayloadValue(data: unknown, key: string): boolean | null {
 
 @injectable()
 export class UIEventBridge extends BaseService {
-  private static readonly eventDescriptors = [
-    [EventChannels.UI.STREAMING_MODE, (bridge, data) => bridge._handleStreamingMode(data)],
-    [EventChannels.UI.SHUTTER_FLASH, (bridge) => bridge._handleShutterFlash()],
-    [EventChannels.UI.RECORD_BUTTON_POP, (bridge) => bridge._handleRecordButtonPop()],
-    [EventChannels.UI.RECORD_BUTTON_PRESS, (bridge) => bridge._handleRecordButtonPress()],
-    [EventChannels.UI.BUTTON_FEEDBACK, (bridge, data) => bridge._handleButtonFeedback(data)],
-    [EventChannels.UI.RECORDING_STATE, (bridge, data) => bridge._handleRecordingState(data)],
-    [EventChannels.UI.RECORD_BUTTON_DISABLED, (bridge) => bridge._handleRecordButtonDisabled()],
-    [EventChannels.UI.RECORD_BUTTON_ENABLED, (bridge) => bridge._handleRecordButtonEnabled()],
-    [EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED, (bridge, data) => bridge._handleCinematicMode(data)],
-    [EventChannels.UI.FULLSCREEN_STATE, (bridge, data) => bridge._handleFullscreenState(data)]
-  ] satisfies readonly ServiceEventDescriptor<UIEventBridge>[];
-
   constructor(
     @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
     @inject(TOKENS.uiController) private readonly uiController: UiControllerLike,
@@ -63,32 +51,31 @@ export class UIEventBridge extends BaseService {
   }
 
   initialize(): void {
-    this.listenToDescriptors(UIEventBridge.eventDescriptors);
+    this.bindEventHandlers();
     this.logger.info('UIEventBridge initialized');
   }
 
-  private _handleStreamingMode(data: unknown): void {
-    const enabled = getBooleanPayloadValue(data, 'enabled');
-    if (enabled === null) {
-      this.logger.warn('Ignoring invalid streaming mode payload');
-      return;
-    }
-    this.presentationModeService.handleStreamingMode(enabled);
+  @OnEvent(EventChannels.UI.STREAMING_MODE)
+  private _handleStreamingMode(data: UiStreamingModePayload): void {
+    this.presentationModeService.handleStreamingMode(data.enabled);
   }
 
-
+  @OnEvent(EventChannels.UI.SHUTTER_FLASH)
   private _handleShutterFlash(): void {
     this.uiController.triggerShutterFlash();
   }
 
+  @OnEvent(EventChannels.UI.RECORD_BUTTON_POP)
   private _handleRecordButtonPop(): void {
     this.uiController.triggerRecordButtonPop();
   }
 
+  @OnEvent(EventChannels.UI.RECORD_BUTTON_PRESS)
   private _handleRecordButtonPress(): void {
     this.uiController.triggerRecordButtonPress();
   }
 
+  @OnEvent(EventChannels.UI.BUTTON_FEEDBACK)
   private _handleButtonFeedback(data: unknown): void {
     const payload = typeof data === 'object' && data !== null
       ? data as Partial<UiButtonFeedbackPayload>
@@ -103,6 +90,7 @@ export class UIEventBridge extends BaseService {
     );
   }
 
+  @OnEvent(EventChannels.UI.RECORDING_STATE)
   private _handleRecordingState(data: unknown): void {
     const active = getBooleanPayloadValue(data, 'active');
     if (active === null) {
@@ -112,14 +100,17 @@ export class UIEventBridge extends BaseService {
     this.uiController.updateRecordingButtonState(active);
   }
 
+  @OnEvent(EventChannels.UI.RECORD_BUTTON_DISABLED)
   private _handleRecordButtonDisabled(): void {
     this.uiController.setRecordButtonDisabled(true);
   }
 
+  @OnEvent(EventChannels.UI.RECORD_BUTTON_ENABLED)
   private _handleRecordButtonEnabled(): void {
     this.uiController.setRecordButtonDisabled(false);
   }
 
+  @OnEvent(EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED)
   private _handleCinematicMode(data: unknown): void {
     const enabled = getBooleanPayloadValue(data, 'enabled');
     if (enabled === null) {
@@ -131,6 +122,7 @@ export class UIEventBridge extends BaseService {
     });
   }
 
+  @OnEvent(EventChannels.UI.FULLSCREEN_STATE)
   private _handleFullscreenState(data: unknown): void {
     const active = getBooleanPayloadValue(data, 'active');
     if (active === null) {

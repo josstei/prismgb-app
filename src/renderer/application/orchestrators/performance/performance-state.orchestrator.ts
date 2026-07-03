@@ -7,9 +7,9 @@
 
 import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
-import { EventChannels } from '@platform/events';
-import type { PerformanceUiModePayload } from '@platform/events';
-import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
+import { EventChannels, OnEvent } from '@platform/events';
+import type { PerformanceUiModePayload, TypedEventBusLike } from '@platform/events';
+import type { LoggerFactoryLike } from '@platform/core';
 import type {
   PerformanceState,
   PerformanceStateService
@@ -21,7 +21,7 @@ export class PerformanceStateOrchestrator extends BaseOrchestrator {
   private _lastUiMode: PerformanceUiModePayload | null;
 
   constructor(
-    @inject(TOKENS.eventBus) eventBus: EventBusLike,
+    @inject(TOKENS.eventBus) protected readonly eventBus: TypedEventBusLike,
     @inject(TOKENS.performanceStateService) private readonly performanceStateService: PerformanceStateService,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
   ) {
@@ -31,24 +31,24 @@ export class PerformanceStateOrchestrator extends BaseOrchestrator {
   }
 
   async onInitialize(): Promise<void> {
-    this.subscribeWithCleanup({
-      [EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED]: (enabled) => {
-        this._handlePerformanceModeChanged(Boolean(enabled));
-      },
-      [EventChannels.RENDER.CAPABILITY_DETECTED]: (capabilities) => {
-        this._handleCapabilitiesChanged(capabilities);
-      },
-      [EventChannels.STREAM.STARTED]: () => {
-        this.performanceStateService.setStreaming(true);
-      },
-      [EventChannels.STREAM.STOPPED]: () => {
-        this.performanceStateService.setStreaming(false);
-      }
-    });
-
     this.performanceStateService.initialize({
       onStateChange: (state) => this._handleStateChanged(state)
     });
+  }
+
+  @OnEvent(EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED)
+  private _handlePerformanceModeChangedEvent(enabled: boolean): void {
+    this._handlePerformanceModeChanged(Boolean(enabled));
+  }
+
+  @OnEvent(EventChannels.STREAM.STARTED)
+  private _handleStreamStarted(): void {
+    this.performanceStateService.setStreaming(true);
+  }
+
+  @OnEvent(EventChannels.STREAM.STOPPED)
+  private _handleStreamStopped(): void {
+    this.performanceStateService.setStreaming(false);
   }
 
   _handlePerformanceModeChanged(enabled: boolean): void {
@@ -56,10 +56,6 @@ export class PerformanceStateOrchestrator extends BaseOrchestrator {
     if (changed) {
       this.eventBus.publish(EventChannels.PERFORMANCE.RENDER_MODE_CHANGED, enabled);
     }
-  }
-
-  _handleCapabilitiesChanged(capabilities: unknown): void {
-    this.performanceStateService.setCapabilities(capabilities);
   }
 
   _handleStateChanged(state: PerformanceState): void {

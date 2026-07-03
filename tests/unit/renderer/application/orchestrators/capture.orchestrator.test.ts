@@ -97,7 +97,7 @@ describe('CaptureOrchestrator', () => {
 
   describe('onInitialize', () => {
     it('should wire capture error events and UI command events', async () => {
-      await orchestrator.onInitialize();
+      await orchestrator.initialize();
 
       expect(mockEventBus.subscribe).toHaveBeenCalledTimes(5);
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('capture:recording-error', expect.any(Function));
@@ -108,7 +108,7 @@ describe('CaptureOrchestrator', () => {
     });
 
     it('should store subscription unsubscribe functions', async () => {
-      await orchestrator.onInitialize();
+      await orchestrator.initialize();
 
       expect(orchestrator._lifecycle.disposables.size).toBe(5);
     });
@@ -261,7 +261,7 @@ describe('CaptureOrchestrator', () => {
 
   describe('Event Handlers', () => {
     beforeEach(async () => {
-      await orchestrator.onInitialize();
+      await orchestrator.initialize();
     });
 
     it('should cleanup GPU recording on recording error', () => {
@@ -379,7 +379,7 @@ describe('CaptureOrchestrator', () => {
     });
 
     it('should pass interrupted: true when recording was stopped due to stream interruption', async () => {
-      await orchestrator.onInitialize();
+      await orchestrator.initialize();
       mockCaptureService.isRecording = true;
 
       const streamStoppedHandler = mockEventBus.subscribe.mock.calls.find(

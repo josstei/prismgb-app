@@ -1,4 +1,5 @@
 import { ManagedLifecycleHost } from './managed-lifecycle-host.js';
+import { getEventHandlerBindings } from './event-decorator.js';
 import type { Disposable, DisposableFunction, DisposableKey, EventTargetLike } from './disposable-bag.js';
 import type { EventBusLike, LoggerFactoryLike, LoggerLike } from './service.base.js';
 
@@ -38,6 +39,7 @@ export class BaseOrchestrator {
     this.logger?.info(`Initializing ${this._orchestratorName}`);
 
     try {
+      this._subscribeDeclaredEventHandlers();
       await this.onInitialize();
 
       this.isInitialized = true;
@@ -73,17 +75,22 @@ export class BaseOrchestrator {
     this._isCleaningUp = false;
   }
 
-  subscribeWithCleanup(eventMap: Record<string, (...args: unknown[]) => void | Promise<void>>): void {
+  private _subscribeDeclaredEventHandlers(): void {
+    const bindings = getEventHandlerBindings(this.constructor);
+    if (bindings.length === 0) {
+      return;
+    }
+
     const eventBus = this.eventBus;
     if (!eventBus) {
       this.logger?.warn('Cannot subscribe - eventBus not available');
       return;
     }
 
-    Object.entries(eventMap).forEach(([event, handler]) => {
-      const unsubscribe = eventBus.subscribe(event, handler);
-      this.track(unsubscribe);
-    });
+    const handlers = this as unknown as Record<string | symbol, (payload: unknown) => void | Promise<void>>;
+    for (const { channel, methodKey } of bindings) {
+      this.track(eventBus.subscribe(channel, (payload: unknown) => handlers[methodKey](payload)));
+    }
   }
 
   protected listen(

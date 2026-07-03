@@ -6,7 +6,7 @@
       "scope": "renderer",
       "events": [
         { "domain": "system", "name": "handler-error", "value": "system:handler-error", "payload": "HandlerErrorPayload" },
-        { "domain": "device", "name": "status-changed", "value": "device:status-changed", "payload": "unknown" },
+        { "domain": "device", "name": "status-changed", "value": "device:status-changed", "payload": "DeviceStatus" },
         { "domain": "device", "name": "connected", "value": "device:connected", "payload": "DeviceInfoPayload" },
         { "domain": "device", "name": "disconnected", "value": "device:disconnected", "payload": "DeviceInfoPayload | null | undefined" },
         { "domain": "device", "name": "supported-device-available", "value": "device:supported-device-available", "payload": "SupportedDeviceAvailablePayload" },
@@ -36,7 +36,6 @@
         { "domain": "performance", "name": "ui-mode-changed", "value": "performance:ui-mode-changed", "payload": "PerformanceUiModePayload" },
         { "domain": "performance", "name": "render-mode-changed", "value": "performance:render-mode-changed", "payload": "boolean" },
         { "domain": "performance", "name": "memory-snapshot-requested", "value": "performance:memory-snapshot-requested", "payload": "MemorySnapshotRequestPayload" },
-        { "domain": "render", "name": "capability-detected", "value": "render:capability-detected", "payload": "StreamingCapabilities" },
         { "domain": "render", "name": "pipeline-ready", "value": "render:pipeline-ready", "payload": "RenderPipelineReadyPayload" },
         { "domain": "render", "name": "pipeline-error", "value": "render:pipeline-error", "payload": "RenderPipelineErrorPayload" },
         { "domain": "render", "name": "stats-update", "value": "render:stats-update", "payload": "RenderStatsPayload" },

@@ -1,4 +1,5 @@
 import { ManagedLifecycleHost } from './managed-lifecycle-host.js';
+import { getEventHandlerBindings } from './event-decorator.js';
 import type { DisposableBag, DisposableFunction, DisposableKey, EventTargetLike } from './disposable-bag.js';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -26,8 +27,6 @@ export interface StorageServiceLike {
   setItem(key: string, value: string): boolean;
   removeItem(key: string): void;
 }
-
-export type ServiceEventDescriptor<TOwner> = readonly [string, (owner: TOwner, payload?: unknown) => void | Promise<void>];
 
 function isEventBusLike(value: unknown): value is EventBusLike {
   return (
@@ -71,9 +70,12 @@ export class BaseService {
     return this.disposables.add(unsubscribe);
   }
 
-  protected listenToDescriptors<TOwner extends this>(descriptors: readonly ServiceEventDescriptor<TOwner>[]): void {
-    const owner = this as TOwner;
-    descriptors.forEach(([event, handle]) => this.listen(event, (payload) => handle(owner, payload)));
+  protected bindEventHandlers(): void {
+    const bindings = getEventHandlerBindings(this.constructor);
+    const handlers = this as unknown as Record<string | symbol, (payload: unknown) => void | Promise<void>>;
+    for (const { channel, methodKey } of bindings) {
+      this.listen(channel, (payload: unknown) => handlers[methodKey](payload));
+    }
   }
 
   subscribe(

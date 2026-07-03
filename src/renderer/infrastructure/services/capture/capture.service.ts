@@ -1,8 +1,9 @@
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
+import type { LoggerFactoryLike } from '@platform/core';
 import { FilenameGenerator } from '@renderer/lib/filename-generator.utils.js';
 import { EventChannels } from '@platform/events';
+import type { RecordingReadyPayload, TypedEventBusLike } from '@platform/events';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type MediaRecorderErrorEvent = Event & {
@@ -43,7 +44,7 @@ class CaptureService extends BaseService {
   private _stopWaiter: StopWaiter | null;
 
   constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
+    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
   ) {
     super({ loggerFactory, eventBus }, 'CaptureService');
@@ -324,7 +325,10 @@ class CaptureService extends BaseService {
     }
   }
 
-  private async _publishLifecycleEvent(event: string, payload?: unknown): Promise<void> {
+  private async _publishLifecycleEvent(
+    event: typeof EventChannels.CAPTURE.RECORDING_READY,
+    payload: RecordingReadyPayload
+  ): Promise<void> {
     if (this.eventBus.publishAsync) {
       await this.eventBus.publishAsync(event, payload);
       return;

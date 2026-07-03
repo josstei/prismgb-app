@@ -49,10 +49,6 @@ describe('PerformanceStateOrchestrator', () => {
       expect.any(Function)
     );
     expect(mockEventBus.subscribe).toHaveBeenCalledWith(
-      EventChannels.RENDER.CAPABILITY_DETECTED,
-      expect.any(Function)
-    );
-    expect(mockEventBus.subscribe).toHaveBeenCalledWith(
       EventChannels.STREAM.STARTED,
       expect.any(Function)
     );
@@ -70,15 +66,6 @@ describe('PerformanceStateOrchestrator', () => {
 
     expect(mockPerformanceStateService.setPerformanceModeEnabled).toHaveBeenCalledWith(true);
     expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.PERFORMANCE.RENDER_MODE_CHANGED, true);
-  });
-
-  it('should forward capability changes to the performance state service', async () => {
-    await coordinator.initialize();
-
-    const capabilities = { webgpu: true };
-    eventHandlers[EventChannels.RENDER.CAPABILITY_DETECTED](capabilities);
-
-    expect(mockPerformanceStateService.setCapabilities).toHaveBeenCalledWith(capabilities);
   });
 
   it('should forward streaming changes to the performance state service', async () => {

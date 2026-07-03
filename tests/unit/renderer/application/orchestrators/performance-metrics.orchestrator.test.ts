@@ -50,7 +50,7 @@ describe('PerformanceMetricsOrchestrator', () => {
 
   describe('onInitialize', () => {
     it('should subscribe to MEMORY_SNAPSHOT_REQUESTED event', async () => {
-      await orchestrator.onInitialize();
+      await orchestrator.initialize();
 
       expect(mockEventBus.subscribe).toHaveBeenCalledWith(
         EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED,
@@ -59,7 +59,7 @@ describe('PerformanceMetricsOrchestrator', () => {
     });
 
     it('should forward snapshot requests to service', async () => {
-      await orchestrator.onInitialize();
+      await orchestrator.initialize();
 
       const payload = { label: 'test', delayMs: 500 };
       handlers[EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED](payload);
@@ -71,7 +71,7 @@ describe('PerformanceMetricsOrchestrator', () => {
       const originalEnv = import.meta.env.DEV;
       import.meta.env.DEV = true;
 
-      await orchestrator.onInitialize();
+      await orchestrator.initialize();
 
       expect(mockPerformanceMetricsService.startPeriodicSnapshots).toHaveBeenCalled();
 
@@ -82,7 +82,7 @@ describe('PerformanceMetricsOrchestrator', () => {
       const originalEnv = import.meta.env.DEV;
       import.meta.env.DEV = false;
 
-      await orchestrator.onInitialize();
+      await orchestrator.initialize();
 
       expect(mockPerformanceMetricsService.startPeriodicSnapshots).not.toHaveBeenCalled();
 
@@ -92,14 +92,14 @@ describe('PerformanceMetricsOrchestrator', () => {
 
   describe('onCleanup', () => {
     it('should stop periodic snapshots', async () => {
-      await orchestrator.onInitialize();
+      await orchestrator.initialize();
       await orchestrator.onCleanup();
 
       expect(mockPerformanceMetricsService.stopPeriodicSnapshots).toHaveBeenCalled();
     });
 
     it('should clear pending requests', async () => {
-      await orchestrator.onInitialize();
+      await orchestrator.initialize();
       await orchestrator.onCleanup();
 
       expect(mockPerformanceMetricsService.clearPendingRequests).toHaveBeenCalled();
@@ -108,7 +108,7 @@ describe('PerformanceMetricsOrchestrator', () => {
 
   describe('event handling', () => {
     it('should handle snapshot request with label only', async () => {
-      await orchestrator.onInitialize();
+      await orchestrator.initialize();
 
       handlers[EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED]({ label: 'before render' });
 
@@ -118,7 +118,7 @@ describe('PerformanceMetricsOrchestrator', () => {
     });
 
     it('should handle snapshot request with delay', async () => {
-      await orchestrator.onInitialize();
+      await orchestrator.initialize();
 
       handlers[EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED]({
         label: 'after cleanup',
@@ -132,7 +132,7 @@ describe('PerformanceMetricsOrchestrator', () => {
     });
 
     it('should handle empty payload', async () => {
-      await orchestrator.onInitialize();
+      await orchestrator.initialize();
 
       handlers[EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED]({});
 

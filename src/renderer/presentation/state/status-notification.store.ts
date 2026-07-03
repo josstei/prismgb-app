@@ -1,6 +1,7 @@
 import { signal, type ReadonlySignal } from '@platform/ui-base/reactive';
 import { EventChannels } from '@platform/events';
-import type { EventBusLike, DisposableFunction } from '@platform/core';
+import type { EventBusLike } from '@platform/core';
+import { ReactiveStore } from './reactive-store.base.js';
 
 const VALID_TYPES = ['info', 'success', 'warning', 'error'] as const;
 export type StatusNotificationType = (typeof VALID_TYPES)[number];
@@ -10,16 +11,17 @@ export interface StatusNotificationStoreDependencies {
 }
 
 /** Owns status-message reactive state; subscribes the bus → signal (event→state). */
-export class StatusNotificationStore {
+export class StatusNotificationStore extends ReactiveStore {
   private readonly _message = signal('');
   private readonly _type = signal<StatusNotificationType>('info');
-  private _unsubscribe: DisposableFunction = () => {};
 
   constructor(private readonly dependencies: StatusNotificationStoreDependencies) {
-    this._unsubscribe = this.dependencies.eventBus.subscribe(
+    super();
+
+    this.track(this.dependencies.eventBus.subscribe(
       EventChannels.UI.STATUS_MESSAGE,
       (...args: unknown[]) => this.apply(args[0])
-    );
+    ));
   }
 
   get message(): ReadonlySignal<string> {
@@ -39,10 +41,5 @@ export class StatusNotificationStore {
     this._type.value = VALID_TYPES.includes(data.type as StatusNotificationType)
       ? (data.type as StatusNotificationType)
       : 'info';
-  }
-
-  dispose(): void {
-    this._unsubscribe();
-    this._unsubscribe = () => {};
   }
 }

@@ -47,7 +47,7 @@ describe('StreamingAudioOrchestrator', () => {
 
   describe('onInitialize', () => {
     it('should subscribe to stream events', async () => {
-      await orchestrator.onInitialize();
+      await orchestrator.initialize();
 
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:started', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:stopped', expect.any(Function));
@@ -78,12 +78,6 @@ describe('StreamingAudioOrchestrator', () => {
       expect(mockLogger.debug).toHaveBeenCalledWith('Audio pipeline already attached to stream; skipping re-init');
     });
 
-    it('should do nothing when no stream provided', () => {
-      orchestrator._handleStreamStarted({});
-      orchestrator._handleStreamStarted({ stream: null });
-
-      expect(mockStreamingAudioPipelineService.start).not.toHaveBeenCalled();
-    });
   });
 
   describe('_handleStreamStopped', () => {

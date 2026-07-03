@@ -1,6 +1,6 @@
 import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
-import { EventChannels } from '@platform/events';
+import { EventChannels, OnEvent } from '@platform/events';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 
@@ -39,15 +39,9 @@ export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
    */
   async onInitialize(): Promise<void> {
     this.fullscreenService.initialize();
-
-    this.subscribeWithCleanup({
-      [EventChannels.SETTINGS.PREFERENCES_LOADED]: () => this._applyStartupBehaviors(),
-      // UI command events - decoupled from UISetupOrchestrator
-      [EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED]: () => this.toggleFullscreen(),
-      [EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED]: () => this.toggleCinematicMode()
-    });
   }
 
+  @OnEvent(EventChannels.SETTINGS.PREFERENCES_LOADED)
   _applyStartupBehaviors(): void {
     this._clearStartupVisibilityListener();
 
@@ -80,6 +74,7 @@ export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
   /**
    * Toggle fullscreen mode
    */
+  @OnEvent(EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED)
   toggleFullscreen(): void {
     this.fullscreenService.toggleFullscreen();
   }
@@ -101,6 +96,7 @@ export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
   /**
    * Toggle cinematic mode
    */
+  @OnEvent(EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED)
   toggleCinematicMode(): void {
     this.cinematicModeService.toggleCinematicMode();
   }

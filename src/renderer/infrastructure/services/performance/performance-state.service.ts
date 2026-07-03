@@ -7,7 +7,6 @@
 
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import type { StreamingCapabilities } from '@platform/events';
 import type { LoggerFactoryLike } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 
@@ -17,11 +16,6 @@ export type PerformanceState = {
   hidden: boolean;
   idle: boolean;
   reducedMotion: boolean;
-};
-
-type PerformanceCapabilities = StreamingCapabilities & {
-  maxTextureSize?: number;
-  preferredBackend?: 'webgpu' | 'canvas2d';
 };
 
 type VisibilityAdapterLike = {
@@ -50,10 +44,6 @@ const DEFAULT_STATE: PerformanceState = Object.freeze({
   idle: false,
   reducedMotion: false
 });
-
-function isPerformanceCapabilities(value: unknown): value is PerformanceCapabilities {
-  return typeof value === 'object' && value !== null;
-}
 
 interface PerformanceStateInitOptions {
   onStateChange?: (state: PerformanceState) => void;
@@ -107,11 +97,6 @@ class PerformanceStateService extends BaseService {
       this._syncIdleTimer();
     }
     return changed;
-  }
-
-  setCapabilities(capabilities: unknown): boolean {
-    const weakGpuDetected = this._detectWeakGPU(capabilities);
-    return this._updateState({ weakGpuDetected });
   }
 
   setStreaming(isStreaming: boolean): void {
@@ -198,21 +183,6 @@ class PerformanceStateService extends BaseService {
 
   _clearIdleTimer(): void {
     this.cancelScheduled(IDLE_TIMER_LIFECYCLE);
-  }
-
-  _detectWeakGPU(capabilities: unknown): boolean {
-    if (!isPerformanceCapabilities(capabilities)) {
-      return false;
-    }
-
-    const noAcceleratedPath = !capabilities.webgpu;
-    const usingCanvasFallback = capabilities.preferredBackend === 'canvas2d';
-    const maxTextureSize = typeof capabilities.maxTextureSize === 'number'
-      ? capabilities.maxTextureSize
-      : 0;
-    const lowTextureBudget = maxTextureSize > 0 && maxTextureSize < 2048;
-
-    return noAcceleratedPath || usingCanvasFallback || lowTextureBudget;
   }
 
   _updateState(partial: Partial<PerformanceState>): boolean {

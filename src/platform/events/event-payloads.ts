@@ -1,5 +1,5 @@
 import type { LeafValues, AssertNever } from '@platform/core';
-import type { DeviceInfoPayload } from '@platform/devices';
+import type { DeviceInfoPayload, DeviceStatus } from '@platform/devices';
 import { EventChannels } from './event-channels.js';
 import { getEventManifestScopeValues } from './event.manifest.js';
 export interface UpdateInfoPayload {
@@ -218,6 +218,7 @@ type VoidEventChannel = typeof EventChannels.DEVICE.DISCONNECTED_DURING_SESSION 
 
 type EventPayloadOverrides = {
   [EventChannels.SYSTEM.HANDLER_ERROR]: HandlerErrorPayload;
+  [EventChannels.DEVICE.STATUS_CHANGED]: DeviceStatus;
   [EventChannels.DEVICE.CONNECTED]: DeviceInfoPayload;
   [EventChannels.DEVICE.DISCONNECTED]: DeviceInfoPayload | null | undefined;
   [EventChannels.DEVICE.SUPPORTED_DEVICE_AVAILABLE]: SupportedDeviceAvailablePayload;
@@ -242,7 +243,6 @@ type EventPayloadOverrides = {
   [EventChannels.PERFORMANCE.UI_MODE_CHANGED]: PerformanceUiModePayload;
   [EventChannels.PERFORMANCE.RENDER_MODE_CHANGED]: boolean;
   [EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED]: MemorySnapshotRequestPayload;
-  [EventChannels.RENDER.CAPABILITY_DETECTED]: StreamingCapabilities;
   [EventChannels.RENDER.PIPELINE_READY]: RenderPipelineReadyPayload;
   [EventChannels.RENDER.PIPELINE_ERROR]: RenderPipelineErrorPayload;
   [EventChannels.RENDER.STATS_UPDATE]: RenderStatsPayload;

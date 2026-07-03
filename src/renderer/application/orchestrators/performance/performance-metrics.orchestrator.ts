@@ -6,7 +6,8 @@
 
 import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
-import { EventChannels } from '@platform/events';
+import { EventChannels, OnEvent } from '@platform/events';
+import type { MemorySnapshotRequestPayload } from '@platform/events';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 import type { PerformanceMetricsService } from '@renderer/infrastructure/services/performance/performance-metrics.service';
 import { TOKENS } from '@renderer/application/di/tokens.js';
@@ -22,15 +23,14 @@ export class PerformanceMetricsOrchestrator extends BaseOrchestrator {
   }
 
   async onInitialize(): Promise<void> {
-    this.subscribeWithCleanup({
-      [EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED]: (payload) => {
-        this.performanceMetricsService.requestSnapshot(payload);
-      }
-    });
-
     if (import.meta.env.DEV) {
       this.performanceMetricsService.startPeriodicSnapshots();
     }
+  }
+
+  @OnEvent(EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED)
+  private _handleMemorySnapshotRequested(payload: MemorySnapshotRequestPayload): void {
+    this.performanceMetricsService.requestSnapshot(payload);
   }
 
   override async onCleanup(): Promise<void> {

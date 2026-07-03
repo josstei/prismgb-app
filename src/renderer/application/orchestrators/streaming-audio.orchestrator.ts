@@ -1,6 +1,7 @@
 import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
-import { EventChannels } from '@platform/events';
+import { EventChannels, OnEvent } from '@platform/events';
+import type { StreamStartedPayload } from '@platform/events';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 
@@ -16,21 +17,6 @@ type StreamViewServiceLike = {
 type AppStateLike = {
   readonly isStreaming: boolean;
 };
-
-function resolveStreamFromPayload(data: unknown): MediaStream | null {
-  if (typeof data !== 'object' || data === null || !('stream' in data)) {
-    return null;
-  }
-
-  const stream = (data as { stream?: unknown }).stream;
-  if (typeof stream !== 'object' || stream === null || !('getAudioTracks' in stream)) {
-    return null;
-  }
-
-  return typeof stream.getAudioTracks === 'function'
-    ? stream as MediaStream
-    : null;
-}
 
 @injectable()
 export class StreamingAudioOrchestrator extends BaseOrchestrator {
@@ -50,20 +36,9 @@ export class StreamingAudioOrchestrator extends BaseOrchestrator {
     this._fallbackUnmuted = false;
   }
 
-  /**
-   * Initialize audio orchestrator
-   */
-  async onInitialize(): Promise<void> {
-    this.subscribeWithCleanup({
-      [EventChannels.STREAM.STARTED]: (data) => this._handleStreamStarted(data),
-      [EventChannels.STREAM.STOPPED]: () => this._handleStreamStopped(),
-      [EventChannels.STREAM.ERROR]: () => this._handleStreamStopped()
-    });
-  }
-
-  _handleStreamStarted(data: unknown): void {
-    const stream = resolveStreamFromPayload(data);
-    if (!stream) return;
+  @OnEvent(EventChannels.STREAM.STARTED)
+  _handleStreamStarted(data: StreamStartedPayload): void {
+    const stream = data.stream;
 
     if (this._activeStream === stream) {
       this.logger.debug('Audio pipeline already attached to stream; skipping re-init');
@@ -75,6 +50,8 @@ export class StreamingAudioOrchestrator extends BaseOrchestrator {
     this._initializeAudioPipeline(stream);
   }
 
+  @OnEvent(EventChannels.STREAM.STOPPED)
+  @OnEvent(EventChannels.STREAM.ERROR)
   _handleStreamStopped(): void {
     this._activeStream = null;
     this._fallbackUnmuted = false;

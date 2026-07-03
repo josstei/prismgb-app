@@ -1,15 +1,11 @@
 import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
-import { EventChannels } from '@platform/events';
+import { EventChannels, OnEvent } from '@platform/events';
 import type { LoggerFactoryLike } from '@platform/core';
-import type { TypedEventBusLike } from '@platform/events';
+import type { RecordingErrorPayload, RecordingReadyPayload, TypedEventBusLike } from '@platform/events';
 import { getErrorMessage } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
-import {
-  isRecordingErrorPayload,
-  isRecordingReadyPayload,
-  isStreamingCapabilities
-} from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
+import { isStreamingCapabilities } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
 import type {
   GpuRecordingStartOptions
 } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
@@ -81,16 +77,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     this._recordingInterrupted = false;
   }
 
-  async onInitialize(): Promise<void> {
-    this.subscribeWithCleanup({
-      [EventChannels.CAPTURE.RECORDING_ERROR]: (data: unknown) => this._handleRecordingError(data),
-      [EventChannels.CAPTURE.RECORDING_READY]: (data: unknown) => this._handleRecordingReady(data),
-      [EventChannels.STREAM.STOPPED]: () => this._handleStreamStopped(),
-      [EventChannels.UI.SCREENSHOT_REQUESTED]: () => this.takeScreenshot(),
-      [EventChannels.UI.RECORDING_TOGGLE_REQUESTED]: () => this.toggleRecording()
-    });
-  }
-
+  @OnEvent(EventChannels.UI.SCREENSHOT_REQUESTED)
   async takeScreenshot(): Promise<void> {
     if (!this.appState.isStreaming) {
       this.logger.warn('Cannot take screenshot - not streaming');
@@ -138,6 +125,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * Otherwise falls back to raw device stream.
    * Blocks new recording if transcoding is in progress.
    */
+  @OnEvent(EventChannels.UI.RECORDING_TOGGLE_REQUESTED)
   async toggleRecording(): Promise<void> {
     if (this._isRecordingActive()) {
       await this._stopRecording();
@@ -214,6 +202,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * Prevents orphaned GPU recording loop when stream stops
    * @private
    */
+  @OnEvent(EventChannels.STREAM.STOPPED)
   async _handleStreamStopped(): Promise<void> {
     if (this._isRecordingActive()) {
       this.logger.info('Stream stopped - stopping active recording');
@@ -226,14 +215,8 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * Handle recording error event
    * @private
    */
-  async _handleRecordingError(data: unknown): Promise<void> {
-    if (!isRecordingErrorPayload(data)) {
-      this.logger.error('Recording error event missing payload', data);
-      await this.gpuRecordingService.stop();
-      this._recordingInterrupted = false;
-      return;
-    }
-
+  @OnEvent(EventChannels.CAPTURE.RECORDING_ERROR)
+  async _handleRecordingError(data: RecordingErrorPayload): Promise<void> {
     const message = getErrorMessage(data.error ?? data.message, 'Recording failed');
     this.logger.error('Recording error:', message);
 
@@ -246,16 +229,8 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * @param {Object} data - Recording data { blob, filename }
    * @private
    */
-  async _handleRecordingReady(data: unknown): Promise<void> {
-    if (!isRecordingReadyPayload(data)) {
-      this.logger.error('Recording ready event missing payload', data);
-      this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
-        message: 'Failed to save recording. Please try again.',
-        type: 'error'
-      });
-      return;
-    }
-
+  @OnEvent(EventChannels.CAPTURE.RECORDING_READY)
+  async _handleRecordingReady(data: RecordingReadyPayload): Promise<void> {
     const { blob, filename } = data;
 
     try {

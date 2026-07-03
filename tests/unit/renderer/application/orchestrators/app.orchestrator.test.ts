@@ -103,8 +103,8 @@ describe('AppOrchestrator', () => {
   });
 
   describe('onInitialize', () => {
-    it('should wire high-level events', async () => {
-      await orchestrator.onInitialize();
+    it('should wire high-level events on initialize', async () => {
+      await orchestrator.initialize();
 
       expect(mockEventBus.subscribe).toHaveBeenCalledWith(EventChannels.DEVICE.STATUS_CHANGED, expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith(EventChannels.DEVICE.ENUMERATION_FAILED, expect.any(Function));
@@ -178,12 +178,6 @@ describe('AppOrchestrator', () => {
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', { message: 'Device disconnected', type: 'warning' });
     });
 
-    it('should ignore malformed device status payloads', () => {
-      orchestrator._handleDeviceStatusChanged({ connected: 'false' });
-
-      expect(mockEventBus.publish).not.toHaveBeenCalled();
-      expect(mockLogger.warn).toHaveBeenCalledWith('Ignoring invalid device status payload');
-    });
   });
 
   describe('onCleanup', () => {

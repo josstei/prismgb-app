@@ -1,6 +1,7 @@
 import { signal, computed, type ReadonlySignal } from '@platform/ui-base/reactive';
 import { EventChannels } from '@platform/events';
-import type { EventBusLike, DisposableFunction } from '@platform/core';
+import type { EventBusLike } from '@platform/core';
+import { ReactiveStore } from './reactive-store.base.js';
 
 const SUCCESS_HIDE_DELAY_MS = 1200;
 const ERROR_HIDE_DELAY_MS = 2000;
@@ -18,12 +19,11 @@ export interface TranscodeProgressStoreDependencies {
  * drives phase/progress/label signals, including the timed auto-hide after success/error.
  * The component binds to the exposed signals; no imperative DOM writes live here.
  */
-export class TranscodeProgressStore {
+export class TranscodeProgressStore extends ReactiveStore {
   private readonly _phase = signal<TranscodePhase>('idle');
   private readonly _progress = signal(0);
   private readonly _label = signal('');
 
-  private readonly _unsubscribes: DisposableFunction[] = [];
   private _hideTimer: ReturnType<typeof setTimeout> | null = null;
   private _disposed = false;
 
@@ -33,14 +33,14 @@ export class TranscodeProgressStore {
   readonly progressVariable = computed(() => String(this._progress.value));
 
   constructor(private readonly dependencies: TranscodeProgressStoreDependencies) {
+    super();
+
     const bus = this.dependencies.eventBus;
-    this._unsubscribes.push(
-      bus.subscribe(EventChannels.TRANSCODE.STARTED, () => this.start()),
-      bus.subscribe(EventChannels.TRANSCODE.PROGRESS, (payload: unknown) => this.advance(payload)),
-      bus.subscribe(EventChannels.TRANSCODE.COMPLETED, () => this.complete()),
-      bus.subscribe(EventChannels.TRANSCODE.ERROR, () => this.fail()),
-      bus.subscribe(EventChannels.TRANSCODE.CANCELLED, () => this.hide())
-    );
+    this.track(bus.subscribe(EventChannels.TRANSCODE.STARTED, () => this.start()));
+    this.track(bus.subscribe(EventChannels.TRANSCODE.PROGRESS, (payload: unknown) => this.advance(payload)));
+    this.track(bus.subscribe(EventChannels.TRANSCODE.COMPLETED, () => this.complete()));
+    this.track(bus.subscribe(EventChannels.TRANSCODE.ERROR, () => this.fail()));
+    this.track(bus.subscribe(EventChannels.TRANSCODE.CANCELLED, () => this.hide()));
   }
 
   get phase(): ReadonlySignal<TranscodePhase> {
@@ -109,10 +109,9 @@ export class TranscodeProgressStore {
     }
   }
 
-  dispose(): void {
+  override dispose(): void | Promise<void> {
     this._disposed = true;
     this.clearHideTimer();
-    this._unsubscribes.forEach((unsubscribe) => unsubscribe());
-    this._unsubscribes.length = 0;
+    return super.dispose();
   }
 }

@@ -521,29 +521,6 @@ describe('CaptureUIBridge', () => {
       expect(bridge.disposables.size).toBe(0);
     });
 
-    it('should handle missing blob in screenshot ready', () => {
-      bridge.initialize();
-
-      expect(() => {
-        subscribedHandlers[EventChannels.CAPTURE.SCREENSHOT_READY]({
-          blob: undefined,
-          filename: 'test.png'
-        });
-      }).not.toThrow();
-    });
-
-    it('should handle missing filename in screenshot ready', () => {
-      bridge.initialize();
-      const mockBlob = new Blob(['test'], { type: 'image/png' });
-
-      expect(() => {
-        subscribedHandlers[EventChannels.CAPTURE.SCREENSHOT_READY]({
-          blob: mockBlob,
-          filename: undefined
-        });
-      }).not.toThrow();
-    });
-
     it('should handle missing error in recording error', () => {
       bridge.initialize();
 

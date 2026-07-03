@@ -1,6 +1,7 @@
 import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
-import { EventChannels } from '@platform/events';
+import { EventChannels, OnEvent } from '@platform/events';
+import type { DeviceEnumerationFailedPayload, DeviceStatus } from '@platform/events';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 
@@ -35,9 +36,6 @@ export class AppOrchestrator extends BaseOrchestrator {
   }
 
   async onInitialize(): Promise<void> {
-    // Wire high-level events FIRST (before sub-orchestrators emit events)
-    this._wireHighLevelEvents();
-
     // Initialize domain orchestrators
     await this.streamingAudioOrchestrator.initialize();
     await this.streamingOrchestrator.initialize();
@@ -70,34 +68,18 @@ export class AppOrchestrator extends BaseOrchestrator {
     this.logger.info('Application orchestrator started');
   }
 
-  _wireHighLevelEvents(): void {
-    this.subscribeWithCleanup({
-      [EventChannels.DEVICE.STATUS_CHANGED]: (status) => this._handleDeviceStatusChanged(status),
-      [EventChannels.DEVICE.ENUMERATION_FAILED]: (data) => {
-        const payload = (typeof data === 'object' && data !== null
-          ? data as { reason?: unknown; error?: unknown }
-          : {});
-        const reason = typeof payload.reason === 'string' ? payload.reason : '';
-        const error = typeof payload.error === 'string' ? payload.error : 'Unknown error';
-        const message = reason === 'webcam_access'
-          ? 'Camera access denied. Please allow camera permissions.'
-          : `Device error: ${error}`;
-        this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message, type: 'warning' });
-      }
-    });
+  @OnEvent(EventChannels.DEVICE.ENUMERATION_FAILED)
+  private _handleDeviceEnumerationFailed(payload: DeviceEnumerationFailedPayload): void {
+    const reason = payload.reason ?? '';
+    const error = payload.error ?? 'Unknown error';
+    const message = reason === 'webcam_access'
+      ? 'Camera access denied. Please allow camera permissions.'
+      : `Device error: ${error}`;
+    this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message, type: 'warning' });
   }
 
-  _handleDeviceStatusChanged(status: unknown): void {
-    if (
-      typeof status !== 'object' ||
-      status === null ||
-      !('connected' in status) ||
-      typeof status.connected !== 'boolean'
-    ) {
-      this.logger.warn('Ignoring invalid device status payload');
-      return;
-    }
-
+  @OnEvent(EventChannels.DEVICE.STATUS_CHANGED)
+  _handleDeviceStatusChanged(status: DeviceStatus): void {
     const connected = status.connected;
 
     this.logger.info('Device ' + (connected ? 'CONNECTED' : 'DISCONNECTED'));

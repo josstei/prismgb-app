@@ -1,9 +1,12 @@
 export { SharedEventBus } from './event-bus.js';
 export type { IEventBus } from './event-bus.js';
 export { EventChannels } from './event-channels.js';
+export { OnEvent } from './on-event.js';
 export type {
+  EventPayloadMap,
   TypedEventBusLike,
   Dimensions,
+  DeviceEnumerationFailedPayload,
   UpdateInfoPayload,
   UpdateProgressPayload,
   UpdateErrorPayload,
@@ -11,7 +14,9 @@ export type {
   TranscodeCompletedPayload,
   TranscodeCancelledPayload,
   TranscodeErrorPayload,
+  TranscodeStartedPayload,
   UiButtonFeedbackPayload,
+  UiStreamingModePayload,
   PerformanceUiModePayload,
   PerformanceStatePayload,
   MemorySnapshotRequestPayload,
@@ -19,13 +24,15 @@ export type {
   RecordingDegradedPayload,
   RecordingErrorPayload,
   RecordingReadyPayload,
+  ScreenshotReadyPayload,
+  StreamErrorPayload,
   StreamHealthOkPayload,
   StreamHealthTimeoutPayload,
   StreamStartedPayload,
   SupportedDeviceAvailablePayload,
   NativeResolution
 } from './event-payloads.js';
-export type { DeviceInfoPayload } from '@platform/devices';
+export type { DeviceInfoPayload, DeviceStatus } from '@platform/devices';
 
 export { getEventManifestScopeEvents, getEventManifestScopeValues } from './event.manifest.js';
 export { EVENT_PAYLOAD_CHANNELS } from './event-payloads.js';
