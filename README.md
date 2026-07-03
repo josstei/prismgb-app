@@ -1,6 +1,6 @@
 # PrismGB
 
-<!-- Source: package.json, packages/prismgb-devices/src/domain/catalog.json, packages/prismgb-devices/src/domain/catalog.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts -->
+<!-- Source: package.json, src/platform/devices/domain/catalog.json, src/platform/devices/domain/catalog.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts -->
 
 <p align="center">
   <img src="assets/Logo.png" alt="PrismGB Logo" width="400">
@@ -49,7 +49,7 @@ PrismGB is a free, open-source desktop application that lets you stream and capt
 | Feature | Description |
 |---------|-------------|
 | **Live Video Streaming** | Stream your Chromatic's 160x144 display to your desktop in real-time |
-| **GPU-Accelerated Rendering** | WebGL2 primary with WebGPU and Canvas2D fallback for broad compatibility |
+| **GPU-Accelerated Rendering** | WebGPU primary with Canvas2D fallback for broad compatibility |
 | **4-Pass Shader Pipeline** | Upscale, Unsharp Mask, Color Elevation, and CRT/LCD effects |
 | **Multiple Output Resolutions** | 160x144 (native), 320x288, 640x576, 1280x1152, 1280x720 (HD) |
 | **Performance Mode** | Reduced rendering effects for weaker GPUs (Canvas2D fallback) |
@@ -303,7 +303,7 @@ PrismGB uses a modern **three-process Electron architecture** with clean separat
 │  │                      Streaming Orchestrator                          ││
 │  │  ┌───────────────┐ ┌───────────────────┐ ┌───────────────────────┐  ││
 │  │  │   Streaming   │ │  Render Pipeline  │ │    GPU Render Loop    │  ││
-│  │  │    Service    │ │  (4-pass shader)  │ │   (WebGL2/WebGPU)     │  ││
+│  │  │    Service    │ │  (4-pass shader)  │ │       (WebGPU)        │  ││
 │  │  └───────────────┘ └───────────────────┘ └───────────────────────┘  ││
 │  │  ┌────────────────────┐ ┌────────────────────────────────────────┐  ││
 │  │  │RendererDeviceRuntime│ │ DeviceMediaAcquirer + platform ports │  ││
@@ -353,13 +353,13 @@ The 4-pass shader pipeline processes each frame:
 | **Framework** | Electron v41 |
 | **Build Tool** | Vite v7.3 |
 | **Runtime** | Node.js v22 LTS |
-| **GPU Rendering** | WebGL2, WebGPU, Canvas2D |
+| **GPU Rendering** | WebGPU, Canvas2D |
 | **Audio** | Web Audio API |
 | **Recording** | MediaRecorder API |
 | **Transcoding** | FFmpeg/FFprobe (static binaries) |
 | **USB** | node-usb, libusb |
 | **DI** | Compile-time static container |
-| **Logging** | Winston |
+| **Logging** | electron-log |
 | **Testing** | Vitest, Playwright |
 
 ## Troubleshooting

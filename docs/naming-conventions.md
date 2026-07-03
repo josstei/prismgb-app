@@ -1,6 +1,6 @@
 # Naming Conventions
 
-<!-- Source: packages/prismgb-ipc/src/ipc-channels.ts, packages/prismgb-ipc/src/preload-api.contract.ts, packages/prismgb-events/src/event-channels.ts, src/renderer/application/di/service-registrations.ts -->
+<!-- Source: src/platform/ipc/ipc-channels.ts, src/platform/ipc/preload-api.contract.ts, src/platform/events/event-channels.ts, src/renderer/application/di/service-registrations.ts -->
 
 This document captures the naming and organization conventions used throughout PrismGB.
 
@@ -27,7 +27,7 @@ This document captures the naming and organization conventions used throughout P
 | `.state.<ext>` | State containers | `app-state.ts` |
 | `.factory.<ext>` | Object construction helpers | `subscription.factory.ts` |
 | `.utils.<ext>` | Pure utilities | `filename-generator.utils.ts` |
-| `.config.<ext>` | Configuration constants | `storage-keys.config.ts` (shared); `timing.config.ts` (in `@prismgb/config`) |
+| `.config.<ext>` | Configuration constants | `storage-keys.config.ts` (shared); `timing.config.ts` (in `@platform/config`) |
 | `.class.<ext>` | Plain classes (no DI) | `event-bus.class.js` |
 | `.interface.<ext>` | Interface definitions | `logger.interface.ts` |
 | `.worker.<ext>` | Worker environment helpers | `capabilities.worker.ts` |
@@ -35,7 +35,7 @@ This document captures the naming and organization conventions used throughout P
 | `.testkit.<ext>` | Shared test fixtures and doubles | `media.testkit.ts` |
 | `.base.<ext>` | Abstract base classes | `service.base.js` |
 
-Device hardware behavior belongs in `packages/prismgb-devices/src/domain/catalog.json`, `DeviceCatalog`, and the device connection/runtime services. Do not add hardware-specific adapter or runtime classes.
+Device hardware behavior belongs in `src/platform/devices/domain/catalog.json`, `DeviceCatalog`, and the device connection/runtime services. Do not add hardware-specific adapter or runtime classes.
 
 ## Directory Conventions
 
@@ -55,9 +55,9 @@ Device hardware behavior belongs in `packages/prismgb-devices/src/domain/catalog
 - Classes use PascalCase and include role suffixes: `StreamingService`, `SettingsDisplayModeOrchestrator`.
 - Services are UI-agnostic and emit events rather than manipulating DOM directly.
 - Event channel names follow `domain:action` in kebab-case.
-  - Shared event contract: `packages/prismgb-events/src/event-channels.ts` (via `@prismgb/events`).
-  - Main event channels: `src/main/infrastructure/event-channels.config.ts`.
-  - IPC channels: `packages/prismgb-ipc/src/ipc-channels.ts`, consumed through `@prismgb/ipc`.
+  - Shared event contract: `src/platform/events/event-channels.ts` (via `@platform/events`).
+  - Main event channels: `src/platform/events/main-event-channels.ts`.
+  - IPC channels: `src/platform/ipc/ipc-channels.ts`, consumed through `@platform/ipc`.
 - localStorage keys use camelCase values. Settings keys live in `src/renderer/lib/settings.definitions.json`; shared protected and notes keys live in `src/renderer/lib/storage-keys.config.ts`.
 
 ## Imports and Aliases
@@ -67,11 +67,25 @@ Device hardware behavior belongs in `packages/prismgb-devices/src/domain/catalog
   - `@main` -> `src/main`
   - `@renderer` -> `src/renderer`
   - `@preload` -> `src/preload`
-  - `@prismgb/gpu` -> `packages/prismgb-gpu/src/index.ts`
+  - `@platform/config` -> `src/platform/config/index.ts`
+  - `@platform/core` -> `src/platform/core/index.ts`
+  - `@platform/devices` -> `src/platform/devices/index.ts`
+  - `@platform/devices/runtime` -> `src/platform/devices/runtime.ts`
+  - `@platform/devices/testkit` -> `src/platform/devices/testkit.ts`
+  - `@platform/events` -> `src/platform/events/index.ts`
+  - `@platform/gpu` -> `src/platform/gpu/index.ts`
+  - `@platform/gpu/runtime` -> `src/platform/gpu/runtime.ts`
+  - `@platform/ipc` -> `src/platform/ipc/index.ts`
+  - `@platform/notes` -> `src/platform/notes/index.ts`
+  - `@platform/transcode` -> `src/platform/transcode/index.ts`
+  - `@platform/transcode/service` -> `src/platform/transcode/service.ts`
+  - `@platform/ui-base` -> `src/platform/ui-base/index.ts`
+  - `@platform/ui-base/reactive` -> `src/platform/ui-base/reactive/index.ts`
+  - `@platform/updates` -> `src/platform/updates/index.ts`
 
-## Core Primitive Conventions (`@prismgb/core`)
+## Core Primitive Conventions (`@platform/core`)
 
-Pure, environment-agnostic primitives live in the `@prismgb/core` package. Interfaces representing abstract capabilities use PascalCase pure nouns (`Logger`, `EventBus`, `Storage`) — no `I...` prefixes or `...Like`/`...Interface` suffixes. Files use lowercase kebab-case; each interface concern gets its own file. Prefer extensionless TS imports.
+Pure, environment-agnostic primitives live in the `@platform/core` package. Interfaces representing abstract capabilities use PascalCase pure nouns (`Logger`, `EventBus`, `Storage`) — no `I...` prefixes or `...Like`/`...Interface` suffixes. Files use lowercase kebab-case; each interface concern gets its own file. Prefer extensionless TS imports.
 
 ## Testing Conventions
 

@@ -1,5 +1,7 @@
 # Codebase Normalization, Deduplication & Hand-Written-Code Reduction Analysis
 
+> Historical note (2026-07-02): file paths in this document predate the P3 workspace collapse — `packages/prismgb-<name>/src/…` now lives at `src/platform/<name>/…`.
+
 **Date:** 2026-07-01
 **Branch analyzed:** `refactor/gpu_normalization` (working tree, incl. uncommitted WIP)
 **Mandate:** Aggressive options allowed; breaking changes allowed if necessary.

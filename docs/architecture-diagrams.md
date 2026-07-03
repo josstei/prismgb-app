@@ -1,6 +1,6 @@
 # Architecture Diagrams
 
-<!-- Source: src/main/application/container.ts, src/main/infrastructure/devices/device-integration.service.ts, src/main/ipc/router.ts, src/renderer/application/di/service-registrations.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts, src/renderer/infrastructure/services/streaming/device-media-acquirer.ts, packages/prismgb-devices/src/index.ts, packages/prismgb-devices/src/service.ts -->
+<!-- Source: src/main/application/container.ts, src/main/infrastructure/devices/device-integration.service.ts, src/main/ipc/router.ts, src/renderer/application/di/service-registrations.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts, src/renderer/infrastructure/services/streaming/device-media-acquirer.ts, src/platform/devices/index.ts, src/platform/devices/runtime.ts -->
 
 These diagrams provide focused, review-friendly views of the application's core orchestration and service boundaries.
 
@@ -254,12 +254,12 @@ flowchart LR
 
 ## Notes
 
-- `@prismgb/devices` root exports the manifest-backed catalog, contracts, matchers, and payload helpers used across processes.
-- `@prismgb/devices/runtime` is main-process only and exports `DeviceConnectionService`.
+- `@platform/devices` root exports the manifest-backed catalog, contracts, matchers, and payload helpers used across processes.
+- `@platform/devices/runtime` is main-process only and exports `DeviceConnectionService`.
 - `RendererDeviceRuntime` owns renderer device state, media enumeration, stored media-device IDs, and browser `devicechange` refreshes.
 - `DeviceMediaAcquirer` owns `getUserMedia` constraint construction, fallback attempts, stream metadata, and stream release.
 - IPC edges are separated into their own diagram so cross-process boundaries are obvious.
 - State owners are called out where they influence lifecycle (start/stop, error/retry).
 - Process-first layout: renderer code lives under `src/renderer`, main process under `src/main`, preload under `src/preload`.
-- Shared timing constants live in `packages/prismgb-config/src/timing.config.ts` (imported via `@prismgb/config`); infrastructure code should not pull timing values from presentation config.
+- Shared timing constants live in `src/platform/config/timing.config.ts` (imported via `@platform/config`); infrastructure code should not pull timing values from presentation config.
 - `src/core` has been retired and removed; the `@core` alias is not configured in vite or vitest, so `@core/` imports will fail at build time.

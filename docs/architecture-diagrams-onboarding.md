@@ -162,5 +162,5 @@ flowchart LR
 - Managers/handlers are main-process only and interface with OS or device APIs.
 - Main-process device ownership is `DeviceConnectionService` for USB status and `DeviceIntegrationService` for tray/window/EventBus side effects.
 - Renderer device ownership is `RendererDeviceRuntime` plus platform ports; streaming uses `DeviceMediaAcquirer` for media capture.
-- `@prismgb/devices` is the shared catalog and contract package; only its `/runtime` export is main-process connection code.
+- `@platform/devices` is the shared catalog and contract package; only its `@platform/devices/runtime` export is main-process connection code.
 - Process-first layout: renderer code lives under `src/renderer`, main process under `src/main`, preload under `src/preload`.

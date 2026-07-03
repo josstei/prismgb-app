@@ -1,6 +1,6 @@
 # Contributing to PrismGB
 
-<!-- Source: package.json, docs/naming-conventions.md, src/main/application/container.ts, src/renderer/application/di/service-registrations.ts, packages/prismgb-devices/src/domain/catalog.json -->
+<!-- Source: package.json, docs/naming-conventions.md, src/main/application/container.ts, src/renderer/application/di/service-registrations.ts, src/platform/devices/domain/catalog.json -->
 
 Thank you for your interest in contributing to PrismGB! This document provides guidelines and instructions for contributing.
 
@@ -93,7 +93,7 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for the full script list and local setup no
 ## Project Structure
 
 ```
-packages/              # Workspace packages shared across main and renderer
+src/platform/          # Platform modules shared across main and renderer
 src/
 ├── main/               # Electron main process
 ├── preload/            # Electron tRPC context bridge
@@ -210,7 +210,7 @@ Routine dependency bumps are handled automatically by Dependabot (`.github/depen
 
 Major-version updates for these packages are **ignored** by Dependabot and must be performed manually as coordinated upgrades:
 
-- `electron`, `electron-builder`, `electron-vite`, `vite` — desktop build toolchain
+- `electron`, `electron-builder`, `vite` — desktop build toolchain
 - `typescript`, `@typescript-eslint/eslint-plugin`, `@typescript-eslint/parser` — type-check toolchain
 
 ### Upgrading TypeScript (major)
@@ -218,8 +218,8 @@ Major-version updates for these packages are **ignored** by Dependabot and must 
 A TypeScript major bump touches two things at once: the compiler and the lint toolchain. Do it in one branch:
 
 1. **Verify ecosystem support.** Check the peer-dependency ranges on `@typescript-eslint/eslint-plugin`, `@typescript-eslint/parser`, `vitest`, `@vitest/coverage-v8`, and `happy-dom`. If any of them does not yet support the new TS major, wait — do not partially upgrade.
-2. **Bump in lockstep.** Update `typescript` in both `package.json` and `packages/prismgb-gpu/package.json`, and bump the lint/test peers in the same commit. The two workspace `typescript` ranges must agree on a major.
-3. **Review tsconfig.** Inspect `tsconfig.base.json`, `tsconfig.app.json`, and `packages/prismgb-gpu/tsconfig.json` for `target` / `lib` / `module` values deprecated by the new release.
+2. **Bump `typescript`.** Update the `typescript` version in root `package.json` and bump the lint/test peers in the same commit.
+3. **Review tsconfig.** Inspect `tsconfig.base.json` for `target` / `lib` / `module` values deprecated by the new release.
 4. **Run the full local gate before pushing:**
    ```bash
    npm run lint
@@ -282,7 +282,7 @@ Runtime files follow the pattern: `{name}.{type}.{ext}`
 ### Example Service
 
 ```ts
-import { BaseService } from '@prismgb/core';
+import { BaseService } from '@platform/core';
 
 export class MyService extends BaseService {
   constructor(dependencies) {

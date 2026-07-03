@@ -1,6 +1,6 @@
 # Feature Map
 
-<!-- Source: packages/prismgb-devices/src/domain/catalog.json, packages/prismgb-devices/src/domain/catalog.ts, src/main/infrastructure/devices/device-integration.service.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts, src/renderer/infrastructure/services/streaming/device-media-acquirer.ts, tests/devices/media.testkit.ts -->
+<!-- Source: src/platform/devices/domain/catalog.json, src/platform/devices/domain/catalog.ts, src/main/infrastructure/devices/device-integration.service.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts, src/renderer/infrastructure/services/streaming/device-media-acquirer.ts, tests/devices/media.testkit.ts -->
 
 This document maps user-facing features to the codebase for maintenance and onboarding.
 
@@ -8,11 +8,10 @@ This document maps user-facing features to the codebase for maintenance and onbo
 
 Primary surfaces: live Mod Retro Chromatic streaming with GPU rendering and Canvas2D fallback; True Color, Vibrant, Hi-Def, Vintage, Pixel, and Performance render presets; brightness and volume controls; cinematic/fullscreen viewing; PNG screenshots; WebM, MP4, and MOV recording with ffmpeg transcoding; searchable autosaved notes; device/resolution/FPS status; Settings update flow; and system tray device monitoring.
 
-## Generated Manifest Map
+## Manifest Map
 
-This section is generated from architecture, device, and settings manifests. Keep narrative details outside the markers.
+This section is manually maintained from architecture, device, and settings manifests; no generator currently produces it.
 
-<!-- CODEBASE_PHASE1_MANIFESTS:START -->
 | Surface | Count |
 | --- | ---: |
 | IPC namespaces | 8 |
@@ -22,18 +21,15 @@ This section is generated from architecture, device, and settings manifests. Kee
 | Device descriptors | 1 |
 | Settings definitions | 10 |
 | Render passes | 4 |
-| Architecture aliases | 6 |
+| Architecture aliases | 19 |
 | Platform targets | 5 |
-<!-- CODEBASE_PHASE1_MANIFESTS:END -->
 
-<!-- CODEBASE_FEATURE_MAP:START -->
 | Manifest surface | Generated facts |
 | --- | --- |
-| Architecture paths | aliases: `@`, `@main`, `@renderer`, `@preload`, `@prismgb/gpu`, `url`; layers: `main/entry`, `main/application`, `main/infrastructure`, `main/ipc`, `renderer/entry`, `renderer/application`, `renderer/infrastructure`, `renderer/presentation`, `preload`; retired: `@core`, `@shared`, `shared` |
+| Architecture paths | aliases: `@`, `@main`, `@renderer`, `@preload`, `@platform/config`, `@platform/core`, `@platform/devices`, `@platform/devices/runtime`, `@platform/devices/testkit`, `@platform/events`, `@platform/gpu`, `@platform/gpu/runtime`, `@platform/ipc`, `@platform/notes`, `@platform/transcode`, `@platform/transcode/service`, `@platform/ui-base`, `@platform/ui-base/reactive`, `@platform/updates`; layers: `main/entry`, `main/application`, `main/infrastructure`, `main/ipc`, `renderer/entry`, `renderer/application`, `renderer/infrastructure`, `renderer/presentation`, `preload`; retired: `@core`, `@shared`, `shared` |
 | Devices | Mod Retro Chromatic (`0x374e:0x0101`, 160x144, fixture `Chromatic`) |
 | Settings UI | `launchOnLogin` -> `settingLaunchOnLogin`, `statusStripVisible` -> `settingStatusStrip`, `fullscreenOnStartup` -> `settingFullscreenOnStartup`, `autoStreamOnConnect` -> `settingAutoStreamOnConnect`, `minimalistFullscreen` -> `settingMinimalistFullscreen`, `performanceMode` -> `settingAnimationSaver`, `recordingFormat` -> `settingRecordingFormat` |
 | Startup preferences | `gameVolume`, `statusStripVisible`, `performanceMode`, `minimalistFullscreen` |
-<!-- CODEBASE_FEATURE_MAP:END -->
 
 ## UI Surface Map (Renderer)
 
@@ -75,10 +71,10 @@ Screenshots will not be added to this repository.
 
 ### Add a New Device
 
-1. Register device metadata in `packages/prismgb-devices/src/domain/catalog.json`.
-2. Extend `packages/prismgb-devices/src/domain/types.ts` and `packages/prismgb-devices/src/domain/catalog.ts` only if the catalog schema needs a new field.
-3. Use `DeviceCatalog`, `matchDevice`, and `toDeviceStatusPayload` from `@prismgb/devices`; individual hardware models should not get their own runtime classes.
-4. Update `tests/devices/*` so fixtures, media doubles, and E2E helpers read from `@prismgb/devices/testkit`.
+1. Register device metadata in `src/platform/devices/domain/catalog.json`.
+2. Extend `src/platform/devices/domain/types.ts` and `src/platform/devices/domain/catalog.ts` only if the catalog schema needs a new field.
+3. Use `DeviceCatalog`, `matchDevice`, and `toDeviceStatusPayload` from `@platform/devices`; individual hardware models should not get their own runtime classes.
+4. Update `tests/devices/*` so fixtures, media doubles, and E2E helpers read from `@platform/devices/testkit`.
 5. Update docs and tests if behavior changes.
 
 Device test entry points:
@@ -88,10 +84,10 @@ Do not hand-write device fixture classes or duplicate catalog constants in indiv
 
 ### Add a Render Preset
 
-1. Define the `RenderPreset` in `packages/prismgb-gpu/src/domain/presets.ts`.
+1. Define the `RenderPreset` in `src/platform/gpu/domain/presets.ts`.
 2. Add the preset to `BUILT_IN_PRESETS` with any needed metadata such as `visibleInUI`.
 3. Update `PRESET_POLICY` only when changing the package default, renderer default, or performance-mode preset id.
-4. Use `createShaderPresetCatalog`, `getUiPresets`, `resolvePreset`, and the default preset selectors from `@prismgb/gpu`; do not add mutable preset registries or import-time registration.
+4. Use `createShaderPresetCatalog`, `getUiPresets`, `resolvePreset`, and the default preset selectors from `@platform/gpu`; do not add mutable preset registries or import-time registration.
 5. Ensure UI labels and descriptions read well and consider performance-mode interactions.
 
 ### Add a New Setting
@@ -101,7 +97,7 @@ Do not hand-write device fixture classes or duplicate catalog constants in indiv
 
 ## Architecture Guardrails
 
-- Renderer infrastructure timing values come from `packages/prismgb-config/src/timing.config.ts` (imported via `@prismgb/config`).
-- IPC handlers and renderer clients use `IPC_CHANNELS` plus payload contract types from `@prismgb/ipc`.
+- Renderer infrastructure timing values come from `src/platform/config/timing.config.ts` (imported via `@platform/config`).
+- IPC handlers and renderer clients use `IPC_CHANNELS` plus payload contract types from `@platform/ipc`.
 - Main IPC behavior is implemented in `src/main/ipc/router.ts` with schema validation in `src/main/ipc/schemas`.
 - Active runtime paths do not use `@core` imports.
