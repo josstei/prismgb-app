@@ -4,15 +4,6 @@ const TEMPLATE_ACTION_ATTRIBUTE = 'data-action';
 export type TemplateRefList<TBindings extends Record<keyof TBindings, HTMLElement | null>> =
   readonly (Extract<keyof TBindings, string>)[];
 
-export type TemplateRefLegacyIdMap<TBindings extends Record<keyof TBindings, HTMLElement | null>> =
-  Partial<Record<Extract<keyof TBindings, string>, string>>;
-
-export interface TemplateRefBindingOptions<
-  TBindings extends Record<keyof TBindings, HTMLElement | null>
-> {
-  legacyIds?: TemplateRefLegacyIdMap<TBindings>;
-}
-
 function escapeAttributeSelectorValue(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
@@ -46,24 +37,14 @@ function queryRoot(root: ParentNode, selector: string): HTMLElement | null {
   return root.querySelector(selector) as HTMLElement | null;
 }
 
-function findLegacyId(root: ParentNode, id: string): HTMLElement | null {
-  const documentRoot = root as Document;
-  if (typeof documentRoot.getElementById === 'function') {
-    return documentRoot.getElementById(id);
-  }
-
-  return queryRoot(root, `[id="${escapeAttributeSelectorValue(id)}"]`);
-}
-
 export function bindTemplateRefs<TBindings extends Record<keyof TBindings, HTMLElement | null>>(
   root: ParentNode,
-  refs: TemplateRefList<TBindings>,
-  { legacyIds = {} }: TemplateRefBindingOptions<TBindings> = {}
+  refs: TemplateRefList<TBindings>
 ): TBindings {
   const elements = {} as TBindings;
 
   refs.forEach((ref) => {
-    const element = queryRoot(root, createTemplateRefSelector(ref)) || findLegacyId(root, legacyIds[ref] || ref);
+    const element = queryRoot(root, createTemplateRefSelector(ref));
     elements[ref] = element as TBindings[typeof ref];
   });
 

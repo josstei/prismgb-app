@@ -35,8 +35,4 @@ export {
   getTemplateActionTarget,
   bindTemplateRefs
 } from './template/template-ref.helpers.js';
-export type {
-  TemplateRefList,
-  TemplateRefLegacyIdMap,
-  TemplateRefBindingOptions
-} from './template/template-ref.helpers.js';
+export type { TemplateRefList } from './template/template-ref.helpers.js';

@@ -6,7 +6,7 @@
 
 export default function createStatusFooterTemplate(): string {
   return `
-    <footer class="footer status-hidden" id="statusFooter" data-ref="footer">
+    <footer class="footer status-hidden" data-ref="footer">
       <div class="footer-right">
         <div class="status-strip" aria-live="polite">
           <div class="status-message" id="statusMessage" data-ref="statusMessage" role="status"></div>

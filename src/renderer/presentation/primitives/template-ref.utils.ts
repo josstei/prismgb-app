@@ -1,28 +1,5 @@
 import { EventChannels } from '@platform/events';
 import { TemplateActionTargets } from '@renderer/presentation/primitives/template-dom.contract.js';
-import {
-  createTemplateRefSelector,
-  getTemplateAction,
-  getTemplateActionTarget,
-  bindTemplateRefs
-} from '@platform/ui-base';
-import type {
-  TemplateRefList,
-  TemplateRefLegacyIdMap,
-  TemplateRefBindingOptions
-} from '@platform/ui-base';
-
-export {
-  createTemplateRefSelector,
-  getTemplateAction,
-  getTemplateActionTarget,
-  bindTemplateRefs
-};
-export type {
-  TemplateRefList,
-  TemplateRefLegacyIdMap,
-  TemplateRefBindingOptions
-};
 
 export const UIActionIds = {
   SCREENSHOT_CAPTURE: 'capture.screenshot',

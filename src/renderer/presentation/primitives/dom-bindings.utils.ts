@@ -1,10 +1,6 @@
-import {
-  bindTemplateRefs,
-  type TemplateRefLegacyIdMap,
-} from '@platform/ui-base';
+import { bindTemplateRefs } from '@platform/ui-base';
 import {
   TemplateDomRefGroups,
-  TemplateRefLegacyIds,
   type TemplateDomNotesRef,
   type TemplateDomSettingsRef,
   type TemplateDomShellRef,
@@ -66,14 +62,10 @@ export interface DomBindings {
   flat: DomBindingsFlat;
 }
 
-const settingsLegacyIds = TemplateRefLegacyIds satisfies TemplateRefLegacyIdMap<DomSettingsBindings>;
-
 function createDomBindings(root: ParentNode = document): DomBindings {
   const shell = bindTemplateRefs<DomShellBindings>(root, TemplateDomRefGroups.shell);
   const streaming = bindTemplateRefs<DomStreamingBindings>(root, TemplateDomRefGroups.streaming);
-  const settings = bindTemplateRefs<DomSettingsBindings>(root, TemplateDomRefGroups.settings, {
-    legacyIds: settingsLegacyIds
-  });
+  const settings = bindTemplateRefs<DomSettingsBindings>(root, TemplateDomRefGroups.settings);
   const updates = bindTemplateRefs<DomUpdateBindings>(root, TemplateDomRefGroups.updates);
   const notes = bindTemplateRefs<DomNotesBindings>(root, TemplateDomRefGroups.notes);
 

@@ -40,6 +40,10 @@ describe('UIController', () => {
 
     // Mock document.getElementById
     vi.spyOn(document, 'getElementById').mockImplementation((id) => mockElements[id] || null);
+    vi.spyOn(document, 'querySelector').mockImplementation((selector) => {
+      const refMatch = /^\[data-ref="(.+)"\]$/.exec(selector);
+      return refMatch ? mockElements[refMatch[1]] || null : null;
+    });
 
     // Create mock components
     mockStatusManager = createStatusNotificationComponentMock();
