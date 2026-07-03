@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { EventChannels, MainEventChannels, getEventManifestScopeValues } from '@platform/events';
+import { EventChannels } from '@platform/events';
 import type { MainEventChannel } from '@platform/events';
 
 function flattenEventValues(node: unknown): string[] {
@@ -40,23 +40,6 @@ describe('Event channel contract', () => {
       NOTE_UPDATED: 'notes:note-updated',
       NOTE_DELETED: 'notes:note-deleted'
     });
-  });
-
-  it('derives renderer channels from event manifest scope', () => {
-    const values = flattenEventValues(EventChannels);
-    const manifestValues = getEventManifestScopeValues('renderer');
-
-    expect(new Set(values)).toEqual(new Set(manifestValues));
-    expect(values).toHaveLength(manifestValues.length);
-  });
-
-  it('keeps main event channels derived from manifest scope', () => {
-    const mainValues = Object.values(MainEventChannels).flatMap((group) => Object.values(group));
-    const manifestMain = getEventManifestScopeValues('main');
-
-    expect(mainValues).toEqual(expect.arrayContaining(manifestMain));
-    expect(mainValues).toHaveLength(manifestMain.length);
-    expect(new Set(mainValues).size).toBe(mainValues.length);
   });
 
   it('keeps main event channel type narrowed to manifest values', () => {

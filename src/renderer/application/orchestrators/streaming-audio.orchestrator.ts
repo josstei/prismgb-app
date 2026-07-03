@@ -4,6 +4,7 @@ import { EventChannels, OnEvent } from '@platform/events';
 import type { StreamStartedPayload } from '@platform/events';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { AppState } from '@renderer/application/state/app-state.js';
 
 type StreamingAudioPipelineServiceLike = {
   start(stream: MediaStream): Promise<boolean>;
@@ -14,9 +15,7 @@ type StreamViewServiceLike = {
   setMuted(muted: boolean): void;
 };
 
-type AppStateLike = {
-  readonly isStreaming: boolean;
-};
+type AppStateLike = Pick<AppState, 'isStreaming'>;
 
 @injectable()
 export class StreamingAudioOrchestrator extends BaseOrchestrator {

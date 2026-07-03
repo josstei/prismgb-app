@@ -96,6 +96,11 @@ describe('SettingsService', () => {
       expect(localStorageMock.setItem).toHaveBeenCalledWith('globalBrightness', '0.5');
       expect(mockEventBus.publish).toHaveBeenCalledWith('settings:brightness-changed', 0.5);
     });
+    it('does not clamp an out-of-range numeric value read directly from storage', () => {
+      localStorageMock.setItem('gameVolume', '140');
+      expect(service.getSetting('gameVolume')).toBe(140);
+      expect(service.getNumberSetting('gameVolume')).toBe(140);
+    });
     it('stores boolean settings with manifest event behavior', () => {
       expect(service.setSetting('statusStripVisible', true)).toBe(true);
       expect(localStorageMock.setItem).toHaveBeenCalledWith('statusStripVisible', 'true');

@@ -9,6 +9,7 @@ import { isStreamingCapabilities } from '@renderer/infrastructure/services/strea
 import type {
   GpuRecordingStartOptions
 } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
+import type { AppState } from '@renderer/application/state/app-state.js';
 
 
 type CaptureSource = HTMLCanvasElement | HTMLVideoElement | ImageBitmap;
@@ -21,11 +22,7 @@ type CaptureServiceLike = {
   stopRecording(): Promise<void>;
 };
 
-type AppStateLike = {
-  isStreaming: boolean;
-  currentStream: MediaStream | null;
-  currentCapabilities: unknown;
-};
+type AppStateLike = Pick<AppState, 'isStreaming' | 'currentStream' | 'currentCapabilities'>;
 
 type StreamViewServiceLike = {
   getCanvas(): HTMLCanvasElement | null;

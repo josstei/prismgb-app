@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { DeviceInfoPayload, DeviceStatusPayload } from '@platform/devices';
+import type { DeviceInfoPayload, DeviceStatusPayload } from './types.js';
 
 export const deviceConnectionStateSchema = z.enum([
   'unknown',
@@ -34,10 +34,12 @@ export const deviceStatusPayloadSchema = z
 
 /**
  * Compile-time drift guards: the schema output shape and the canonical
- * `@platform/devices` payload types must stay assignable. A retyped field
- * fails every typecheck config; added/removed fields fail the strict app
- * config. The Partial direction is required because zod inference collapses
- * to all-optional under configs with strictNullChecks disabled.
+ * `DeviceInfoPayload`/`DeviceStatusPayload` types must stay assignable. A
+ * retyped field fails every typecheck config; added/removed fields fail the
+ * strict app config. The Partial direction is required because zod inference
+ * collapses to all-optional under configs with strictNullChecks disabled
+ * (verified: `tsconfig.test.json` sets `strictNullChecks: false`, so a direct
+ * `z.infer` export would silently widen every field to optional there).
  */
 type AssertAssignable<A extends B, B> = A;
 

@@ -11,6 +11,7 @@ import type {
   StreamingCapabilities,
   SupportedDeviceAvailablePayload
 } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
+import type { AppState } from '@renderer/application/state/app-state.js';
 
 
 type StreamingServiceLike = {
@@ -20,10 +21,7 @@ type StreamingServiceLike = {
   isActive(): boolean;
 };
 
-type AppStateLike = {
-  deviceConnected: boolean;
-  isStreaming: boolean;
-};
+type AppStateLike = Pick<AppState, 'deviceConnected' | 'isStreaming'>;
 
 type StreamViewServiceLike = {
   attachMutedStream(stream: MediaStream): void;

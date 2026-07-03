@@ -3,7 +3,7 @@ import { BaseService, isPromiseLike } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import { SettingsDefinitions, getStartupPreferenceEventDefinitions } from '@renderer/lib/settings.definitions.js';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
-import type { LoggerFactoryLike, StorageServiceLike } from '@platform/core';
+import type { LoggerFactoryLike, LoggerLike, StorageServiceLike } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type SettingDefinition = (typeof SettingsDefinitions.definitions)[number];
@@ -15,6 +15,19 @@ type SettingValidation = {
   max?: number;
   clamp?: boolean;
 };
+type SettingEncodeResult = { ok: true; value: SettingValue } | { ok: false };
+
+/**
+ * Per-type codec for a setting's storage representation. `decode` and
+ * `encode` are deliberately asymmetric: decode returns a plain value with a
+ * default fallback (a corrupt/absent stored value must never throw), while
+ * encode returns a `{ ok, value }` rejection contract (an invalid write must
+ * be refused without corrupting storage).
+ */
+interface SettingCodec {
+  decode(saved: string, definition: SettingDefinition): SettingValue;
+  encode(value: unknown, definition: SettingDefinition, logger: LoggerLike): SettingEncodeResult;
+}
 
 interface SettingsEventBus {
   publish(event: string, payload?: unknown): void;
@@ -26,6 +39,82 @@ function createDefinitionMap(definitions: readonly SettingDefinition[]): Map<str
 
 function getAllowedValues(definition: SettingDefinition): string[] {
   return Array.isArray(definition.allowedValues) ? definition.allowedValues : [];
+}
+
+function normalizeBooleanValue(value: unknown): boolean {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (value === 'true') {
+    return true;
+  }
+  if (value === 'false') {
+    return false;
+  }
+  return Boolean(value);
+}
+
+function applyNumberValidation(definition: SettingDefinition, value: number): number {
+  const validation = (definition as SettingDefinition & { validation?: SettingValidation }).validation;
+  if (!validation?.clamp) {
+    return value;
+  }
+
+  const min = typeof validation.min === 'number' ? validation.min : value;
+  const max = typeof validation.max === 'number' ? validation.max : value;
+  return Math.max(min, Math.min(max, value));
+}
+
+const BOOLEAN_SETTING_CODEC: SettingCodec = {
+  decode: (saved) => saved === 'true',
+  encode: (value) => ({ ok: true, value: normalizeBooleanValue(value) })
+};
+
+const NUMBER_SETTING_CODEC: SettingCodec = {
+  decode: (saved, definition) => {
+    const parsed = Number.parseFloat(saved);
+    return Number.isFinite(parsed) ? parsed : definition.default as number;
+  },
+  encode: (value, definition, logger) => {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(parsed)) {
+      logger.warn(`Invalid numeric setting value for ${definition.name}: ${String(value)}`);
+      return { ok: false };
+    }
+    return { ok: true, value: applyNumberValidation(definition, parsed) };
+  }
+};
+
+const ENUM_SETTING_CODEC: SettingCodec = {
+  decode: (saved, definition) => {
+    const allowedValues = getAllowedValues(definition);
+    return allowedValues.includes(saved) ? saved : definition.default as string;
+  },
+  encode: (value, definition, logger) => {
+    const normalized = String(value);
+    const allowedValues = getAllowedValues(definition);
+    if (!allowedValues.includes(normalized)) {
+      logger.warn(`Invalid ${definition.name}: ${normalized}. Valid values: ${allowedValues.join(', ')}`);
+      return { ok: false };
+    }
+    return { ok: true, value: normalized };
+  }
+};
+
+const STRING_SETTING_CODEC: SettingCodec = {
+  decode: (saved) => saved,
+  encode: (value) => ({ ok: true, value: String(value) })
+};
+
+const SETTING_CODECS: Record<string, SettingCodec> = {
+  boolean: BOOLEAN_SETTING_CODEC,
+  number: NUMBER_SETTING_CODEC,
+  enum: ENUM_SETTING_CODEC,
+  string: STRING_SETTING_CODEC
+};
+
+function getSettingCodec(definition: SettingDefinition): SettingCodec {
+  return SETTING_CODECS[definition.type] ?? STRING_SETTING_CODEC;
 }
 
 @injectable()
@@ -124,21 +213,7 @@ class SettingsService extends BaseService {
       return definition.default as SettingValue;
     }
 
-    switch (definition.type) {
-      case 'boolean':
-        return saved === 'true';
-      case 'number': {
-        const parsed = Number.parseFloat(saved);
-        return Number.isFinite(parsed) ? parsed : definition.default as number;
-      }
-      case 'enum': {
-        const allowedValues = getAllowedValues(definition);
-        return allowedValues.includes(saved) ? saved : definition.default as string;
-      }
-      case 'string':
-      default:
-        return saved;
-    }
+    return getSettingCodec(definition).decode(saved, definition);
   }
 
   _writeStoredSetting(definition: SettingDefinition, value: unknown): boolean {
@@ -157,55 +232,12 @@ class SettingsService extends BaseService {
     return true;
   }
 
-  _normalizeSettingValue(definition: SettingDefinition, value: unknown): { ok: true; value: SettingValue } | { ok: false } {
-    switch (definition.type) {
-      case 'boolean':
-        return { ok: true, value: this._normalizeBoolean(value) };
-      case 'number': {
-        const parsed = typeof value === 'number' ? value : Number(value);
-        if (!Number.isFinite(parsed)) {
-          this.logger.warn(`Invalid numeric setting value for ${definition.name}: ${String(value)}`);
-          return { ok: false };
-        }
-        return { ok: true, value: this._applyNumberValidation(definition, parsed) };
-      }
-      case 'enum': {
-        const normalized = String(value);
-        const allowedValues = getAllowedValues(definition);
-        if (!allowedValues.includes(normalized)) {
-          this.logger.warn(`Invalid ${definition.name}: ${normalized}. Valid values: ${allowedValues.join(', ')}`);
-          return { ok: false };
-        }
-        return { ok: true, value: normalized };
-      }
-      case 'string':
-      default:
-        return { ok: true, value: String(value) };
-    }
-  }
-
-  _applyNumberValidation(definition: SettingDefinition, value: number): number {
-    const validation = (definition as SettingDefinition & { validation?: SettingValidation }).validation;
-    if (!validation?.clamp) {
-      return value;
-    }
-
-    const min = typeof validation.min === 'number' ? validation.min : value;
-    const max = typeof validation.max === 'number' ? validation.max : value;
-    return Math.max(min, Math.min(max, value));
+  _normalizeSettingValue(definition: SettingDefinition, value: unknown): SettingEncodeResult {
+    return getSettingCodec(definition).encode(value, definition, this.logger);
   }
 
   _normalizeBoolean(value: unknown): boolean {
-    if (typeof value === 'boolean') {
-      return value;
-    }
-    if (value === 'true') {
-      return true;
-    }
-    if (value === 'false') {
-      return false;
-    }
-    return Boolean(value);
+    return normalizeBooleanValue(value);
   }
 
   _usesLoginItemAPI(definition: SettingDefinition): boolean {

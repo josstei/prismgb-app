@@ -10,7 +10,9 @@ type ResolvedSettingsDefinition = Omit<RawSettingsDefinition, 'default'> & {
 type ResolvedStartupPreferenceDefinition = ResolvedSettingsDefinition & { startupPreference: true };
 type ResolvedStartupPreferenceEventDefinition = ResolvedStartupPreferenceDefinition & { event: string };
 const SETTINGS_EVENT_PAYLOAD_BY_TYPE = { boolean: 'boolean', enum: 'string', number: 'number', string: 'string' } as const;
-const rendererEventPayloadByValue = new Map(getEventManifestScopeEvents('renderer').map((event) => [event.value, event.payload] as const));
+const rendererEventPayloadByValue = new Map<string, string>(
+  getEventManifestScopeEvents('renderer').map((event) => [event.value, event.payload])
+);
 
 // DYNAMIC OPTION REGISTRY IMPLEMENTATION
 const ALLOWED_VALUE_SOURCES: Record<string, () => string[]> = {

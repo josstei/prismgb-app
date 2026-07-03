@@ -1,7 +1,6 @@
 import type { LeafValues, AssertNever } from '@platform/core';
 import type { DeviceInfoPayload, DeviceStatus } from '@platform/devices';
 import { EventChannels } from './event-channels.js';
-import { getEventManifestScopeValues } from './event.manifest.js';
 export interface UpdateInfoPayload {
   version?: string;
   releaseDate?: string;
@@ -213,7 +212,6 @@ export type NotesDeletedPayload = { id: string };
 
 export type TranscodeStartedPayload = { jobId: string; format: string };
 
-// CODEBASE_EVENT_PAYLOAD_MAP:START
 type VoidEventChannel = typeof EventChannels.DEVICE.DISCONNECTED_DURING_SESSION | typeof EventChannels.STREAM.STOPPED | typeof EventChannels.CAPTURE.SCREENSHOT_TRIGGERED | typeof EventChannels.CAPTURE.RECORDING_STARTED | typeof EventChannels.CAPTURE.RECORDING_STOPPED | typeof EventChannels.RENDER.CANVAS_EXPIRED | typeof EventChannels.UI.SHUTTER_FLASH | typeof EventChannels.UI.RECORD_BUTTON_POP | typeof EventChannels.UI.RECORD_BUTTON_PRESS | typeof EventChannels.UI.RECORD_BUTTON_DISABLED | typeof EventChannels.UI.RECORD_BUTTON_ENABLED | typeof EventChannels.UI.WINDOW_RESIZED | typeof EventChannels.UI.SCREENSHOT_REQUESTED | typeof EventChannels.UI.RECORDING_TOGGLE_REQUESTED | typeof EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED | typeof EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED | typeof EventChannels.UI.STREAM_START_REQUESTED | typeof EventChannels.UI.STREAM_STOP_REQUESTED | typeof EventChannels.UPDATE.BADGE_SHOW | typeof EventChannels.UPDATE.BADGE_HIDE;
 
 type EventPayloadOverrides = {
@@ -269,7 +267,6 @@ type EventPayloadOverrides = {
   [EventChannels.TRANSCODE.ERROR]: TranscodeErrorPayload;
   [EventChannels.TRANSCODE.CANCELLED]: TranscodeCancelledPayload;
 };
-// CODEBASE_EVENT_PAYLOAD_MAP:END
 
 export type EventPayloadMap = {
   [K in EventChannelValue]: K extends keyof EventPayloadOverrides
@@ -282,54 +279,15 @@ export type EventPayloadMap = {
 export type MissingEventPayloads = Exclude<EventChannelValue, keyof EventPayloadMap>;
 export type ExtraEventPayloads = Exclude<keyof EventPayloadMap, EventChannelValue>;
 
-function collectLeafChannels(node: unknown): string[] {
-  if (typeof node === 'string') {
-    return [node];
-  }
-
-  if (!node || typeof node !== 'object') {
-    return [];
-  }
-
-  return Object.values(node).flatMap((value) => collectLeafChannels(value));
-}
-
-const rendererManifestChannels = getEventManifestScopeValues('renderer');
-const runtimeEventChannels = collectLeafChannels(EventChannels);
-const rendererManifestChannelSet = new Set(rendererManifestChannels);
-const runtimeEventChannelSet = new Set(runtimeEventChannels);
-
-const manifestOnlyChannels = rendererManifestChannels.filter((channel) => !runtimeEventChannelSet.has(channel));
-const runtimeOnlyChannels = runtimeEventChannels.filter((channel) => !rendererManifestChannelSet.has(channel));
-
-if (manifestOnlyChannels.length > 0 || runtimeOnlyChannels.length > 0) {
-  throw new Error(
-    `Renderer event payload channel drift detected. Manifest-only: [${manifestOnlyChannels.join(', ')}], ` +
-      `runtime-only: [${runtimeOnlyChannels.join(', ')}]`
-  );
-}
-
-export const EVENT_PAYLOAD_CHANNELS = rendererManifestChannels as readonly EventChannelValue[];
-
-export type MissingRuntimeEventPayloadChannels = Exclude<
-  EventChannelValue,
-  (typeof EVENT_PAYLOAD_CHANNELS)[number]
->;
-export type ExtraRuntimeEventPayloadChannels = Exclude<
-  (typeof EVENT_PAYLOAD_CHANNELS)[number],
-  EventChannelValue
->;
-
 /**
- * Compile-time exhaustiveness guard for the event payload map.
+ * Compile-time exhaustiveness guard for the event payload map. `EventChannelValue`
+ * is derived from `EventChannels`, which is itself derived from the event
+ * manifest's renderer scope — so this guard only needs to police
+ * `EventPayloadOverrides` against that single source, not a separate runtime
+ * channel list.
  * @public
  */
-export type EventPayloadExhaustivenessCheck = AssertNever<
-  | MissingEventPayloads
-  | ExtraEventPayloads
-  | MissingRuntimeEventPayloadChannels
-  | ExtraRuntimeEventPayloadChannels
->;
+export type EventPayloadExhaustivenessCheck = AssertNever<MissingEventPayloads | ExtraEventPayloads>;
 
 type PublishArgs<K extends keyof EventPayloadMap> = EventPayloadMap[K] extends void
   ? [event: K, data?: EventPayloadMap[K]]

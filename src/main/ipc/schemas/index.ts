@@ -9,7 +9,7 @@ export {
   deviceInfoSchema,
   nullableDeviceInfoSchema,
   deviceStatusPayloadSchema
-} from './device.schemas.js';
+} from '@platform/devices';
 export { updateInfoSchema, updateProgressSchema, updateErrorSchema } from './update.schemas.js';
 export {
   transcodeStartSchema,

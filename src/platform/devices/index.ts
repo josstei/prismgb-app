@@ -15,6 +15,11 @@ export {
   toDeviceInfoPayload,
   toDeviceStatusPayload
 } from './domain/payloads.js';
+export {
+  deviceInfoSchema,
+  nullableDeviceInfoSchema,
+  deviceStatusPayloadSchema
+} from './domain/payload.schemas.js';
 export type {
   DeviceBehaviorPolicy,
   DeviceAcquisitionAttempt,

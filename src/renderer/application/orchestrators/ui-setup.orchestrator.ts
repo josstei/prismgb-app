@@ -18,16 +18,12 @@ import {
 } from '@renderer/presentation/primitives/template-ref.utils.js';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 import type { LoggerFactoryLike } from '@platform/core';
-import type { ReadonlySignal } from '@platform/ui-base/reactive';
 import type { TypedEventBusLike } from '@platform/events';
 import type { UIController } from '@renderer/presentation/controller/ui.controller.js';
 import { RendererTemplateDeferredComponentIds } from '@renderer/presentation/primitives/template-dom.contract.js';
+import type { AppState } from '@renderer/application/state/app-state.js';
 
-type AppStateLike = {
-  readonly isStreaming: boolean;
-  readonly isCinematicModeEnabled?: boolean;
-  readonly cinematicModeSignal: ReadonlySignal<boolean>;
-};
+type AppStateLike = Pick<AppState, 'isStreaming'>;
 
 const UI_ACTION_LISTENERS_LIFECYCLE = Symbol('uiSetupActionListenersLifecycle');
 
