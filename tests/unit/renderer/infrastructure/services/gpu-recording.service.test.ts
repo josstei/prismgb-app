@@ -6,9 +6,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CaptureGpuRecordingService } from '@renderer/infrastructure/services/gpu/gpu-recording.service';
 import {
   createCanvasRenderingContextMock,
-  createEventBus,
   createGpuRendererServiceMock,
-  createLoggerFactory,
   createMediaStreamMock,
   createMediaTrackMock,
   createMockCanvas,
@@ -20,13 +18,13 @@ import {
   installAnimationFrameMock,
   installDocumentCreateElementMock
 } from '../../../../support/mocks/browser-api.installers.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('CaptureGpuRecordingService', () => {
   let service;
   let mockGpuRendererService;
   let mockEventBus;
   let mockLogger;
-  let mockLoggerFactory;
   let cleanupStack;
 
   function trackMock(handle) {
@@ -65,21 +63,21 @@ describe('CaptureGpuRecordingService', () => {
   beforeEach(() => {
     cleanupStack = createCleanupStack();
 
-    mockGpuRendererService = createGpuRendererServiceMock({
-      captureFrame: vi.fn(),
-      getTargetDimensions: vi.fn(() => ({ width: 640, height: 576 }))
+    const h = createInjectableHarness(CaptureGpuRecordingService, {
+      overrides: {
+        streamingRenderService: createGpuRendererServiceMock({
+          captureFrame: vi.fn(),
+          getTargetDimensions: vi.fn(() => ({ width: 640, height: 576 }))
+        })
+      }
     });
-
-    mockEventBus = createEventBus();
-    mockLoggerFactory = createLoggerFactory();
-    mockLogger = mockLoggerFactory.create('CaptureGpuRecordingService');
-
-    service = new CaptureGpuRecordingService(mockGpuRendererService, mockEventBus, mockLoggerFactory);
+    service = h.subject;
+    mockLogger = h.logger;
+    ({ streamingRenderService: mockGpuRendererService, eventBus: mockEventBus } = h.deps);
   });
 
   afterEach(() => {
     cleanupStack.cleanup();
-    vi.clearAllMocks();
   });
 
   it('should start GPU recording with provided frame rate', async () => {

@@ -9,7 +9,7 @@ import type {
   DeviceConnectionService
 } from '@platform/devices/runtime';
 import type { LoggerFactoryLike } from '@platform/core';
-import type { SharedEventBus } from '@platform/events';
+import type { PlatformEventBus } from '@platform/events';
 import type { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import type { WindowService } from '@main/infrastructure/window/window.service.js';
 import { TOKENS } from '@main/application/di/tokens.js';
@@ -25,7 +25,7 @@ export class DeviceIntegrationService extends BaseService {
     @inject(TOKENS.deviceConnectionService) private readonly deviceConnectionService: DeviceConnectionService,
     @inject(TOKENS.trayService) private readonly trayService: TrayService,
     @inject(TOKENS.windowService) private readonly windowService: WindowService,
-    @inject(TOKENS.eventBus) private readonly eventBus: SharedEventBus,
+    @inject(TOKENS.eventBus) private readonly eventBus: PlatformEventBus,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
   ) {
     super({ loggerFactory, eventBus }, 'DeviceIntegrationService');

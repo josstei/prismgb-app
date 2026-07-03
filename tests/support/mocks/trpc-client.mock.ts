@@ -11,10 +11,9 @@ import { vi } from 'vitest';
  * Because electron-trpc's `ipcLink` constructs against a preload global that does not exist under
  * vitest, tests mock the client module via an async factory that imports this helper:
  *
- *   vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => {
- *     const { createTrpcClientMock } = await import('<relative>/support/mocks/trpc-client.mock');
- *     return { trpcClient: createTrpcClientMock() };
- *   });
+ *   vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
+ *     trpcClient: (await import(relativePathToThisHelper)).createTrpcClientMock()
+ *   }));
  */
 
 type MockFn = ReturnType<typeof vi.fn>;

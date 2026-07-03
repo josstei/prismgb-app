@@ -6,17 +6,13 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CaptureOrchestrator } from '@renderer/application/orchestrators/capture.orchestrator';
 import {
   createAppState,
-  createEventBus,
-  createLoggerFactory,
-  createCaptureGpuRecordingServiceMock,
-  createCaptureSaveServiceMock,
-  createCaptureServiceMock,
   createBitmapMock,
   createStreamingViewServiceMock,
   createStreamingViewElementsMock,
   createStreamPayloadMock,
   createTranscodeServiceMock
 } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('CaptureOrchestrator', () => {
   let orchestrator;
@@ -29,69 +25,60 @@ describe('CaptureOrchestrator', () => {
   let mockCaptureSaveService;
   let mockEventBus;
   let mockLogger;
-  let mockLoggerFactory;
 
   beforeEach(() => {
-    mockCaptureService = createCaptureServiceMock();
+    const appState = createAppState();
+    appState.currentStream = null;
+    appState.currentCapabilities = null;
 
-    mockAppState = createAppState();
-    mockAppState.currentStream = null;
-    mockAppState.currentCapabilities = null;
-
-    // Mock stream view elements
     const mockStreamingViewElements = createStreamingViewElementsMock({
       streamVideo: { id: 'streamVideo' },
       streamCanvas: { id: 'streamCanvas' },
     });
 
-    mockStreamingViewService = createStreamingViewServiceMock({
+    const streamViewService: any = createStreamingViewServiceMock({
       getCanvas: vi.fn(() => mockStreamingViewElements.streamCanvas),
       getVideo: vi.fn(() => mockStreamingViewElements.streamVideo),
       attachMutedStream: vi.fn(),
       clearStream: vi.fn(),
       setMuted: vi.fn()
     });
+    streamViewService._elements = mockStreamingViewElements;
 
-    // Store element references for test assertions
-    mockStreamingViewService._elements = mockStreamingViewElements;
-
-    mockStreamingRenderService = {
-      isActive: vi.fn(() => false),
-      captureFrame: vi.fn(),
-      getTargetDimensions: vi.fn(() => ({ width: 640, height: 576 })),
-      isCanvasTransferred: vi.fn(() => false),
-      resize: vi.fn(),
-      resetCanvasState: vi.fn()
-    };
-
-    mockCaptureGpuRecordingService = createCaptureGpuRecordingServiceMock();
-
-    mockTranscodeService = createTranscodeServiceMock({
-      isTranscoding: vi.fn(() => false)
+    const h = createInjectableHarness(CaptureOrchestrator, {
+      overrides: {
+        appState,
+        streamViewService,
+        streamingRenderService: {
+          isActive: vi.fn(() => false),
+          captureFrame: vi.fn(),
+          getTargetDimensions: vi.fn(() => ({ width: 640, height: 576 })),
+          isCanvasTransferred: vi.fn(() => false),
+          resize: vi.fn(),
+          resetCanvasState: vi.fn()
+        },
+        transcodeService: createTranscodeServiceMock({
+          isTranscoding: vi.fn(() => false)
+        })
+      }
     });
-
-    mockCaptureSaveService = createCaptureSaveServiceMock();
-
-    mockEventBus = createEventBus();
-    mockLoggerFactory = createLoggerFactory();
-
-    orchestrator = new CaptureOrchestrator(
-      mockCaptureService,
-      mockAppState,
-      mockStreamingViewService,
-      mockStreamingRenderService,
-      mockCaptureGpuRecordingService,
-      mockTranscodeService,
-      mockCaptureSaveService,
-      mockEventBus,
-      mockLoggerFactory
-    );
-    mockLogger = mockLoggerFactory._getLogger('CaptureOrchestrator');
+    orchestrator = h.subject;
+    mockLogger = h.logger;
+    ({
+      captureService: mockCaptureService,
+      appState: mockAppState,
+      streamViewService: mockStreamingViewService,
+      streamingRenderService: mockStreamingRenderService,
+      gpuRecordingService: mockCaptureGpuRecordingService,
+      transcodeService: mockTranscodeService,
+      captureSaveService: mockCaptureSaveService,
+      eventBus: mockEventBus
+    } = h.deps);
   });
 
   describe('Constructor', () => {
     it('should initialize with empty subscriptions', () => {
-      expect(orchestrator._lifecycle.disposables.size).toBe(0);
+      expect(orchestrator.disposables.size).toBe(0);
     });
   });
 
@@ -110,7 +97,7 @@ describe('CaptureOrchestrator', () => {
     it('should store subscription unsubscribe functions', async () => {
       await orchestrator.initialize();
 
-      expect(orchestrator._lifecycle.disposables.size).toBe(5);
+      expect(orchestrator.disposables.size).toBe(5);
     });
   });
 

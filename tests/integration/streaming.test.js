@@ -15,7 +15,6 @@ import {
 } from '../devices/media.testkit.ts';
 import { installDocumentPropertyMock } from '../support/mocks/browser-api.installers.js';
 
-
 describe('Streaming Pipeline Integration', () => {
   let mediaEnvironment;
 
@@ -25,7 +24,6 @@ describe('Streaming Pipeline Integration', () => {
 
   afterEach(() => {
     mediaEnvironment.cleanup();
-    vi.clearAllMocks();
   });
 
   describe('Device Detection Flow', () => {
@@ -117,8 +115,6 @@ describe('Streaming Pipeline Integration', () => {
       expect(stream.active).toBe(true);
     });
   });
-
-
 
   describe('Event Flow Integration', () => {
     it('should publish stream events in correct order', async () => {
@@ -316,7 +312,6 @@ describe('Streaming Pipeline Integration', () => {
       expect(appState.isStreaming).toBe(false);
     });
   });
-
 
 });
 

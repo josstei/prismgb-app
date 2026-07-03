@@ -12,7 +12,7 @@ import type {
   LoginItemService,
   TranscodeService
 } from './trpc.js';
-import type { IpcPushBridge } from './event-bridge.js';
+import type { IpcPushBridge } from './ipc-push.bridge.js';
 import { TEST_CONTROL_CHANNELS } from './test-control.port.js';
 import type { MainProcessTestControlPort } from './test-control.port.js';
 import type { DeviceStatusPayload } from '@platform/ipc';

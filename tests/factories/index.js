@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Test Factories Index
  *

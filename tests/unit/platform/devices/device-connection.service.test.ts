@@ -46,10 +46,6 @@ describe('DeviceConnectionService', () => {
     });
   }
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it('starts USB monitoring and registers hotplug listeners on initialize', async () => {
     const runtime = createRuntime();
 

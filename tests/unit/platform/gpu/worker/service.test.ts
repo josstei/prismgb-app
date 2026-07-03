@@ -144,7 +144,6 @@ function createOnePixelCanvasFixture() {
 
 describe('worker service', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     mockCreateGpuRenderer.mockResolvedValue(mockRenderer);
     mockResolvePreset.mockReturnValue(defaultPreset);
     mockRenderer.captureFrame.mockResolvedValue(createBitmap('captured'));
@@ -155,11 +154,6 @@ describe('worker service', () => {
       framesDropped: 0
     });
     mockRenderer.dispose.mockResolvedValue(undefined);
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-    vi.clearAllMocks();
   });
 
   it('initializes through createGpuRenderer and reports the actual initialized backend', async () => {

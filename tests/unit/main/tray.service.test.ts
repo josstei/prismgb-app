@@ -5,9 +5,9 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
-  createLoggerFactory,
   createWindowServiceMock
 } from '../../factories/index.js';
+import { createInjectableHarness } from '../../support/di/injectable.harness.js';
 
 vi.mock('electron', () => {
   return {
@@ -53,25 +53,24 @@ describe('TrayService', () => {
   let mockLoggerFactory;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-
-    mockLoggerFactory = createLoggerFactory();
-
-    mockWindowService = createWindowServiceMock({
-      showWindow: vi.fn()
+    const h = createInjectableHarness(TrayService, {
+      overrides: {
+        windowService: createWindowServiceMock({
+          showWindow: vi.fn()
+        }),
+        deviceConnectionService: {
+          isConnected: vi.fn(),
+          reconcileDeviceStatus: vi.fn(async () => ({ connected: false }))
+        }
+      }
     });
-
-    mockDeviceConnectionService = {
-      isConnected: vi.fn(),
-      reconcileDeviceStatus: vi.fn(async () => ({ connected: false }))
-    };
-
-    trayService = new TrayService(mockWindowService, mockDeviceConnectionService, mockLoggerFactory);
-    mockLogger = mockLoggerFactory._getLogger('TrayService');
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
+    trayService = h.subject;
+    mockLogger = h.logger;
+    ({
+      windowService: mockWindowService,
+      deviceConnectionService: mockDeviceConnectionService,
+      loggerFactory: mockLoggerFactory
+    } = h.deps);
   });
 
   describe('Constructor', () => {

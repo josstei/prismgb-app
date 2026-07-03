@@ -1,4 +1,3 @@
-// @ts-nocheck
 function createCleanupStack() {
   const cleanups = [];
 

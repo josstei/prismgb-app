@@ -5,7 +5,7 @@ import type { LoggerLike } from '@platform/core';
 import type { DeviceStatus } from '@platform/devices';
 import type { UpdateStatusPayload, TranscodeFormat } from '@platform/ipc';
 import type { TranscodeResult, CancelResult, StatusResult } from '@platform/transcode/service';
-import type { IpcPushBridge } from './event-bridge.js';
+import type { IpcPushBridge } from './ipc-push.bridge.js';
 import type { MainProcessTestControlPort } from './test-control.port.js';
 
 export interface DeviceConnectionPort {

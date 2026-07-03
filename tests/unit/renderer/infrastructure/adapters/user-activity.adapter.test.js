@@ -26,7 +26,6 @@ describe('UserActivityAdapter', () => {
 
   afterEach(() => {
     adapter.dispose();
-    vi.restoreAllMocks();
   });
 
   describe('onActivity', () => {

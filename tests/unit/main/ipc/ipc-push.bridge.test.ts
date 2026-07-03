@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { IpcPushBridge } from '@main/ipc/event-bridge.js';
+import { IpcPushBridge } from '@main/ipc/ipc-push.bridge.js';
 
 describe('IpcPushBridge', () => {
   it('delivers an emitted payload to a registered listener', () => {

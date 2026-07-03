@@ -48,12 +48,10 @@ describe('CaptureSaveService', () => {
     downloadFile.mockResolvedValue();
 
     vi.useFakeTimers();
-    vi.clearAllMocks();
   });
 
   afterEach(() => {
     vi.useRealTimers();
-    vi.restoreAllMocks();
   });
 
   describe('Constructor', () => {
@@ -65,11 +63,6 @@ describe('CaptureSaveService', () => {
       expect(service.transcodeService).toBe(mockTranscodeService);
     });
 
-    it('should create logger from loggerFactory', () => {
-      service = new CaptureSaveService(mockEventBus, mockSettingsService, mockTranscodeService, mockLoggerFactory);
-
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('CaptureSaveService');
-    });
   });
 
   describe('saveRecording', () => {

@@ -18,7 +18,7 @@ import type {
   DevicePreferenceStore,
   DeviceStatusPort,
   MediaDevicesPort
-} from './device-platform.adapters.js';
+} from './device-ports.js';
 import {
   getDeviceDescriptor,
   labelsAreHidden,

@@ -23,7 +23,6 @@ describe('ReducedMotionAdapter', () => {
   afterEach(() => {
     adapter.dispose();
     matchMediaMock?.cleanup();
-    vi.restoreAllMocks();
   });
 
   describe('prefersReducedMotion', () => {

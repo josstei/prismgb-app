@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { signal, computed, effect } from '../../../../../src/platform/ui-base/reactive/index.js';
+import { signal, computed, effect } from '@platform/ui-base/reactive';
 
 describe('reactive facade (@preact/signals-core)', () => {
   it('runs effects immediately and re-runs synchronously on each change', () => {

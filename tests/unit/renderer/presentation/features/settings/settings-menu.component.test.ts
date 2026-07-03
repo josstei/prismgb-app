@@ -54,7 +54,6 @@ describe('SettingsMenuComponent', () => {
 
   afterEach(() => {
     component.dispose();
-    vi.clearAllMocks();
   });
 
   describe('Constructor', () => {
@@ -430,11 +429,11 @@ describe('SettingsMenuComponent', () => {
 
     it('should clear all listeners via manager', async () => {
       component.initialize(mockElements);
-      expect(component.lifecycle.disposables.size).toBeGreaterThan(0);
+      expect(component.disposables.size).toBeGreaterThan(0);
 
       await component.dispose();
 
-      expect(component.lifecycle.disposables.size).toBe(0);
+      expect(component.disposables.size).toBe(0);
     });
   });
 });

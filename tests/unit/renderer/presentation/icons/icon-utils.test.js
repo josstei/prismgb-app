@@ -1,11 +1,7 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { getIconSvg } from '@renderer/presentation/icons/icon.utils.js';
 
 describe('icon utils', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('returns existing icon SVGs from the discovered registry', () => {
     expect(getIconSvg('toolbar-record')).toContain('<svg');
     expect(getIconSvg('overlay-fullscreen-exit')).toContain('<svg');

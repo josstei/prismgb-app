@@ -49,6 +49,9 @@
       "@platform/gpu/runtime": [
         "./src/platform/gpu/runtime"
       ],
+      "@platform/gpu/testkit": [
+        "./src/platform/gpu/testkit"
+      ],
       "@platform/gpu": [
         "./src/platform/gpu/index"
       ],

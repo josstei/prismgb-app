@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkerRendererClient } from '../../../../../src/platform/gpu/worker/client';
 import { WorkerMessageType, WorkerResponseType, createWorkerResponse } from '../../../../../src/platform/gpu/worker/protocol';
-import { createMockCanvas } from '../../../../../src/platform/gpu/testkit/fixtures';
+import { createMockCanvas } from '@platform/gpu/testkit';
 
 function createWorkerMock(): Worker {
   return {

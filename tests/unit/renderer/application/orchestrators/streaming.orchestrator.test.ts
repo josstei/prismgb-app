@@ -1,23 +1,20 @@
-// @ts-nocheck
 /**
  * StreamingOrchestrator Unit Tests
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StreamingOrchestrator } from '@renderer/application/orchestrators/streaming.orchestrator';
 import {
   createAppState,
   createCaptureStreamMock,
   createStreamStartedPayloadMock,
   createSupportedDevicePayloadMock,
-  createEventBus,
-  createLoggerFactory,
   createCaptureGpuRecordingServiceMock,
-  createStreamingRenderServiceMock,
   createStreamingServiceFacadeMock,
   createStreamingViewServiceMock,
   createSettingsServiceMock
 } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('StreamingOrchestrator', () => {
   let orchestrator;
@@ -26,63 +23,52 @@ describe('StreamingOrchestrator', () => {
   let mockStreamingViewService;
   let mockEventBus;
   let mockLogger;
-  let mockLoggerFactory;
   let mockStreamingRenderService;
   let mockCaptureGpuRecordingService;
   let mockSettingsService;
 
   beforeEach(() => {
-    mockStreamingService = createStreamingServiceFacadeMock({
-      start: vi.fn().mockResolvedValue({}),
-      stop: vi.fn().mockResolvedValue(),
-      getStream: vi.fn(),
-      isActive: vi.fn()
-    });
-
-    mockAppState = createAppState({
-      initialState: {
-        isStreaming: false,
-        deviceConnected: false
+    const h = createInjectableHarness(StreamingOrchestrator, {
+      overrides: {
+        streamingService: createStreamingServiceFacadeMock({
+          start: vi.fn().mockResolvedValue({}),
+          stop: vi.fn().mockResolvedValue(undefined),
+          getStream: vi.fn(),
+          isActive: vi.fn()
+        }),
+        appState: createAppState({
+          initialState: {
+            isStreaming: false,
+            deviceConnected: false
+          }
+        }),
+        streamViewService: createStreamingViewServiceMock({
+          attachMutedStream: vi.fn(),
+          clearStream: vi.fn(),
+          setMuted: vi.fn()
+        }),
+        gpuRecordingService: createCaptureGpuRecordingServiceMock({
+          isActive: vi.fn().mockReturnValue(false),
+          stop: vi.fn()
+        }),
+        settingsService: createSettingsServiceMock({
+          values: {
+            autoStreamOnConnect: false
+          }
+        })
       }
     });
-
-    mockStreamingViewService = createStreamingViewServiceMock({
-      attachMutedStream: vi.fn(),
-      clearStream: vi.fn(),
-      setMuted: vi.fn()
-    });
-
-    mockEventBus = createEventBus();
-    mockLoggerFactory = createLoggerFactory();
-
-    mockStreamingRenderService = createStreamingRenderServiceMock();
-
-    mockCaptureGpuRecordingService = createCaptureGpuRecordingServiceMock({
-      isActive: vi.fn().mockReturnValue(false),
-      stop: vi.fn()
-    });
-
-    mockSettingsService = createSettingsServiceMock({
-      values: {
-        autoStreamOnConnect: false
-      }
-    });
-
-    orchestrator = new StreamingOrchestrator(
-      mockStreamingService,
-      mockAppState,
-      mockStreamingViewService,
-      mockStreamingRenderService,
-      mockCaptureGpuRecordingService,
-      mockSettingsService,
-      mockEventBus,
-      mockLoggerFactory
-    );
-    mockLogger = mockLoggerFactory._getLogger('StreamingOrchestrator');
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
+    orchestrator = h.subject;
+    mockLogger = h.logger;
+    ({
+      streamingService: mockStreamingService,
+      appState: mockAppState,
+      streamViewService: mockStreamingViewService,
+      streamingRenderService: mockStreamingRenderService,
+      gpuRecordingService: mockCaptureGpuRecordingService,
+      settingsService: mockSettingsService,
+      eventBus: mockEventBus
+    } = h.deps);
   });
 
   describe('onInitialize', () => {

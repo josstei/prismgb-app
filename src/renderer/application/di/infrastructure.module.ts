@@ -1,6 +1,6 @@
 import { ContainerModule } from 'inversify';
 import { ConsoleLoggerFactory } from '@platform/core';
-import { EventBus } from '../../infrastructure/events/event-bus.class';
+import { EventBus } from '../../infrastructure/events/event-bus';
 import { RendererDeviceRuntime } from '../../infrastructure/services/devices/device-runtime.service';
 import { DeviceMediaAcquirer } from '../../infrastructure/services/streaming/device-media-acquirer';
 import { StreamingService } from '../../infrastructure/services/streaming/streaming.service';
@@ -23,7 +23,7 @@ import { VisibilityAdapter } from '../../infrastructure/adapters/visibility.adap
 import { UserActivityAdapter } from '../../infrastructure/adapters/user-activity.adapter';
 import { ReducedMotionAdapter } from '../../infrastructure/adapters/reduced-motion.adapter';
 import { PerformanceStateService } from '../../infrastructure/services/performance/performance-state.service';
-import { BrowserMediaAdapter } from '../../infrastructure/browser/browser-media.adapter';
+import { BrowserMediaAdapter } from '../../infrastructure/adapters/browser-media.adapter';
 import { StreamingHealthService } from '../../infrastructure/services/platform/health.service';
 import { StreamingViewportService } from '../../infrastructure/services/platform/viewport.service';
 import { PresentationModeService } from '../../infrastructure/services/settings/settings-presentation-mode.service';

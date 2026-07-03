@@ -1,6 +1,6 @@
 import { PresentationComponent } from '../lifecycle/presentation-component.base.js';
 import type { LoggerLike } from '@platform/core';
-import { DisclosureController } from './disclosure.class.js';
+import { DisclosureController } from './disclosure.controller.js';
 import { updateListboxActiveState } from './listbox.utils.js';
 
 const LISTBOX_DROPDOWN_RUNTIME_LIFECYCLE = Symbol('listboxDropdownRuntimeLifecycle');

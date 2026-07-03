@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { PASS_SPECS, RENDER_PASS_DEFINITIONS } from '../../../../../src/platform/gpu/domain/pass-specs';
 import { WEBGPU_RENDER_PASSES } from '../../../../../src/platform/gpu/infrastructure/webgpu.driver';
 import { loadWebGpuShaders } from '../../../../../src/platform/gpu/infrastructure/shaders';
-import { createPipelineUniformsFixture } from '../../../../../src/platform/gpu/testkit/fixtures';
+import { createPipelineUniformsFixture } from '@platform/gpu/testkit';
 
 describe('pass-specs', () => {
   it('exposes render-pass definitions ordered by pass order', () => {

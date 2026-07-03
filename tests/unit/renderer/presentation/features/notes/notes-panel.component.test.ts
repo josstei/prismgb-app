@@ -32,7 +32,6 @@ describe('NotesPanelComponent', () => {
   });
   afterEach(async () => {
     await component.dispose();
-    vi.clearAllMocks();
     vi.useRealTimers();
   });
   describe('Constructor', () => {

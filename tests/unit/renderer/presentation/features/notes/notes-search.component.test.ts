@@ -20,7 +20,6 @@ describe('NotesSearchComponent', () => {
   afterEach(() => {
     component.dispose();
     vi.useRealTimers();
-    vi.restoreAllMocks();
   });
 
   describe('constructor', () => {

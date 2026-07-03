@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { UIEffects } from '@renderer/presentation/effects/ui-effects.class';
+import { UIEffects } from '@renderer/presentation/effects/ui-effects';
 import { TIMING } from '@platform/config';
 import { createUIEffectsElementsMock } from '../../../../factories/index.js';
 import { installDocumentCreateElementMock } from '../../../../support/mocks/browser-api.installers.js';
@@ -34,7 +34,6 @@ describe('UIEffects', () => {
 
   afterEach(() => {
     documentMock?.cleanup();
-    vi.clearAllMocks();
     vi.useRealTimers();
   });
 

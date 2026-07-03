@@ -71,7 +71,6 @@ describe('Main container', () => {
   let loggerFactory: ReturnType<typeof createLoggerFactory>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
     loggerFactory = createLoggerFactory();
   });
 

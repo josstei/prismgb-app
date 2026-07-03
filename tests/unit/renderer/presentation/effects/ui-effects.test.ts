@@ -71,7 +71,7 @@ vi.mock('@platform/ui-base', async (importOriginal) => {
   };
 });
 
-import { UIEffects } from '@renderer/presentation/effects/ui-effects.class';
+import { UIEffects } from '@renderer/presentation/effects/ui-effects';
 import { createUIBodyClassManagerMock, createUIEffectsElementsMock } from '../../../../factories/index.js';
 
 describe('UIEffects', () => {
@@ -87,7 +87,6 @@ describe('UIEffects', () => {
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
     cursorInstance = null;
     toolbarInstance = null;
     controlsInstance = null;

@@ -1,44 +1,35 @@
-// @ts-nocheck
 /**
  * PerformanceMetricsOrchestrator Unit Tests
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { PerformanceMetricsOrchestrator } from '@renderer/application/orchestrators/performance/performance-metrics.orchestrator';
 import { EventChannels } from '@platform/events';
-import {
-  createEventBus,
-  createLoggerFactory,
-  createPerformanceMetricsServiceMock
-} from '../../../../factories/index.js';
+import { createEventBus } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('PerformanceMetricsOrchestrator', () => {
   let orchestrator;
   let mockEventBus;
-  let mockLoggerFactory;
   let mockPerformanceMetricsService;
   let handlers;
 
   beforeEach(() => {
     handlers = {};
-    mockEventBus = createEventBus({
-      onSubscribe: (channel, handler) => {
-        handlers[channel] = handler;
+    const h = createInjectableHarness(PerformanceMetricsOrchestrator, {
+      overrides: {
+        eventBus: createEventBus({
+          onSubscribe: (channel, handler) => {
+            handlers[channel] = handler;
+          }
+        })
       }
     });
-    mockLoggerFactory = createLoggerFactory();
-
-    mockPerformanceMetricsService = createPerformanceMetricsServiceMock();
-
-    orchestrator = new PerformanceMetricsOrchestrator(
-      mockEventBus,
-      mockLoggerFactory,
-      mockPerformanceMetricsService
-    );
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
+    orchestrator = h.subject;
+    ({
+      eventBus: mockEventBus,
+      performanceMetricsService: mockPerformanceMetricsService
+    } = h.deps);
   });
 
   describe('constructor', () => {

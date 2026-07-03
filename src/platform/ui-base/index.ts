@@ -3,14 +3,14 @@ export { PresentationComponent } from './lifecycle/presentation-component.base.j
 export type { PresentationLifecycleToken } from './lifecycle/presentation-component.base.js';
 export { applyOptions } from './lifecycle/apply-options.utils.js';
 
-export { DisclosureController, calculateAnchoredDisclosureLayout } from './widgets/disclosure.class.js';
+export { DisclosureController, calculateAnchoredDisclosureLayout } from './widgets/disclosure.controller.js';
 export type {
   AnchoredLayoutSizeDefaults
-} from './widgets/disclosure.class.js';
+} from './widgets/disclosure.controller.js';
 
-export { ListboxDropdownController } from './widgets/listbox-dropdown.class.js';
+export { ListboxDropdownController } from './widgets/listbox-dropdown.controller.js';
 
-export { ComboboxListboxController } from './widgets/combobox-listbox.class.js';
+export { ComboboxListboxController } from './widgets/combobox-listbox.controller.js';
 
 export { ActivityAutoHideController } from './widgets/activity-auto-hide.controller.js';
 
@@ -21,4 +21,4 @@ export {
   getTemplateAction,
   getTemplateActionTarget,
   bindTemplateRefs
-} from './template/template-ref.helpers.js';
+} from './template/template-refs.utils.js';

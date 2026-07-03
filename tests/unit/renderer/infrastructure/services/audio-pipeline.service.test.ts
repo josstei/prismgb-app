@@ -1,19 +1,21 @@
-// @ts-nocheck
 import { describe, expect, it, vi } from 'vitest';
 import { StreamingAudioPipelineService } from '@renderer/infrastructure/services/streaming/audio-pipeline.service';
-import { createEventBus, createLoggerFactory, createSettingsServiceMock } from '../../../../factories/index.js';
+import { createSettingsServiceMock } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 function createService() {
-  const eventBus = createEventBus();
-  const loggerFactory = createLoggerFactory();
-  const settingsService = createSettingsServiceMock({
-    values: {
-      gameVolume: 70
+  const h = createInjectableHarness(StreamingAudioPipelineService, {
+    overrides: {
+      settingsService: createSettingsServiceMock({
+        values: {
+          gameVolume: 70
+        }
+      })
     }
   });
-  const service = new StreamingAudioPipelineService(eventBus, loggerFactory, settingsService);
-  const logger = loggerFactory._getLogger('StreamingAudioPipelineService');
-  const unsubscribe = eventBus.subscribe.mock.results[0].value;
+  const service: any = h.subject;
+  const logger = h.logger;
+  const unsubscribe = h.deps.eventBus.subscribe.mock.results[0].value;
 
   return { service, logger, unsubscribe };
 }

@@ -15,10 +15,10 @@ import { createEventBus } from './event-bus.factory.js';
  */
 
 /**
- * Creates a mock AppOrchestrator.
+ * Creates a generic orchestrator mock covering the shared lifecycle surface.
  *
- * @param {Partial<import('vitest').Mocked<AppOrchestrator>>} [overrides={}] - Mock property and method overrides.
- * @returns {import('vitest').Mocked<AppOrchestrator>} A strongly-typed mock AppOrchestrator.
+ * @param {Record<string, any>} [overrides={}] - Mock property and method overrides.
+ * @returns {any} A generic orchestrator mock.
  */
 export function createOrchestratorMock(overrides = {}) {
   return /** @type {any} */ ({

@@ -38,8 +38,8 @@ function isEventBusLike(value: unknown): value is EventBusLike {
 
 export class BaseService {
   protected logger!: LoggerLike;
-  protected readonly lifecycle: ManagedLifecycleHost;
-  protected readonly disposables: DisposableBag;
+  readonly disposables: DisposableBag;
+  private readonly _lifecycle: ManagedLifecycleHost;
   protected _initialized: boolean;
   private readonly _eventBus: EventBusLike | null;
   private readonly _serviceName: string;
@@ -55,8 +55,8 @@ export class BaseService {
       this.logger = loggerFactory.create(name);
     }
 
-    this.lifecycle = new ManagedLifecycleHost();
-    this.disposables = this.lifecycle.disposables;
+    this._lifecycle = new ManagedLifecycleHost();
+    this.disposables = this._lifecycle.disposables;
     this._initialized = false;
     this._eventBus = isEventBusLike(dependencyMap.eventBus) ? dependencyMap.eventBus : null;
     this._serviceName = name;
@@ -103,7 +103,7 @@ export class BaseService {
     delay: number,
     ...args: TArgs
   ): DisposableFunction {
-    return this.lifecycle.timeout(handler, delay, ...args);
+    return this._lifecycle.timeout(handler, delay, ...args);
   }
 
   interval<TArgs extends unknown[]>(
@@ -111,7 +111,7 @@ export class BaseService {
     delay: number,
     ...args: TArgs
   ): DisposableFunction {
-    return this.lifecycle.interval(handler, delay, ...args);
+    return this._lifecycle.interval(handler, delay, ...args);
   }
 
   schedule<TArgs extends unknown[]>(
@@ -120,7 +120,7 @@ export class BaseService {
     delay: number,
     ...args: TArgs
   ): DisposableFunction {
-    return this.lifecycle.schedule(key, handler, delay, ...args);
+    return this._lifecycle.schedule(key, handler, delay, ...args);
   }
 
   scheduleInterval<TArgs extends unknown[]>(
@@ -129,14 +129,14 @@ export class BaseService {
     delay: number,
     ...args: TArgs
   ): DisposableFunction {
-    return this.lifecycle.scheduleInterval(key, handler, delay, ...args);
+    return this._lifecycle.scheduleInterval(key, handler, delay, ...args);
   }
 
   cancelScheduled(key: DisposableKey): void | Promise<void> {
-    return this.lifecycle.cancelScheduled(key);
+    return this._lifecycle.cancelScheduled(key);
   }
 
   dispose(): void | Promise<void> {
-    return this.lifecycle.dispose();
+    return this._lifecycle.dispose();
   }
 }

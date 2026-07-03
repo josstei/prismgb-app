@@ -28,10 +28,6 @@ vi.mock('@main/application/container.js', () => ({
 import { MainBootstrap } from '@main/app-bootstrap.js';
 
 describe('MainBootstrap shutdown', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it('does not re-enter orchestrator.cleanup on a repeated cleanup call', async () => {
     const bootstrap = new MainBootstrap();
 

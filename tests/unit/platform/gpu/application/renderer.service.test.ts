@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createGpuRenderer } from '../../../../../src/platform/gpu/application/renderer.service';
-import { createMockCanvas, createRenderCapabilitiesFixture } from '../../../../../src/platform/gpu/testkit/fixtures';
+import { createMockCanvas, createRenderCapabilitiesFixture } from '@platform/gpu/testkit';
 
 function createCanvas2DRenderFixture() {
   const canvas2dContext = {
@@ -22,7 +22,6 @@ describe('renderer service', () => {
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 

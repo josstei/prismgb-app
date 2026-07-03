@@ -53,10 +53,6 @@ function createUsbModule() {
 }
 
 describe('usb.monitor', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it('maps node-usb descriptors to app USB device info', () => {
     expect(toUsbDevice(makeNodeUsbDevice() as never)).toEqual({
       locationId: 4,

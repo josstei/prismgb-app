@@ -16,7 +16,7 @@ export const PLATFORM_MODULES = [
   { name: 'core', entrypoints: { '.': 'index.ts' } },
   { name: 'devices', entrypoints: { '.': 'index.ts', './runtime': 'runtime.ts', './testkit': 'testkit.ts' } },
   { name: 'events', entrypoints: { '.': 'index.ts' } },
-  { name: 'gpu', entrypoints: { '.': 'index.ts', './runtime': 'runtime.ts' } },
+  { name: 'gpu', entrypoints: { '.': 'index.ts', './runtime': 'runtime.ts', './testkit': 'testkit.ts' } },
   { name: 'ipc', entrypoints: { '.': 'index.ts' } },
   { name: 'notes', entrypoints: { '.': 'index.ts' } },
   { name: 'transcode', entrypoints: { '.': 'index.ts', './service': 'service.ts' } },

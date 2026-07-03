@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createMockCanvas } from '../../../../../src/platform/gpu/testkit/fixtures';
+import { createMockCanvas } from '@platform/gpu/testkit';
 
 vi.mock('../../../../../src/platform/gpu/infrastructure/capabilities.browser', () => {
   throw new Error('browser capabilities imported');

@@ -2,10 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { detectBrowserGpuCapabilities } from '../../../../../src/platform/gpu/infrastructure/capabilities.browser';
 
 describe('detectBrowserGpuCapabilities', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
   afterEach(() => {
     vi.unstubAllGlobals();
   });

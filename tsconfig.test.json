@@ -26,6 +26,7 @@
     "tests/unit/**/*.ts",
     "tests/unit/**/*.js",
     "tests/factories/**/*.js",
+    "tests/support/**/*.ts",
     "tests/support/**/*.js",
     "tests/utils/**/*.js"
   ],

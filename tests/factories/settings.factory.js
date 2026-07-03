@@ -23,7 +23,7 @@ export function createSettingsServiceHarness(overrides = {}) {
 /**
  * Creates a mock SettingsService.
  *
- * @param {Partial<import('vitest').Mocked<SettingsService>>} [overrides={}] - Mock property and method overrides.
+ * @param {{ values?: Record<string, unknown> } & Record<string, any>} [overrides={}] - Initial setting values plus mock method overrides.
  * @returns {import('vitest').Mocked<SettingsService>} A strongly-typed mock SettingsService.
  */
 export function createSettingsServiceMock(overrides = {}) {

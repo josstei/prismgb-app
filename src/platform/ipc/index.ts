@@ -18,4 +18,4 @@ export type {
   TranscodeStatusPayload,
   ProcessMetricPayload,
   ProcessMetricsPayload
-} from './preload-api.contract.js';
+} from './ipc-payloads.contract.js';

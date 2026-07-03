@@ -118,10 +118,6 @@ function createRuntime(options: {
 }
 
 describe('RendererDeviceRuntime', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('initializes from cached status and enumerates supported catalog devices', async () => {
     const { runtime, eventBus, statusPort, mediaDevicesPort, devicePreferenceStore } = createRuntime();
 

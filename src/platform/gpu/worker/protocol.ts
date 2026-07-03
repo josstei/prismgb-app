@@ -150,27 +150,24 @@ export type WorkerResponse<K extends WorkerResponseTypeValue = WorkerResponseTyp
       };
 }[K];
 
-type WorkerMessageTypesWithRequiredPayload = {
-  [Type in WorkerMessageTypeValue]: WorkerMessagePayloadMap[Type] extends EmptyWorkerPayload
-    ? never
-    : Type;
-}[WorkerMessageTypeValue];
+type TypesWithRequiredPayload<TypeValue extends string, PayloadMap extends Record<TypeValue, unknown>> = {
+  [Type in TypeValue]: PayloadMap[Type] extends EmptyWorkerPayload ? never : Type;
+}[TypeValue];
 
-type WorkerMessageTypesWithOptionalPayload = Exclude<
-  WorkerMessageTypeValue,
-  WorkerMessageTypesWithRequiredPayload
->;
+type TypesWithOptionalPayload<TypeValue extends string, PayloadMap extends Record<TypeValue, unknown>> =
+  Exclude<TypeValue, TypesWithRequiredPayload<TypeValue, PayloadMap>>;
 
-type WorkerResponseTypesWithRequiredPayload = {
-  [Type in WorkerResponseTypeValue]: WorkerResponsePayloadMap[Type] extends EmptyWorkerPayload
-    ? never
-    : Type;
-}[WorkerResponseTypeValue];
+type WorkerMessageTypesWithRequiredPayload = TypesWithRequiredPayload<WorkerMessageTypeValue, WorkerMessagePayloadMap>;
+type WorkerMessageTypesWithOptionalPayload = TypesWithOptionalPayload<WorkerMessageTypeValue, WorkerMessagePayloadMap>;
+type WorkerResponseTypesWithRequiredPayload = TypesWithRequiredPayload<WorkerResponseTypeValue, WorkerResponsePayloadMap>;
+type WorkerResponseTypesWithOptionalPayload = TypesWithOptionalPayload<WorkerResponseTypeValue, WorkerResponsePayloadMap>;
 
-type WorkerResponseTypesWithOptionalPayload = Exclude<
-  WorkerResponseTypeValue,
-  WorkerResponseTypesWithRequiredPayload
->;
+function createEnvelope<Type extends string, Payload>(
+  type: Type,
+  payload?: Payload
+): { type: Type; payload?: Payload; timestamp: number } {
+  return { type, payload, timestamp: performance.now() };
+}
 
 export function createWorkerMessage<K extends WorkerMessageTypesWithRequiredPayload>(
   type: K,
@@ -188,11 +185,7 @@ export function createWorkerMessage(
   type: WorkerMessageTypeValue,
   payload?: WorkerMessagePayloadMap[WorkerMessageTypeValue]
 ): WorkerMessage {
-  return {
-    type,
-    payload,
-    timestamp: performance.now()
-  } as WorkerMessage;
+  return createEnvelope(type, payload) as WorkerMessage;
 }
 
 export function createWorkerResponse<K extends WorkerResponseTypesWithRequiredPayload>(
@@ -211,11 +204,7 @@ export function createWorkerResponse(
   type: WorkerResponseTypeValue,
   payload?: WorkerResponsePayloadMap[WorkerResponseTypeValue]
 ): WorkerResponse {
-  return {
-    type,
-    payload,
-    timestamp: performance.now()
-  } as WorkerResponse;
+  return createEnvelope(type, payload) as WorkerResponse;
 }
 
 export function isWorkerRenderBackend(value: unknown): value is WorkerRenderBackend {
@@ -282,27 +271,23 @@ export function isPresetPayload(value: unknown): value is PresetPayload {
   return isRecord(value) && isString(value.presetId) && isRecord(value.preset);
 }
 
+const WORKER_MESSAGE_PAYLOAD_GUARDS: Record<WorkerMessageTypeValue, (payload: unknown) => boolean> = {
+  [WorkerMessageType.INIT]: isInitPayload,
+  [WorkerMessageType.FRAME]: isFramePayload,
+  [WorkerMessageType.RESIZE]: isResizePayload,
+  [WorkerMessageType.SET_PRESET]: isPresetPayload,
+  [WorkerMessageType.SET_BRIGHTNESS]: (payload) => isRecord(payload) && isNumber(payload.brightness),
+  [WorkerMessageType.REQUEST_CAPTURE]: isEmptyWorkerPayload,
+  [WorkerMessageType.CAPTURE]: isEmptyWorkerPayload,
+  [WorkerMessageType.RELEASE]: isEmptyWorkerPayload,
+  [WorkerMessageType.DESTROY]: isEmptyWorkerPayload
+};
+
 export function isWorkerMessagePayload<K extends WorkerMessageTypeValue>(
   type: K,
   payload: unknown
 ): payload is WorkerMessagePayloadMap[K] {
-  switch (type) {
-    case WorkerMessageType.INIT:
-      return isInitPayload(payload);
-    case WorkerMessageType.FRAME:
-      return isFramePayload(payload);
-    case WorkerMessageType.RESIZE:
-      return isResizePayload(payload);
-    case WorkerMessageType.SET_PRESET:
-      return isPresetPayload(payload);
-    case WorkerMessageType.SET_BRIGHTNESS:
-      return isRecord(payload) && isNumber(payload.brightness);
-    case WorkerMessageType.REQUEST_CAPTURE:
-    case WorkerMessageType.CAPTURE:
-    case WorkerMessageType.RELEASE:
-    case WorkerMessageType.DESTROY:
-      return isEmptyWorkerPayload(payload);
-  }
+  return WORKER_MESSAGE_PAYLOAD_GUARDS[type](payload);
 }
 
 export function isWorkerReadyPayload(value: unknown): value is WorkerReadyPayload {
@@ -325,25 +310,22 @@ export function isWorkerCaptureReadyPayload(value: unknown): value is WorkerCapt
   return isRecord(value) && isImageBitmapLike(value.bitmap);
 }
 
+const WORKER_RESPONSE_PAYLOAD_GUARDS: Record<WorkerResponseTypeValue, (payload: unknown) => boolean> = {
+  [WorkerResponseType.READY]: isWorkerReadyPayload,
+  [WorkerResponseType.FRAME_RENDERED]: isEmptyWorkerPayload,
+  [WorkerResponseType.CAPTURE_REQUESTED]: isEmptyWorkerPayload,
+  [WorkerResponseType.RELEASED]: isEmptyWorkerPayload,
+  [WorkerResponseType.DESTROYED]: isEmptyWorkerPayload,
+  [WorkerResponseType.ERROR]: isWorkerErrorPayload,
+  [WorkerResponseType.STATS]: isWorkerStatsPayload,
+  [WorkerResponseType.CAPTURE_READY]: isWorkerCaptureReadyPayload
+};
+
 export function isWorkerResponsePayload<K extends WorkerResponseTypeValue>(
   type: K,
   payload: unknown
 ): payload is WorkerResponsePayloadMap[K] {
-  switch (type) {
-    case WorkerResponseType.READY:
-      return isWorkerReadyPayload(payload);
-    case WorkerResponseType.FRAME_RENDERED:
-    case WorkerResponseType.CAPTURE_REQUESTED:
-    case WorkerResponseType.RELEASED:
-    case WorkerResponseType.DESTROYED:
-      return isEmptyWorkerPayload(payload);
-    case WorkerResponseType.ERROR:
-      return isWorkerErrorPayload(payload);
-    case WorkerResponseType.STATS:
-      return isWorkerStatsPayload(payload);
-    case WorkerResponseType.CAPTURE_READY:
-      return isWorkerCaptureReadyPayload(payload);
-  }
+  return WORKER_RESPONSE_PAYLOAD_GUARDS[type](payload);
 }
 
 export function isValidWorkerMessage(message: unknown): message is WorkerMessage {

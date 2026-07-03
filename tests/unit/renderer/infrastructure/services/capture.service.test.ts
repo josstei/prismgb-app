@@ -7,8 +7,6 @@ import { CaptureService } from '@renderer/infrastructure/services/capture/captur
 import {
   createCaptureStreamMock,
   createCanvasRenderingContextMock,
-  createEventBus,
-  createLoggerFactory,
   createMediaBlobEventMock,
   createMediaRecorderMock,
   createMediaRecorderErrorEventMock,
@@ -20,6 +18,7 @@ import {
   installDocumentCreateElementMock,
   installMediaRecorderMock
 } from '../../../../support/mocks/browser-api.installers.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 import { FilenameGenerator } from '@renderer/lib/filename-generator.utils';
 
@@ -27,20 +26,18 @@ describe('CaptureService', () => {
   let service;
   let mockEventBus;
   let mockLogger;
-  let mockLoggerFactory;
   let blobMock;
   let documentCreateElementMock;
   let mediaRecorderMock;
 
   beforeEach(() => {
-    mockEventBus = createEventBus();
-    mockLoggerFactory = createLoggerFactory();
-
     vi.spyOn(FilenameGenerator, 'forScreenshot').mockReturnValue('screenshot_2024-01-01_12-00-00.png');
     vi.spyOn(FilenameGenerator, 'forRecording').mockReturnValue('recording_2024-01-01_12-00-00.webm');
 
-    service = new CaptureService(mockEventBus, mockLoggerFactory);
-    mockLogger = mockLoggerFactory._getLogger('CaptureService');
+    const h = createInjectableHarness(CaptureService);
+    service = h.subject;
+    mockLogger = h.logger;
+    ({ eventBus: mockEventBus } = h.deps);
 
     mediaRecorderMock = installMediaRecorderMock();
     blobMock = installBlobMock();
@@ -51,7 +48,6 @@ describe('CaptureService', () => {
     documentCreateElementMock = null;
     blobMock.cleanup();
     mediaRecorderMock.cleanup();
-    vi.clearAllMocks();
   });
 
   describe('Constructor', () => {

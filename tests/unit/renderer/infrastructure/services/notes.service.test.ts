@@ -40,10 +40,6 @@ describe('NotesService', () => {
     mockLogger = mockLoggerFactory._getLogger('NotesService');
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   describe('Constructor', () => {
     it('should create service with empty cache', () => {
       expect(service._notesCache).toBeNull();

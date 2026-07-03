@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 
-vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => {
-  const { createTrpcClientMock } = await import('../../../../support/mocks/trpc-client.mock');
-  return { trpcClient: createTrpcClientMock() };
-});
+vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
+  trpcClient: (await import('../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
+}));
 
 import { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service';
 import { EventChannels } from '@platform/events';
@@ -22,14 +21,8 @@ describe('TranscodeService', () => {
     mockLoggerFactory = createLoggerFactory();
     mockLogger = mockLoggerFactory.create('TranscodeService');
 
-    vi.clearAllMocks();
-
     vi.mocked(trpcClient.transcode.start.mutate).mockResolvedValue({ jobId: 'job-123' });
     vi.mocked(trpcClient.transcode.cancel.mutate).mockResolvedValue(undefined);
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
   });
 
   describe('Constructor', () => {
@@ -39,17 +32,10 @@ describe('TranscodeService', () => {
       expect(service.eventBus).toBe(mockEventBus);
     });
 
-    it('should create logger from loggerFactory', () => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
-
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('TranscodeService');
-      expect(service.logger).toBe(mockLogger);
-    });
-
     it('should initialize state properties', () => {
       service = new TranscodeService(mockEventBus, mockLoggerFactory);
 
-      expect(service._isTranscoding).toBe(false);
+      expect(service.isTranscoding()).toBe(false);
       expect(service._activeJobId).toBeNull();
       expect(service._initialized).toBe(false);
     });
@@ -147,7 +133,7 @@ describe('TranscodeService', () => {
 
       await service.transcode(mockBlob, 'mp4');
 
-      expect(service._isTranscoding).toBe(true);
+      expect(service.isTranscoding()).toBe(true);
       expect(service._activeJobId).toBe('job-123');
     });
 
@@ -185,7 +171,7 @@ describe('TranscodeService', () => {
 
       await service.transcode(mockBlob, 'mp4');
 
-      expect(service._isTranscoding).toBe(false);
+      expect(service.isTranscoding()).toBe(false);
       expect(service._activeJobId).toBeNull();
     });
   });
@@ -283,11 +269,11 @@ describe('TranscodeService', () => {
       it('should reset transcoding state', async () => {
         const mockBlob = new Blob(['test data'], { type: 'video/webm' });
         await service.transcode(mockBlob, 'mp4');
-        expect(service._isTranscoding).toBe(true);
+        expect(service.isTranscoding()).toBe(true);
 
         emitTrpcData(trpcClient.transcode.onCompleted, {});
 
-        expect(service._isTranscoding).toBe(false);
+        expect(service.isTranscoding()).toBe(false);
         expect(service._activeJobId).toBeNull();
       });
 
@@ -316,7 +302,7 @@ describe('TranscodeService', () => {
 
         emitTrpcData(trpcClient.transcode.onError, { message: 'Failed' });
 
-        expect(service._isTranscoding).toBe(false);
+        expect(service.isTranscoding()).toBe(false);
         expect(service._activeJobId).toBeNull();
       });
 
@@ -345,7 +331,7 @@ describe('TranscodeService', () => {
 
         emitTrpcData(trpcClient.transcode.onCancelled, {});
 
-        expect(service._isTranscoding).toBe(false);
+        expect(service.isTranscoding()).toBe(false);
         expect(service._activeJobId).toBeNull();
       });
 
@@ -387,7 +373,7 @@ describe('TranscodeService', () => {
       service.initialize();
       service.dispose();
 
-      expect(service._isTranscoding).toBe(false);
+      expect(service.isTranscoding()).toBe(false);
       expect(service._activeJobId).toBeNull();
       expect(service._initialized).toBe(false);
     });

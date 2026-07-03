@@ -35,7 +35,7 @@ describe('workspace-aliases registry', () => {
       core: ['.'],
       devices: ['.', './runtime', './testkit'],
       events: ['.'],
-      gpu: ['.', './runtime'],
+      gpu: ['.', './runtime', './testkit'],
       ipc: ['.'],
       notes: ['.'],
       transcode: ['.', './service'],

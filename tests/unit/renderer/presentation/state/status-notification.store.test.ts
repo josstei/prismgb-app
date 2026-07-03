@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { StatusNotificationStore } from '../../../../../src/renderer/presentation/state/status-notification.store.js';
-import { SharedEventBus, EventChannels } from '@platform/events';
+import { PlatformEventBus, EventChannels } from '@platform/events';
 
 describe('StatusNotificationStore', () => {
-  let bus: SharedEventBus;
+  let bus: PlatformEventBus;
   let store: StatusNotificationStore;
 
   beforeEach(() => {
-    bus = new SharedEventBus();
+    bus = new PlatformEventBus();
     store = new StatusNotificationStore({ eventBus: bus });
   });
 

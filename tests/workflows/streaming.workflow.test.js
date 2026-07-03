@@ -5,7 +5,7 @@
  * a separate device lifecycle state machine.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   createAppState,
   createEventBus,
@@ -29,7 +29,6 @@ describe('Streaming Workflow Integration', () => {
   afterEach(() => {
     mediaEnvironment.cleanup();
     eventBus._reset();
-    vi.clearAllMocks();
   });
 
   it('should enumerate the manifest-backed Chromatic media device when connected', async () => {

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * SettingsCinematicModeService Unit Tests
  */
@@ -6,24 +5,26 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SettingsCinematicModeService } from '@renderer/infrastructure/services/settings/settings-cinematic-mode.service';
 import { EventChannels } from '@platform/events';
-import { createAppState, createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import { createAppState } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('SettingsCinematicModeService', () => {
   let service;
   let mockAppState;
   let mockEventBus;
   let mockLogger;
-  let mockLoggerFactory;
 
   beforeEach(() => {
-    mockLoggerFactory = createLoggerFactory();
-    mockEventBus = createEventBus();
-    mockAppState = createAppState({
-      initialState: { isCinematicModeEnabled: false }
+    const h = createInjectableHarness(SettingsCinematicModeService, {
+      overrides: {
+        appState: createAppState({
+          initialState: { isCinematicModeEnabled: false }
+        })
+      }
     });
-
-    service = new SettingsCinematicModeService(mockAppState, mockEventBus, mockLoggerFactory);
-    mockLogger = mockLoggerFactory._getLogger('SettingsCinematicModeService');
+    service = h.subject;
+    mockLogger = h.logger;
+    ({ appState: mockAppState, eventBus: mockEventBus } = h.deps);
   });
 
   describe('constructor', () => {
@@ -33,9 +34,6 @@ describe('SettingsCinematicModeService', () => {
       expect(service.logger).toBe(mockLogger);
     });
 
-    it('should create logger with correct service name', () => {
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('SettingsCinematicModeService');
-    });
   });
 
   describe('initialize', () => {

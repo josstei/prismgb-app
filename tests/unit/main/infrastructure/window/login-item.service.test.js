@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { app as mockApp } from 'electron';
-import { createLoggerFactory } from '../../../../factories/index.js';
 import { installProcessEnvMock, installProcessRuntimeMock } from '../../../../support/mocks/runtime-property.installers.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 vi.mock('electron', () => ({
   app: {
@@ -49,16 +49,13 @@ describe('process runtime mock installers', () => {
 
 describe('LoginItemService', () => {
   let service;
-  let mockLoggerFactory;
   let processRuntimeMocks;
 
   beforeEach(() => {
-    vi.clearAllMocks();
     processRuntimeMocks = [];
 
-    mockLoggerFactory = createLoggerFactory();
-
-    service = new LoginItemService(mockLoggerFactory);
+    const h = createInjectableHarness(LoginItemService);
+    service = h.subject;
   });
 
   afterEach(() => {

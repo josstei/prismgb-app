@@ -1,15 +1,15 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { PresentationModeStore } from '../../../../../src/renderer/presentation/state/presentation-mode.store.js';
 import { signal, type Signal } from '@platform/ui-base/reactive';
-import { SharedEventBus, EventChannels } from '@platform/events';
+import { PlatformEventBus, EventChannels } from '@platform/events';
 
 describe('PresentationModeStore', () => {
-  let bus: SharedEventBus;
+  let bus: PlatformEventBus;
   let cinematicEnabled: Signal<boolean>;
   let store: PresentationModeStore;
 
   beforeEach(() => {
-    bus = new SharedEventBus();
+    bus = new PlatformEventBus();
     cinematicEnabled = signal(false);
     store = new PresentationModeStore({ eventBus: bus, cinematicEnabled });
   });

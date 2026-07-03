@@ -1,48 +1,32 @@
-// @ts-nocheck
 /**
  * UISetupOrchestrator Unit Tests
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UISetupOrchestrator } from '@renderer/application/orchestrators/ui-setup.orchestrator';
-import {
-  createAppState,
-  createEventBus,
-  createLoggerFactory,
-  createUISetupControllerMock
-} from '../../../../factories/index.js';
+import { createUISetupControllerMock } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('UISetupOrchestrator', () => {
   let orchestrator;
-  let mockAppState;
   let mockUiController;
   let mockEventBus;
   let mockLogger;
-  let mockLoggerFactory;
 
   beforeEach(() => {
-    mockLoggerFactory = createLoggerFactory();
-    mockEventBus = createEventBus();
-    mockAppState = createAppState();
-
-    mockUiController = createUISetupControllerMock({
-      initializeDeferredComponent: vi.fn(),
-      toggleSettingsMenu: vi.fn(),
-      toggleShaderSelector: vi.fn(),
-      toggleNotesPanel: vi.fn()
+    const h = createInjectableHarness(UISetupOrchestrator, {
+      overrides: {
+        uiController: createUISetupControllerMock({
+          initializeDeferredComponent: vi.fn(),
+          toggleSettingsMenu: vi.fn(),
+          toggleShaderSelector: vi.fn(),
+          toggleNotesPanel: vi.fn()
+        })
+      }
     });
-
-    orchestrator = new UISetupOrchestrator(
-      mockAppState,
-      mockUiController,
-      mockEventBus,
-      mockLoggerFactory
-    );
-    mockLogger = mockLoggerFactory._getLogger('UISetupOrchestrator');
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
+    orchestrator = h.subject;
+    mockLogger = h.logger;
+    ({ uiController: mockUiController, eventBus: mockEventBus } = h.deps);
   });
 
   describe('constructor', () => {

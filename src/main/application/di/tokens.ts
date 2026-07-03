@@ -1,11 +1,11 @@
 import type { ServiceIdentifier } from 'inversify';
 import type { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
-import type { SharedEventBus } from '@platform/events';
+import type { PlatformEventBus } from '@platform/events';
 import type { WindowService } from '@main/infrastructure/window/window.service.js';
 import type { DeviceConnectionService } from '@platform/devices/runtime';
 import type { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
-import type { IpcPushBridge } from '@main/ipc/event-bridge.js';
+import type { IpcPushBridge } from '@main/ipc/ipc-push.bridge.js';
 import type { MainProcessTestControl } from '@main/ipc/test-control.port.js';
 import type { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
 import type { UpdateService } from '@platform/updates';
@@ -29,7 +29,7 @@ function token<T>(name: string): ServiceIdentifier<T> {
 export const TOKENS = {
   config: token<MainAppConfig>('config'),
   loggerFactory: token<MainLogger>('loggerFactory'),
-  eventBus: token<SharedEventBus>('eventBus'),
+  eventBus: token<PlatformEventBus>('eventBus'),
   windowService: token<WindowService>('windowService'),
   deviceConnectionService: token<DeviceConnectionService>('deviceConnectionService'),
   trayService: token<TrayService>('trayService'),

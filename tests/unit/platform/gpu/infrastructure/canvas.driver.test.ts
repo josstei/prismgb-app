@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CanvasDriver } from '../../../../../src/platform/gpu/infrastructure/canvas.driver';
 import { PipelineController } from '../../../../../src/platform/gpu/infrastructure/pipeline-controller';
 import { getPackageDefaultPreset } from '../../../../../src/platform/gpu/application/catalog';
-import { createMockCanvas } from '../../../../../src/platform/gpu/testkit/fixtures';
+import { createMockCanvas } from '@platform/gpu/testkit';
 
 function createCanvas2DTestFixture() {
   const context = {

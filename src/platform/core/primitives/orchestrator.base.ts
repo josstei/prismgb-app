@@ -1,6 +1,6 @@
 import { ManagedLifecycleHost } from './managed-lifecycle-host.js';
 import { getEventHandlerBindings } from './event-decorator.js';
-import type { Disposable, DisposableFunction, DisposableKey, EventTargetLike } from './disposable-bag.js';
+import type { Disposable, DisposableBag, DisposableFunction, DisposableKey, EventTargetLike } from './disposable-bag.js';
 import type { EventBusLike, LoggerFactoryLike, LoggerLike } from './service.base.js';
 
 export class BaseOrchestrator {
@@ -10,6 +10,7 @@ export class BaseOrchestrator {
   protected _isCleanedUp: boolean;
   protected _isCleaningUp: boolean;
   protected readonly _orchestratorName: string;
+  readonly disposables: DisposableBag;
   private readonly _lifecycle: ManagedLifecycleHost;
 
   constructor(dependencies: object, name: string | null = null) {
@@ -28,6 +29,7 @@ export class BaseOrchestrator {
     this._isCleaningUp = false;
     this._orchestratorName = orchestratorName;
     this._lifecycle = new ManagedLifecycleHost();
+    this.disposables = this._lifecycle.disposables;
   }
 
   async initialize(): Promise<void> {

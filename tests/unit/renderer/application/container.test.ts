@@ -26,10 +26,6 @@ describe('Renderer container', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('resolves every token once uiController is bound, matching bootstrap order', () => {
     const container = createRendererContainer({ uiController: createFakeUiController() });
 

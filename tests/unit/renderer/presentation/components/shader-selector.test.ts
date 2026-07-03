@@ -64,7 +64,6 @@ describe('ShaderSelectorComponent', () => {
 
   afterEach(() => {
     component.dispose();
-    vi.clearAllMocks();
   });
 
   describe('initialize', () => {

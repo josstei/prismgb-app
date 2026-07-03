@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createGpuVideoRendererSession } from '../../../../../src/platform/gpu/application/video-session';
-import { createMockCanvas, createRenderCapabilitiesFixture } from '../../../../../src/platform/gpu/testkit/fixtures';
+import { createMockCanvas, createRenderCapabilitiesFixture } from '@platform/gpu/testkit';
 import { WorkerResponseType, createWorkerResponse } from '../../../../../src/platform/gpu/worker/protocol';
 
 function createCanvas2DRenderFixture() {
@@ -31,7 +31,6 @@ describe('GpuVideoRendererSession', () => {
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 

@@ -1,7 +1,7 @@
 import type { ServiceIdentifier } from 'inversify';
 import type { LoggerFactoryLike, StorageServiceLike } from '@platform/core';
 import type { NotesService } from '@platform/notes';
-import type { EventBus } from '../../infrastructure/events/event-bus.class';
+import type { EventBus } from '../../infrastructure/events/event-bus';
 import type { RendererDeviceRuntime } from '../../infrastructure/services/devices/device-runtime.service';
 import type { DeviceMediaAcquirer } from '../../infrastructure/services/streaming/device-media-acquirer';
 import type { StreamingService } from '../../infrastructure/services/streaming/streaming.service';
@@ -24,7 +24,7 @@ import type { UpdateService } from '../../infrastructure/services/updates/update
 import type { UpdateUiService } from '../../infrastructure/services/updates/update-ui.service';
 import type { UISetupOrchestrator } from '../orchestrators/ui-setup.orchestrator';
 import type { PerformanceAnimationService } from '../../infrastructure/services/performance/performance-animation.service';
-import type { BodyClassManager } from '../../presentation/effects/body-class.class';
+import type { BodyClassManager } from '../../presentation/effects/body-class-manager';
 import type { PerformanceAnimationOrchestrator } from '../orchestrators/performance/performance-animation.orchestrator';
 import type { MetricsAdapter } from '../../infrastructure/adapters/platform-metrics.adapter';
 import type { PerformanceMetricsService } from '../../infrastructure/services/performance/performance-metrics.service';
@@ -35,7 +35,7 @@ import type { ReducedMotionAdapter } from '../../infrastructure/adapters/reduced
 import type { PerformanceStateService } from '../../infrastructure/services/performance/performance-state.service';
 import type { PerformanceStateOrchestrator } from '../orchestrators/performance/performance-state.orchestrator';
 import type { AppOrchestrator } from '../orchestrators/app.orchestrator';
-import type { BrowserMediaAdapter } from '../../infrastructure/browser/browser-media.adapter';
+import type { BrowserMediaAdapter } from '../../infrastructure/adapters/browser-media.adapter';
 import type { StreamingHealthService } from '../../infrastructure/services/platform/health.service';
 import type { StreamingViewportService } from '../../infrastructure/services/platform/viewport.service';
 import type { PresentationModeService } from '../../infrastructure/services/settings/settings-presentation-mode.service';
@@ -43,12 +43,12 @@ import type { StreamingCanvasLifecycleService } from '../../infrastructure/servi
 import type { CaptureUIBridge } from '../../presentation/bridges/capture-ui.bridge';
 import type { TranscodeUIBridge } from '../../presentation/bridges/transcode-ui.bridge';
 import type { UIEventBridge } from '../../presentation/bridges/ui-event.bridge';
-import type { UIEffects } from '../../presentation/effects/ui-effects.class';
+import type { UIEffects } from '../../presentation/effects/ui-effects';
 import type {
   TrpcDeviceStatusPort,
   BrowserMediaDevicesPort,
   StorageDevicePreferenceStore
-} from '../../infrastructure/services/devices/device-platform.adapters';
+} from '../../infrastructure/services/devices/device-ports';
 import type { PresentationModeStore } from '../../presentation/state/presentation-mode.store';
 import type { UIController } from '../../presentation/controller/ui.controller';
 import type { UiComponentHost, RendererUiComponentInstanceMap } from '../../presentation/controller/ui-component.host';

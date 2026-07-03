@@ -5,7 +5,7 @@
  * Validates event sequences, state transitions, and component coordination.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   createAppState,
   createEventBus,
@@ -38,7 +38,6 @@ describe('Capture Workflow Integration', () => {
 
   afterEach(() => {
     eventBus._reset();
-    vi.clearAllMocks();
   });
 
   describe('Screenshot Workflow', () => {

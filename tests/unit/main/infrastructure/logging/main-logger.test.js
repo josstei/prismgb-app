@@ -24,7 +24,6 @@ describe('MainLogger', () => {
   let envMock;
 
   beforeEach(() => {
-    vi.clearAllMocks();
     log.transports.console.level = undefined;
     log.transports.file.level = undefined;
     log.transports.file.resolvePathFn = undefined;

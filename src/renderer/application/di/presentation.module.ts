@@ -2,11 +2,11 @@ import { ContainerModule } from 'inversify';
 import { NotesService } from '@platform/notes';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { PROTECTED_STORAGE_KEYS } from '@renderer/lib/storage-keys.config.js';
-import { BodyClassManager } from '../../presentation/effects/body-class.class';
+import { BodyClassManager } from '../../presentation/effects/body-class-manager';
 import { CaptureUIBridge } from '../../presentation/bridges/capture-ui.bridge';
 import { TranscodeUIBridge } from '../../presentation/bridges/transcode-ui.bridge';
 import { UIEventBridge } from '../../presentation/bridges/ui-event.bridge';
-import { UIEffects } from '../../presentation/effects/ui-effects.class';
+import { UIEffects } from '../../presentation/effects/ui-effects';
 import { AppState } from '../state/app-state';
 import { PresentationModeStore } from '../../presentation/state/presentation-mode.store';
 import { createDomBindings } from '../../presentation/primitives/dom-bindings.utils';
@@ -23,12 +23,12 @@ import { SettingsMenuComponent } from '../../presentation/features/settings/sett
 import { UpdateSectionComponent } from '../../presentation/features/updates/update-section.component';
 import { ShaderSelectorComponent } from '../../presentation/features/toolbar/shader-selector.component';
 import { NotesPanelComponent } from '../../presentation/features/notes/notes-panel.component';
-import { BrowserStorageAdapter } from '../../infrastructure/browser/browser-storage.adapter';
+import { BrowserStorageAdapter } from '../../infrastructure/adapters/browser-storage.adapter';
 import {
   BrowserMediaDevicesPort,
   StorageDevicePreferenceStore,
   TrpcDeviceStatusPort
-} from '../../infrastructure/services/devices/device-platform.adapters';
+} from '../../infrastructure/services/devices/device-ports';
 import { TOKENS } from './tokens.js';
 
 /**

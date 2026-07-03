@@ -1,12 +1,12 @@
 import { ContainerModule } from 'inversify';
-import { SharedEventBus } from '@platform/events';
+import { PlatformEventBus } from '@platform/events';
 import { DeviceConnectionService } from '@platform/devices/runtime';
 import { UpdateService } from '@platform/updates';
 import { TranscodeService } from '@platform/transcode/service';
 import { WindowService } from '@main/infrastructure/window/window.service.js';
 import { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
-import { IpcPushBridge } from '@main/ipc/event-bridge.js';
+import { IpcPushBridge } from '@main/ipc/ipc-push.bridge.js';
 import { MainProcessTestControl } from '@main/ipc/test-control.port.js';
 import { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
 import { LoginItemService } from '@main/infrastructure/window/login-item.service.js';
@@ -24,7 +24,7 @@ function isE2eTestControlEnabled(): boolean {
  * through factories that mirror their prior cradle-object wiring exactly.
  */
 export const mainModule = new ContainerModule(({ bind }) => {
-  bind(TOKENS.eventBus).toDynamicValue((ctx) => new SharedEventBus({
+  bind(TOKENS.eventBus).toDynamicValue((ctx) => new PlatformEventBus({
     loggerFactory: ctx.get(TOKENS.loggerFactory)
   })).inSingletonScope();
 

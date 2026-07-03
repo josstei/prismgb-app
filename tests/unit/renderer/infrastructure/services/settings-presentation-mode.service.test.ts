@@ -8,19 +8,21 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { PresentationModeService } from '@renderer/infrastructure/services/settings/settings-presentation-mode.service';
-import { createLoggerFactory, createPresentationModeControllerMock } from '../../../../factories/index.js';
+import { createPresentationModeControllerMock } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('PresentationModeService', () => {
   let service;
   let mockUiController;
 
   beforeEach(() => {
-    mockUiController = createPresentationModeControllerMock();
-    service = new PresentationModeService(mockUiController, createLoggerFactory());
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
+    const h = createInjectableHarness(PresentationModeService, {
+      overrides: {
+        uiController: createPresentationModeControllerMock()
+      }
+    });
+    service = h.subject;
+    ({ uiController: mockUiController } = h.deps);
   });
 
   it('coordinates streaming mode through the controller', () => {

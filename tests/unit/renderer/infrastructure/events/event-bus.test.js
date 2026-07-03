@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { EventBus } from '@renderer/infrastructure/events/event-bus.class.js';
+import { EventBus } from '@renderer/infrastructure/events/event-bus.js';
 import { createLoggerFactory } from '../../../../factories/index.js';
 
 describe('EventBus', () => {

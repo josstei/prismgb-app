@@ -5,15 +5,14 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { PerformanceStateService } from '@renderer/infrastructure/services/performance/performance-state.service';
 import {
-  createLoggerFactory,
   createReducedMotionAdapterMock,
   createUserActivityAdapterMock,
   createVisibilityAdapterMock,
 } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('PerformanceStateService', () => {
   let service;
-  let mockLoggerFactory;
   let mockVisibilityAdapter;
   let mockUserActivityAdapter;
   let mockReducedMotionAdapter;
@@ -24,46 +23,48 @@ describe('PerformanceStateService', () => {
 
   beforeEach(() => {
     states = [];
-    mockLoggerFactory = createLoggerFactory();
 
     // Mock VisibilityAdapter
     visibilityCallback = null;
-    mockVisibilityAdapter = createVisibilityAdapterMock({
-      onVisibilityChange: vi.fn((callback) => {
-        visibilityCallback = callback;
-        return vi.fn();
-      })
-    });
 
     // Mock UserActivityAdapter
     activityCallback = null;
-    mockUserActivityAdapter = createUserActivityAdapterMock({
-      onActivity: vi.fn((callback) => {
-        activityCallback = callback;
-        return vi.fn();
-      })
-    });
 
     // Mock ReducedMotionAdapter
     motionCallback = null;
-    mockReducedMotionAdapter = createReducedMotionAdapterMock({
-      onChange: vi.fn((callback) => {
-        motionCallback = callback;
-        return vi.fn();
-      })
-    });
 
-    service = new PerformanceStateService(
-      mockLoggerFactory,
-      mockVisibilityAdapter,
-      mockUserActivityAdapter,
-      mockReducedMotionAdapter
-    );
+    const h = createInjectableHarness(PerformanceStateService, {
+      overrides: {
+        visibilityAdapter: createVisibilityAdapterMock({
+          onVisibilityChange: vi.fn((callback) => {
+            visibilityCallback = callback;
+            return vi.fn();
+          })
+        }),
+        userActivityAdapter: createUserActivityAdapterMock({
+          onActivity: vi.fn((callback) => {
+            activityCallback = callback;
+            return vi.fn();
+          })
+        }),
+        reducedMotionAdapter: createReducedMotionAdapterMock({
+          onChange: vi.fn((callback) => {
+            motionCallback = callback;
+            return vi.fn();
+          })
+        })
+      }
+    });
+    service = h.subject;
+    ({
+      visibilityAdapter: mockVisibilityAdapter,
+      userActivityAdapter: mockUserActivityAdapter,
+      reducedMotionAdapter: mockReducedMotionAdapter
+    } = h.deps);
   });
 
   afterEach(() => {
     service.dispose();
-    vi.restoreAllMocks();
   });
 
   it('should emit initial state on initialize', () => {

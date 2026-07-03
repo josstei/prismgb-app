@@ -5,7 +5,7 @@
 
 import { app, BrowserWindow, dialog, Menu, type MenuItemConstructorOptions } from 'electron';
 import { MainBootstrap } from './app-bootstrap.js';
-import { getGpuPolicy, applyChromiumFlags } from './infrastructure/gpu-policy.js';
+import { getGpuPolicy, applyChromiumFlags, GPU_ENV_VARS } from './infrastructure/gpu/gpu-policy.js';
 import { TOKENS } from './application/di/tokens.js';
 
 const APP_NAME = 'PrismGB';
@@ -90,7 +90,7 @@ if (process.argv.includes('--smoke-test')) {
   // Hardware acceleration is enabled by default for better performance.
   // Users with GPU driver issues can disable it via environment variable:
   //   PRISMGB_DISABLE_GPU=1 prismgb
-  if (process.env.PRISMGB_DISABLE_GPU === '1') {
+  if (process.env[GPU_ENV_VARS.DISABLE_GPU] === '1') {
     app.disableHardwareAcceleration();
   }
 

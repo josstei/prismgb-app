@@ -5,40 +5,37 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PerformanceStateOrchestrator } from '@renderer/application/orchestrators/performance/performance-state.orchestrator';
 import { EventChannels } from '@platform/events';
-import {
-  createEventBus,
-  createLoggerFactory,
-  createPerformanceStateServiceMock
-} from '../../../../factories/index.js';
+import { createEventBus, createPerformanceStateServiceMock } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('PerformanceStateOrchestrator', () => {
   let coordinator;
   let mockEventBus;
-  let mockLoggerFactory;
   let mockPerformanceStateService;
   let eventHandlers;
   let onStateChange;
 
   beforeEach(() => {
     eventHandlers = {};
-    mockEventBus = createEventBus({
-      onSubscribe: (channel, handler) => {
-        eventHandlers[channel] = handler;
+    const h = createInjectableHarness(PerformanceStateOrchestrator, {
+      overrides: {
+        eventBus: createEventBus({
+          onSubscribe: (channel, handler) => {
+            eventHandlers[channel] = handler;
+          }
+        }),
+        performanceStateService: createPerformanceStateServiceMock({
+          initialize: vi.fn(({ onStateChange: callback }) => {
+            onStateChange = callback;
+          })
+        })
       }
     });
-    mockLoggerFactory = createLoggerFactory();
-
-    mockPerformanceStateService = createPerformanceStateServiceMock({
-      initialize: vi.fn(({ onStateChange: callback }) => {
-        onStateChange = callback;
-      })
-    });
-
-    coordinator = new PerformanceStateOrchestrator(
-      mockEventBus,
-      mockPerformanceStateService,
-      mockLoggerFactory
-    );
+    coordinator = h.subject;
+    ({
+      eventBus: mockEventBus,
+      performanceStateService: mockPerformanceStateService
+    } = h.deps);
   });
 
   it('should subscribe to performance signals on initialize', async () => {

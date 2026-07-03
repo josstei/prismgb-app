@@ -1,20 +1,18 @@
-// @ts-nocheck
 /**
  * SettingsFullscreenService Unit Tests
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => {
-  const { createTrpcClientMock } = await import('../../../../support/mocks/trpc-client.mock');
-  return { trpcClient: createTrpcClientMock() };
-});
+vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
+  trpcClient: (await import('../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
+}));
 
 import { SettingsFullscreenService } from '@renderer/infrastructure/services/settings/settings-fullscreen.service';
 import { EventChannels } from '@platform/events';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { emitTrpcData, getTrpcUnsubscribe } from '../../../../support/mocks/trpc-client.mock';
 import { installFullscreenDocumentMock } from '../../../../support/mocks/browser-api.installers.js';
-import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('SettingsFullscreenService', () => {
   let service;
@@ -26,10 +24,6 @@ describe('SettingsFullscreenService', () => {
   let documentMock;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-
-    mockEventBus = createEventBus();
-    mockLoggerFactory = createLoggerFactory();
 
     vi.mocked(trpcClient.window.isFullScreen.query)
       .mockReset()
@@ -42,8 +36,10 @@ describe('SettingsFullscreenService', () => {
     mockDocument = documentMock.document;
     mockDocumentElement = documentMock.documentElement;
 
-    service = new SettingsFullscreenService(mockEventBus, mockLoggerFactory);
-    mockLogger = mockLoggerFactory._getLogger('SettingsFullscreenService');
+    const h = createInjectableHarness(SettingsFullscreenService);
+    service = h.subject;
+    mockLogger = h.logger;
+    ({ eventBus: mockEventBus, loggerFactory: mockLoggerFactory } = h.deps);
   });
 
   afterEach(() => {

@@ -7,7 +7,7 @@ import { IPC_CHANNELS } from '@platform/ipc';
 import { injectable, inject } from 'inversify';
 import { BaseService, type LoggerFactoryLike } from '@platform/core';
 import { TOKENS } from '@main/application/di/tokens.js';
-import type { IpcPushBridge } from '@main/ipc/event-bridge.js';
+import type { IpcPushBridge } from '@main/ipc/ipc-push.bridge.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const { WINDOW_CONFIG } = uiConfig;

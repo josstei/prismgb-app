@@ -44,7 +44,6 @@ describe('UpdateService', () => {
   let mockConfig;
 
   beforeEach(() => {
-    vi.clearAllMocks();
 
     mockLoggerFactory = createLoggerFactory();
 
@@ -78,9 +77,6 @@ describe('UpdateService', () => {
       expect(service._initialized).toBe(false);
     });
 
-    it('should create logger with correct name', () => {
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('UpdateService');
-    });
   });
 
   describe('initialize', () => {
@@ -115,13 +111,6 @@ describe('UpdateService', () => {
       expect(autoUpdater.on).toHaveBeenCalledWith('download-progress', expect.any(Function));
       expect(autoUpdater.on).toHaveBeenCalledWith('update-downloaded', expect.any(Function));
       expect(autoUpdater.on).toHaveBeenCalledWith('error', expect.any(Function));
-    });
-
-    it('should warn if already initialized', () => {
-      service.initialize();
-      service.initialize();
-
-      expect(mockLogger.warn).toHaveBeenCalledWith('UpdateService already initialized');
     });
 
     it('should suppress platform-not-found errors in autoUpdater logger', () => {

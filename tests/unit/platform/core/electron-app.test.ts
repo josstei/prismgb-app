@@ -8,10 +8,6 @@ async function importFreshModule(): Promise<ElectronAppModule> {
 }
 
 describe('getElectronApp', () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('returns null when the node module system is unavailable', async () => {
     const { getElectronApp } = await importFreshModule();
     const getBuiltinModule = vi

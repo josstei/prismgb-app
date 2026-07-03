@@ -5,10 +5,10 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
-  createLoggerFactory,
   createPreventDefaultEventMock,
   createWindowServiceElectronMock
 } from '../../factories/index.js';
+import { createInjectableHarness } from '../../support/di/injectable.harness.js';
 
 // Mock electron - need to use class syntax
 vi.mock('electron', () => {
@@ -62,20 +62,20 @@ describe('WindowService', () => {
   let originalPlatform;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-
-    mockLoggerFactory = createLoggerFactory();
-    mockIpcPushBridge = { emit: vi.fn(), on: vi.fn(), off: vi.fn() };
-
-    windowService = new WindowService(mockIpcPushBridge, mockLoggerFactory);
-    mockLogger = mockLoggerFactory._getLogger('WindowService');
+    const h = createInjectableHarness(WindowService, {
+      overrides: {
+        ipcPushBridge: { emit: vi.fn(), on: vi.fn(), off: vi.fn() }
+      }
+    });
+    windowService = h.subject;
+    mockLogger = h.logger;
+    ({ ipcPushBridge: mockIpcPushBridge, loggerFactory: mockLoggerFactory } = h.deps);
 
     // Store original platform
     originalPlatform = process.platform;
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
     // Note: Can't easily restore process.platform in vitest
   });
 

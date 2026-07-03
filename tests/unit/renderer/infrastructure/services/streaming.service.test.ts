@@ -12,12 +12,10 @@ import { StreamingService } from '@renderer/infrastructure/services/streaming/st
 import {
   createCaptureStreamMock,
   createDeviceInfo,
-  createDeviceMediaAcquirerMock,
   createRendererDeviceRuntimeMock,
-  createEventBus,
-  createLoggerFactory,
   createMediaTrackMock,
 } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 function createDeferred() {
   let resolve;
@@ -50,19 +48,25 @@ describe('StreamingService', () => {
   let mockRendererDeviceRuntime;
   let mockDeviceMediaAcquirer;
   let mockLogger;
-  let mockLoggerFactory;
   let mockTarget;
 
   beforeEach(() => {
-    mockEventBus = createEventBus();
     mockTarget = createStreamingTarget();
-    mockRendererDeviceRuntime = createRendererDeviceRuntimeMock({
-      resolveStreamingTarget: vi.fn().mockResolvedValue(mockTarget)
+
+    const h = createInjectableHarness(StreamingService, {
+      overrides: {
+        rendererDeviceRuntime: createRendererDeviceRuntimeMock({
+          resolveStreamingTarget: vi.fn().mockResolvedValue(mockTarget)
+        })
+      }
     });
-    mockDeviceMediaAcquirer = createDeviceMediaAcquirerMock();
-    mockLoggerFactory = createLoggerFactory();
-    service = new StreamingService(mockRendererDeviceRuntime, mockDeviceMediaAcquirer, mockEventBus, mockLoggerFactory);
-    mockLogger = mockLoggerFactory._getLogger('StreamingService');
+    service = h.subject;
+    mockLogger = h.logger;
+    ({
+      rendererDeviceRuntime: mockRendererDeviceRuntime,
+      deviceMediaAcquirer: mockDeviceMediaAcquirer,
+      eventBus: mockEventBus
+    } = h.deps);
   });
 
   describe('Constructor', () => {
@@ -382,7 +386,7 @@ describe('StreamingService', () => {
       const result = await service.start('device-1');
 
       expect(result.stream).toBe(mockStream);
-      expect(service._state).toBe('streaming');
+      expect(service.isActive()).toBe(true);
     });
 
     it('should clear partial state even if release fails during cleanup', async () => {

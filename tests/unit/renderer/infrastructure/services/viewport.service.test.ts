@@ -5,16 +5,16 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingViewportService } from '@renderer/infrastructure/services/platform/viewport.service';
-import { createLoggerFactory, createMockCanvas, createMockElement } from '../../../../factories/index.js';
+import { createMockCanvas, createMockElement } from '../../../../factories/index.js';
 import {
   installGetComputedStyleMock,
   installResizeObserverMock
 } from '../../../../support/mocks/browser-api.installers.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('StreamingViewportService', () => {
   let service;
   let mockLogger;
-  let mockLoggerFactory;
   let mockCanvas;
   let mockContainer;
   let mockSection;
@@ -46,8 +46,6 @@ describe('StreamingViewportService', () => {
   beforeEach(() => {
     vi.useFakeTimers();
 
-    mockLoggerFactory = createLoggerFactory();
-
     mockContainer = createMockElement('div');
 
     // mainContent is the stable parent used for measurement
@@ -71,14 +69,14 @@ describe('StreamingViewportService', () => {
     getComputedStyleMock = installGetComputedStyleMock(getViewportComputedStyle);
     resizeObserverMock = installResizeObserverMock();
 
-    service = new StreamingViewportService(mockLoggerFactory);
-    mockLogger = mockLoggerFactory._getLogger('StreamingViewportService');
+    const h = createInjectableHarness(StreamingViewportService);
+    service = h.subject;
+    mockLogger = h.logger;
   });
 
   afterEach(() => {
     resizeObserverMock?.cleanup();
     getComputedStyleMock?.cleanup();
-    vi.clearAllMocks();
     vi.useRealTimers();
   });
 

@@ -1,6 +1,7 @@
 import {
   ManagedLifecycleHost,
   type Disposable,
+  type DisposableBag,
   type DisposableFunction,
   type DisposableKey,
   type EventTargetLike
@@ -14,7 +15,8 @@ export type PresentationLifecycleToken = {
 };
 
 export class PresentationComponent {
-  protected readonly lifecycle = new ManagedLifecycleHost();
+  private readonly _lifecycle = new ManagedLifecycleHost();
+  readonly disposables: DisposableBag = this._lifecycle.disposables;
 
   protected listen(
     target: EventTargetLike | null,
@@ -28,34 +30,34 @@ export class PresentationComponent {
 
     if (options === undefined) {
       target.addEventListener(type, handler);
-      return this.lifecycle.track(() => target.removeEventListener(type, handler));
+      return this._lifecycle.track(() => target.removeEventListener(type, handler));
     }
 
-    return this.lifecycle.subscribeEvent(target, type, handler, options);
+    return this._lifecycle.subscribeEvent(target, type, handler, options);
   }
 
   protected timeout(handler: () => void, delay: number, ...args: unknown[]): DisposableFunction {
-    return this.lifecycle.timeout<unknown[]>(handler, delay, ...args);
+    return this._lifecycle.timeout<unknown[]>(handler, delay, ...args);
   }
 
   protected observe(observer: { disconnect(): void }): DisposableFunction {
-    return this.lifecycle.observe(observer);
+    return this._lifecycle.observe(observer);
   }
 
   protected track(disposable: Disposable): DisposableFunction {
-    return this.lifecycle.track(disposable);
+    return this._lifecycle.track(disposable);
   }
 
   protected replaceManaged(key: DisposableKey, disposable: Disposable): DisposableFunction {
-    return this.lifecycle.replaceManaged(key, disposable);
+    return this._lifecycle.replaceManaged(key, disposable);
   }
 
   protected cancelManaged(key: DisposableKey): void | Promise<void> {
-    return this.lifecycle.cancelManaged(key);
+    return this._lifecycle.cancelManaged(key);
   }
 
   protected replaceManagedGroup(key: DisposableKey, disposables: readonly Disposable[]): DisposableFunction {
-    return this.lifecycle.replaceManagedGroup(key, disposables);
+    return this._lifecycle.replaceManagedGroup(key, disposables);
   }
 
   protected createLifecycleToken(key: DisposableKey): PresentationLifecycleToken {
@@ -76,7 +78,7 @@ export class PresentationComponent {
     delay: number,
     ...args: unknown[]
   ): DisposableFunction {
-    return this.lifecycle.schedule(key, handler, delay, ...args);
+    return this._lifecycle.schedule(key, handler, delay, ...args);
   }
 
   protected replaceAnimationFrame(key: DisposableKey, handler: FrameRequestCallback): DisposableFunction {
@@ -114,6 +116,6 @@ export class PresentationComponent {
   protected onDisposeError(_error: unknown): void {}
 
   dispose(): void | Promise<void> {
-    return this.lifecycle.dispose().catch((error) => this.onDisposeError(error));
+    return this._lifecycle.dispose().catch((error) => this.onDisposeError(error));
   }
 }

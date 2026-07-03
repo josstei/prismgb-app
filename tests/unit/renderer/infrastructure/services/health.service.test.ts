@@ -4,33 +4,31 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingHealthService } from '@renderer/infrastructure/services/platform/health.service';
-import { createLoggerFactory, createMockVideo } from '../../../../factories/index.js';
+import { createMockVideo } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('StreamingHealthService', () => {
   let service;
   let mockLogger;
   let mockVideoElement;
-  let mockLoggerFactory;
 
   beforeEach(() => {
     vi.useFakeTimers();
 
-    mockLoggerFactory = createLoggerFactory();
-
     mockVideoElement = createMockVideo();
 
-    service = new StreamingHealthService(mockLoggerFactory);
-    mockLogger = mockLoggerFactory._getLogger('StreamingHealthService');
+    const h = createInjectableHarness(StreamingHealthService);
+    service = h.subject;
+    mockLogger = h.logger;
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
     vi.useRealTimers();
   });
 
   describe('constructor', () => {
     it('should initialize with default values', () => {
-      expect(service._isMonitoring).toBe(false);
+      expect(service.isMonitoring()).toBe(false);
       expect(service._timeoutMs).toBe(4000);
       expect(service.disposables.size).toBe(0);
       expect(service._firstFrameReceived).toBe(false);
@@ -49,7 +47,7 @@ describe('StreamingHealthService', () => {
 
       service.checkStreamHealth(mockVideoElement, onHealthy, onUnhealthy, 4000);
 
-      expect(service._isMonitoring).toBe(true);
+      expect(service.isMonitoring()).toBe(true);
       expect(service._videoElement).toBe(mockVideoElement);
       expect(service._onHealthy).toBe(onHealthy);
       expect(service._onUnhealthy).toBe(onUnhealthy);
@@ -222,7 +220,7 @@ describe('StreamingHealthService', () => {
 
       service.stopMonitoring();
 
-      expect(service._isMonitoring).toBe(false);
+      expect(service.isMonitoring()).toBe(false);
       expect(service._videoElement).toBeNull();
       expect(mockLogger.debug).toHaveBeenCalledWith('Stream health monitoring stopped');
     });
@@ -276,7 +274,7 @@ describe('StreamingHealthService', () => {
       service.checkStreamHealth(mockVideoElement, vi.fn(), vi.fn());
       service.cleanup();
 
-      expect(service._isMonitoring).toBe(false);
+      expect(service.isMonitoring()).toBe(false);
     });
   });
 

@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { BrowserMediaAdapter } from '@renderer/infrastructure/browser/browser-media.adapter.js';
-import { BrowserStorageAdapter } from '@renderer/infrastructure/browser/browser-storage.adapter.js';
+import { BrowserMediaAdapter } from '@renderer/infrastructure/adapters/browser-media.adapter.js';
+import { BrowserStorageAdapter } from '@renderer/infrastructure/adapters/browser-storage.adapter.js';
 import { createLogger } from '../../../../factories/index.js';
 import {
   installClipboardMock,

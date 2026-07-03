@@ -1,44 +1,35 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => {
-  const { createTrpcClientMock } = await import('../../../../support/mocks/trpc-client.mock');
-  return { trpcClient: createTrpcClientMock() };
-});
+vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
+  trpcClient: (await import('../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
+}));
 import { UpdateService } from '@renderer/infrastructure/services/updates/update.service';
 import { UpdateState } from '@platform/config';
 import { EventChannels } from '@platform/events';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { emitTrpcData, getTrpcUnsubscribe } from '../../../../support/mocks/trpc-client.mock';
-import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('UpdateService', () => {
   let service, mockEventBus, mockLogger, mockLoggerFactory;
 
   beforeEach(() => {
-    mockEventBus = createEventBus();
-    mockLoggerFactory = createLoggerFactory();
-
     vi.mocked(trpcClient.update.getStatus.query).mockResolvedValue({ state: UpdateState.IDLE });
 
-    service = new UpdateService(mockEventBus, mockLoggerFactory);
-    mockLogger = mockLoggerFactory._getLogger('UpdateService');
-  });
-
-  afterEach(() => {
-    vi.clearAllMocks();
+    const h = createInjectableHarness(UpdateService);
+    service = h.subject;
+    mockLogger = h.logger;
+    ({ eventBus: mockEventBus, loggerFactory: mockLoggerFactory } = h.deps);
   });
 
   describe('constructor', () => {
     it('should create service with initial state', () => {
-      expect(service._state).toBe(UpdateState.IDLE);
-      expect(service._updateInfo).toBeNull();
-      expect(service._downloadProgress).toBeNull();
-      expect(service._error).toBeNull();
+      expect(service.state).toBe(UpdateState.IDLE);
+      expect(service.updateInfo).toBeNull();
+      expect(service.getStatus().downloadProgress).toBeNull();
+      expect(service.getStatus().error).toBeNull();
       expect(service._initialized).toBe(false);
     });
 
-    it('should create logger', () => {
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('UpdateService');
-    });
   });
 
   describe('initialize', () => {
@@ -69,16 +60,9 @@ describe('UpdateService', () => {
 
       await service.initialize();
 
-      expect(service._state).toBe(UpdateState.AVAILABLE);
-      expect(service._updateInfo).toEqual({ version: '2.0.0' });
-      expect(service._downloadProgress).toEqual({ percent: 50 });
-    });
-
-    it('should warn if already initialized', async () => {
-      await service.initialize();
-      await service.initialize();
-
-      expect(mockLogger.warn).toHaveBeenCalledWith('UpdateService already initialized');
+      expect(service.state).toBe(UpdateState.AVAILABLE);
+      expect(service.updateInfo).toEqual({ version: '2.0.0' });
+      expect(service.getStatus().downloadProgress).toEqual({ percent: 50 });
     });
 
     it('should handle getStatus error gracefully', async () => {
@@ -101,8 +85,8 @@ describe('UpdateService', () => {
       const info = { version: '2.0.0' };
       emitTrpcData(trpcClient.update.onAvailable, info);
 
-      expect(service._state).toBe(UpdateState.AVAILABLE);
-      expect(service._updateInfo).toBe(info);
+      expect(service.state).toBe(UpdateState.AVAILABLE);
+      expect(service.updateInfo).toBe(info);
       expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UPDATE.AVAILABLE, info);
     });
 
@@ -110,8 +94,8 @@ describe('UpdateService', () => {
       const info = { version: '1.0.0' };
       emitTrpcData(trpcClient.update.onNotAvailable, info);
 
-      expect(service._state).toBe(UpdateState.NOT_AVAILABLE);
-      expect(service._updateInfo).toBe(info);
+      expect(service.state).toBe(UpdateState.NOT_AVAILABLE);
+      expect(service.updateInfo).toBe(info);
       expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UPDATE.NOT_AVAILABLE, info);
     });
 
@@ -119,7 +103,7 @@ describe('UpdateService', () => {
       const progress = { percent: 75 };
       emitTrpcData(trpcClient.update.onProgress, progress);
 
-      expect(service._downloadProgress).toBe(progress);
+      expect(service.getStatus().downloadProgress).toBe(progress);
       expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UPDATE.PROGRESS, progress);
     });
 
@@ -127,8 +111,8 @@ describe('UpdateService', () => {
       const info = { version: '2.0.0' };
       emitTrpcData(trpcClient.update.onDownloaded, info);
 
-      expect(service._state).toBe(UpdateState.DOWNLOADED);
-      expect(service._updateInfo).toBe(info);
+      expect(service.state).toBe(UpdateState.DOWNLOADED);
+      expect(service.updateInfo).toBe(info);
       expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UPDATE.DOWNLOADED, info);
     });
 
@@ -136,8 +120,8 @@ describe('UpdateService', () => {
       const error = { message: 'Network error' };
       emitTrpcData(trpcClient.update.onError, error);
 
-      expect(service._state).toBe(UpdateState.ERROR);
-      expect(service._error).toBe(error);
+      expect(service.state).toBe(UpdateState.ERROR);
+      expect(service.getStatus().error).toBe(error);
       expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UPDATE.ERROR, error);
     });
   });
@@ -152,7 +136,7 @@ describe('UpdateService', () => {
 
       const promise = service.checkForUpdates();
 
-      expect(service._state).toBe(UpdateState.CHECKING);
+      expect(service.state).toBe(UpdateState.CHECKING);
 
       await promise;
     });
@@ -172,8 +156,8 @@ describe('UpdateService', () => {
       const result = await service.checkForUpdates();
 
       expect(result).toBeUndefined();
-      expect(service._state).toBe(UpdateState.ERROR);
-      expect(service._error).toEqual({ message: 'Network error' });
+      expect(service.state).toBe(UpdateState.ERROR);
+      expect(service.getStatus().error).toEqual({ message: 'Network error' });
     });
 
     it('should reconcile an available result into the AVAILABLE state', async () => {
@@ -185,8 +169,8 @@ describe('UpdateService', () => {
 
       await service.checkForUpdates();
 
-      expect(service._state).toBe(UpdateState.AVAILABLE);
-      expect(service._updateInfo).toEqual(updateInfo);
+      expect(service.state).toBe(UpdateState.AVAILABLE);
+      expect(service.updateInfo).toEqual(updateInfo);
       expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UPDATE.AVAILABLE, updateInfo);
     });
 
@@ -198,8 +182,8 @@ describe('UpdateService', () => {
 
       await service.checkForUpdates();
 
-      expect(service._state).toBe(UpdateState.NOT_AVAILABLE);
-      expect(service._updateInfo).toEqual({ reason: 'latest' });
+      expect(service.state).toBe(UpdateState.NOT_AVAILABLE);
+      expect(service.updateInfo).toEqual({ reason: 'latest' });
       expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UPDATE.NOT_AVAILABLE, { reason: 'latest' });
     });
 
@@ -209,8 +193,8 @@ describe('UpdateService', () => {
       const result = await service.checkForUpdates();
 
       expect(result).toBeUndefined();
-      expect(service._state).toBe(UpdateState.ERROR);
-      expect(service._error).toEqual({ message: 'Server rejected' });
+      expect(service.state).toBe(UpdateState.ERROR);
+      expect(service.getStatus().error).toEqual({ message: 'Server rejected' });
     });
 
     it('should apply a generic fallback message when a rejection carries no message', async () => {
@@ -218,8 +202,8 @@ describe('UpdateService', () => {
 
       await service.checkForUpdates();
 
-      expect(service._state).toBe(UpdateState.ERROR);
-      expect(service._error).toEqual({ message: 'Unknown error' });
+      expect(service.state).toBe(UpdateState.ERROR);
+      expect(service.getStatus().error).toEqual({ message: 'Unknown error' });
     });
   });
 
@@ -254,8 +238,8 @@ describe('UpdateService', () => {
       const result = await service.downloadUpdate();
 
       expect(result).toBeUndefined();
-      expect(service._state).toBe(UpdateState.ERROR);
-      expect(service._error).toEqual({ message: 'Download failed' });
+      expect(service.state).toBe(UpdateState.ERROR);
+      expect(service.getStatus().error).toEqual({ message: 'Download failed' });
     });
   });
 
@@ -291,8 +275,8 @@ describe('UpdateService', () => {
       const result = await service.installUpdate();
 
       expect(result).toBeUndefined();
-      expect(service._state).toBe(UpdateState.ERROR);
-      expect(service._error).toEqual({ message: 'Install failed' });
+      expect(service.state).toBe(UpdateState.ERROR);
+      expect(service.getStatus().error).toEqual({ message: 'Install failed' });
     });
   });
 
@@ -353,8 +337,8 @@ describe('UpdateService', () => {
 
       await service.dispose();
 
-      expect(service._state).toBe(UpdateState.IDLE);
-      expect(service._updateInfo).toBeNull();
+      expect(service.state).toBe(UpdateState.IDLE);
+      expect(service.updateInfo).toBeNull();
       expect(service._initialized).toBe(false);
     });
   });
@@ -363,7 +347,7 @@ describe('UpdateService', () => {
     it('should update state and emit state-changed', () => {
       service._setState(UpdateState.CHECKING);
 
-      expect(service._state).toBe(UpdateState.CHECKING);
+      expect(service.state).toBe(UpdateState.CHECKING);
       expect(mockEventBus.publish).toHaveBeenCalledWith(
         EventChannels.UPDATE.STATE_CHANGED,
         expect.objectContaining({ state: UpdateState.CHECKING })

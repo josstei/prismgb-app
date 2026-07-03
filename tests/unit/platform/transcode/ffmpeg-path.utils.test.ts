@@ -95,7 +95,6 @@ async function loadFfmpegPathUtils(options: LoadOptions = {}): Promise<FfmpegPat
 
 describe('ffmpeg-path.utils (characterization)', () => {
   afterEach(() => {
-    vi.restoreAllMocks();
     restoreProcessGlobals();
   });
 

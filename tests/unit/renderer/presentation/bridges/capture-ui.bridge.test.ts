@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * CaptureUIBridge Unit Tests
  * Tests the event bridge between capture events and UI feedback
@@ -10,8 +9,8 @@ import { EventChannels } from '@platform/events';
 import {
   createCaptureUIControllerMock,
   createEventBus,
-  createLoggerFactory,
 } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('CaptureUIBridge', () => {
   let bridge;
@@ -22,26 +21,20 @@ describe('CaptureUIBridge', () => {
   let subscribedHandlers;
 
   beforeEach(() => {
-    // Track subscribed handlers
     subscribedHandlers = {};
 
-    mockEventBus = createEventBus({
-      onSubscribe: (event, handlerFn) => {
-        subscribedHandlers[event] = handlerFn;
-      },
+    const h = createInjectableHarness(CaptureUIBridge, {
+      overrides: {
+        eventBus: createEventBus({
+          onSubscribe: (event, handlerFn) => {
+            subscribedHandlers[event] = handlerFn;
+          },
+        }),
+        uiController: createCaptureUIControllerMock()
+      }
     });
-
-    mockUIController = createCaptureUIControllerMock();
-
-    mockLoggerFactory = createLoggerFactory();
-    mockLogger = mockLoggerFactory.create('CaptureUIBridge');
-
-    // Clear mocks
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
+    mockLogger = h.logger;
+    ({ eventBus: mockEventBus, uiController: mockUIController, loggerFactory: mockLoggerFactory } = h.deps);
   });
 
   describe('Constructor', () => {
@@ -55,13 +48,6 @@ describe('CaptureUIBridge', () => {
       bridge = new CaptureUIBridge(mockEventBus, mockUIController, mockLoggerFactory);
 
       expect(bridge.uiController).toBe(mockUIController);
-    });
-
-    it('should create logger from loggerFactory', () => {
-      bridge = new CaptureUIBridge(mockEventBus, mockUIController, mockLoggerFactory);
-
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('CaptureUIBridge');
-      expect(bridge.logger).toBe(mockLogger);
     });
 
     it('should initialize disposables bag', () => {

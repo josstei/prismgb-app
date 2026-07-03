@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { appRouter } from '@main/ipc/router.js';
-import { IpcPushBridge } from '@main/ipc/event-bridge.js';
+import { IpcPushBridge } from '@main/ipc/ipc-push.bridge.js';
 import type { IpcContext } from '@main/ipc/trpc.js';
 import {
   createChromaticDeviceInfoPayload,

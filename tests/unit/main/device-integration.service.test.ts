@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
-import { createEventBus, createLoggerFactory } from '../../factories/index.js';
+import { createEventBus } from '../../factories/index.js';
 import { createChromaticDeviceInfoPayload } from '../../devices/media.testkit';
+import { createInjectableHarness } from '../../support/di/injectable.harness.js';
 
 describe('DeviceIntegrationService', () => {
   let statusListener: ((status: unknown, reason: unknown) => void) | null;
@@ -21,26 +22,25 @@ describe('DeviceIntegrationService', () => {
   beforeEach(() => {
     statusListener = null;
     checkErrorListener = null;
-    deviceConnectionService = {
-      onStatusChanged: vi.fn((listener) => {
-        statusListener = listener;
-        return vi.fn();
-      }),
-      onCheckError: vi.fn((listener) => {
-        checkErrorListener = listener;
-        return vi.fn();
-      })
-    };
-    trayService = { updateTrayMenu: vi.fn() };
-    windowService = { send: vi.fn(), showWindow: vi.fn() };
-    eventBus = createEventBus();
-    service = new DeviceIntegrationService(
-      deviceConnectionService as never,
-      trayService as never,
-      windowService as never,
-      eventBus as never,
-      createLoggerFactory()
-    );
+
+    const h = createInjectableHarness(DeviceIntegrationService, {
+      overrides: {
+        deviceConnectionService: {
+          onStatusChanged: vi.fn((listener) => {
+            statusListener = listener;
+            return vi.fn();
+          }),
+          onCheckError: vi.fn((listener) => {
+            checkErrorListener = listener;
+            return vi.fn();
+          })
+        },
+        trayService: { updateTrayMenu: vi.fn() },
+        windowService: { send: vi.fn(), showWindow: vi.fn() }
+      }
+    });
+    service = h.subject;
+    ({ deviceConnectionService, trayService, windowService, eventBus } = h.deps);
   });
 
   afterEach(() => {

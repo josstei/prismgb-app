@@ -1,17 +1,11 @@
-// @ts-nocheck
 /**
  * SettingsDisplayModeOrchestrator Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { SettingsDisplayModeOrchestrator } from '@renderer/application/orchestrators/display-mode.orchestrator';
-import {
-  createEventBus,
-  createLoggerFactory,
-  createSettingsCinematicModeServiceMock,
-  createSettingsFullscreenServiceMock,
-  createSettingsServiceMock
-} from '../../../../factories/index.js';
+import { createSettingsServiceMock } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 import { installDocumentPropertyMock } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('SettingsDisplayModeOrchestrator', () => {
@@ -20,36 +14,27 @@ describe('SettingsDisplayModeOrchestrator', () => {
   let mockSettingsCinematicModeService;
   let mockSettingsService;
   let mockEventBus;
-  let mockLoggerFactory;
   let hiddenMock;
 
   beforeEach(() => {
-    mockLoggerFactory = createLoggerFactory();
-
-    mockSettingsFullscreenService = createSettingsFullscreenServiceMock();
-    mockSettingsCinematicModeService = createSettingsCinematicModeServiceMock();
-
-    mockSettingsService = createSettingsServiceMock({
-      values: {
-        fullscreenOnStartup: false
-      }
-    });
-
-    mockEventBus = createEventBus();
     hiddenMock = installDocumentPropertyMock('hidden', false);
 
-    orchestrator = new SettingsDisplayModeOrchestrator(
-      mockSettingsFullscreenService,
-      mockSettingsCinematicModeService,
-      mockSettingsService,
-      mockEventBus,
-      mockLoggerFactory
-    );
+    const h = createInjectableHarness(SettingsDisplayModeOrchestrator, {
+      overrides: {
+        settingsService: createSettingsServiceMock({ values: { fullscreenOnStartup: false } })
+      }
+    });
+    orchestrator = h.subject;
+    ({
+      fullscreenService: mockSettingsFullscreenService,
+      cinematicModeService: mockSettingsCinematicModeService,
+      settingsService: mockSettingsService,
+      eventBus: mockEventBus
+    } = h.deps);
   });
 
   afterEach(() => {
     hiddenMock.cleanup();
-    vi.restoreAllMocks();
   });
 
   describe('constructor', () => {
@@ -108,21 +93,21 @@ describe('SettingsDisplayModeOrchestrator', () => {
     });
 
     it('should remove deferred startup fullscreen listener during cleanup', async () => {
-       mockSettingsService.setSetting('fullscreenOnStartup', true);
-       hiddenMock.setValue(true);
-       const addListenerSpy = vi.spyOn(document, 'addEventListener');
-       const removeListenerSpy = vi.spyOn(document, 'removeEventListener');
- 
-       orchestrator._applyStartupBehaviors();
-       await orchestrator.onCleanup();
- 
-       expect(addListenerSpy).toHaveBeenCalled();
-       expect(addListenerSpy.mock.calls[0][0]).toBe('visibilitychange');
-       expect(typeof addListenerSpy.mock.calls[0][1]).toBe('function');
- 
-       expect(removeListenerSpy).toHaveBeenCalled();
-       expect(removeListenerSpy.mock.calls[0][0]).toBe('visibilitychange');
-       expect(typeof removeListenerSpy.mock.calls[0][1]).toBe('function');
+      mockSettingsService.setSetting('fullscreenOnStartup', true);
+      hiddenMock.setValue(true);
+      const addListenerSpy = vi.spyOn(document, 'addEventListener');
+      const removeListenerSpy = vi.spyOn(document, 'removeEventListener');
+
+      orchestrator._applyStartupBehaviors();
+      await orchestrator.onCleanup();
+
+      expect(addListenerSpy).toHaveBeenCalled();
+      expect(addListenerSpy.mock.calls[0][0]).toBe('visibilitychange');
+      expect(typeof addListenerSpy.mock.calls[0][1]).toBe('function');
+
+      expect(removeListenerSpy).toHaveBeenCalled();
+      expect(removeListenerSpy.mock.calls[0][0]).toBe('visibilitychange');
+      expect(typeof removeListenerSpy.mock.calls[0][1]).toBe('function');
     });
   });
 });

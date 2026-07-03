@@ -78,13 +78,11 @@ describe('StreamingCanvasLifecycleService', () => {
     }));
     createElementMock = installDocumentCreateElementMock();
 
-    vi.clearAllMocks();
   });
 
   afterEach(() => {
     createElementMock.cleanup();
     getComputedStyleMock.cleanup();
-    vi.restoreAllMocks();
   });
 
   describe('Constructor', () => {

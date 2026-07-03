@@ -3,10 +3,10 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { BodyClassManager } from '@renderer/presentation/effects/body-class.class';
+import { BodyClassManager } from '@renderer/presentation/effects/body-class-manager';
 import { PresentationModeStore } from '@renderer/presentation/state/presentation-mode.store.js';
 import { signal } from '@platform/ui-base/reactive';
-import { SharedEventBus, EventChannels } from '@platform/events';
+import { PlatformEventBus, EventChannels } from '@platform/events';
 
 describe('BodyClassManager', () => {
   let manager;
@@ -20,7 +20,6 @@ describe('BodyClassManager', () => {
   afterEach(() => {
     manager?.dispose();
     document.body.className = '';
-    vi.restoreAllMocks();
   });
 
   describe('setIdle', () => {
@@ -86,7 +85,6 @@ describe('BodyClassManager', () => {
       expect(document.body.classList.contains('streaming-mode')).toBe(false);
     });
   });
-
 
   describe('setMinimalistFullscreen', () => {
     it('should add minimalist-fullscreen class when true', () => {
@@ -185,7 +183,7 @@ describe('BodyClassManager', () => {
     let store;
 
     beforeEach(() => {
-      bus = new SharedEventBus();
+      bus = new PlatformEventBus();
       cinematicEnabled = signal(false);
       store = new PresentationModeStore({ eventBus: bus, cinematicEnabled });
       manager.bindPresentationMode(store);

@@ -21,7 +21,6 @@ describe('CursorAutoHide', () => {
   afterEach(() => {
     autoHide?.dispose();
     document.body.className = '';
-    vi.restoreAllMocks();
   });
 
   describe('constructor', () => {

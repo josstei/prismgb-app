@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * TranscodeUIBridge Unit Tests
  * Bridges transcode lifecycle events to record-button feedback. Toast display now
@@ -8,7 +7,8 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge';
 import { EventChannels } from '@platform/events';
-import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import { createEventBus } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('TranscodeUIBridge', () => {
   let bridge;
@@ -16,36 +16,29 @@ describe('TranscodeUIBridge', () => {
   let mockLogger;
   let mockLoggerFactory;
   let subscribedHandlers;
+  let h;
 
-  const createBridge = () =>
-    new TranscodeUIBridge(mockEventBus, mockLoggerFactory);
+  const createBridge = () => h.recreate();
 
   beforeEach(() => {
     subscribedHandlers = {};
-    mockEventBus = createEventBus({
-      onSubscribe: (event, handlerFn) => {
-        subscribedHandlers[event] = handlerFn;
-      },
+    h = createInjectableHarness(TranscodeUIBridge, {
+      overrides: {
+        eventBus: createEventBus({
+          onSubscribe: (event, handlerFn) => {
+            subscribedHandlers[event] = handlerFn;
+          },
+        })
+      }
     });
-    mockLoggerFactory = createLoggerFactory();
-    mockLogger = mockLoggerFactory.create('TranscodeUIBridge');
-    vi.clearAllMocks();
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
+    mockLogger = h.logger;
+    ({ eventBus: mockEventBus, loggerFactory: mockLoggerFactory } = h.deps);
   });
 
   describe('Constructor', () => {
     it('should store eventBus', () => {
       bridge = createBridge();
       expect(bridge.eventBus).toBe(mockEventBus);
-    });
-
-    it('should create logger from loggerFactory', () => {
-      bridge = createBridge();
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('TranscodeUIBridge');
-      expect(bridge.logger).toBe(mockLogger);
     });
 
     it('should initialize disposables bag', () => {

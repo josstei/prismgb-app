@@ -15,7 +15,7 @@ class TestComponent extends PresentationComponent {
     return this.replaceAnimationFrame(key, handler);
   }
   get disposableCount() {
-    return this.lifecycle.disposables.size;
+    return this.disposables.size;
   }
 }
 describe('ActivityAutoHideController', () => {
@@ -29,7 +29,6 @@ describe('ActivityAutoHideController', () => {
   });
   afterEach(() => {
     controller?.dispose();
-    vi.restoreAllMocks();
   });
   it('binds listeners on enable and unbinds on disable', () => {
     const addEventSpy = vi.spyOn(document, 'addEventListener');

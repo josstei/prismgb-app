@@ -2,7 +2,7 @@
  * ConsoleLoggerFactory Unit Tests
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ConsoleLoggerFactory } from '@platform/core';
 
 describe('ConsoleLoggerFactory', () => {
@@ -17,10 +17,6 @@ describe('ConsoleLoggerFactory', () => {
       warn: vi.spyOn(console, 'warn').mockImplementation(() => {}),
       error: vi.spyOn(console, 'error').mockImplementation(() => {})
     };
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
   });
 
   describe('create', () => {

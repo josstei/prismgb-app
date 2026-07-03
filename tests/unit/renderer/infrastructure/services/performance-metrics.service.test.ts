@@ -4,23 +4,20 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { PerformanceMetricsService } from '@renderer/infrastructure/services/performance/performance-metrics.service';
-import { createLoggerFactory, createPerformanceMetricsAdapterMock } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('PerformanceMetricsService', () => {
   let service;
   let mockLogger;
-  let mockLoggerFactory;
   let mockMetricsAdapter;
 
   beforeEach(() => {
     vi.useFakeTimers();
 
-    mockLoggerFactory = createLoggerFactory();
-
-    mockMetricsAdapter = createPerformanceMetricsAdapterMock();
-
-    service = new PerformanceMetricsService(mockLoggerFactory, mockMetricsAdapter);
-    mockLogger = mockLoggerFactory._getLogger('PerformanceMetricsService');
+    const h = createInjectableHarness(PerformanceMetricsService);
+    service = h.subject;
+    mockLogger = h.logger;
+    ({ metricsAdapter: mockMetricsAdapter } = h.deps);
   });
 
   afterEach(() => {

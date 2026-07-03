@@ -5,7 +5,7 @@ import {
   createRenderPresetFixture,
   createRenderStatsFixture,
   createWorkerRendererClientMock
-} from '../../../../../src/platform/gpu/testkit/fixtures';
+} from '@platform/gpu/testkit';
 import type { FramePayload } from '../../../../../src/platform/gpu/worker/protocol';
 
 describe('platform/gpu/testkit/fixtures', () => {

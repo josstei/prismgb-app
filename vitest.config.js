@@ -65,6 +65,8 @@ export default defineConfig({
           alias: sharedAlias,
           name: 'scripts-node',
           globals: true,
+          clearMocks: true,
+          restoreMocks: true,
           environment: 'node',
           include: [
             'tests/unit/scripts/**/*.{test,spec}.{js,ts}',
@@ -81,6 +83,8 @@ export default defineConfig({
           alias: sharedAlias,
           name: 'renderer-happy-dom',
           globals: true,
+          clearMocks: true,
+          restoreMocks: true,
           environment: 'happy-dom',
           include: [
             'tests/integration/**/*.{test,spec}.{js,ts}',
@@ -99,6 +103,8 @@ export default defineConfig({
           alias: sharedAlias,
           name: 'main-node',
           globals: true,
+          clearMocks: true,
+          restoreMocks: true,
           environment: 'node',
           include: [
             'tests/unit/main/**/*.{test,spec}.{js,ts}'
@@ -113,6 +119,8 @@ export default defineConfig({
           alias: sharedAlias,
           name: 'platform-node',
           globals: true,
+          clearMocks: true,
+          restoreMocks: true,
           environment: 'node',
           include: [
             'tests/unit/platform/{config,core,devices,events,ipc,notes,transcode,updates}/**/*.{test,spec}.{js,ts}'
@@ -128,6 +136,8 @@ export default defineConfig({
           alias: sharedAlias,
           name: 'platform-dom',
           globals: true,
+          clearMocks: true,
+          restoreMocks: true,
           environment: 'happy-dom',
           include: ['tests/unit/platform/{gpu,ui-base}/**/*.{test,spec}.{js,ts}']
         }

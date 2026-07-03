@@ -24,7 +24,6 @@ describe('ControlsAutoHide', () => {
   afterEach(() => {
     autoHide?.dispose();
     document.body.innerHTML = '';
-    vi.restoreAllMocks();
   });
 
   describe('constructor', () => {

@@ -7,46 +7,26 @@ import { escapeHtml, generateEntityId } from '@platform/core';
 
 describe('String Utils', () => {
   describe('escapeHtml', () => {
-    it('should escape ampersand', () => {
-      expect(escapeHtml('foo & bar')).toBe('foo &amp; bar');
+    it.each([
+      ['ampersand', 'foo & bar', 'foo &amp; bar'],
+      ['less than', 'foo < bar', 'foo &lt; bar'],
+      ['greater than', 'foo > bar', 'foo &gt; bar'],
+      ['double quotes', 'foo "bar" baz', 'foo &quot;bar&quot; baz'],
+      ['single quotes', "foo 'bar' baz", 'foo &#39;bar&#39; baz'],
+      ['multiple special characters', '<script>alert("xss")</script>', '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'],
+      ['all special characters in one string', '&<>"\'', '&amp;&lt;&gt;&quot;&#39;']
+    ])('should escape %s', (_label, input, expected) => {
+      expect(escapeHtml(input)).toBe(expected);
     });
 
-    it('should escape less than', () => {
-      expect(escapeHtml('foo < bar')).toBe('foo &lt; bar');
-    });
-
-    it('should escape greater than', () => {
-      expect(escapeHtml('foo > bar')).toBe('foo &gt; bar');
-    });
-
-    it('should escape double quotes', () => {
-      expect(escapeHtml('foo "bar" baz')).toBe('foo &quot;bar&quot; baz');
-    });
-
-    it('should escape single quotes', () => {
-      expect(escapeHtml("foo 'bar' baz")).toBe('foo &#39;bar&#39; baz');
-    });
-
-    it('should escape multiple special characters', () => {
-      expect(escapeHtml('<script>alert("xss")</script>'))
-        .toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
-    });
-
-    it('should return empty string for null input', () => {
-      expect(escapeHtml(null)).toBe('');
-    });
-
-    it('should return empty string for undefined input', () => {
-      expect(escapeHtml(undefined)).toBe('');
-    });
-
-    it('should return empty string for empty string input', () => {
-      expect(escapeHtml('')).toBe('');
-    });
-
-    it('should preserve empty string behavior for falsy non-string input', () => {
-      expect(escapeHtml(0)).toBe('');
-      expect(escapeHtml(false)).toBe('');
+    it.each([
+      ['null', null],
+      ['undefined', undefined],
+      ['empty string', ''],
+      ['falsy number', 0],
+      ['falsy boolean', false]
+    ])('should return empty string for %s input', (_label, input) => {
+      expect(escapeHtml(input)).toBe('');
     });
 
     it('should convert numbers to string before escaping', () => {
@@ -55,10 +35,6 @@ describe('String Utils', () => {
 
     it('should handle string with no special characters', () => {
       expect(escapeHtml('hello world')).toBe('hello world');
-    });
-
-    it('should handle all special characters in one string', () => {
-      expect(escapeHtml('&<>"\'')).toBe('&amp;&lt;&gt;&quot;&#39;');
     });
   });
 
@@ -72,14 +48,11 @@ describe('String Utils', () => {
       vi.useRealTimers();
     });
 
-    it('should generate id with default prefix', () => {
-      const id = generateEntityId();
-      expect(id).toMatch(/^id_\d+_[a-z0-9]+$/);
-    });
-
-    it('should generate id with custom prefix', () => {
-      const id = generateEntityId('note');
-      expect(id).toMatch(/^note_\d+_[a-z0-9]+$/);
+    it.each([
+      ['default prefix', undefined, /^id_\d+_[a-z0-9]+$/],
+      ['custom prefix', 'note', /^note_\d+_[a-z0-9]+$/]
+    ])('should generate id with %s', (_label, prefix, pattern) => {
+      expect(generateEntityId(prefix)).toMatch(pattern);
     });
 
     it('should include timestamp in id', () => {
@@ -89,7 +62,6 @@ describe('String Utils', () => {
     });
 
     it('should generate unique ids', () => {
-      // Restore real timers for uniqueness test
       vi.useRealTimers();
 
       const ids = new Set();
@@ -103,7 +75,7 @@ describe('String Utils', () => {
       const id = generateEntityId('prefix');
       const parts = id.split('_');
       expect(parts).toHaveLength(3);
-      expect(parts[2].length).toBe(7); // substring(2, 9) = 7 chars
+      expect(parts[2].length).toBe(7);
     });
   });
 });

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Browser API Mocks Installers
  *

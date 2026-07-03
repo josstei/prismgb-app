@@ -4,18 +4,16 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PerformanceAnimationService } from '@renderer/infrastructure/services/performance/performance-animation.service';
-import { createLoggerFactory } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('PerformanceAnimationService', () => {
   let service;
   let mockLogger;
-  let mockLoggerFactory;
 
   beforeEach(() => {
-    mockLoggerFactory = createLoggerFactory();
-
-    service = new PerformanceAnimationService(mockLoggerFactory);
-    mockLogger = mockLoggerFactory._getLogger('PerformanceAnimationService');
+    const h = createInjectableHarness(PerformanceAnimationService);
+    service = h.subject;
+    mockLogger = h.logger;
   });
 
   describe('setPerformanceState', () => {

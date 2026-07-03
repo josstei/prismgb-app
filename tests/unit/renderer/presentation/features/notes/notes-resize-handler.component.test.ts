@@ -22,7 +22,6 @@ describe('NotesResizeHandlerComponent', () => {
   afterEach(() => {
     component.dispose();
     animationFrameMock?.cleanup();
-    vi.restoreAllMocks();
   });
 
   describe('constructor', () => {

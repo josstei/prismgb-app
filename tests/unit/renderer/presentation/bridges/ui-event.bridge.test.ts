@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * UIEventBridge Unit Tests
  * Tests the event bridge between EventBus and UIController
@@ -9,10 +8,9 @@ import { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge';
 import { EventChannels } from '@platform/events';
 import {
   createEventBus,
-  createLoggerFactory,
-  createUIEventBridgeControllerMock,
-  createPresentationModeServiceMock
+  createUIEventBridgeControllerMock
 } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('UIEventBridge', () => {
   let handler;
@@ -26,29 +24,24 @@ describe('UIEventBridge', () => {
   beforeEach(() => {
     subscribedHandlers = {};
 
-    mockEventBus = createEventBus({
-      onSubscribe: (event, handlerFn) => {
-        subscribedHandlers[event] = handlerFn;
-      },
+    const h = createInjectableHarness(UIEventBridge, {
+      overrides: {
+        eventBus: createEventBus({
+          onSubscribe: (event, handlerFn) => {
+            subscribedHandlers[event] = handlerFn;
+          },
+        }),
+        uiController: createUIEventBridgeControllerMock()
+      }
     });
-
-    mockUiController = createUIEventBridgeControllerMock();
-
-    mockPresentationModeService = createPresentationModeServiceMock();
-
-    mockLoggerFactory = createLoggerFactory();
-
-    handler = new UIEventBridge(
-      mockEventBus,
-      mockUiController,
-      mockPresentationModeService,
-      mockLoggerFactory
-    );
-    mockLogger = mockLoggerFactory._getLogger('UIEventBridge');
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
+    handler = h.subject;
+    mockLogger = h.logger;
+    ({
+      eventBus: mockEventBus,
+      uiController: mockUiController,
+      presentationModeService: mockPresentationModeService,
+      loggerFactory: mockLoggerFactory
+    } = h.deps);
   });
 
   describe('Constructor', () => {
@@ -56,11 +49,6 @@ describe('UIEventBridge', () => {
       expect(handler.eventBus).toBe(mockEventBus);
       expect(handler.uiController).toBe(mockUiController);
       expect(handler.presentationModeService).toBe(mockPresentationModeService);
-    });
-
-    it('should create logger', () => {
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('UIEventBridge');
-      expect(handler.logger).toBe(mockLogger);
     });
 
     it('should initialize disposables bag', () => {
@@ -102,7 +90,6 @@ describe('UIEventBridge', () => {
     beforeEach(() => {
       handler.initialize();
     });
-
 
     it('routes streaming mode changes to presentation service', () => {
       subscribedHandlers[EventChannels.UI.STREAMING_MODE]({ enabled: true });

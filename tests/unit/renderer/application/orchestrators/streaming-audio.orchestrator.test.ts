@@ -2,17 +2,15 @@
  * StreamingAudioOrchestrator Unit Tests
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StreamingAudioOrchestrator } from '@renderer/application/orchestrators/streaming-audio.orchestrator';
 import {
   createAppState,
-  createEventBus,
-  createLoggerFactory,
   createCaptureStreamMock,
   createMediaTrackMock,
-  createStreamingAudioPipelineServiceMock,
   createStreamingViewServiceMock
 } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('StreamingAudioOrchestrator', () => {
   let orchestrator;
@@ -21,28 +19,22 @@ describe('StreamingAudioOrchestrator', () => {
   let mockAppState;
   let mockEventBus;
   let mockLogger;
-  let mockLoggerFactory;
 
   beforeEach(() => {
-    mockStreamingAudioPipelineService = createStreamingAudioPipelineServiceMock();
-    mockStreamViewService = createStreamingViewServiceMock({ setMuted: vi.fn() });
-
-    mockAppState = createAppState({ initialState: { isStreaming: false } });
-    mockEventBus = createEventBus();
-    mockLoggerFactory = createLoggerFactory();
-
-    orchestrator = new StreamingAudioOrchestrator(
-      mockStreamingAudioPipelineService,
-      mockStreamViewService,
-      mockAppState,
-      mockEventBus,
-      mockLoggerFactory
-    );
-    mockLogger = mockLoggerFactory._getLogger('StreamingAudioOrchestrator');
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
+    const h = createInjectableHarness(StreamingAudioOrchestrator, {
+      overrides: {
+        streamViewService: createStreamingViewServiceMock({ setMuted: vi.fn() }),
+        appState: createAppState({ initialState: { isStreaming: false } })
+      }
+    });
+    orchestrator = h.subject;
+    mockLogger = h.logger;
+    ({
+      streamingAudioPipelineService: mockStreamingAudioPipelineService,
+      streamViewService: mockStreamViewService,
+      appState: mockAppState,
+      eventBus: mockEventBus
+    } = h.deps);
   });
 
   describe('onInitialize', () => {

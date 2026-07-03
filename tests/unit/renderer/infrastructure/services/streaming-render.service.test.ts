@@ -1,14 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { StreamingRenderService } from '@renderer/infrastructure/services/streaming/streaming-render.service';
 import { createGpuVideoRendererSession, detectBrowserGpuCapabilities } from '@platform/gpu/runtime';
-import {
-  createAppState,
-  createCanvasLifecycleServiceMock,
-  createEventBus,
-  createLoggerFactory,
-  createStreamingViewServiceMock,
-  createStreamHealthServiceMock
-} from '../../../../factories/index.js';
+import { createStreamingViewServiceMock } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 const mockSession = {
   backend: 'webgpu',
@@ -44,7 +38,6 @@ describe('StreamingRenderService', () => {
   let mockSettingsService: any;
   let mockEventBus: any;
   let mockLogger: any;
-  let mockLoggerFactory: any;
   let canvas: HTMLCanvasElement;
   let video: HTMLVideoElement;
 
@@ -58,48 +51,41 @@ describe('StreamingRenderService', () => {
     section.appendChild(container);
     document.body.appendChild(section);
 
-    mockAppState = createAppState();
-
-    mockStreamViewService = createStreamingViewServiceMock({
-      getCanvas: vi.fn(() => canvas),
-      getVideo: vi.fn(() => video),
-      getCanvasContainer: vi.fn(() => container),
-      getCanvasSection: vi.fn(() => section),
-      setCanvas: vi.fn()
+    const h = createInjectableHarness(StreamingRenderService, {
+      overrides: {
+        streamViewService: createStreamingViewServiceMock({
+          getCanvas: vi.fn(() => canvas),
+          getVideo: vi.fn(() => video),
+          getCanvasContainer: vi.fn(() => container),
+          getCanvasSection: vi.fn(() => section),
+          setCanvas: vi.fn()
+        }),
+        settingsService: {
+          getNumberSetting: vi.fn((name) => {
+            if (name === 'globalBrightness') return 1.0;
+            return null;
+          }),
+          getStringSetting: vi.fn((name) => {
+            if (name === 'renderPreset') return 'vibrant';
+            return null;
+          })
+        }
+      }
     });
-
-    mockCanvasLifecycleService = createCanvasLifecycleServiceMock();
-    mockStreamHealthService = createStreamHealthServiceMock();
-
-    mockSettingsService = {
-      getNumberSetting: vi.fn((name) => {
-        if (name === 'globalBrightness') return 1.0;
-        return null;
-      }),
-      getStringSetting: vi.fn((name) => {
-        if (name === 'renderPreset') return 'vibrant';
-        return null;
-      })
-    };
-
-    mockEventBus = createEventBus();
-    mockLoggerFactory = createLoggerFactory();
-
-    service = new StreamingRenderService(
-      mockAppState,
-      mockStreamViewService,
-      mockCanvasLifecycleService,
-      mockStreamHealthService,
-      mockSettingsService,
-      mockEventBus,
-      mockLoggerFactory
-    );
-    mockLogger = mockLoggerFactory._getLogger('StreamingRenderService');
+    service = h.subject;
+    mockLogger = h.logger;
+    ({
+      appState: mockAppState,
+      streamViewService: mockStreamViewService,
+      canvasLifecycleService: mockCanvasLifecycleService,
+      streamHealthService: mockStreamHealthService,
+      settingsService: mockSettingsService,
+      eventBus: mockEventBus
+    } = h.deps);
   });
 
   afterEach(() => {
     document.body.innerHTML = '';
-    vi.restoreAllMocks();
     vi.useRealTimers();
   });
 

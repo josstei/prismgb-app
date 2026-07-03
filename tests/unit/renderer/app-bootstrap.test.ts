@@ -34,7 +34,6 @@ describe('RendererBootstrap', () => {
   let app;
 
   beforeEach(() => {
-    vi.clearAllMocks();
 
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -42,10 +41,6 @@ describe('RendererBootstrap', () => {
     delete document.body.dataset.prismgbAppStarted;
 
     app = new RendererBootstrap();
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
   });
 
   describe('Constructor', () => {

@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
-import { SharedEventBus } from '@platform/events';
+import { PlatformEventBus } from '@platform/events';
 import { createLoggerFactory as createTestLoggerFactory } from '../../../factories/index.js';
 
 describe('Main EventBus', () => {
   it('logs handler errors without emitting renderer handler-error events', () => {
     const loggerFactory = createTestLoggerFactory();
-    const eventBus = new SharedEventBus({ loggerFactory });
+    const eventBus = new PlatformEventBus({ loggerFactory });
     const logger = loggerFactory._getLogger('EventBus');
     const error = new Error('main handler failed');
     const handlerErrorSubscriber = vi.fn();

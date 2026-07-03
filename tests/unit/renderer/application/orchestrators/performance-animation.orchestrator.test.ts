@@ -5,39 +5,31 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PerformanceAnimationOrchestrator } from '@renderer/application/orchestrators/performance/performance-animation.orchestrator';
 import { EventChannels } from '@platform/events';
-import {
-  createBodyClassManagerMock,
-  createEventBus,
-  createLoggerFactory,
-  createPerformanceAnimationServiceMock
-} from '../../../../factories/index.js';
+import { createEventBus } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('PerformanceAnimationOrchestrator', () => {
   let orchestrator;
-  let mockEventBus;
-  let mockLoggerFactory;
   let mockPerformanceAnimationService;
   let mockBodyClassManager;
   let handlers;
 
   beforeEach(() => {
     handlers = {};
-    mockEventBus = createEventBus({
-      onSubscribe: (channel, handler) => {
-        handlers[channel] = handler;
+    const h = createInjectableHarness(PerformanceAnimationOrchestrator, {
+      overrides: {
+        eventBus: createEventBus({
+          onSubscribe: (channel, handler) => {
+            handlers[channel] = handler;
+          }
+        })
       }
     });
-    mockLoggerFactory = createLoggerFactory();
-
-    mockPerformanceAnimationService = createPerformanceAnimationServiceMock();
-    mockBodyClassManager = createBodyClassManagerMock();
-
-    orchestrator = new PerformanceAnimationOrchestrator(
-      mockEventBus,
-      mockPerformanceAnimationService,
-      mockBodyClassManager,
-      mockLoggerFactory
-    );
+    orchestrator = h.subject;
+    ({
+      animationPerformanceService: mockPerformanceAnimationService,
+      bodyClassManager: mockBodyClassManager
+    } = h.deps);
   });
 
   it('should delegate performance state updates to the service and apply body classes', async () => {

@@ -4,14 +4,14 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => {
-  const { createTrpcClientMock } = await import('../../../../support/mocks/trpc-client.mock');
-  return { trpcClient: createTrpcClientMock() };
-});
+vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
+  trpcClient: (await import('../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
+}));
 
 import { MetricsAdapter } from '@renderer/infrastructure/adapters/platform-metrics.adapter';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
-import { createProcessMetricsMock, createLoggerFactory } from '../../../../factories/index.js';
+import { createProcessMetricsMock } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 import type { ProcessMetricsPayload } from '@platform/ipc';
 
 describe('MetricsAdapter', () => {
@@ -19,9 +19,9 @@ describe('MetricsAdapter', () => {
   let loggerFactory;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    loggerFactory = createLoggerFactory();
-    adapter = new MetricsAdapter(loggerFactory);
+    const h = createInjectableHarness(MetricsAdapter);
+    adapter = h.subject;
+    ({ loggerFactory } = h.deps);
   });
 
   describe('constructor', () => {

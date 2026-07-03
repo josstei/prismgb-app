@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TranscodeProgressStore } from '../../../../../src/renderer/presentation/state/transcode-progress.store.js';
-import { SharedEventBus, EventChannels } from '@platform/events';
+import { PlatformEventBus, EventChannels } from '@platform/events';
 
 describe('TranscodeProgressStore', () => {
-  let bus: SharedEventBus;
+  let bus: PlatformEventBus;
   let store: TranscodeProgressStore;
 
   beforeEach(() => {
     vi.useFakeTimers();
-    bus = new SharedEventBus();
+    bus = new PlatformEventBus();
     store = new TranscodeProgressStore({ eventBus: bus });
   });
 

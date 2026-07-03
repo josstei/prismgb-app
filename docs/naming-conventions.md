@@ -1,6 +1,6 @@
 # Naming Conventions
 
-<!-- Source: src/platform/ipc/ipc-channels.ts, src/platform/ipc/preload-api.contract.ts, src/platform/events/event-channels.ts, src/renderer/application/di/service-registrations.ts -->
+<!-- Source: src/platform/ipc/ipc-channels.ts, src/platform/ipc/ipc-payloads.contract.ts, src/platform/events/event-channels.ts, src/renderer/application/di/*.module.ts -->
 
 This document captures the naming and organization conventions used throughout PrismGB.
 
@@ -10,30 +10,40 @@ This document captures the naming and organization conventions used throughout P
 - Base pattern: `<name>.<type>.<ext>`.
 - Use descriptors between name and type when needed: `<name>-<detail>.<type>.<ext>`.
 - Base classes use `<type>.base.<ext>`.
-- Entry points are `index.<ext>`, DI containers are `container.ts`.
-- Use `.ts` for typed modules and `.js` for runtime-only modules.
+- Entry points are `index.<ext>`; DI registration modules are `<layer>.module.ts`.
+- All source is `.ts`; nothing under `src/` ships as plain `.js`.
 
 ### Common Suffixes
+
+A file's suffix is a DI-truthfulness signal, not decoration: `.service`, `.orchestrator`, `.adapter`, `.bridge`, `.store`, and `.module` files are commonly `@injectable()` and container-bound. `.controller.<ext>` is deliberately not on that list — the `ui-base` widget controllers (`disclosure`, `listbox-dropdown`, `combobox-listbox`, `activity-auto-hide`) are plain `new`'d behaviors with no DI relationship at all. There is no "plain class, no DI" suffix — a class that isn't DI-bound still takes a role-accurate suffix (e.g. a widget behavior class is `.controller.<ext>`, not `.class.<ext>`).
 
 | Suffix | Purpose | Example |
 | --- | --- | --- |
 | `.service.<ext>` | Business logic and stateful operations | `streaming.service.ts` |
 | `.orchestrator.<ext>` | Coordination across services | `capture.orchestrator.ts` |
-| `.component.<ext>` | UI component logic | `notes-panel.component.js` |
+| `.controller.<ext>` | Interaction/behavior controllers (widgets, UI composition) | `disclosure.controller.ts` |
+| `.component.<ext>` | UI component logic | `notes-panel.component.ts` |
 | `.adapter.<ext>` | External or platform abstraction | `browser-media.adapter.ts` |
-| `.handler.<ext>` | IPC or event handler | `window.handler.ts` |
-| `.bridge.<ext>` | Cross-boundary coordination | `update.bridge.ts` |
-| `.registry.<ext>` | Shared keyed collections | `component.registry.ts` |
-| `.state.<ext>` | State containers | `app-state.ts` |
-| `.factory.<ext>` | Object construction helpers | `subscription.factory.ts` |
-| `.utils.<ext>` | Pure utilities | `filename-generator.utils.ts` |
+| `.driver.<ext>` | Low-level hardware/backend drivers | `canvas.driver.ts` |
+| `.monitor.<ext>` | Long-running observation loops | `usb.monitor.ts` |
+| `.bridge.<ext>` | Cross-boundary coordination | `ipc-push.bridge.ts` |
+| `.port.<ext>` | External-dependency seam (testing/replacement boundary) | `test-control.port.ts` |
+| `.host.<ext>` | Composition root for a set of components/instances | `ui-component.host.ts` |
+| `.registry.<ext>` | Shared keyed collections | `ipc-handler.registry.ts` |
+| `.store.<ext>` | Reactive state containers | `stream-info.store.ts` |
+| `.module.<ext>` | DI registration modules | `infrastructure.module.ts` |
+| `.factory.<ext>` | Object construction helpers | `trpc-event-bridge.factory.ts` |
+| `.template.<ext>` | Declarative DOM templates | `app-shell.template.ts` |
+| `.effect.<ext>` | Presentation side-effects | `capture.effect.ts` |
+| `.contract.<ext>` | Public payload and API shapes | `ipc-payloads.contract.ts` |
+| `.schemas.<ext>` | Runtime (Zod) validation schemas | `transcode.schemas.ts` |
+| `.manifest.<ext>` | Declarative single-source-of-truth registries | `event.manifest.ts` |
+| `.definitions.<ext>` | Declarative data/config definitions | `settings.definitions.ts` |
 | `.config.<ext>` | Configuration constants | `storage-keys.config.ts` (shared); `timing.config.ts` (in `@platform/config`) |
-| `.class.<ext>` | Plain classes (no DI) | `event-bus.class.js` |
-| `.interface.<ext>` | Interface definitions | `logger.interface.ts` |
-| `.worker.<ext>` | Worker environment helpers | `capabilities.worker.ts` |
-| `.contract.<ext>` | Public payload and API shapes | `preload-api.contract.ts` |
+| `.utils.<ext>` | Pure utilities | `filename-generator.utils.ts` |
+| `.base.<ext>` | Abstract base classes | `service.base.ts` |
+| `.worker.<ext>` / `.browser.<ext>` / `.renderer.<ext>` | Environment-specific split of one concern | `capabilities.worker.ts` / `capabilities.browser.ts` |
 | `.testkit.<ext>` | Shared test fixtures and doubles | `media.testkit.ts` |
-| `.base.<ext>` | Abstract base classes | `service.base.js` |
 
 Device hardware behavior belongs in `src/platform/devices/domain/catalog.json`, `DeviceCatalog`, and the device connection/runtime services. Do not add hardware-specific adapter or runtime classes.
 
@@ -42,12 +52,13 @@ Device hardware behavior belongs in `src/platform/devices/domain/catalog.json`, 
 - `src/main`: Electron main process.
 - `src/preload`: Electron tRPC context bridge.
 - `src/renderer`: Renderer process and UI.
-- `src/renderer/application/di`: Renderer DI registration modules (`service-registrations.ts`, `manual-providers.ts`).
+- `src/renderer/application/di`: Renderer DI registration modules (`application.module.ts`, `infrastructure.module.ts`, `presentation.module.ts`, `tokens.ts`).
 - `src/renderer/infrastructure/services/<domain>`: Renderer services grouped by domain (capture, devices, gpu, performance, settings, streaming, transcode, updates, platform).
-- `src/renderer/presentation`: UI layer (features, bridges, effects, shell, config).
+- `src/renderer/presentation`: UI layer (features, bridges, effects, shell, config, controller, state, primitives).
 - `src/renderer/presentation/features/<feature>`: Feature-specific UI components and templates.
 - `src/renderer/application`: App-level orchestrators and state.
-- `src/main/infrastructure/<domain>`: Main-process services grouped by domain (devices, transcode, window, tray, logging, events).
+- `src/main/infrastructure/<domain>`: Main-process services grouped by domain (devices, gpu, tray, window, logging).
+- `src/main/application/di`: Main-process DI registration (`main.module.ts`, `tokens.ts`).
 - `tests/unit` and `tests/integration`: Test suites.
 
 ## Identifier Naming
@@ -75,6 +86,7 @@ Device hardware behavior belongs in `src/platform/devices/domain/catalog.json`, 
   - `@platform/events` -> `src/platform/events/index.ts`
   - `@platform/gpu` -> `src/platform/gpu/index.ts`
   - `@platform/gpu/runtime` -> `src/platform/gpu/runtime.ts`
+  - `@platform/gpu/testkit` -> `src/platform/gpu/testkit.ts`
   - `@platform/ipc` -> `src/platform/ipc/index.ts`
   - `@platform/notes` -> `src/platform/notes/index.ts`
   - `@platform/transcode` -> `src/platform/transcode/index.ts`

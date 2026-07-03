@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { vi } from 'vitest';
 import { installTargetProperty } from '../runtime-property.installers.js';
 import { installProperty } from './install-property.helper.js';

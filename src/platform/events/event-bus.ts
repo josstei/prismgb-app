@@ -24,7 +24,7 @@ export interface IEventBus {
   unsubscribe<T = unknown>(event: string, handler: EventHandler<T>): void;
 }
 
-export class SharedEventBus implements IEventBus {
+export class PlatformEventBus implements IEventBus {
   readonly emitter: EventEmitter<string, unknown>;
   private readonly listeners = new Map<string, Map<EventHandler<unknown>, Set<EventHandler<unknown>>>>();
   private readonly logger: EventBusLogger | undefined;

@@ -7,9 +7,9 @@ import {
 import { DeviceMediaAcquirer } from '@renderer/infrastructure/services/streaming/device-media-acquirer';
 import {
   createCaptureStreamMock,
-  createLoggerFactory,
   createMediaTrackMock
 } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 import {
   CHROMATIC_AUDIO_DEVICE_INFO,
   CHROMATIC_VIDEO_DEVICE_INFO
@@ -52,8 +52,11 @@ function createAcquirer() {
     getUserMedia: vi.fn(async () => createActiveStream()),
     subscribeDeviceChange: vi.fn()
   };
-  const loggerFactory = createLoggerFactory();
-  const acquirer = new DeviceMediaAcquirer(mediaDevicesPort, loggerFactory);
+  const h = createInjectableHarness(DeviceMediaAcquirer, {
+    overrides: { mediaDevicesPort }
+  });
+  const acquirer = h.subject;
+  const { loggerFactory } = h.deps;
 
   return {
     acquirer,
@@ -67,10 +70,6 @@ function createAcquirer() {
 }
 
 describe('DeviceMediaAcquirer', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('builds full constraints with exact video targeting and paired audio input', async () => {
     const { acquirer, mediaDevicesPort, target } = createAcquirer();
 

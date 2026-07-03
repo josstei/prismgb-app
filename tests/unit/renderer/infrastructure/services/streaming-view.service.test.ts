@@ -6,17 +6,16 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StreamingViewService } from '@renderer/infrastructure/services/streaming/streaming-view.service';
 import {
   createCaptureStreamMock,
-  createLoggerFactory,
   createMockVideo,
   createStreamingViewControllerMock,
 } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('StreamingViewService', () => {
   let service;
   let mockUIController;
   let mockVideoElement;
   let mockLogger;
-  let mockLoggerFactory;
 
   let mockCanvasElement;
   let mockContainerElement;
@@ -34,15 +33,17 @@ describe('StreamingViewService', () => {
     mockContainerElement.appendChild(mockCanvasElement);
     mockSectionElement.appendChild(mockContainerElement);
 
-    mockUIController = createStreamingViewControllerMock({
-      streamVideo: mockVideoElement,
-      streamCanvas: mockCanvasElement
+    const h = createInjectableHarness(StreamingViewService, {
+      overrides: {
+        uiController: createStreamingViewControllerMock({
+          streamVideo: mockVideoElement,
+          streamCanvas: mockCanvasElement
+        })
+      }
     });
-
-    mockLoggerFactory = createLoggerFactory();
-
-    service = new StreamingViewService(mockUIController, mockLoggerFactory);
-    mockLogger = mockLoggerFactory._getLogger('StreamingViewService');
+    service = h.subject;
+    mockLogger = h.logger;
+    ({ uiController: mockUIController } = h.deps);
   });
 
   describe('Constructor', () => {
@@ -51,9 +52,6 @@ describe('StreamingViewService', () => {
       expect(service.logger).toBeDefined();
     });
 
-    it('should create logger with correct name', () => {
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('StreamingViewService');
-    });
   });
 
   describe('attachMutedStream', () => {

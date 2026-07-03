@@ -29,7 +29,6 @@ describe('VisibilityAdapter', () => {
   afterEach(() => {
     adapter.dispose();
     hiddenMock.cleanup();
-    vi.restoreAllMocks();
   });
 
   describe('isHidden', () => {

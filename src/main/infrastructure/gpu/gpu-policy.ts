@@ -7,8 +7,9 @@ export interface GpuPolicy {
 }
 
 export const GPU_ENV_VARS = {
-  FORCE_WEBGL: 'PRISMGB_FORCE_WEBGL',
-  FORCE_WEBGPU: 'PRISMGB_FORCE_WEBGPU'
+  DISABLE_WEBGPU: 'PRISMGB_DISABLE_WEBGPU',
+  FORCE_WEBGPU: 'PRISMGB_FORCE_WEBGPU',
+  DISABLE_GPU: 'PRISMGB_DISABLE_GPU'
 } as const;
 
 function isLinuxArmPlatform(): boolean {
@@ -17,16 +18,16 @@ function isLinuxArmPlatform(): boolean {
 
 export function getGpuPolicy(): GpuPolicy {
   const forceWebGPU = process.env[GPU_ENV_VARS.FORCE_WEBGPU] === '1';
-  const forceWebGL = process.env[GPU_ENV_VARS.FORCE_WEBGL] === '1';
+  const disableWebGPU = process.env[GPU_ENV_VARS.DISABLE_WEBGPU] === '1';
 
   if (forceWebGPU) {
     return { reason: null, chromiumFlags: [] };
   }
 
-  if (forceWebGL || isLinuxArmPlatform()) {
+  if (disableWebGPU || isLinuxArmPlatform()) {
     return {
-      reason: forceWebGL
-        ? 'PRISMGB_FORCE_WEBGL environment variable'
+      reason: disableWebGPU
+        ? 'PRISMGB_DISABLE_WEBGPU environment variable'
         : 'ARM Linux: Vulkan drivers typically lack WebGPU support',
       chromiumFlags: [
         ['disable-features', 'Vulkan'],
