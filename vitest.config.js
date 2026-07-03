@@ -34,16 +34,6 @@ const baseCoverageConfig = {
     'assets/**',
     // Auto-update feature requires Electron autoUpdater API
     'src/renderer/infrastructure/services/updates/**',
-    // Web Worker files run in Worker context, not testable in vitest
-    'src/**/workers/*.{js,ts}',
-    // GPU/Canvas/WebGPU APIs not available in vitest
-    'src/**/rendering/gpu/*.{js,ts}',
-    'src/renderer/infrastructure/services/streaming/adapters/streaming-canvas2d-renderer.adapter.ts',
-    'src/renderer/infrastructure/services/streaming/adapters/streaming-gpu-renderer.adapter.ts',
-    'src/renderer/infrastructure/services/streaming/streaming-renderer.factory.ts',
-    'src/**/gpu-render-loop.service.{js,ts}',
-    // Audio warmup requires Web Audio API not available in vitest
-    'src/**/audio/*.{js,ts}',
     // Canvas lifecycle requires complex DOM/Canvas API interactions
     'src/**/canvas-lifecycle.service.{js,ts}',
     // UI templates use Vite ?raw imports for SVGs not available in vitest
@@ -106,10 +96,7 @@ export default defineConfig({
           include: [
             'tests/integration/**/*.{test,spec}.{js,ts}',
             'tests/workflows/**/*.{test,spec}.{js,ts}',
-            'tests/unit/app/renderer/**/*.{test,spec}.{js,ts}',
-            'tests/unit/features/**/*.{test,spec}.{js,ts}',
-            'tests/unit/renderer/**/*.{test,spec}.{js,ts}',
-            'tests/unit/ui/**/*.{test,spec}.{js,ts}'
+            'tests/unit/renderer/**/*.{test,spec}.{js,ts}'
           ],
           setupFiles: [
             path.resolve(__dirname, 'tests/setup.js'),
@@ -121,13 +108,11 @@ export default defineConfig({
       {
         test: {
           alias: sharedAlias,
-          name: 'main-preload',
+          name: 'main-node',
           globals: true,
           environment: 'node',
           include: [
-            'tests/unit/app/main/**/*.{test,spec}.{js,ts}',
-            'tests/unit/main/**/*.{test,spec}.{js,ts}',
-            'tests/unit/preload/**/*.{test,spec}.{js,ts}'
+            'tests/unit/main/**/*.{test,spec}.{js,ts}'
           ],
           setupFiles: [
             path.resolve(__dirname, 'tests/setup.js')

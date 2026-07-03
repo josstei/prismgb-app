@@ -48,9 +48,7 @@ export default [
         GPUTextureUsage: 'readonly',
         GPUBufferUsage: 'readonly',
         // Vite defines
-        __APP_VERSION__: 'readonly',
-        // Electron preload
-        deviceAPI: 'readonly'
+        __APP_VERSION__: 'readonly'
       }
     },
     rules: {

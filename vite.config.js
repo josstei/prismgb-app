@@ -54,8 +54,6 @@ export default defineConfig({
                 const externals = [
                   'electron',
                   'usb',
-                  'winston',
-                  'dotenv',
                   'eventemitter3'
                 ];
                 return externals.some(ext => id === ext || id.startsWith(ext + '/') || id.includes('node_modules/' + ext));

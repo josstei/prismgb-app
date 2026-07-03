@@ -21,14 +21,13 @@
     "src/platform/**/*.ts",
     "src/preload/**/*.ts",
     "src/renderer/**/*.ts",
-    "src/shared/**/*.ts",
     "src/types/**/*.d.ts",
     "tests/devices/**/*.ts",
     "tests/unit/**/*.ts",
     "tests/unit/**/*.js",
     "tests/factories/**/*.js",
     "tests/support/**/*.js",
-    "tests/utilities/**/*.js"
+    "tests/utils/**/*.js"
   ],
   "exclude": [
     "node_modules",
