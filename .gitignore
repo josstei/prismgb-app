@@ -44,6 +44,7 @@ CLAUDE.md
 GEMINI.md
 AGENT.md
 .agents/
+.agy*
 
 # Git worktrees
 .worktrees/
