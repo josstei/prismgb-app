@@ -53,16 +53,14 @@ class StreamingControlsComponent extends PresentationComponent {
   declare store: StreamInfoStore;
   declare _targetStreamingMode: boolean | null;
 
-  constructor({ elements, bodyClassManager, store }: StreamingControlsComponentOptions) {
+  constructor(options: StreamingControlsComponentOptions) {
     super();
-    this.elements = elements;
-    this.bodyClassManager = bodyClassManager || null;
-    this.store = store;
+    this.applyOptions<StreamingControlsComponentOptions>({ bodyClassManager: null }, options);
     this._targetStreamingMode = null;
 
-    this.track(store);
-    this.track(bindText(elements.currentResolution ?? null, store.resolution));
-    this.track(bindText(elements.currentFPS ?? null, store.fps));
+    this.track(this.store);
+    this.track(bindText(options.elements.currentResolution ?? null, this.store.resolution));
+    this.track(bindText(options.elements.currentFPS ?? null, this.store.fps));
   }
 
   private _areAnimationsDisabled(): boolean {

@@ -44,12 +44,10 @@ class ShaderSliderControlsComponent extends PresentationComponent {
   private readonly _volumePercent = signal(70);
   private readonly _performanceModeEnabled = signal(false);
 
-  constructor({ settingsService, eventBus, logger }: ShaderSliderControlsComponentOptions) {
+  constructor(options: ShaderSliderControlsComponentOptions) {
     super();
 
-    this.settingsService = settingsService;
-    this.eventBus = eventBus;
-    this.logger = logger;
+    this.applyOptions<ShaderSliderControlsComponentOptions>({}, options);
 
     this.brightnessSlider = null;
     this.brightnessPercentage = null;
@@ -62,21 +60,9 @@ class ShaderSliderControlsComponent extends PresentationComponent {
     this.currentVolume = 70;
   }
 
-  initialize({
-    brightnessSlider,
-    brightnessPercentage,
-    brightnessControl,
-    volumeSlider,
-    volumePercentage,
-    streamVideo
-  }: ShaderSliderControlsElements): void {
+  initialize(options: ShaderSliderControlsElements): void {
     void this.dispose();
-    this.brightnessSlider = brightnessSlider;
-    this.brightnessPercentage = brightnessPercentage;
-    this.brightnessControl = brightnessControl;
-    this.volumeSlider = volumeSlider;
-    this.volumePercentage = volumePercentage;
-    this.streamVideo = streamVideo;
+    this.applyOptions<ShaderSliderControlsElements>({}, options);
 
     if (!this.brightnessSlider && !this.volumeSlider) {
       this.logger?.warn('Shader slider elements not found');

@@ -30,10 +30,9 @@ class GameFilterComponent extends PresentationComponent {
   declare filterMenu: HTMLElement | null | undefined;
   declare onFilterChange: ((value: string, label: string) => void) | null | undefined;
 
-  constructor({ notesService, logger }: GameFilterComponentOptions) {
+  constructor(options: GameFilterComponentOptions) {
     super();
-    this.notesService = notesService;
-    this.logger = logger;
+    this.applyOptions<GameFilterComponentOptions>({}, options);
     this.currentGameFilter = '';
     this.isGameFilterOpen = false;
     this._filterDropdown = null;
@@ -42,13 +41,10 @@ class GameFilterComponent extends PresentationComponent {
     this.filterMenu = null;
   }
 
-  initialize({ filterButton, filterLabel, filterMenu, onFilterChange }: GameFilterInitializeOptions): void {
+  initialize(options: GameFilterInitializeOptions): void {
     this.cancelManaged(FILTER_SETUP_LIFECYCLE);
     this.isGameFilterOpen = false;
-    this.filterButton = filterButton;
-    this.filterLabel = filterLabel;
-    this.filterMenu = filterMenu;
-    this.onFilterChange = onFilterChange;
+    this.applyOptions<GameFilterInitializeOptions>({}, options);
 
     if (!this.filterButton || !this.filterMenu) {
       this.logger?.warn('Game filter elements not found');

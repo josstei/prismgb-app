@@ -5,6 +5,7 @@ import {
   type DisposableKey,
   type EventTargetLike
 } from '@platform/core';
+import { applyOptions as assignOptions } from './apply-options.utils.js';
 
 
 export type PresentationLifecycleToken = {
@@ -104,6 +105,10 @@ export class PresentationComponent {
         onError?.(error);
       }
     });
+  }
+
+  protected applyOptions<TOptions extends object>(defaults: Partial<TOptions>, options: TOptions): void {
+    assignOptions(this, defaults, options);
   }
 
   protected onDisposeError(_error: unknown): void {}

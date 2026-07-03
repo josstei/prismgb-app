@@ -55,10 +55,9 @@ class NotesEditorViewComponent extends PresentationComponent {
   declare onShowGameInput: EditorCallback | null | undefined;
   private _hasPendingSave: boolean;
 
-  constructor({ notesService, logger }: NotesEditorViewComponentOptions) {
+  constructor(options: NotesEditorViewComponentOptions) {
     super();
-    this.notesService = notesService;
-    this.logger = logger;
+    this.applyOptions<NotesEditorViewComponentOptions>({}, options);
     this.currentNoteId = null;
     this.hasNote = false;
     this.editorElement = null;
@@ -72,35 +71,11 @@ class NotesEditorViewComponent extends PresentationComponent {
     this._hasPendingSave = false;
   }
 
-  initialize({
-    editorElement,
-    titleInput,
-    contentArea,
-    deleteBtn,
-    gameTagRow,
-    gameTag,
-    gameInput,
-    gameAddBtn,
-    onSave,
-    onDelete,
-    onGameInputChange,
-    onShowGameInput
-  }: NotesEditorViewInitializeOptions): void {
+  initialize(options: NotesEditorViewInitializeOptions): void {
     this.flushSave();
     this.cancelManaged(EDITOR_SETUP_LIFECYCLE);
     this._cancelDeleteHold();
-    this.editorElement = editorElement;
-    this.titleInput = titleInput;
-    this.contentArea = contentArea;
-    this.deleteBtn = deleteBtn;
-    this.gameTagRow = gameTagRow;
-    this.gameTag = gameTag;
-    this.gameInput = gameInput;
-    this.gameAddBtn = gameAddBtn;
-    this.onSave = onSave;
-    this.onDelete = onDelete;
-    this.onGameInputChange = onGameInputChange;
-    this.onShowGameInput = onShowGameInput;
+    this.applyOptions<NotesEditorViewInitializeOptions>({}, options);
 
     const setupDisposers: Array<() => void> = [];
     this._setupEditor(setupDisposers);

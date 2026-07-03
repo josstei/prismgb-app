@@ -28,21 +28,18 @@ class CinematicToggleComponent extends PresentationComponent {
   declare toggleElement: HTMLElement | null | undefined;
   declare textElement: HTMLElement | null | undefined;
 
-  constructor({ eventBus, appState, logger }: CinematicToggleComponentOptions) {
+  constructor(options: CinematicToggleComponentOptions) {
     super();
 
-    this.eventBus = eventBus;
-    this.appState = appState;
-    this.logger = logger;
+    this.applyOptions<CinematicToggleComponentOptions>({}, options);
 
     this.toggleElement = null;
     this.textElement = null;
   }
 
-  initialize({ toggleElement, textElement }: CinematicToggleElements): void {
+  initialize(options: CinematicToggleElements): void {
     void this.dispose();
-    this.toggleElement = toggleElement;
-    this.textElement = textElement;
+    this.applyOptions<CinematicToggleElements>({}, options);
 
     if (!this.toggleElement) {
       this.logger?.warn('Cinematic toggle elements not found');

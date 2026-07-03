@@ -40,35 +40,18 @@ class GameAutocompleteComponent extends PresentationComponent {
   declare onBlur: AutocompleteCallback | null | undefined;
   declare onFocus: AutocompleteCallback | null | undefined;
 
-  constructor({ notesService, logger }: GameAutocompleteComponentOptions) {
+  constructor(options: GameAutocompleteComponentOptions) {
     super();
-    this.notesService = notesService;
-    this.logger = logger;
+    this.applyOptions<GameAutocompleteComponentOptions>({}, options);
     this.gameInput = null;
     this.autocompleteDropdown = null;
     this.comboboxController = null;
   }
 
-  initialize({
-    gameInput,
-    autocompleteDropdown,
-    onInput,
-    onSelect,
-    onEnter,
-    onEscape,
-    onBlur,
-    onFocus
-  }: GameAutocompleteInitializeOptions): void {
+  initialize(options: GameAutocompleteInitializeOptions): void {
     void this.comboboxController?.dispose();
     this.comboboxController = null;
-    this.gameInput = gameInput;
-    this.autocompleteDropdown = autocompleteDropdown;
-    this.onInput = onInput;
-    this.onSelect = onSelect;
-    this.onEnter = onEnter;
-    this.onEscape = onEscape;
-    this.onBlur = onBlur;
-    this.onFocus = onFocus;
+    this.applyOptions<GameAutocompleteInitializeOptions>({}, options);
 
     if (!this.gameInput || !this.autocompleteDropdown) {
       this.logger?.warn('Game autocomplete elements not found');

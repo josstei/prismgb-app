@@ -93,11 +93,9 @@ class NotesPanelComponent extends PresentationComponent {
   declare resizeHandler: NotesResizeHandlerComponent | null;
   declare layout: NotesPanelLayoutComponent | null;
 
-  constructor({ notesService, eventBus, logger }: NotesPanelComponentOptions) {
+  constructor(options: NotesPanelComponentOptions) {
     super();
-    this.notesService = notesService;
-    this.eventBus = eventBus;
-    this.logger = logger;
+    this.applyOptions<NotesPanelComponentOptions>({}, options);
     this.isVisible = false;
     this.currentNoteId = null;
     this.elements = null;

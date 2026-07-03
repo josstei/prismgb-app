@@ -20,18 +20,17 @@ class NotesSearchComponent extends PresentationComponent {
   declare searchInput: HTMLInputElement | null | undefined;
   declare onSearch: ((query: string) => void) | null | undefined;
 
-  constructor({ logger }: NotesSearchComponentOptions) {
+  constructor(options: NotesSearchComponentOptions) {
     super();
-    this.logger = logger;
+    this.applyOptions<NotesSearchComponentOptions>({}, options);
     this.currentQuery = '';
     this.searchInput = null;
   }
 
-  initialize({ searchInput, onSearch }: NotesSearchInitializeOptions): void {
+  initialize(options: NotesSearchInitializeOptions): void {
     this.cancelManaged(SEARCH_SETUP_LIFECYCLE);
     this.cancelManaged(SEARCH_DEBOUNCE_TIMEOUT);
-    this.searchInput = searchInput;
-    this.onSearch = onSearch;
+    this.applyOptions<NotesSearchInitializeOptions>({}, options);
 
     if (!this.searchInput) {
       this.logger?.warn('Search input element not found');

@@ -51,15 +51,13 @@ class ShaderSelectorComponent extends PresentationComponent {
   declare button: HTMLElement | null | undefined;
   declare dropdown: HTMLElement | null | undefined;
 
-  constructor({ settingsService, appState, eventBus, logger }: ShaderSelectorComponentOptions) {
+  constructor(options: ShaderSelectorComponentOptions) {
     super();
 
-    this.settingsService = settingsService;
-    this.appState = appState;
-    this.eventBus = eventBus;
-    this.logger = logger;
+    this.applyOptions<ShaderSelectorComponentOptions>({}, options);
     this.isVisible = false;
 
+    const { settingsService, appState, eventBus, logger } = options;
     this._panelDisclosure = null;
     this._presetList = new ShaderPresetListComponent({ settingsService, eventBus, logger });
     this._sliderControls = new ShaderSliderControlsComponent({ settingsService, eventBus, logger });

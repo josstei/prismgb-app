@@ -27,9 +27,9 @@ class NotesPanelLayoutComponent extends PresentationComponent {
   declare toolbarElement: HTMLElement | null | undefined;
   declare streamContainer: HTMLElement | null | undefined;
 
-  constructor({ logger }: NotesPanelLayoutComponentOptions) {
+  constructor(options: NotesPanelLayoutComponentOptions) {
     super();
-    this.logger = logger;
+    this.applyOptions<NotesPanelLayoutComponentOptions>({}, options);
     this._resizeObserver = null;
     this._panelSizeDefaults = null;
     this.panelElement = null;
@@ -37,13 +37,11 @@ class NotesPanelLayoutComponent extends PresentationComponent {
     this.streamContainer = null;
   }
 
-  initialize({ panelElement, toolbarElement, streamContainer }: NotesPanelLayoutInitializeOptions): void {
+  initialize(options: NotesPanelLayoutInitializeOptions): void {
     this.cancelManaged(LAYOUT_SETUP_LIFECYCLE);
     this.cancelManaged(RESIZE_DEBOUNCE_TIMEOUT);
     this._resizeObserver = null;
-    this.panelElement = panelElement;
-    this.toolbarElement = toolbarElement;
-    this.streamContainer = streamContainer;
+    this.applyOptions<NotesPanelLayoutInitializeOptions>({}, options);
 
     if (!this.panelElement || !this.toolbarElement) return;
 

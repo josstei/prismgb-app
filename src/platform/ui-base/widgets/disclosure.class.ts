@@ -73,6 +73,16 @@ const DEFAULT_ANCHORED_LAYOUT_SIZES: Readonly<AnchoredLayoutSizeDefaults> = Obje
 });
 const DISCLOSURE_LISTENER_LIFECYCLE = Symbol('disclosureListenerLifecycle');
 
+const DISCLOSURE_DEFAULTS: Partial<DisclosureControllerOptions> = {
+  visibleClass: 'visible',
+  toggleOpenClass: null,
+  closeOnEscape: true,
+  closeOnClickOutside: true,
+  outsideEvent: 'click',
+  ignoreOutsideElements: [],
+  ignoreOutsideSelectors: []
+};
+
 function toFiniteNumber(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
@@ -186,34 +196,11 @@ class DisclosureController extends PresentationComponent {
   declare onHide: DisclosureCallback | null | undefined;
   declare private _isOpen: boolean;
 
-  constructor({
-    toggleElement,
-    panelElement,
-    visibleClass = 'visible',
-    toggleOpenClass = null,
-    ariaExpandedElement = null,
-    closeOnEscape = true,
-    closeOnClickOutside = true,
-    outsideEvent = 'click',
-    ignoreOutsideElements = [],
-    ignoreOutsideSelectors = [],
-    onShow,
-    onHide
-  }: DisclosureControllerOptions) {
+  constructor(options: DisclosureControllerOptions) {
     super();
 
-    this.toggleElement = toggleElement;
-    this.panelElement = panelElement;
-    this.visibleClass = visibleClass;
-    this.toggleOpenClass = toggleOpenClass;
-    this.ariaExpandedElement = ariaExpandedElement || toggleElement;
-    this.closeOnEscape = closeOnEscape;
-    this.closeOnClickOutside = closeOnClickOutside;
-    this.outsideEvent = outsideEvent;
-    this.ignoreOutsideElements = ignoreOutsideElements;
-    this.ignoreOutsideSelectors = ignoreOutsideSelectors;
-    this.onShow = onShow;
-    this.onHide = onHide;
+    this.applyOptions<DisclosureControllerOptions>(DISCLOSURE_DEFAULTS, options);
+    this.ariaExpandedElement = options.ariaExpandedElement || this.toggleElement;
 
     this._isOpen = false;
   }

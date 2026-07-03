@@ -36,20 +36,18 @@ class NotesListViewComponent extends PresentationComponent {
   declare listElement: HTMLElement | null | undefined;
   declare onNoteSelect: ((noteId: string) => void) | null | undefined;
 
-  constructor({ notesService, logger }: NotesListViewComponentOptions) {
+  constructor(options: NotesListViewComponentOptions) {
     super();
-    this.notesService = notesService;
-    this.logger = logger;
+    this.applyOptions<NotesListViewComponentOptions>({}, options);
     this.currentNoteId = null;
     this.currentGameFilter = '';
     this.collapsedGameGroups = new Set();
     this.listElement = null;
   }
 
-  initialize({ listElement, onNoteSelect }: NotesListViewInitializeOptions): void {
+  initialize(options: NotesListViewInitializeOptions): void {
     this.cancelManaged(LIST_SETUP_LIFECYCLE);
-    this.listElement = listElement;
-    this.onNoteSelect = onNoteSelect;
+    this.applyOptions<NotesListViewInitializeOptions>({}, options);
 
     if (!this.listElement) {
       this.logger?.warn('List element not found');

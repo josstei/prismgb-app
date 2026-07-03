@@ -29,7 +29,16 @@ export interface ListboxDropdownInitializeOptions {
   activeValue?: string;
 }
 
-
+const LISTBOX_DROPDOWN_DEFAULTS: Partial<ListboxDropdownControllerOptions> = {
+  optionSelector: '[role="option"]',
+  activeClass: 'active',
+  ignoreOutsideSelectors: [],
+  outsideEvent: 'click',
+  closeOnEscape: true,
+  closeOnClickOutside: true,
+  enableTriggerKeyboard: false,
+  focusOnTriggerOpen: false
+};
 
 class ListboxDropdownController extends PresentationComponent {
   declare triggerElement: HTMLElement | null;
@@ -49,41 +58,10 @@ class ListboxDropdownController extends PresentationComponent {
   declare logger: LoggerLike | null | undefined;
   declare private _disclosure: DisclosureController | null;
 
-  constructor({
-    triggerElement,
-    menuElement,
-    labelElement,
-    optionSelector = '[role="option"]',
-    activeClass = 'active',
-    ignoreOutsideSelectors = [],
-    outsideEvent = 'click',
-    closeOnEscape = true,
-    closeOnClickOutside = true,
-    onShow,
-    onHide,
-    enableTriggerKeyboard = false,
-    focusOnTriggerOpen = false,
-    onChange,
-    logger
-  }: ListboxDropdownControllerOptions) {
+  constructor(options: ListboxDropdownControllerOptions) {
     super();
 
-    this.triggerElement = triggerElement;
-    this.menuElement = menuElement;
-    this.labelElement = labelElement;
-    this.optionSelector = optionSelector;
-    this.activeClass = activeClass;
-    this.ignoreOutsideSelectors = ignoreOutsideSelectors;
-    this.outsideEvent = outsideEvent;
-    this.closeOnEscape = closeOnEscape;
-    this.closeOnClickOutside = closeOnClickOutside;
-    this.onShow = onShow;
-    this.onHide = onHide;
-    this.enableTriggerKeyboard = enableTriggerKeyboard;
-    this.focusOnTriggerOpen = focusOnTriggerOpen;
-    this.onChange = onChange;
-    this.logger = logger;
-
+    this.applyOptions<ListboxDropdownControllerOptions>(LISTBOX_DROPDOWN_DEFAULTS, options);
     this._disclosure = null;
   }
 

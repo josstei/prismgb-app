@@ -76,4 +76,47 @@ describe('PresentationComponent', () => {
     void harness.dispose();
     expect(order).toEqual(['second', 'first', 'fresh']);
   });
+
+  describe('applyOptions', () => {
+    interface WidgetOptions {
+      label?: string;
+      debounceMs?: number;
+      trigger: HTMLElement | null;
+    }
+
+    class WidgetHarness extends PresentationComponent {
+      declare label: string;
+      declare debounceMs: number;
+      declare trigger: HTMLElement | null;
+
+      constructor(options: WidgetOptions) {
+        super();
+        this.applyOptions<WidgetOptions>({ label: 'default-label', debounceMs: 100 }, options);
+      }
+    }
+
+    it('assigns defaults for options the caller omits', () => {
+      const harness = new WidgetHarness({ trigger: null });
+
+      expect(harness.label).toBe('default-label');
+      expect(harness.debounceMs).toBe(100);
+      expect(harness.trigger).toBeNull();
+    });
+
+    it('lets explicit constructor options override defaults', () => {
+      const trigger = document.createElement('button');
+      const harness = new WidgetHarness({ trigger, label: 'custom', debounceMs: 250 });
+
+      expect(harness.label).toBe('custom');
+      expect(harness.debounceMs).toBe(250);
+      expect(harness.trigger).toBe(trigger);
+    });
+
+    it('exposes assigned fields as own enumerable properties for white-box reads', () => {
+      const harness = new WidgetHarness({ trigger: null });
+
+      expect(Object.prototype.hasOwnProperty.call(harness, 'label')).toBe(true);
+      expect(Object.prototype.hasOwnProperty.call(harness, 'debounceMs')).toBe(true);
+    });
+  });
 });

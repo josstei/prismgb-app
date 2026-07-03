@@ -7,6 +7,20 @@ const COMBOBOX_BLUR_TIMEOUT = Symbol('comboboxBlurTimeout');
 type ComboboxCallback = () => void;
 type ComboboxSelectCallback = (value: string) => void;
 
+const COMBOBOX_LISTBOX_DEFAULTS: Partial<ComboboxListboxControllerOptions<unknown>> = {
+  optionSelector: '[role="option"]',
+  optionClassName: 'combobox-option',
+  optionIdPrefix: 'combobox-option',
+  highlightedClass: 'highlighted',
+  visibleClass: 'visible',
+  listboxAriaLabel: 'Suggestions',
+  debounceMs: 100,
+  blurDelayMs: 150,
+  getOptions: () => [],
+  getOptionValue: (option: unknown) => String(option ?? ''),
+  getOptionLabel: (option: unknown) => String(option ?? '')
+};
+
 export interface ComboboxListboxControllerOptions<TOption = unknown> {
   logger?: LoggerLike | null;
   optionSelector?: string;
@@ -57,33 +71,14 @@ export class ComboboxListboxController<TOption = unknown> extends PresentationCo
   declare highlightedIndex: number;
 
   constructor(options: ComboboxListboxControllerOptions<TOption> = {}) {
-    const {
-      logger,
-      optionSelector = '[role="option"]',
-      optionClassName = 'combobox-option',
-      optionIdPrefix = 'combobox-option',
-      highlightedClass = 'highlighted',
-      visibleClass = 'visible',
-      listboxAriaLabel = 'Suggestions',
-      debounceMs = 100,
-      blurDelayMs = 150,
-      getOptions = () => [],
-      getOptionValue = (option: TOption) => String(option ?? ''),
-      getOptionLabel = (option: TOption) => String(option ?? ''),
-      onInput,
-      onSelect,
-      onEnter,
-      onEscape,
-      onBlur,
-      onFocus
-    } = options;
     super();
-    Object.assign(this, {
-      logger, optionSelector, optionClassName, optionIdPrefix, highlightedClass,
-      visibleClass, listboxAriaLabel, debounceMs, blurDelayMs, getOptions,
-      getOptionValue, getOptionLabel, onInput, onSelect, onEnter, onEscape,
-      onBlur, onFocus, inputElement: null, listboxElement: null, highlightedIndex: -1
-    });
+    this.applyOptions<ComboboxListboxControllerOptions<TOption>>(
+      COMBOBOX_LISTBOX_DEFAULTS as Partial<ComboboxListboxControllerOptions<TOption>>,
+      options
+    );
+    this.inputElement = null;
+    this.listboxElement = null;
+    this.highlightedIndex = -1;
   }
 
   initialize({ inputElement, listboxElement }: ComboboxListboxInitializeOptions): void {

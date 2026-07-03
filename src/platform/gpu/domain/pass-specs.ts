@@ -90,8 +90,7 @@ export const PASS_SPECS: readonly RenderPassSpec[] = [
       members: [
         { name: 'inputSize', type: 'vec2<f32>', offsetBytes: 0, byteLength: 8, source: field('upscale', 'inputSize') },
         { name: 'outputSize', type: 'vec2<f32>', offsetBytes: 8, byteLength: 8, source: field('upscale', 'outputSize') },
-        { name: 'scaleFactor', type: 'f32', offsetBytes: 16, byteLength: 4, source: field('upscale', 'scaleFactor') },
-        { name: '_padding', type: 'f32', offsetBytes: 20, byteLength: 4, source: constant(0) }
+        { name: 'scaleFactor', type: 'f32', offsetBytes: 16, byteLength: 4, source: field('upscale', 'scaleFactor') }
       ]
     },
     sampler: 'nearest'
