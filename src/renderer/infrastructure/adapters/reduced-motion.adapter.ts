@@ -1,5 +1,8 @@
+import { injectable } from 'inversify';
+
 type Cleanup = () => void;
 
+@injectable()
 export class ReducedMotionAdapter {
   private _mediaQuery: MediaQueryList | null = null;
   private _cleanupFn: Cleanup | null = null;

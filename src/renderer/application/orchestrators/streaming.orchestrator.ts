@@ -1,8 +1,10 @@
+import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
 import { EventChannels } from '@platform/events';
-import type { LoggerLike, LoggerFactoryLike } from '@platform/core';
+import type { LoggerFactoryLike } from '@platform/core';
 import type { TypedEventBusLike } from '@platform/events';
 import { getErrorMessage } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 import {
   isPerformanceStatePayload,
   isStreamStartedPayload,
@@ -52,17 +54,6 @@ type SettingsServiceLike = {
   getBooleanSetting(name: string): boolean;
 };
 
-type StreamingOrchestratorDependencies = {
-  streamingService: StreamingServiceLike;
-  appState: AppStateLike;
-  streamViewService: StreamViewServiceLike;
-  streamingRenderService: StreamingRenderServiceLike;
-  gpuRecordingService: GpuRecordingServiceLike;
-  settingsService: SettingsServiceLike;
-  eventBus: TypedEventBusLike;
-  loggerFactory: LoggerFactoryLike;
-};
-
 function getStreamErrorMessage(payload: unknown): string {
   if (typeof payload === 'object' && payload !== null) {
     if ('message' in payload && typeof payload.message === 'string' && payload.message.length > 0) {
@@ -77,27 +68,19 @@ function getStreamErrorMessage(payload: unknown): string {
   return getErrorMessage(payload, 'Stream error');
 }
 
+@injectable()
 export class StreamingOrchestrator extends BaseOrchestrator {
-  private readonly streamingService: StreamingServiceLike;
-  private readonly appState: AppStateLike;
-  private readonly streamViewService: StreamViewServiceLike;
-  private readonly streamingRenderService: StreamingRenderServiceLike;
-  private readonly gpuRecordingService: GpuRecordingServiceLike;
-  private readonly settingsService: SettingsServiceLike;
-  protected readonly eventBus: TypedEventBusLike;
-
-  constructor(dependencies: StreamingOrchestratorDependencies) {
-    super(
-      dependencies,
-      'StreamingOrchestrator'
-    );
-    this.streamingService = dependencies.streamingService;
-    this.appState = dependencies.appState;
-    this.streamViewService = dependencies.streamViewService;
-    this.streamingRenderService = dependencies.streamingRenderService;
-    this.gpuRecordingService = dependencies.gpuRecordingService;
-    this.settingsService = dependencies.settingsService;
-    this.eventBus = dependencies.eventBus;
+  constructor(
+    @inject(TOKENS.streamingService) private readonly streamingService: StreamingServiceLike,
+    @inject(TOKENS.appState) private readonly appState: AppStateLike,
+    @inject(TOKENS.streamViewService) private readonly streamViewService: StreamViewServiceLike,
+    @inject(TOKENS.streamingRenderService) private readonly streamingRenderService: StreamingRenderServiceLike,
+    @inject(TOKENS.gpuRecordingService) private readonly gpuRecordingService: GpuRecordingServiceLike,
+    @inject(TOKENS.settingsService) private readonly settingsService: SettingsServiceLike,
+    @inject(TOKENS.eventBus) protected readonly eventBus: TypedEventBusLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'StreamingOrchestrator');
   }
 
   async onInitialize(): Promise<void> {

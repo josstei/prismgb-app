@@ -19,10 +19,7 @@ describe('UpdateService', () => {
 
     vi.mocked(trpcClient.update.getStatus.query).mockResolvedValue({ success: true, state: UpdateState.IDLE });
 
-    service = new UpdateService({
-      eventBus: mockEventBus,
-      loggerFactory: mockLoggerFactory
-    });
+    service = new UpdateService(mockEventBus, mockLoggerFactory);
     mockLogger = mockLoggerFactory._getLogger('UpdateService');
   });
 

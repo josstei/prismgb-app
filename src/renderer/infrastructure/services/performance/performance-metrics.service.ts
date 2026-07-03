@@ -4,6 +4,7 @@
  * Owns process metrics snapshot scheduling and logging.
  */
 
+import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import type { MemorySnapshotRequestPayload } from '@platform/events';
 import type { LoggerFactoryLike } from '@platform/core';
@@ -11,6 +12,7 @@ import type {
   ProcessMetricPayload,
   ProcessMetricsResponse
 } from '@platform/ipc';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type ProcessMetricsErrorResponse = {
   success: false;
@@ -20,11 +22,6 @@ type ProcessMetricsErrorResponse = {
 type MetricsAdapterLike = {
   isAvailable: () => boolean;
   getProcessMetrics: () => Promise<ProcessMetricsResponse | ProcessMetricsErrorResponse>;
-};
-
-type PerformanceMetricsDependencies = {
-  loggerFactory: LoggerFactoryLike;
-  metricsAdapter: MetricsAdapterLike;
 };
 
 function hasProcessMetricsSnapshot(snapshot: unknown): snapshot is ProcessMetricsResponse {
@@ -40,19 +37,20 @@ function isMemorySnapshotRequestPayload(value: unknown): value is MemorySnapshot
   return typeof value === 'object' && value !== null;
 }
 
+@injectable()
 export class PerformanceMetricsService extends BaseService {
-  protected readonly metricsAdapter: MetricsAdapterLike;
-
   private readonly _pendingSnapshotCancels: Set<() => void | Promise<void>>;
   private _periodicIntervalCancel: (() => void | Promise<void>) | null;
   private _periodicStartCancel: (() => void | Promise<void>) | null;
   private readonly _intervalMs: number;
   private readonly _initialDelayMs: number;
 
-  constructor(dependencies: PerformanceMetricsDependencies) {
-    super(dependencies, 'PerformanceMetricsService');
+  constructor(
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike,
+    @inject(TOKENS.metricsAdapter) private readonly metricsAdapter: MetricsAdapterLike
+  ) {
+    super({ loggerFactory }, 'PerformanceMetricsService');
 
-    this.metricsAdapter = dependencies.metricsAdapter;
     this._pendingSnapshotCancels = new Set();
     this._periodicIntervalCancel = null;
     this._periodicStartCancel = null;

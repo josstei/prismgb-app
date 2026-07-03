@@ -19,7 +19,7 @@ describe('StreamingHealthService', () => {
 
     mockVideoElement = createMockVideo();
 
-    service = new StreamingHealthService({ loggerFactory: mockLoggerFactory });
+    service = new StreamingHealthService(mockLoggerFactory);
     mockLogger = mockLoggerFactory._getLogger('StreamingHealthService');
   });
 

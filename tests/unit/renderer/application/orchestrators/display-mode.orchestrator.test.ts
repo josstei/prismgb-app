@@ -38,13 +38,13 @@ describe('SettingsDisplayModeOrchestrator', () => {
     mockEventBus = createEventBus();
     hiddenMock = installDocumentPropertyMock('hidden', false);
 
-    orchestrator = new SettingsDisplayModeOrchestrator({
-      fullscreenService: mockSettingsFullscreenService,
-      cinematicModeService: mockSettingsCinematicModeService,
-      settingsService: mockSettingsService,
-      eventBus: mockEventBus,
-      loggerFactory: mockLoggerFactory
-    });
+    orchestrator = new SettingsDisplayModeOrchestrator(
+      mockSettingsFullscreenService,
+      mockSettingsCinematicModeService,
+      mockSettingsService,
+      mockEventBus,
+      mockLoggerFactory
+    );
   });
 
   afterEach(() => {

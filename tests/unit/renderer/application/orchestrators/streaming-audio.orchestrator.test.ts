@@ -31,13 +31,13 @@ describe('StreamingAudioOrchestrator', () => {
     mockEventBus = createEventBus();
     mockLoggerFactory = createLoggerFactory();
 
-    orchestrator = new StreamingAudioOrchestrator({
-      streamingAudioPipelineService: mockStreamingAudioPipelineService,
-      streamViewService: mockStreamViewService,
-      appState: mockAppState,
-      eventBus: mockEventBus,
-      loggerFactory: mockLoggerFactory
-    });
+    orchestrator = new StreamingAudioOrchestrator(
+      mockStreamingAudioPipelineService,
+      mockStreamViewService,
+      mockAppState,
+      mockEventBus,
+      mockLoggerFactory
+    );
     mockLogger = mockLoggerFactory._getLogger('StreamingAudioOrchestrator');
   });
 

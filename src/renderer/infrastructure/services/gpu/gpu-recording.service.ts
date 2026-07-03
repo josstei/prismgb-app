@@ -5,6 +5,7 @@
  * Keeps CaptureOrchestrator thin by owning all GPU recording state.
  */
 
+import { injectable, inject } from 'inversify';
 import { BaseService, raceWithTimeout } from '@platform/core';
 import type { LoggerFactoryLike, TimedRaceOutcome } from '@platform/core';
 import { EventChannels } from '@platform/events';
@@ -15,19 +16,12 @@ import type {
   GpuRendererServiceLike,
   RecordingScaleParams
 } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
-
-type CaptureGpuRecordingDependencies = {
-  gpuRendererService: GpuRendererServiceLike;
-  eventBus: TypedEventBusLike;
-  loggerFactory: LoggerFactoryLike;
-};
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
 const RECORDING_FRAME_LIFECYCLE = Symbol('gpuRecordingFrame');
 
+@injectable()
 class CaptureGpuRecordingService extends BaseService {
-  private readonly gpuRendererService: GpuRendererServiceLike;
-  protected readonly eventBus: TypedEventBusLike;
-
   private _recordingCanvas: HTMLCanvasElement | null;
   private _recordingCtx: CanvasRenderingContext2D | null;
   private _recordingStream: MediaStream | null;
@@ -43,11 +37,13 @@ class CaptureGpuRecordingService extends BaseService {
   private _isDraining: boolean;
   private _lastCapturePromise: Promise<ImageBitmap> | null;
 
-  constructor(dependencies: CaptureGpuRecordingDependencies) {
-    super(dependencies, 'CaptureGpuRecordingService');
+  constructor(
+    @inject(TOKENS.streamingRenderService) private readonly gpuRendererService: GpuRendererServiceLike,
+    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'CaptureGpuRecordingService');
 
-    this.gpuRendererService = dependencies.gpuRendererService;
-    this.eventBus = dependencies.eventBus;
     this._recordingCanvas = null;
     this._recordingCtx = null;
     this._recordingStream = null;

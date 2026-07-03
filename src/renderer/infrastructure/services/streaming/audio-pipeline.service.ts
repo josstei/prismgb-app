@@ -8,12 +8,14 @@
  * - Prevents startup distortion through gradual fade-in
  */
 
+import { injectable, inject } from 'inversify';
 import { BaseService, abortableDelay } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import { getErrorMessage } from '@platform/core';
 import type { TypedEventBusLike } from '@platform/events';
 import type { LoggerFactoryLike } from '@platform/core';
 import { computeRms, createEaseInCurve } from './audio-gain.utils.js';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type AudioWarmupResult = {
   ready: boolean;
@@ -41,19 +43,11 @@ type SettingsServiceLike = {
   getNumberSetting(name: string): number;
 };
 
-type StreamingAudioPipelineDependencies = {
-  eventBus: TypedEventBusLike;
-  loggerFactory: LoggerFactoryLike;
-  settingsService: SettingsServiceLike;
-};
-
 const AUDIO_WARMUP_LIFECYCLE = Symbol('audioWarmup');
 const VOLUME_SUBSCRIPTION_LIFECYCLE = Symbol('audioVolumeSubscription');
 
+@injectable()
 export class StreamingAudioPipelineService extends BaseService {
-  protected readonly eventBus: TypedEventBusLike;
-  private readonly settingsService: SettingsServiceLike;
-
   private _audioContext: AudioContext | null;
   private _sourceNode: MediaStreamAudioSourceNode | null;
   private _gainNode: GainNode | null;
@@ -66,11 +60,13 @@ export class StreamingAudioPipelineService extends BaseService {
   private _targetGain: number;
   private _startPromise: Promise<boolean> | null;
 
-  constructor(dependencies: StreamingAudioPipelineDependencies) {
-    super(dependencies, 'StreamingAudioPipelineService');
+  constructor(
+    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike,
+    @inject(TOKENS.settingsService) private readonly settingsService: SettingsServiceLike
+  ) {
+    super({ loggerFactory, eventBus }, 'StreamingAudioPipelineService');
 
-    this.eventBus = dependencies.eventBus;
-    this.settingsService = dependencies.settingsService;
     this._audioContext = null;
     this._sourceNode = null;
     this._gainNode = null;

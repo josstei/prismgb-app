@@ -1,66 +1,23 @@
-// @ts-nocheck
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 import {
   createRendererContainer,
   initializeContainer
 } from '@renderer/application/container';
+import type { ServiceIdentifier } from 'inversify';
+import { TOKENS, TOKEN_KEYS } from '@renderer/application/di/tokens.js';
 
-const expectedRegistrationKeys = [
-  'eventBus',
-  'loggerFactory',
-  'storageService',
-  'browserMediaService',
-  'visibilityAdapter',
-  'userActivityAdapter',
-  'reducedMotionAdapter',
-  'metricsAdapter',
-  'deviceStatusPort',
-  'mediaDevicesPort',
-  'devicePreferenceStore',
-  'presentationModeStore',
-  'viewportService',
-  'canvasLifecycleService',
-  'streamHealthService',
-  'streamingRenderService',
-  'deviceMediaAcquirer',
-  'rendererDeviceRuntime',
-  'streamingService',
-  'captureService',
-  'gpuRecordingService',
-  'transcodeService',
-  'captureSaveService',
-  'settingsService',
-  'notesService',
-  'updateService',
-  'updateUiService',
-  'streamViewService',
-  'streamingAudioPipelineService',
-  'appState',
-  'uiComponentRegistry',
-  'uiEffects',
-  'bodyClassManager',
-  'uiEventBridge',
-  'presentationModeService',
-  'captureUiBridge',
-  'transcodeUiBridge',
-  'streamingAudioOrchestrator',
-  'streamingOrchestrator',
-  'captureOrchestrator',
-  'preferencesOrchestrator',
-  'fullscreenService',
-  'cinematicModeService',
-  'displayModeOrchestrator',
-  'updateOrchestrator',
-  'performanceStateOrchestrator',
-  'animationPerformanceOrchestrator',
-  'performanceMetricsService',
-  'performanceStateService',
-  'animationPerformanceService',
-  'performanceMetricsOrchestrator',
-  'uiSetupOrchestrator',
-  'appOrchestrator'
-];
+const RESOLVABLE_TOKEN_KEYS = TOKEN_KEYS.filter((key) => key !== 'uiController');
+
+/**
+ * A handful of decorated classes take `@inject(TOKENS.uiController)`, which
+ * bootstrap only binds after the UI shell renders — never before resolving
+ * them. Tests that exercise the full graph stand in a stub, matching real
+ * bootstrap order instead of resolving those classes out of order.
+ */
+function createFakeUiController(): unknown {
+  return { initializeComponents: vi.fn(), dispose: vi.fn() };
+}
 
 describe('Renderer container', () => {
   beforeEach(() => {
@@ -73,23 +30,52 @@ describe('Renderer container', () => {
     vi.restoreAllMocks();
   });
 
-  it('creates renderer container with expected descriptor registrations', () => {
-    const container = createRendererContainer();
+  it('resolves every token once uiController is bound, matching bootstrap order', () => {
+    const container = createRendererContainer({ uiController: createFakeUiController() });
 
-    const tokens = container.tokens;
-
-    expect(tokens).toEqual(expect.arrayContaining(expectedRegistrationKeys));
-    expect(tokens).not.toContain('uiController');
-    expect(container.resolve('loggerFactory')).toBeDefined();
+    for (const key of RESOLVABLE_TOKEN_KEYS) {
+      expect(() => container.get(TOKENS[key] as ServiceIdentifier)).not.toThrow();
+    }
   });
 
-  it('resolves UI effects without requiring a container-level elements token', () => {
+  it('returns the same singleton instance across repeated resolutions', () => {
     const container = createRendererContainer();
 
-    const uiEffects = container.resolve('uiEffects');
+    expect(container.get(TOKENS.appState)).toBe(container.get(TOKENS.appState));
+  });
 
-    expect(uiEffects.elements).toBeNull();
-    expect(container.tokens).not.toContain('elements');
+  it('replaces an already-bound token with an override', () => {
+    const fakeLoggerFactory = { create: vi.fn() };
+    const container = createRendererContainer({ loggerFactory: fakeLoggerFactory });
+
+    expect(container.get(TOKENS.loggerFactory)).toBe(fakeLoggerFactory);
+  });
+
+  it('binds an override for a token with no default binding', () => {
+    const fakeUiController = { initializeComponents: vi.fn(), dispose: vi.fn() };
+    const container = createRendererContainer({ uiController: fakeUiController });
+
+    expect(container.get(TOKENS.uiController)).toBe(fakeUiController);
+  });
+
+  it('does not bind uiController by default', () => {
+    const container = createRendererContainer();
+
+    expect(container.isBound(TOKENS.uiController)).toBe(false);
+  });
+
+  it('resolves streamingRenderService before canvasLifecycleService without a circular error', () => {
+    const container = createRendererContainer({ uiController: createFakeUiController() });
+
+    expect(() => container.get(TOKENS.streamingRenderService)).not.toThrow();
+    expect(() => container.get(TOKENS.canvasLifecycleService)).not.toThrow();
+  });
+
+  it('resolves canvasLifecycleService before streamingRenderService without a circular error', () => {
+    const container = createRendererContainer({ uiController: createFakeUiController() });
+
+    expect(() => container.get(TOKENS.canvasLifecycleService)).not.toThrow();
+    expect(() => container.get(TOKENS.streamingRenderService)).not.toThrow();
   });
 
   it('warns and reuses container on repeated initialization', () => {
@@ -99,43 +85,5 @@ describe('Renderer container', () => {
 
     expect(first).toBe(second);
     expect(warnSpy).toHaveBeenCalledWith('Container already initialized');
-  });
-
-  it('resolves UI-bound services once uiController is registered', () => {
-    const container = createRendererContainer();
-
-    container.registerValue('uiController', {
-      initializeComponents: () => {},
-      dispose: () => {}
-    });
-
-    expect(() => container.resolve('uiSetupOrchestrator')).not.toThrow();
-  });
-
-  it('still resolves app orchestration after uiController registration', () => {
-    const container = createRendererContainer();
-
-    container.registerValue('uiController', {
-      initializeComponents: () => {},
-      elements: {},
-      dispose: () => {}
-    });
-
-    expect(() => container.resolve('appOrchestrator')).not.toThrow();
-  });
-
-  it('resolves manual-provider and standard service tokens with chained dependencies', () => {
-    const container = createRendererContainer();
-
-    // Manual providers, including platform ports.
-    expect(() => container.resolve('storageService')).not.toThrow();
-    expect(() => container.resolve('deviceStatusPort')).not.toThrow();
-    expect(() => container.resolve('mediaDevicesPort')).not.toThrow();
-    expect(() => container.resolve('devicePreferenceStore')).not.toThrow();
-    expect(() => container.resolve('presentationModeStore')).not.toThrow();
-    expect(() => container.resolve('streamingRenderService')).not.toThrow();
-
-    // Standard service registrations: cradle construction and no-arg construction.
-    expect(() => container.resolve('deviceMediaAcquirer')).not.toThrow();
   });
 });

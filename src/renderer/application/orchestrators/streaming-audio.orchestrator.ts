@@ -1,6 +1,8 @@
+import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type StreamingAudioPipelineServiceLike = {
   start(stream: MediaStream): Promise<boolean>;
@@ -13,14 +15,6 @@ type StreamViewServiceLike = {
 
 type AppStateLike = {
   readonly isStreaming: boolean;
-};
-
-type StreamingAudioOrchestratorDependencies = {
-  streamingAudioPipelineService: StreamingAudioPipelineServiceLike;
-  streamViewService: StreamViewServiceLike;
-  appState: AppStateLike;
-  eventBus: EventBusLike;
-  loggerFactory: LoggerFactoryLike;
 };
 
 function resolveStreamFromPayload(data: unknown): MediaStream | null {
@@ -38,23 +32,20 @@ function resolveStreamFromPayload(data: unknown): MediaStream | null {
     : null;
 }
 
+@injectable()
 export class StreamingAudioOrchestrator extends BaseOrchestrator {
-  private readonly streamingAudioPipelineService: StreamingAudioPipelineServiceLike;
-  private readonly streamViewService: StreamViewServiceLike;
-  private readonly appState: AppStateLike;
   private _activeStream: MediaStream | null;
   private _fallbackUnmuted: boolean;
 
-  constructor(dependencies: StreamingAudioOrchestratorDependencies) {
-    super(
-      dependencies,
-      'StreamingAudioOrchestrator'
-    );
+  constructor(
+    @inject(TOKENS.streamingAudioPipelineService) private readonly streamingAudioPipelineService: StreamingAudioPipelineServiceLike,
+    @inject(TOKENS.streamViewService) private readonly streamViewService: StreamViewServiceLike,
+    @inject(TOKENS.appState) private readonly appState: AppStateLike,
+    @inject(TOKENS.eventBus) eventBus: EventBusLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'StreamingAudioOrchestrator');
 
-    this.streamingAudioPipelineService = dependencies.streamingAudioPipelineService;
-    this.streamViewService = dependencies.streamViewService;
-    this.appState = dependencies.appState;
-    this.eventBus = dependencies.eventBus;
     this._activeStream = null;
     this._fallbackUnmuted = false;
   }

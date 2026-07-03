@@ -42,10 +42,7 @@ describe('SettingsFullscreenService', () => {
     mockDocument = documentMock.document;
     mockDocumentElement = documentMock.documentElement;
 
-    service = new SettingsFullscreenService({
-      eventBus: mockEventBus,
-      loggerFactory: mockLoggerFactory
-    });
+    service = new SettingsFullscreenService(mockEventBus, mockLoggerFactory);
     mockLogger = mockLoggerFactory._getLogger('SettingsFullscreenService');
   });
 
@@ -128,10 +125,7 @@ describe('SettingsFullscreenService', () => {
     });
 
     it('should handle dispose when not initialized', async () => {
-      const uninitializedService = new SettingsFullscreenService({
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      });
+      const uninitializedService = new SettingsFullscreenService(mockEventBus, mockLoggerFactory);
 
       await expect(uninitializedService.dispose()).resolves.toBeUndefined();
     });

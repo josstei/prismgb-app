@@ -69,21 +69,21 @@ describe('AppOrchestrator', () => {
     mockEventBus = createEventBus();
     mockLoggerFactory = createLoggerFactory();
 
-    orchestrator = new AppOrchestrator({
-      rendererDeviceRuntime: mockRendererDeviceRuntime,
-      streamingOrchestrator: mockStreamingOrchestrator,
-      streamingAudioOrchestrator: mockStreamingAudioOrchestrator,
-      captureOrchestrator: mockCaptureOrchestrator,
-      preferencesOrchestrator: mockSettingsPreferencesOrchestrator,
-      displayModeOrchestrator: mockSettingsDisplayModeOrchestrator,
-      updateOrchestrator: mockUpdateOrchestrator,
-      uiSetupOrchestrator: mockUISetupOrchestrator,
-      animationPerformanceOrchestrator: mockPerformanceAnimationOrchestrator,
-      performanceMetricsOrchestrator: mockPerformanceMetricsOrchestrator,
-      performanceStateOrchestrator: mockPerformanceStateOrchestrator,
-      eventBus: mockEventBus,
-      loggerFactory: mockLoggerFactory
-    });
+    orchestrator = new AppOrchestrator(
+      mockRendererDeviceRuntime,
+      mockStreamingOrchestrator,
+      mockStreamingAudioOrchestrator,
+      mockCaptureOrchestrator,
+      mockSettingsPreferencesOrchestrator,
+      mockSettingsDisplayModeOrchestrator,
+      mockUpdateOrchestrator,
+      mockUISetupOrchestrator,
+      mockPerformanceAnimationOrchestrator,
+      mockPerformanceMetricsOrchestrator,
+      mockPerformanceStateOrchestrator,
+      mockEventBus,
+      mockLoggerFactory
+    );
     mockLogger = mockLoggerFactory._getLogger('AppOrchestrator');
   });
 

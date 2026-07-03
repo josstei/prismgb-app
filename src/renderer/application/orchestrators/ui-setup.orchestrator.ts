@@ -1,3 +1,4 @@
+import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
@@ -15,6 +16,7 @@ import {
   type UIActionDescriptor,
   type UIActionEvent
 } from '@renderer/presentation/primitives/template-ref.utils.js';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 import type { LoggerFactoryLike } from '@platform/core';
 import type { ReadonlySignal } from '@platform/ui-base/reactive';
 import type { TypedEventBusLike } from '@platform/events';
@@ -31,45 +33,27 @@ type AppStateLike = {
   readonly cinematicModeSignal: ReadonlySignal<boolean>;
 };
 
-type UISetupOrchestratorDependencies = {
-  appState: AppStateLike;
-  updateOrchestrator: UpdateOrchestrator;
-  settingsService: SettingsService;
-  notesService: NotesService;
-  uiController: UIController;
-  eventBus: TypedEventBusLike;
-  loggerFactory: LoggerFactoryLike;
-};
-
 type DeferredComponentDependencies = {
   [TId in RendererTemplateDeferredComponentId]: RendererUiComponentDependencies<TId>;
 };
 
 const UI_ACTION_LISTENERS_LIFECYCLE = Symbol('uiSetupActionListenersLifecycle');
 
+@injectable()
 export class UISetupOrchestrator extends BaseOrchestrator {
-  protected readonly eventBus: TypedEventBusLike;
-  private readonly appState: AppStateLike;
-  private readonly updateOrchestrator: UpdateOrchestrator;
-  private readonly settingsService: SettingsService;
-  private readonly notesService: NotesService;
-  private readonly uiController: UIController;
-  private readonly loggerFactory: LoggerFactoryLike;
   private _uiActionsBound: boolean;
 
-  constructor(dependencies: UISetupOrchestratorDependencies) {
-    super(
-      dependencies,
-      'UISetupOrchestrator'
-    );
+  constructor(
+    @inject(TOKENS.appState) private readonly appState: AppStateLike,
+    @inject(TOKENS.updateOrchestrator) private readonly updateOrchestrator: UpdateOrchestrator,
+    @inject(TOKENS.settingsService) private readonly settingsService: SettingsService,
+    @inject(TOKENS.notesService) private readonly notesService: NotesService,
+    @inject(TOKENS.uiController) private readonly uiController: UIController,
+    @inject(TOKENS.eventBus) protected readonly eventBus: TypedEventBusLike,
+    @inject(TOKENS.loggerFactory) private readonly loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'UISetupOrchestrator');
 
-    this.appState = dependencies.appState;
-    this.updateOrchestrator = dependencies.updateOrchestrator;
-    this.settingsService = dependencies.settingsService;
-    this.notesService = dependencies.notesService;
-    this.uiController = dependencies.uiController;
-    this.eventBus = dependencies.eventBus;
-    this.loggerFactory = dependencies.loggerFactory;
     this._uiActionsBound = false;
   }
 

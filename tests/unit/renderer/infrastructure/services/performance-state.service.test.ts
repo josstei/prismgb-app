@@ -53,12 +53,12 @@ describe('PerformanceStateService', () => {
       })
     });
 
-    service = new PerformanceStateService({
-      loggerFactory: mockLoggerFactory,
-      visibilityAdapter: mockVisibilityAdapter,
-      userActivityAdapter: mockUserActivityAdapter,
-      reducedMotionAdapter: mockReducedMotionAdapter
-    });
+    service = new PerformanceStateService(
+      mockLoggerFactory,
+      mockVisibilityAdapter,
+      mockUserActivityAdapter,
+      mockReducedMotionAdapter
+    );
   });
 
   afterEach(() => {

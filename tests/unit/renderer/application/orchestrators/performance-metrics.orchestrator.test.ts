@@ -30,11 +30,11 @@ describe('PerformanceMetricsOrchestrator', () => {
 
     mockPerformanceMetricsService = createPerformanceMetricsServiceMock();
 
-    orchestrator = new PerformanceMetricsOrchestrator({
-      eventBus: mockEventBus,
-      loggerFactory: mockLoggerFactory,
-      performanceMetricsService: mockPerformanceMetricsService
-    });
+    orchestrator = new PerformanceMetricsOrchestrator(
+      mockEventBus,
+      mockLoggerFactory,
+      mockPerformanceMetricsService
+    );
   });
 
   afterEach(() => {

@@ -164,6 +164,10 @@ module.exports = {
     doNotFollow: { path: 'node_modules' },
     tsConfig: { fileName: 'tsconfig.app.json' },
     tsPreCompilationDeps: true,
-    enhancedResolveOptions: { extensions: ['.ts', '.js', '.d.ts', '.json'] }
+    enhancedResolveOptions: {
+      extensions: ['.ts', '.js', '.d.ts', '.json'],
+      exportsFields: ['exports'],
+      conditionNames: ['types', 'import', 'require', 'node', 'default']
+    }
   }
 };

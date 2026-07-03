@@ -14,7 +14,7 @@ describe('EventBus', () => {
 
   beforeEach(() => {
     mockLoggerFactory = createLoggerFactory();
-    eventBus = new EventBus({ loggerFactory: mockLoggerFactory });
+    eventBus = new EventBus(mockLoggerFactory);
   });
 
   describe('Constructor', () => {
@@ -25,7 +25,7 @@ describe('EventBus', () => {
     });
 
     it('should create EventBus with logger factory', () => {
-      const bus = new EventBus({ loggerFactory: mockLoggerFactory });
+      const bus = new EventBus(mockLoggerFactory);
       expect(bus).toBeDefined();
     });
   });

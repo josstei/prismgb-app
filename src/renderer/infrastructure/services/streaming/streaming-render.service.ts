@@ -1,3 +1,4 @@
+import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import { DeviceCatalog } from '@platform/devices';
@@ -11,6 +12,7 @@ import type {
 import { createGpuVideoRendererSession, detectBrowserGpuCapabilities } from '@platform/gpu/runtime';
 import type { GpuVideoRendererSession, GpuVideoRendererStats } from '@platform/gpu/runtime';
 import type { RenderCapabilities } from '@platform/gpu';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type VideoFrameCallbackMetadata = {
   mediaTime: number;
@@ -56,26 +58,10 @@ type SettingsServiceLike = {
   getStringSetting(name: string): string;
 };
 
-type StreamingRenderDependencies = {
-  appState: AppStateLike;
-  streamViewService: StreamViewServiceLike;
-  canvasLifecycleService: CanvasLifecycleServiceLike;
-  streamHealthService: StreamHealthServiceLike;
-  settingsService: SettingsServiceLike;
-  eventBus: TypedEventBusLike;
-  loggerFactory: LoggerFactoryLike;
-};
-
 const BRIGHTNESS_SUBSCRIPTION_LIFECYCLE = Symbol('gpuBrightnessSubscription');
 
+@injectable()
 export class StreamingRenderService extends BaseService {
-  private readonly appState: AppStateLike;
-  private readonly streamViewService: StreamViewServiceLike;
-  private readonly canvasLifecycleService: CanvasLifecycleServiceLike;
-  private readonly streamHealthService: StreamHealthServiceLike;
-  private readonly settingsService: SettingsServiceLike;
-  protected readonly eventBus: TypedEventBusLike;
-
   private _currentCapabilities: StreamingCapabilities | null;
   private _session: GpuVideoRendererSession | null;
   private _isHidden: boolean;
@@ -91,15 +77,17 @@ export class StreamingRenderService extends BaseService {
   private _rvfcHandle: number | null = null;
   private _gpuCapabilities: RenderCapabilities | null = null;
 
-  constructor(dependencies: StreamingRenderDependencies) {
-    super(dependencies, 'StreamingRenderService');
+  constructor(
+    @inject(TOKENS.appState) private readonly appState: AppStateLike,
+    @inject(TOKENS.streamViewService) private readonly streamViewService: StreamViewServiceLike,
+    @inject(TOKENS.canvasLifecycleService) private readonly canvasLifecycleService: CanvasLifecycleServiceLike,
+    @inject(TOKENS.streamHealthService) private readonly streamHealthService: StreamHealthServiceLike,
+    @inject(TOKENS.settingsService) private readonly settingsService: SettingsServiceLike,
+    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'StreamingRenderService');
 
-    this.appState = dependencies.appState;
-    this.streamViewService = dependencies.streamViewService;
-    this.canvasLifecycleService = dependencies.canvasLifecycleService;
-    this.streamHealthService = dependencies.streamHealthService;
-    this.settingsService = dependencies.settingsService;
-    this.eventBus = dependencies.eventBus;
     this._currentCapabilities = null;
     this._session = null;
     this._isHidden = false;

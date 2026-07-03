@@ -41,10 +41,7 @@ describe('StreamingViewService', () => {
 
     mockLoggerFactory = createLoggerFactory();
 
-    service = new StreamingViewService({
-      uiController: mockUIController,
-      loggerFactory: mockLoggerFactory
-    });
+    service = new StreamingViewService(mockUIController, mockLoggerFactory);
     mockLogger = mockLoggerFactory._getLogger('StreamingViewService');
   });
 

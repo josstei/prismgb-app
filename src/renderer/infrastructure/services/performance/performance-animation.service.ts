@@ -5,9 +5,11 @@
  * Does NOT mutate DOM - returns state that BodyClassManager applies.
  */
 
+import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import type { PerformanceStatePayload } from '@platform/events';
 import type { LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type AnimationSuppressionReason = 'reducedMotion' | 'weakGPU' | 'performanceMode';
 type AnimationSuppressionState = Record<AnimationSuppressionReason, boolean>;
@@ -18,21 +20,18 @@ export interface AnimationPerformanceState {
   animationsOff: boolean;
 }
 
-interface PerformanceAnimationDependencies {
-  loggerFactory: LoggerFactoryLike;
-}
-
 function isPerformanceStatePayload(value: unknown): value is PerformanceStatePayload {
   return typeof value === 'object' && value !== null;
 }
 
+@injectable()
 class PerformanceAnimationService extends BaseService {
   private readonly _animationSuppression: AnimationSuppressionState;
   private _isHidden: boolean;
   private _isIdle: boolean;
 
-  constructor(dependencies: PerformanceAnimationDependencies) {
-    super(dependencies, 'PerformanceAnimationService');
+  constructor(@inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike) {
+    super({ loggerFactory }, 'PerformanceAnimationService');
 
     this._animationSuppression = {
       reducedMotion: false,

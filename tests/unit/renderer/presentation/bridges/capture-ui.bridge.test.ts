@@ -46,42 +46,26 @@ describe('CaptureUIBridge', () => {
 
   describe('Constructor', () => {
     it('should store eventBus', () => {
-      bridge = new CaptureUIBridge({
-        eventBus: mockEventBus,
-        uiController: mockUIController,
-        loggerFactory: mockLoggerFactory
-      });
+      bridge = new CaptureUIBridge(mockEventBus, mockUIController, mockLoggerFactory);
 
       expect(bridge.eventBus).toBe(mockEventBus);
     });
 
     it('should store uiController', () => {
-      bridge = new CaptureUIBridge({
-        eventBus: mockEventBus,
-        uiController: mockUIController,
-        loggerFactory: mockLoggerFactory
-      });
+      bridge = new CaptureUIBridge(mockEventBus, mockUIController, mockLoggerFactory);
 
       expect(bridge.uiController).toBe(mockUIController);
     });
 
     it('should create logger from loggerFactory', () => {
-      bridge = new CaptureUIBridge({
-        eventBus: mockEventBus,
-        uiController: mockUIController,
-        loggerFactory: mockLoggerFactory
-      });
+      bridge = new CaptureUIBridge(mockEventBus, mockUIController, mockLoggerFactory);
 
       expect(mockLoggerFactory.create).toHaveBeenCalledWith('CaptureUIBridge');
       expect(bridge.logger).toBe(mockLogger);
     });
 
     it('should initialize disposables bag', () => {
-      bridge = new CaptureUIBridge({
-        eventBus: mockEventBus,
-        uiController: mockUIController,
-        loggerFactory: mockLoggerFactory
-      });
+      bridge = new CaptureUIBridge(mockEventBus, mockUIController, mockLoggerFactory);
 
       expect(bridge.disposables).toBeDefined();
       expect(bridge.disposables.size).toBe(0);
@@ -90,11 +74,7 @@ describe('CaptureUIBridge', () => {
 
   describe('initialize', () => {
     beforeEach(() => {
-      bridge = new CaptureUIBridge({
-        eventBus: mockEventBus,
-        uiController: mockUIController,
-        loggerFactory: mockLoggerFactory
-      });
+      bridge = new CaptureUIBridge(mockEventBus, mockUIController, mockLoggerFactory);
     });
 
     it('should subscribe to all capture events', () => {
@@ -135,11 +115,7 @@ describe('CaptureUIBridge', () => {
 
   describe('dispose', () => {
     beforeEach(() => {
-      bridge = new CaptureUIBridge({
-        eventBus: mockEventBus,
-        uiController: mockUIController,
-        loggerFactory: mockLoggerFactory
-      });
+      bridge = new CaptureUIBridge(mockEventBus, mockUIController, mockLoggerFactory);
     });
 
     it('should call all unsubscribe functions on dispose', () => {
@@ -184,11 +160,7 @@ describe('CaptureUIBridge', () => {
 
   describe('Event Handlers - Screenshot', () => {
     beforeEach(() => {
-      bridge = new CaptureUIBridge({
-        eventBus: mockEventBus,
-        uiController: mockUIController,
-        loggerFactory: mockLoggerFactory
-      });
+      bridge = new CaptureUIBridge(mockEventBus, mockUIController, mockLoggerFactory);
       bridge.initialize();
     });
 
@@ -250,11 +222,7 @@ describe('CaptureUIBridge', () => {
 
   describe('Event Handlers - Recording Started', () => {
     beforeEach(() => {
-      bridge = new CaptureUIBridge({
-        eventBus: mockEventBus,
-        uiController: mockUIController,
-        loggerFactory: mockLoggerFactory
-      });
+      bridge = new CaptureUIBridge(mockEventBus, mockUIController, mockLoggerFactory);
       bridge.initialize();
     });
 
@@ -301,11 +269,7 @@ describe('CaptureUIBridge', () => {
 
   describe('Event Handlers - Recording Stopped', () => {
     beforeEach(() => {
-      bridge = new CaptureUIBridge({
-        eventBus: mockEventBus,
-        uiController: mockUIController,
-        loggerFactory: mockLoggerFactory
-      });
+      bridge = new CaptureUIBridge(mockEventBus, mockUIController, mockLoggerFactory);
       bridge.initialize();
     });
 
@@ -342,11 +306,7 @@ describe('CaptureUIBridge', () => {
 
   describe('Event Handlers - Recording Error', () => {
     beforeEach(() => {
-      bridge = new CaptureUIBridge({
-        eventBus: mockEventBus,
-        uiController: mockUIController,
-        loggerFactory: mockLoggerFactory
-      });
+      bridge = new CaptureUIBridge(mockEventBus, mockUIController, mockLoggerFactory);
       bridge.initialize();
     });
 
@@ -439,11 +399,7 @@ describe('CaptureUIBridge', () => {
 
   describe('Event Handlers - Recording Degraded', () => {
     beforeEach(() => {
-      bridge = new CaptureUIBridge({
-        eventBus: mockEventBus,
-        uiController: mockUIController,
-        loggerFactory: mockLoggerFactory
-      });
+      bridge = new CaptureUIBridge(mockEventBus, mockUIController, mockLoggerFactory);
       bridge.initialize();
     });
 
@@ -483,11 +439,7 @@ describe('CaptureUIBridge', () => {
 
   describe('Integration - Full Workflow', () => {
     beforeEach(() => {
-      bridge = new CaptureUIBridge({
-        eventBus: mockEventBus,
-        uiController: mockUIController,
-        loggerFactory: mockLoggerFactory
-      });
+      bridge = new CaptureUIBridge(mockEventBus, mockUIController, mockLoggerFactory);
       bridge.initialize();
     });
 
@@ -561,11 +513,7 @@ describe('CaptureUIBridge', () => {
 
   describe('Edge Cases', () => {
     beforeEach(() => {
-      bridge = new CaptureUIBridge({
-        eventBus: mockEventBus,
-        uiController: mockUIController,
-                loggerFactory: mockLoggerFactory
-      });
+      bridge = new CaptureUIBridge(mockEventBus, mockUIController, mockLoggerFactory);
     });
 
     it('should not throw when disposing before initialization', () => {

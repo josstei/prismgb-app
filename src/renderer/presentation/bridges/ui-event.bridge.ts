@@ -1,3 +1,4 @@
+import { injectable, inject } from 'inversify';
 import { BaseService, type ServiceEventDescriptor } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import type {
@@ -5,6 +6,7 @@ import type {
   UiButtonFeedbackPayload
 } from '@platform/events';
 import type { LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type UiControllerLike = {
   updateDeviceStatus(status: unknown): void;
@@ -27,13 +29,6 @@ type PresentationModeServiceLike = {
   handleFullscreenState(active: boolean): void;
 };
 
-type UIEventBridgeDependencies = {
-  eventBus: TypedEventBusLike;
-  uiController: UiControllerLike;
-  presentationModeService: PresentationModeServiceLike;
-  loggerFactory: LoggerFactoryLike;
-};
-
 function getBooleanPayloadValue(data: unknown, key: string): boolean | null {
   if (typeof data !== 'object' || data === null || !(key in data)) {
     return null;
@@ -43,6 +38,7 @@ function getBooleanPayloadValue(data: unknown, key: string): boolean | null {
   return typeof value === 'boolean' ? value : null;
 }
 
+@injectable()
 export class UIEventBridge extends BaseService {
   private static readonly eventDescriptors = [
     [EventChannels.UI.STREAMING_MODE, (bridge, data) => bridge._handleStreamingMode(data)],
@@ -57,16 +53,13 @@ export class UIEventBridge extends BaseService {
     [EventChannels.UI.FULLSCREEN_STATE, (bridge, data) => bridge._handleFullscreenState(data)]
   ] satisfies readonly ServiceEventDescriptor<UIEventBridge>[];
 
-  protected readonly eventBus: TypedEventBusLike;
-  private readonly uiController: UiControllerLike;
-  private readonly presentationModeService: PresentationModeServiceLike;
-
-  constructor(dependencies: UIEventBridgeDependencies) {
-    super(dependencies, 'UIEventBridge');
-
-    this.eventBus = dependencies.eventBus;
-    this.uiController = dependencies.uiController;
-    this.presentationModeService = dependencies.presentationModeService;
+  constructor(
+    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
+    @inject(TOKENS.uiController) private readonly uiController: UiControllerLike,
+    @inject(TOKENS.presentationModeService) private readonly presentationModeService: PresentationModeServiceLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'UIEventBridge');
   }
 
   initialize(): void {

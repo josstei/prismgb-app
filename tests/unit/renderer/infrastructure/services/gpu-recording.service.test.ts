@@ -74,11 +74,7 @@ describe('CaptureGpuRecordingService', () => {
     mockLoggerFactory = createLoggerFactory();
     mockLogger = mockLoggerFactory.create('CaptureGpuRecordingService');
 
-    service = new CaptureGpuRecordingService({
-      gpuRendererService: mockGpuRendererService,
-      eventBus: mockEventBus,
-      loggerFactory: mockLoggerFactory
-    });
+    service = new CaptureGpuRecordingService(mockGpuRendererService, mockEventBus, mockLoggerFactory);
   });
 
   afterEach(() => {

@@ -71,7 +71,7 @@ describe('StreamingViewportService', () => {
     getComputedStyleMock = installGetComputedStyleMock(getViewportComputedStyle);
     resizeObserverMock = installResizeObserverMock();
 
-    service = new StreamingViewportService({ loggerFactory: mockLoggerFactory });
+    service = new StreamingViewportService(mockLoggerFactory);
     mockLogger = mockLoggerFactory._getLogger('StreamingViewportService');
   });
 

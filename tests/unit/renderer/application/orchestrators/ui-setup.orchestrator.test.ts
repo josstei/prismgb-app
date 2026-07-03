@@ -41,15 +41,15 @@ describe('UISetupOrchestrator', () => {
       toggleNotesPanel: vi.fn()
     });
 
-    orchestrator = new UISetupOrchestrator({
-      appState: mockAppState,
-      updateOrchestrator: mockUpdateOrchestrator,
-      settingsService: mockSettingsService,
-      notesService: mockNotesService,
-      uiController: mockUiController,
-      eventBus: mockEventBus,
-      loggerFactory: mockLoggerFactory
-    });
+    orchestrator = new UISetupOrchestrator(
+      mockAppState,
+      mockUpdateOrchestrator,
+      mockSettingsService,
+      mockNotesService,
+      mockUiController,
+      mockEventBus,
+      mockLoggerFactory
+    );
     mockLogger = mockLoggerFactory._getLogger('UISetupOrchestrator');
   });
 

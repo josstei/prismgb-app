@@ -19,10 +19,7 @@ describe('PerformanceMetricsService', () => {
 
     mockMetricsAdapter = createPerformanceMetricsAdapterMock();
 
-    service = new PerformanceMetricsService({
-      loggerFactory: mockLoggerFactory,
-      metricsAdapter: mockMetricsAdapter
-    });
+    service = new PerformanceMetricsService(mockLoggerFactory, mockMetricsAdapter);
     mockLogger = mockLoggerFactory._getLogger('PerformanceMetricsService');
   });
 

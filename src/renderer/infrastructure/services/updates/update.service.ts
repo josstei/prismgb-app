@@ -1,9 +1,12 @@
+import { injectable, inject } from 'inversify';
 import { BaseService, getErrorMessage } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { UpdateState } from '@platform/config';
 import type { UpdateStateValue } from '@platform/config';
+import type { LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 import type {
   IpcActionResult,
   UpdateCheckResponse,
@@ -28,27 +31,24 @@ interface UpdateEventBus {
   publish(event: string, payload?: unknown): void;
 }
 
-interface UpdateServiceDependencies {
-  eventBus: UpdateEventBus;
-  loggerFactory: unknown;
-}
-
 type UpdateStatusSnapshot = UpdateStatusPayload & {
   state: UpdateStateValue;
 };
 
+@injectable()
 class UpdateService extends BaseService {
-  private readonly eventBus: UpdateEventBus;
   private _state: UpdateStateValue;
   private _updateInfo: UpdateInfoPayload | null;
   private _downloadProgress: UpdateProgressPayload | null;
   private _error: string | UpdateErrorPayload | null;
   private _initialized: boolean;
 
-  constructor(dependencies: UpdateServiceDependencies) {
-    super(dependencies, 'UpdateService');
+  constructor(
+    @inject(TOKENS.eventBus) private readonly eventBus: UpdateEventBus,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'UpdateService');
 
-    this.eventBus = dependencies.eventBus;
     this._state = UpdateState.IDLE;
     this._updateInfo = null;
     this._downloadProgress = null;

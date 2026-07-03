@@ -75,17 +75,17 @@ describe('CaptureOrchestrator', () => {
     mockEventBus = createEventBus();
     mockLoggerFactory = createLoggerFactory();
 
-    orchestrator = new CaptureOrchestrator({
-      captureService: mockCaptureService,
-      appState: mockAppState,
-      streamViewService: mockStreamingViewService,
-      streamingRenderService: mockStreamingRenderService,
-      gpuRecordingService: mockCaptureGpuRecordingService,
-      transcodeService: mockTranscodeService,
-      captureSaveService: mockCaptureSaveService,
-      eventBus: mockEventBus,
-      loggerFactory: mockLoggerFactory
-    });
+    orchestrator = new CaptureOrchestrator(
+      mockCaptureService,
+      mockAppState,
+      mockStreamingViewService,
+      mockStreamingRenderService,
+      mockCaptureGpuRecordingService,
+      mockTranscodeService,
+      mockCaptureSaveService,
+      mockEventBus,
+      mockLoggerFactory
+    );
     mockLogger = mockLoggerFactory._getLogger('CaptureOrchestrator');
   });
 

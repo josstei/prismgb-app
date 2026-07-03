@@ -11,11 +11,7 @@ function createService() {
       gameVolume: 70
     }
   });
-  const service = new StreamingAudioPipelineService({
-    eventBus,
-    loggerFactory,
-    settingsService
-  });
+  const service = new StreamingAudioPipelineService(eventBus, loggerFactory, settingsService);
   const logger = loggerFactory._getLogger('StreamingAudioPipelineService');
   const unsubscribe = eventBus.subscribe.mock.results[0].value;
 

@@ -1,6 +1,8 @@
+import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type FullscreenServiceLike = {
   initialize(): void;
@@ -18,30 +20,18 @@ type SettingsServiceLike = {
   getBooleanSetting(name: string): boolean;
 };
 
-type SettingsDisplayModeOrchestratorDependencies = {
-  fullscreenService: FullscreenServiceLike;
-  cinematicModeService: CinematicModeServiceLike;
-  settingsService: SettingsServiceLike;
-  eventBus: EventBusLike;
-  loggerFactory: LoggerFactoryLike;
-};
-
 const STARTUP_VISIBILITY_LIFECYCLE = Symbol('settingsDisplayModeStartupVisibilityLifecycle');
 
+@injectable()
 export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
-  private readonly fullscreenService: FullscreenServiceLike;
-  private readonly cinematicModeService: CinematicModeServiceLike;
-  private readonly settingsService: SettingsServiceLike;
-
-  constructor(dependencies: SettingsDisplayModeOrchestratorDependencies) {
-    super(
-      dependencies,
-      'SettingsDisplayModeOrchestrator'
-    );
-    this.fullscreenService = dependencies.fullscreenService;
-    this.cinematicModeService = dependencies.cinematicModeService;
-    this.settingsService = dependencies.settingsService;
-    this.eventBus = dependencies.eventBus;
+  constructor(
+    @inject(TOKENS.fullscreenService) private readonly fullscreenService: FullscreenServiceLike,
+    @inject(TOKENS.cinematicModeService) private readonly cinematicModeService: CinematicModeServiceLike,
+    @inject(TOKENS.settingsService) private readonly settingsService: SettingsServiceLike,
+    @inject(TOKENS.eventBus) eventBus: EventBusLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'SettingsDisplayModeOrchestrator');
   }
 
   /**

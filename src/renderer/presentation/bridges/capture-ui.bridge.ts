@@ -1,19 +1,16 @@
+import { injectable, inject } from 'inversify';
 import { BaseService, type ServiceEventDescriptor } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import type { UiButtonFeedbackPayload } from '@platform/events';
 import { TIMING } from '@platform/config';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type CaptureUiControllerLike = {
   triggerDownload(blob: Blob, filename: string): void;
 };
 
-type CaptureUIBridgeDependencies = {
-  eventBus: EventBusLike;
-  uiController: CaptureUiControllerLike;
-  loggerFactory: LoggerFactoryLike;
-};
-
+@injectable()
 class CaptureUIBridge extends BaseService {
   private static readonly eventDescriptors = [
     [EventChannels.CAPTURE.SCREENSHOT_TRIGGERED, (bridge) => bridge._handleScreenshotTriggered()],
@@ -24,13 +21,12 @@ class CaptureUIBridge extends BaseService {
     [EventChannels.CAPTURE.RECORDING_DEGRADED, (bridge, data) => bridge._handleRecordingDegraded(data)]
   ] satisfies readonly ServiceEventDescriptor<CaptureUIBridge>[];
 
-  private readonly eventBus: EventBusLike;
-  private readonly uiController: CaptureUiControllerLike;
-
-  constructor(dependencies: CaptureUIBridgeDependencies) {
-    super(dependencies, 'CaptureUIBridge');
-    this.eventBus = dependencies.eventBus;
-    this.uiController = dependencies.uiController;
+  constructor(
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
+    @inject(TOKENS.uiController) private readonly uiController: CaptureUiControllerLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'CaptureUIBridge');
   }
 
   initialize() {

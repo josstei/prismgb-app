@@ -1,7 +1,10 @@
+import { injectable, inject } from 'inversify';
 import { BaseService, getErrorMessage } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
+import type { LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 import type {
   TranscodeCancelResponse,
   TranscodeCancelledPayload,
@@ -19,21 +22,18 @@ interface TranscodeEventBus {
   publish(event: string, payload?: unknown): void;
 }
 
-interface TranscodeServiceDependencies {
-  eventBus: TranscodeEventBus;
-  loggerFactory: unknown;
-}
-
+@injectable()
 class TranscodeService extends BaseService {
-  private readonly eventBus: TranscodeEventBus;
   private _isTranscoding: boolean;
   private _activeJobId: string | null;
   private _initialized: boolean;
 
-  constructor(dependencies: TranscodeServiceDependencies) {
-    super(dependencies, 'TranscodeService');
+  constructor(
+    @inject(TOKENS.eventBus) private readonly eventBus: TranscodeEventBus,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'TranscodeService');
 
-    this.eventBus = dependencies.eventBus;
     this._isTranscoding = false;
     this._activeJobId = null;
     this._initialized = false;

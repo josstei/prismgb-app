@@ -1,12 +1,10 @@
+import { injectable, inject } from 'inversify';
 import { BaseService, type ServiceEventDescriptor } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
-type TranscodeUIBridgeDependencies = {
-  eventBus: EventBusLike;
-  loggerFactory: LoggerFactoryLike;
-};
-
+@injectable()
 class TranscodeUIBridge extends BaseService {
   private static readonly eventDescriptors = [
     [EventChannels.TRANSCODE.STARTED, (bridge, data) => bridge._handleStarted(data)],
@@ -15,11 +13,11 @@ class TranscodeUIBridge extends BaseService {
     [EventChannels.TRANSCODE.CANCELLED, (bridge) => bridge._handleCancelled()]
   ] satisfies readonly ServiceEventDescriptor<TranscodeUIBridge>[];
 
-  private readonly eventBus: EventBusLike;
-
-  constructor(dependencies: TranscodeUIBridgeDependencies) {
-    super(dependencies, 'TranscodeUIBridge');
-    this.eventBus = dependencies.eventBus;
+  constructor(
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'TranscodeUIBridge');
   }
 
   initialize() {

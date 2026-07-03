@@ -5,10 +5,12 @@
  * isolating the PerformanceMetricsService from the transport client.
  */
 
+import { injectable } from 'inversify';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import type { ProcessMetricsResponse } from '@platform/ipc';
 import { getErrorMessage } from '@platform/core';
 
+@injectable()
 export class MetricsAdapter {
   isAvailable() {
     return true;

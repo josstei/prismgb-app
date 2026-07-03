@@ -3,20 +3,13 @@ import { UIController } from '@renderer/presentation/controller/ui.controller.js
 import { safeDispose } from '@platform/core';
 import type { AppOrchestrator } from '@renderer/application/orchestrators/app.orchestrator';
 import type { RendererServiceContainer } from '@renderer/application/container';
-import type { LoggerLike, LoggerFactoryLike, EventBusLike } from '@platform/core';
-import type { UIComponentRegistry } from '@renderer/presentation/controller/component.registry';
-import type { UIEffects } from '@renderer/presentation/effects/ui-effects.class';
-import type { BodyClassManager } from '@renderer/presentation/effects/body-class.class';
-import type { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge';
-import type { CaptureUIBridge } from '@renderer/presentation/bridges/capture-ui.bridge';
-import type { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge';
-import type { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service';
+import type { LoggerLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 import { initializeContainer } from './application/container.js';
 import { registerAllowedValuesSource, registerDefaultValueSource } from '@renderer/lib/settings.definitions.js';
 import { TRANSCODE_CONFIG } from '@platform/transcode';
 import { PRESET_POLICY } from '@platform/gpu';
 import { renderAppShell } from './presentation/shell/app-shell.renderer.js';
-import type { PresentationModeStore } from './presentation/state/presentation-mode.store.js';
 
 
 
@@ -63,7 +56,7 @@ class RendererBootstrap {
       await this._registerUIComponents();
       await this._initializeUIEventBridge();
 
-      const orchestrator = container.resolve<AppOrchestrator>('appOrchestrator');
+      const orchestrator = container.get(TOKENS.appOrchestrator);
       this.orchestrator = orchestrator;
       await orchestrator.initialize();
 
@@ -122,14 +115,14 @@ class RendererBootstrap {
   async _initializeUI() {
     const container = this._requireContainer();
 
-    const uiComponentRegistry = container.resolve<UIComponentRegistry<any>>('uiComponentRegistry');
-    const uiEffects = container.resolve<UIEffects>('uiEffects');
-    const bodyClassManager = container.resolve<BodyClassManager>('bodyClassManager');
-    const loggerFactory = container.resolve<LoggerFactoryLike>('loggerFactory');
-    const eventBus = container.resolve<EventBusLike>('eventBus');
-    const appState = container.resolve<any>('appState');
+    const uiComponentRegistry = container.get(TOKENS.uiComponentRegistry);
+    const uiEffects = container.get(TOKENS.uiEffects);
+    const bodyClassManager = container.get(TOKENS.bodyClassManager);
+    const loggerFactory = container.get(TOKENS.loggerFactory);
+    const eventBus = container.get(TOKENS.eventBus);
+    const appState = container.get(TOKENS.appState);
 
-    const presentationModeStore = container.resolve<PresentationModeStore>('presentationModeStore');
+    const presentationModeStore = container.get(TOKENS.presentationModeStore);
     bodyClassManager.bindPresentationMode(presentationModeStore);
 
     const uiController = new UIController({
@@ -149,22 +142,22 @@ class RendererBootstrap {
   async _registerUIComponents() {
     const container = this._requireContainer();
 
-    container.registerValue('uiController', this._uiController as UIController);
+    container.bind(TOKENS.uiController).toConstantValue(this._uiController as UIController);
   }
 
   async _initializeUIEventBridge() {
     try {
       const container = this._requireContainer();
-      const uiEventBridge = container.resolve<UIEventBridge>('uiEventBridge');
+      const uiEventBridge = container.get(TOKENS.uiEventBridge);
       uiEventBridge.initialize();
 
-      const captureUiBridge = container.resolve<CaptureUIBridge>('captureUiBridge');
+      const captureUiBridge = container.get(TOKENS.captureUiBridge);
       captureUiBridge.initialize();
 
-      const transcodeUiBridge = container.resolve<TranscodeUIBridge>('transcodeUiBridge');
+      const transcodeUiBridge = container.get(TOKENS.transcodeUiBridge);
       transcodeUiBridge.initialize();
 
-      const transcodeService = container.resolve<TranscodeService>('transcodeService');
+      const transcodeService = container.get(TOKENS.transcodeService);
       transcodeService.initialize();
     } catch (error) {
       this.logger.error('Failed to initialize UI event bridge:', error);

@@ -1,15 +1,12 @@
+import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 import { FilenameGenerator } from '@renderer/lib/filename-generator.utils.js';
 import { EventChannels } from '@platform/events';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type MediaRecorderErrorEvent = Event & {
   error?: DOMException | Error | { message?: string; name?: string };
-};
-
-type CaptureDependencies = {
-  eventBus: EventBusLike;
-  loggerFactory: LoggerFactoryLike;
 };
 
 type StopWaiter = {
@@ -37,18 +34,20 @@ function getRecorderError(event: MediaRecorderErrorEvent): Error {
   return new Error('Recording failed');
 }
 
+@injectable()
 class CaptureService extends BaseService {
-  protected readonly eventBus: EventBusLike;
   isRecording: boolean;
   mediaRecorder: MediaRecorder | null;
   recordedChunks: Blob[];
   private _isDisposing: boolean;
   private _stopWaiter: StopWaiter | null;
 
-  constructor(dependencies: CaptureDependencies) {
-    super(dependencies, 'CaptureService');
+  constructor(
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'CaptureService');
 
-    this.eventBus = dependencies.eventBus;
     this.isRecording = false;
     this.mediaRecorder = null;
     this.recordedChunks = [];

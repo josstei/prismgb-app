@@ -1,7 +1,9 @@
+import { injectable, inject } from 'inversify';
 import { BaseService, isPromiseLike } from '@platform/core';
 import { SettingsDefinitions } from '@renderer/lib/settings.definitions.js';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
-import type { StorageServiceLike } from '@platform/core';
+import type { LoggerFactoryLike, StorageServiceLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type SettingDefinition = (typeof SettingsDefinitions.definitions)[number];
 type SettingDefaultValue = string | number | boolean;
@@ -17,12 +19,6 @@ interface SettingsEventBus {
   publish(event: string, payload?: unknown): void;
 }
 
-interface SettingsServiceDependencies {
-  eventBus: SettingsEventBus;
-  loggerFactory: unknown;
-  storageService: StorageServiceLike;
-}
-
 function createDefinitionMap(definitions: readonly SettingDefinition[]): Map<string, SettingDefinition> {
   return new Map(definitions.map((definition: any) => [definition.name, definition]));
 }
@@ -31,17 +27,18 @@ function getAllowedValues(definition: SettingDefinition): string[] {
   return Array.isArray(definition.allowedValues) ? definition.allowedValues : [];
 }
 
+@injectable()
 class SettingsService extends BaseService {
-  private readonly eventBus: SettingsEventBus;
-  private readonly storageService: StorageServiceLike;
   private readonly settingDefinitions: readonly SettingDefinition[];
   private readonly settingDefinitionMap: Map<string, SettingDefinition>;
 
-  constructor(dependencies: SettingsServiceDependencies) {
-    super(dependencies, 'SettingsService');
+  constructor(
+    @inject(TOKENS.eventBus) private readonly eventBus: SettingsEventBus,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike,
+    @inject(TOKENS.storageService) private readonly storageService: StorageServiceLike
+  ) {
+    super({ loggerFactory, eventBus }, 'SettingsService');
 
-    this.eventBus = dependencies.eventBus;
-    this.storageService = dependencies.storageService;
     this.settingDefinitions = SettingsDefinitions.definitions;
     this.settingDefinitionMap = createDefinitionMap(this.settingDefinitions);
   }

@@ -14,9 +14,7 @@ describe('PerformanceAnimationService', () => {
   beforeEach(() => {
     mockLoggerFactory = createLoggerFactory();
 
-    service = new PerformanceAnimationService({
-      loggerFactory: mockLoggerFactory
-    });
+    service = new PerformanceAnimationService(mockLoggerFactory);
     mockLogger = mockLoggerFactory._getLogger('PerformanceAnimationService');
   });
 

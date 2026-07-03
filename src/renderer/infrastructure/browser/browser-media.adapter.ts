@@ -1,3 +1,5 @@
+import { injectable } from 'inversify';
+
 type MediaDevicesListener = EventListenerOrEventListenerObject;
 
 /**
@@ -7,6 +9,7 @@ type MediaDevicesListener = EventListenerOrEventListenerObject;
  * Allows mocking in tests without polluting the global navigator object.
  * Tracks added listeners for cleanup.
  */
+@injectable()
 export class BrowserMediaAdapter {
   _listeners: Map<string, Set<MediaDevicesListener>>;
 

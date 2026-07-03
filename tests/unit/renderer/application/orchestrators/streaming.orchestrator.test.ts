@@ -68,16 +68,16 @@ describe('StreamingOrchestrator', () => {
       }
     });
 
-    orchestrator = new StreamingOrchestrator({
-      streamingService: mockStreamingService,
-      appState: mockAppState,
-      streamViewService: mockStreamingViewService,
-      streamingRenderService: mockStreamingRenderService,
-      gpuRecordingService: mockCaptureGpuRecordingService,
-      settingsService: mockSettingsService,
-      eventBus: mockEventBus,
-      loggerFactory: mockLoggerFactory
-    });
+    orchestrator = new StreamingOrchestrator(
+      mockStreamingService,
+      mockAppState,
+      mockStreamingViewService,
+      mockStreamingRenderService,
+      mockCaptureGpuRecordingService,
+      mockSettingsService,
+      mockEventBus,
+      mockLoggerFactory
+    );
     mockLogger = mockLoggerFactory._getLogger('StreamingOrchestrator');
   });
 

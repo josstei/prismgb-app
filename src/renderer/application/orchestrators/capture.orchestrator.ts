@@ -1,8 +1,10 @@
+import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
 import { EventChannels } from '@platform/events';
-import type { LoggerLike, LoggerFactoryLike } from '@platform/core';
+import type { LoggerFactoryLike } from '@platform/core';
 import type { TypedEventBusLike } from '@platform/events';
 import { getErrorMessage } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 import {
   isRecordingErrorPayload,
   isRecordingReadyPayload,
@@ -59,44 +61,23 @@ type CaptureSaveServiceLike = {
   ): Promise<SaveRecordingResult>;
 };
 
-type CaptureOrchestratorDependencies = {
-  captureService: CaptureServiceLike;
-  appState: AppStateLike;
-  streamViewService: StreamViewServiceLike;
-  streamingRenderService: any;
-  gpuRecordingService: GpuRecordingServiceLike;
-  transcodeService: TranscodeServiceLike;
-  captureSaveService: CaptureSaveServiceLike;
-  eventBus: TypedEventBusLike;
-  loggerFactory: LoggerFactoryLike;
-};
-
+@injectable()
 export class CaptureOrchestrator extends BaseOrchestrator {
-  private readonly captureService: CaptureServiceLike;
-  private readonly appState: AppStateLike;
-  private readonly streamViewService: StreamViewServiceLike;
-  private readonly streamingRenderService: any;
-  private readonly gpuRecordingService: GpuRecordingServiceLike;
-  private readonly transcodeService: TranscodeServiceLike;
-  private readonly captureSaveService: CaptureSaveServiceLike;
-  protected readonly eventBus: TypedEventBusLike;
-
   private _recordingInterrupted: boolean;
 
-  constructor(dependencies: CaptureOrchestratorDependencies) {
-    super(
-      dependencies,
-      'CaptureOrchestrator'
-    );
+  constructor(
+    @inject(TOKENS.captureService) private readonly captureService: CaptureServiceLike,
+    @inject(TOKENS.appState) private readonly appState: AppStateLike,
+    @inject(TOKENS.streamViewService) private readonly streamViewService: StreamViewServiceLike,
+    @inject(TOKENS.streamingRenderService) private readonly streamingRenderService: any,
+    @inject(TOKENS.gpuRecordingService) private readonly gpuRecordingService: GpuRecordingServiceLike,
+    @inject(TOKENS.transcodeService) private readonly transcodeService: TranscodeServiceLike,
+    @inject(TOKENS.captureSaveService) private readonly captureSaveService: CaptureSaveServiceLike,
+    @inject(TOKENS.eventBus) protected readonly eventBus: TypedEventBusLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'CaptureOrchestrator');
 
-    this.captureService = dependencies.captureService;
-    this.appState = dependencies.appState;
-    this.streamViewService = dependencies.streamViewService;
-    this.streamingRenderService = dependencies.streamingRenderService;
-    this.gpuRecordingService = dependencies.gpuRecordingService;
-    this.transcodeService = dependencies.transcodeService;
-    this.captureSaveService = dependencies.captureSaveService;
-    this.eventBus = dependencies.eventBus;
     this._recordingInterrupted = false;
   }
 

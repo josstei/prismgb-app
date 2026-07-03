@@ -16,10 +16,7 @@ describe('PresentationModeService', () => {
 
   beforeEach(() => {
     mockUiController = createPresentationModeControllerMock();
-    service = new PresentationModeService({
-      uiController: mockUiController,
-      loggerFactory: createLoggerFactory()
-    });
+    service = new PresentationModeService(mockUiController, createLoggerFactory());
   });
 
   afterEach(() => {

@@ -13,16 +13,14 @@
  * Single source of truth for canvas sizing - used by init, resize, and streaming
  */
 
+import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import { TIMING } from '@platform/config';
 import type {
   LoggerFactoryLike
 } from '@platform/core';
 import type { Dimensions } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
-
-type StreamingViewportDependencies = {
-  loggerFactory: LoggerFactoryLike;
-};
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type ResizeDimensions = Dimensions & {
   scale: number;
@@ -40,6 +38,7 @@ const RESIZE_OBSERVER_LIFECYCLE = Symbol('streamingViewportResizeObserver');
 const RESIZE_DEBOUNCE_LIFECYCLE = Symbol('streamingViewportResizeDebounce');
 const FORCE_RESIZE_LIFECYCLE = Symbol('streamingViewportForceResize');
 
+@injectable()
 export class StreamingViewportService extends BaseService {
   private _resizeObserver: ResizeObserver | null;
   private _onResizeCallback: (() => void) | null;
@@ -47,8 +46,8 @@ export class StreamingViewportService extends BaseService {
   private _forceResizePending: boolean;
   private _cachedStyles: CachedViewportStyles | null;
 
-  constructor(dependencies: StreamingViewportDependencies) {
-    super(dependencies, 'StreamingViewportService');
+  constructor(@inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike) {
+    super({ loggerFactory }, 'StreamingViewportService');
 
     // ResizeObserver for canvas resize handling
     this._resizeObserver = null;

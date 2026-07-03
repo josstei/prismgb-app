@@ -1,7 +1,9 @@
+import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import { getStartupPreferenceEventDefinitions } from '@renderer/lib/settings.definitions.js';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type PreferencesPayload = Record<string, unknown>;
 
@@ -9,22 +11,14 @@ type SettingsServiceLike = {
   loadAllPreferences(): PreferencesPayload;
 };
 
-type SettingsPreferencesOrchestratorDependencies = {
-  settingsService: SettingsServiceLike;
-  eventBus: EventBusLike;
-  loggerFactory: LoggerFactoryLike;
-};
-
+@injectable()
 export class SettingsPreferencesOrchestrator extends BaseOrchestrator {
-  private readonly settingsService: SettingsServiceLike;
-
-  constructor(dependencies: SettingsPreferencesOrchestratorDependencies) {
-    super(
-      dependencies,
-      'SettingsPreferencesOrchestrator'
-    );
-    this.settingsService = dependencies.settingsService;
-    this.eventBus = dependencies.eventBus;
+  constructor(
+    @inject(TOKENS.settingsService) private readonly settingsService: SettingsServiceLike,
+    @inject(TOKENS.eventBus) eventBus: EventBusLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'SettingsPreferencesOrchestrator');
   }
 
   /**

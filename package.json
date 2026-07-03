@@ -67,6 +67,7 @@
     "eventemitter3": "^5.0.4",
     "ffmpeg-static": "^5.2.0",
     "ffprobe-static": "^3.1.0",
+    "inversify": "^8.1.1",
     "usb": "^2.16.0",
     "zod": "^3.25.76"
   },

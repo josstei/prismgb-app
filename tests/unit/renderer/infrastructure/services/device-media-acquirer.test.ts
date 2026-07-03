@@ -53,10 +53,7 @@ function createAcquirer() {
     subscribeDeviceChange: vi.fn()
   };
   const loggerFactory = createLoggerFactory();
-  const acquirer = new DeviceMediaAcquirer({
-    mediaDevicesPort,
-    loggerFactory
-  });
+  const acquirer = new DeviceMediaAcquirer(mediaDevicesPort, loggerFactory);
 
   return {
     acquirer,

@@ -39,10 +39,7 @@ describe('CaptureService', () => {
     vi.spyOn(FilenameGenerator, 'forScreenshot').mockReturnValue('screenshot_2024-01-01_12-00-00.png');
     vi.spyOn(FilenameGenerator, 'forRecording').mockReturnValue('recording_2024-01-01_12-00-00.webm');
 
-    service = new CaptureService({
-      eventBus: mockEventBus,
-      loggerFactory: mockLoggerFactory
-    });
+    service = new CaptureService(mockEventBus, mockLoggerFactory);
     mockLogger = mockLoggerFactory._getLogger('CaptureService');
 
     mediaRecorderMock = installMediaRecorderMock();

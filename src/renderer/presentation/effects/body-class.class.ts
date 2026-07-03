@@ -1,3 +1,4 @@
+import { injectable } from 'inversify';
 import { TIMING } from '@platform/config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresentationComponent, bindClass, effect } from '@platform/ui-base';
@@ -6,6 +7,7 @@ import type { PresentationModeStore } from '@renderer/presentation/state/present
 const MINIMALIST_TRANSITION_TIMEOUT = Symbol('minimalist-transition-timeout');
 
 
+@injectable()
 export class BodyClassManager extends PresentationComponent {
   setIdle(isIdle: boolean) {
     document.body.classList.toggle(CSSClasses.APP_IDLE, isIdle);

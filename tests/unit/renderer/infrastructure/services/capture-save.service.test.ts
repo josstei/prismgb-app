@@ -58,12 +58,7 @@ describe('CaptureSaveService', () => {
 
   describe('Constructor', () => {
     it('should store required dependencies', () => {
-      service = new CaptureSaveService({
-        eventBus: mockEventBus,
-        settingsService: mockSettingsService,
-        transcodeService: mockTranscodeService,
-        loggerFactory: mockLoggerFactory
-      });
+      service = new CaptureSaveService(mockEventBus, mockSettingsService, mockTranscodeService, mockLoggerFactory);
 
       expect(service.eventBus).toBe(mockEventBus);
       expect(service.settingsService).toBe(mockSettingsService);
@@ -71,12 +66,7 @@ describe('CaptureSaveService', () => {
     });
 
     it('should create logger from loggerFactory', () => {
-      service = new CaptureSaveService({
-        eventBus: mockEventBus,
-        settingsService: mockSettingsService,
-        transcodeService: mockTranscodeService,
-        loggerFactory: mockLoggerFactory
-      });
+      service = new CaptureSaveService(mockEventBus, mockSettingsService, mockTranscodeService, mockLoggerFactory);
 
       expect(mockLoggerFactory.create).toHaveBeenCalledWith('CaptureSaveService');
     });
@@ -84,12 +74,7 @@ describe('CaptureSaveService', () => {
 
   describe('saveRecording', () => {
     beforeEach(() => {
-      service = new CaptureSaveService({
-        eventBus: mockEventBus,
-        settingsService: mockSettingsService,
-        transcodeService: mockTranscodeService,
-        loggerFactory: mockLoggerFactory
-      });
+      service = new CaptureSaveService(mockEventBus, mockSettingsService, mockTranscodeService, mockLoggerFactory);
     });
 
     describe('when format is webm', () => {
@@ -232,12 +217,7 @@ describe('CaptureSaveService', () => {
 
   describe('saveScreenshot', () => {
     beforeEach(() => {
-      service = new CaptureSaveService({
-        eventBus: mockEventBus,
-        settingsService: mockSettingsService,
-        transcodeService: mockTranscodeService,
-        loggerFactory: mockLoggerFactory
-      });
+      service = new CaptureSaveService(mockEventBus, mockSettingsService, mockTranscodeService, mockLoggerFactory);
     });
 
     it('should use direct save', async () => {
@@ -253,12 +233,7 @@ describe('CaptureSaveService', () => {
 
   describe('_directSave', () => {
     beforeEach(() => {
-      service = new CaptureSaveService({
-        eventBus: mockEventBus,
-        settingsService: mockSettingsService,
-        transcodeService: mockTranscodeService,
-        loggerFactory: mockLoggerFactory
-      });
+      service = new CaptureSaveService(mockEventBus, mockSettingsService, mockTranscodeService, mockLoggerFactory);
     });
 
     it('should call downloadFile', async () => {
@@ -290,12 +265,7 @@ describe('CaptureSaveService', () => {
 
   describe('dispose', () => {
     it('should log disposal', async () => {
-      service = new CaptureSaveService({
-        eventBus: mockEventBus,
-        settingsService: mockSettingsService,
-        transcodeService: mockTranscodeService,
-        loggerFactory: mockLoggerFactory
-      });
+      service = new CaptureSaveService(mockEventBus, mockSettingsService, mockTranscodeService, mockLoggerFactory);
 
       await service.dispose();
 

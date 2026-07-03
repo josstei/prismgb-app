@@ -32,12 +32,12 @@ describe('PerformanceAnimationOrchestrator', () => {
     mockPerformanceAnimationService = createPerformanceAnimationServiceMock();
     mockBodyClassManager = createBodyClassManagerMock();
 
-    orchestrator = new PerformanceAnimationOrchestrator({
-      eventBus: mockEventBus,
-      animationPerformanceService: mockPerformanceAnimationService,
-      bodyClassManager: mockBodyClassManager,
-      loggerFactory: mockLoggerFactory
-    });
+    orchestrator = new PerformanceAnimationOrchestrator(
+      mockEventBus,
+      mockPerformanceAnimationService,
+      mockBodyClassManager,
+      mockLoggerFactory
+    );
   });
 
   it('should delegate performance state updates to the service and apply body classes', async () => {

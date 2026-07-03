@@ -1,3 +1,4 @@
+import { injectable, inject } from 'inversify';
 import { BaseService, getErrorMessage } from '@platform/core';
 import type { LoggerFactoryLike } from '@platform/core';
 import type {
@@ -7,6 +8,7 @@ import type {
 } from '@platform/devices';
 import type { MediaDevicesPort } from '../devices/device-platform.adapters.js';
 import type { DeviceStreamingTarget } from '../devices/device-runtime.service.js';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
 export interface DeviceStreamCapabilities extends DeviceStreamProfile {
   hasAudio: boolean;
@@ -17,11 +19,6 @@ export interface DeviceMediaAcquireResult {
   strategy: string;
   capabilities: DeviceStreamCapabilities;
 }
-
-type DeviceMediaAcquirerDependencies = {
-  mediaDevicesPort: MediaDevicesPort;
-  loggerFactory: LoggerFactoryLike;
-};
 
 type TrackInfo = {
   kind: string;
@@ -36,13 +33,15 @@ function getTrackSettings(track: MediaStreamTrack): MediaTrackSettings {
   return typeof track.getSettings === 'function' ? track.getSettings() : {};
 }
 
+@injectable()
 export class DeviceMediaAcquirer extends BaseService {
-  private readonly mediaDevicesPort: MediaDevicesPort;
   private readonly activeStreams = new Set<MediaStream>();
 
-  constructor(dependencies: DeviceMediaAcquirerDependencies) {
-    super(dependencies, 'DeviceMediaAcquirer');
-    this.mediaDevicesPort = dependencies.mediaDevicesPort;
+  constructor(
+    @inject(TOKENS.mediaDevicesPort) private readonly mediaDevicesPort: MediaDevicesPort,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory }, 'DeviceMediaAcquirer');
   }
 
   async acquire(target: DeviceStreamingTarget): Promise<DeviceMediaAcquireResult> {

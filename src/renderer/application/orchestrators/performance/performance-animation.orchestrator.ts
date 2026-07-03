@@ -5,6 +5,7 @@
  * Routes computed state from service to BodyClassManager for DOM updates.
  */
 
+import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
@@ -13,26 +14,17 @@ import type {
   PerformanceAnimationService
 } from '@renderer/infrastructure/services/performance/performance-animation.service';
 import type { BodyClassManager } from '@renderer/presentation/effects/body-class.class';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
-interface PerformanceAnimationOrchestratorDependencies {
-  eventBus: EventBusLike;
-  animationPerformanceService: PerformanceAnimationService;
-  bodyClassManager: BodyClassManager;
-  loggerFactory: LoggerFactoryLike;
-}
-
+@injectable()
 export class PerformanceAnimationOrchestrator extends BaseOrchestrator {
-  private readonly animationPerformanceService: PerformanceAnimationService;
-  private readonly bodyClassManager: BodyClassManager;
-
-  constructor(dependencies: PerformanceAnimationOrchestratorDependencies) {
-    super(
-      dependencies,
-      'PerformanceAnimationOrchestrator'
-    );
-    this.eventBus = dependencies.eventBus;
-    this.animationPerformanceService = dependencies.animationPerformanceService;
-    this.bodyClassManager = dependencies.bodyClassManager;
+  constructor(
+    @inject(TOKENS.eventBus) eventBus: EventBusLike,
+    @inject(TOKENS.animationPerformanceService) private readonly animationPerformanceService: PerformanceAnimationService,
+    @inject(TOKENS.bodyClassManager) private readonly bodyClassManager: BodyClassManager,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'PerformanceAnimationOrchestrator');
   }
 
   async onInitialize(): Promise<void> {

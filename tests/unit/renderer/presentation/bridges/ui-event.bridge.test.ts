@@ -38,12 +38,12 @@ describe('UIEventBridge', () => {
 
     mockLoggerFactory = createLoggerFactory();
 
-    handler = new UIEventBridge({
-      eventBus: mockEventBus,
-      uiController: mockUiController,
-      presentationModeService: mockPresentationModeService,
-      loggerFactory: mockLoggerFactory
-    });
+    handler = new UIEventBridge(
+      mockEventBus,
+      mockUiController,
+      mockPresentationModeService,
+      mockLoggerFactory
+    );
     mockLogger = mockLoggerFactory._getLogger('UIEventBridge');
   });
 

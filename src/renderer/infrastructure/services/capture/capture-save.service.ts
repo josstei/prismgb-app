@@ -1,7 +1,9 @@
+import { injectable, inject } from 'inversify';
 import { BaseService, getErrorMessage } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import { downloadFile } from '@renderer/lib/file-download.utils.js';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
 interface RecordingSaveOptions {
   interrupted?: boolean;
@@ -32,27 +34,15 @@ type CaptureTranscodeServiceLike = {
   ): Promise<CaptureTranscodeResult>;
 };
 
-type CaptureSaveServiceDependencies = {
-  eventBus: EventBusLike;
-  settingsService: CaptureSettingsServiceLike;
-  transcodeService: CaptureTranscodeServiceLike;
-  loggerFactory: LoggerFactoryLike;
-};
-
+@injectable()
 class CaptureSaveService extends BaseService {
-  private readonly eventBus: EventBusLike;
-  private readonly settingsService: CaptureSettingsServiceLike;
-  private readonly transcodeService: CaptureTranscodeServiceLike;
-
-  constructor(dependencies: CaptureSaveServiceDependencies) {
-    super(
-      dependencies,
-      'CaptureSaveService'
-    );
-
-    this.eventBus = dependencies.eventBus;
-    this.settingsService = dependencies.settingsService;
-    this.transcodeService = dependencies.transcodeService;
+  constructor(
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
+    @inject(TOKENS.settingsService) private readonly settingsService: CaptureSettingsServiceLike,
+    @inject(TOKENS.transcodeService) private readonly transcodeService: CaptureTranscodeServiceLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'CaptureSaveService');
   }
 
   async saveRecording(blob: Blob, filename: string, options: RecordingSaveOptions = {}): Promise<SaveResult> {

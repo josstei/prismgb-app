@@ -35,11 +35,11 @@ describe('UpdateOrchestrator', () => {
 
     mockUpdateUiService = createUpdateUiServiceMock();
 
-    orchestrator = new UpdateOrchestrator({
-      updateService: mockUpdateService,
-      updateUiService: mockUpdateUiService,
-      loggerFactory: mockLoggerFactory
-    });
+    orchestrator = new UpdateOrchestrator(
+      mockUpdateService,
+      mockUpdateUiService,
+      mockLoggerFactory
+    );
     mockLogger = mockLoggerFactory._getLogger('UpdateOrchestrator');
   });
 

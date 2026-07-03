@@ -5,6 +5,7 @@
  * and publishes performance state events.
  */
 
+import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import type { PerformanceUiModePayload } from '@platform/events';
@@ -13,24 +14,19 @@ import type {
   PerformanceState,
   PerformanceStateService
 } from '@renderer/infrastructure/services/performance/performance-state.service';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
-interface PerformanceStateOrchestratorDependencies {
-  eventBus: EventBusLike;
-  performanceStateService: PerformanceStateService;
-  loggerFactory: LoggerFactoryLike;
-}
-
+@injectable()
 export class PerformanceStateOrchestrator extends BaseOrchestrator {
-  private readonly performanceStateService: PerformanceStateService;
   private _lastUiMode: PerformanceUiModePayload | null;
 
-  constructor(dependencies: PerformanceStateOrchestratorDependencies) {
-    super(
-      dependencies,
-      'PerformanceStateOrchestrator'
-    );
-    this.eventBus = dependencies.eventBus;
-    this.performanceStateService = dependencies.performanceStateService;
+  constructor(
+    @inject(TOKENS.eventBus) eventBus: EventBusLike,
+    @inject(TOKENS.performanceStateService) private readonly performanceStateService: PerformanceStateService,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'PerformanceStateOrchestrator');
+
     this._lastUiMode = null;
   }
 

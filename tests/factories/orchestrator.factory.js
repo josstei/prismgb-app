@@ -41,6 +41,18 @@ export function createOrchestratorMock(overrides = {}) {
 }
 
 /**
+ * Resolves the string key a mock inversify token stands for, so the mock
+ * container can key its dependency map the same way regardless of whether a
+ * caller passes a `Symbol.for(name)` service identifier or a plain name.
+ *
+ * @param {unknown} token - A `TOKENS.x` service identifier or a plain string.
+ * @returns {string} The token's lookup key.
+ */
+function tokenKey(token) {
+  return typeof token === 'symbol' ? (token.description ?? String(token)) : String(token);
+}
+
+/**
  * Creates a mock RendererAppContainer.
  *
  * @param {Record<string, any>} [overrides={}] - Mock property and container overrides.
@@ -94,7 +106,6 @@ export function createRendererAppContainerMock(overrides = {}) {
     loggerFactory = createLoggerFactory(),
     services = {},
     register = vi.fn(),
-    registerValue = vi.fn(),
     dispose = vi.fn(),
     resolve,
     ...containerOverrides
@@ -116,11 +127,16 @@ export function createRendererAppContainerMock(overrides = {}) {
   };
 
   return {
-    resolve: resolve
-      ? vi.fn((name) => resolve(name, dependencyMap))
-      : vi.fn((name) => dependencyMap[name] || {}),
+    get: resolve
+      ? vi.fn((token) => resolve(tokenKey(token), dependencyMap))
+      : vi.fn((token) => dependencyMap[tokenKey(token)] || {}),
+    bind: vi.fn((token) => ({
+      toConstantValue: (value) => {
+        dependencyMap[tokenKey(token)] = value;
+      }
+    })),
+    isBound: vi.fn((token) => tokenKey(token) in dependencyMap),
     register,
-    registerValue,
     dispose,
     ...containerOverrides
   };

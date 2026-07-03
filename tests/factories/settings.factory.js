@@ -16,7 +16,7 @@ export function createSettingsServiceHarness(overrides = {}) {
   const eventBus = overrides.eventBus ?? createEventBus();
   const loggerFactory = overrides.loggerFactory ?? createLoggerFactory();
   const storageService = overrides.storageService ?? createStorageService(overrides.initialValues);
-  const service = new SettingsService({ eventBus, loggerFactory, storageService });
+  const service = new SettingsService(eventBus, loggerFactory, storageService);
   return { service, eventBus, loggerFactory, storageService, storage: storageService, logger: loggerFactory._getLogger('SettingsService') };
 }
 

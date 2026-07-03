@@ -12,6 +12,7 @@
  * - 'stream:error' - Stream error occurred
  */
 
+import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import { getErrorMessage } from '@platform/core';
@@ -27,6 +28,7 @@ import type {
   DeviceStreamCapabilities
 } from './device-media-acquirer.js';
 import type { DeviceStreamingTarget } from '../devices/device-runtime.service.js';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
 const StreamState = {
   IDLE: 'idle',
@@ -58,13 +60,6 @@ type RendererDeviceRuntimeLike = {
   resolveStreamingTarget(deviceId?: string | null): Promise<DeviceStreamingTarget>;
 };
 
-type StreamingServiceDependencies = {
-  rendererDeviceRuntime: RendererDeviceRuntimeLike;
-  deviceMediaAcquirer: DeviceMediaAcquirer;
-  eventBus: TypedEventBusLike;
-  loggerFactory: LoggerFactoryLike;
-};
-
 function toSettingsPayload(
   settings: MediaTrackSettings | undefined
 ): Record<string, unknown> | null {
@@ -77,10 +72,8 @@ function toSettingsPayload(
   );
 }
 
+@injectable()
 export class StreamingService extends BaseService {
-  private readonly rendererDeviceRuntime: RendererDeviceRuntimeLike;
-  private readonly deviceMediaAcquirer: DeviceMediaAcquirer;
-  protected readonly eventBus: TypedEventBusLike;
   private readonly _trackMonitor: StreamTrackMonitor;
 
   private _state: StreamLifecycleState;
@@ -89,12 +82,14 @@ export class StreamingService extends BaseService {
   currentDevice: MediaDeviceInfo | null;
   currentCapabilities: DeviceStreamCapabilities | null;
 
-  constructor(dependencies: StreamingServiceDependencies) {
-    super(dependencies, 'StreamingService');
+  constructor(
+    @inject(TOKENS.rendererDeviceRuntime) private readonly rendererDeviceRuntime: RendererDeviceRuntimeLike,
+    @inject(TOKENS.deviceMediaAcquirer) private readonly deviceMediaAcquirer: DeviceMediaAcquirer,
+    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'StreamingService');
 
-    this.rendererDeviceRuntime = dependencies.rendererDeviceRuntime;
-    this.deviceMediaAcquirer = dependencies.deviceMediaAcquirer;
-    this.eventBus = dependencies.eventBus;
     this._trackMonitor = new StreamTrackMonitor(this.logger);
     // State machine
     this._state = StreamState.IDLE;

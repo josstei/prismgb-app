@@ -85,15 +85,15 @@ describe('StreamingRenderService', () => {
     mockEventBus = createEventBus();
     mockLoggerFactory = createLoggerFactory();
 
-    service = new StreamingRenderService({
-      appState: mockAppState,
-      streamViewService: mockStreamViewService,
-      canvasLifecycleService: mockCanvasLifecycleService,
-      streamHealthService: mockStreamHealthService,
-      settingsService: mockSettingsService,
-      eventBus: mockEventBus,
-      loggerFactory: mockLoggerFactory
-    });
+    service = new StreamingRenderService(
+      mockAppState,
+      mockStreamViewService,
+      mockCanvasLifecycleService,
+      mockStreamHealthService,
+      mockSettingsService,
+      mockEventBus,
+      mockLoggerFactory
+    );
     mockLogger = mockLoggerFactory._getLogger('StreamingRenderService');
   });
 

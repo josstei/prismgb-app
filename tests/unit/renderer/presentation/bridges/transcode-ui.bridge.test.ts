@@ -18,7 +18,7 @@ describe('TranscodeUIBridge', () => {
   let subscribedHandlers;
 
   const createBridge = () =>
-    new TranscodeUIBridge({ eventBus: mockEventBus, loggerFactory: mockLoggerFactory });
+    new TranscodeUIBridge(mockEventBus, mockLoggerFactory);
 
   beforeEach(() => {
     subscribedHandlers = {};

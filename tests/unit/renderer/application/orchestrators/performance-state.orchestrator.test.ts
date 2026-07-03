@@ -34,11 +34,11 @@ describe('PerformanceStateOrchestrator', () => {
       })
     });
 
-    coordinator = new PerformanceStateOrchestrator({
-      eventBus: mockEventBus,
-      performanceStateService: mockPerformanceStateService,
-      loggerFactory: mockLoggerFactory
-    });
+    coordinator = new PerformanceStateOrchestrator(
+      mockEventBus,
+      mockPerformanceStateService,
+      mockLoggerFactory
+    );
   });
 
   it('should subscribe to performance signals on initialize', async () => {

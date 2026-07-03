@@ -6,8 +6,10 @@
  * declaratively by PresentationModeStore bindings, not this service.
  */
 
+import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import type { LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type PresentationModeUiControllerLike = {
   setStreamingMode(enabled: boolean): void;
@@ -16,17 +18,13 @@ type PresentationModeUiControllerLike = {
   disableControlsAutoHide(): void;
 };
 
-type PresentationModeServiceDependencies = {
-  uiController: PresentationModeUiControllerLike;
-  loggerFactory: LoggerFactoryLike;
-};
-
+@injectable()
 export class PresentationModeService extends BaseService {
-  private readonly uiController: PresentationModeUiControllerLike;
-
-  constructor(dependencies: PresentationModeServiceDependencies) {
-    super(dependencies, 'PresentationModeService');
-    this.uiController = dependencies.uiController;
+  constructor(
+    @inject(TOKENS.uiController) private readonly uiController: PresentationModeUiControllerLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory }, 'PresentationModeService');
   }
 
   handleStreamingMode(enabled: boolean) {

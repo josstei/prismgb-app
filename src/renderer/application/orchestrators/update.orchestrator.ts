@@ -1,7 +1,9 @@
+import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
 import { UpdateState } from '@platform/config';
 import type { UpdateStateValue } from '@platform/config';
 import type { LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 import type {
   UpdateCheckResponse,
   UpdateDownloadResponse,
@@ -30,23 +32,14 @@ type UpdateUiServiceLike = {
   dispose(): void | Promise<void>;
 };
 
-type UpdateOrchestratorDependencies = {
-  updateService: UpdateServiceLike;
-  updateUiService: UpdateUiServiceLike;
-  loggerFactory: LoggerFactoryLike;
-};
-
+@injectable()
 class UpdateOrchestrator extends BaseOrchestrator {
-  private readonly updateService: UpdateServiceLike;
-  private readonly updateUiService: UpdateUiServiceLike;
-
-  constructor(dependencies: UpdateOrchestratorDependencies) {
-    super(
-      dependencies,
-      'UpdateOrchestrator'
-    );
-    this.updateService = dependencies.updateService;
-    this.updateUiService = dependencies.updateUiService;
+  constructor(
+    @inject(TOKENS.updateService) private readonly updateService: UpdateServiceLike,
+    @inject(TOKENS.updateUiService) private readonly updateUiService: UpdateUiServiceLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory }, 'UpdateOrchestrator');
   }
 
   async onInitialize(): Promise<void> {

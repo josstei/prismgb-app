@@ -34,29 +34,20 @@ describe('TranscodeService', () => {
 
   describe('Constructor', () => {
     it('should store eventBus', () => {
-      service = new TranscodeService({
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      });
+      service = new TranscodeService(mockEventBus, mockLoggerFactory);
 
       expect(service.eventBus).toBe(mockEventBus);
     });
 
     it('should create logger from loggerFactory', () => {
-      service = new TranscodeService({
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      });
+      service = new TranscodeService(mockEventBus, mockLoggerFactory);
 
       expect(mockLoggerFactory.create).toHaveBeenCalledWith('TranscodeService');
       expect(service.logger).toBe(mockLogger);
     });
 
     it('should initialize state properties', () => {
-      service = new TranscodeService({
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      });
+      service = new TranscodeService(mockEventBus, mockLoggerFactory);
 
       expect(service._isTranscoding).toBe(false);
       expect(service._activeJobId).toBeNull();
@@ -66,10 +57,7 @@ describe('TranscodeService', () => {
 
   describe('initialize', () => {
     beforeEach(() => {
-      service = new TranscodeService({
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      });
+      service = new TranscodeService(mockEventBus, mockLoggerFactory);
     });
 
     it('should subscribe to tRPC push events', () => {
@@ -110,10 +98,7 @@ describe('TranscodeService', () => {
 
   describe('transcode', () => {
     beforeEach(() => {
-      service = new TranscodeService({
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      });
+      service = new TranscodeService(mockEventBus, mockLoggerFactory);
       service.initialize();
     });
 
@@ -207,10 +192,7 @@ describe('TranscodeService', () => {
 
   describe('cancel', () => {
     beforeEach(() => {
-      service = new TranscodeService({
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      });
+      service = new TranscodeService(mockEventBus, mockLoggerFactory);
       service.initialize();
     });
 
@@ -244,10 +226,7 @@ describe('TranscodeService', () => {
 
   describe('isTranscoding', () => {
     beforeEach(() => {
-      service = new TranscodeService({
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      });
+      service = new TranscodeService(mockEventBus, mockLoggerFactory);
     });
 
     it('should return false initially', () => {
@@ -265,10 +244,7 @@ describe('TranscodeService', () => {
 
   describe('isAvailable', () => {
     it('should return true', () => {
-      service = new TranscodeService({
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      });
+      service = new TranscodeService(mockEventBus, mockLoggerFactory);
 
       expect(service.isAvailable()).toBe(true);
     });
@@ -276,10 +252,7 @@ describe('TranscodeService', () => {
 
   describe('tRPC Push Event Handlers', () => {
     beforeEach(() => {
-      service = new TranscodeService({
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      });
+      service = new TranscodeService(mockEventBus, mockLoggerFactory);
 
       service.initialize();
     });
@@ -387,10 +360,7 @@ describe('TranscodeService', () => {
 
   describe('dispose', () => {
     beforeEach(() => {
-      service = new TranscodeService({
-        eventBus: mockEventBus,
-        loggerFactory: mockLoggerFactory
-      });
+      service = new TranscodeService(mockEventBus, mockLoggerFactory);
     });
 
     it('should unsubscribe all bridge-owned tRPC subscriptions', () => {

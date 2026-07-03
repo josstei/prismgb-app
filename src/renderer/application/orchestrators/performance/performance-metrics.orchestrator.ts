@@ -4,27 +4,21 @@
  * Centralizes process memory snapshot logging for performance analysis.
  */
 
+import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 import type { PerformanceMetricsService } from '@renderer/infrastructure/services/performance/performance-metrics.service';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
-interface PerformanceMetricsOrchestratorDependencies {
-  eventBus: EventBusLike;
-  loggerFactory: LoggerFactoryLike;
-  performanceMetricsService: PerformanceMetricsService;
-}
-
+@injectable()
 export class PerformanceMetricsOrchestrator extends BaseOrchestrator {
-  private readonly performanceMetricsService: PerformanceMetricsService;
-
-  constructor(dependencies: PerformanceMetricsOrchestratorDependencies) {
-    super(
-      dependencies,
-      'PerformanceMetricsOrchestrator'
-    );
-    this.eventBus = dependencies.eventBus;
-    this.performanceMetricsService = dependencies.performanceMetricsService;
+  constructor(
+    @inject(TOKENS.eventBus) eventBus: EventBusLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike,
+    @inject(TOKENS.performanceMetricsService) private readonly performanceMetricsService: PerformanceMetricsService
+  ) {
+    super({ loggerFactory, eventBus }, 'PerformanceMetricsOrchestrator');
   }
 
   async onInitialize(): Promise<void> {

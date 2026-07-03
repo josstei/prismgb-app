@@ -1,6 +1,8 @@
+import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type LifecycleOrchestrator = {
   initialize(): Promise<void> | void;
@@ -12,52 +14,24 @@ type UISetupOrchestratorLike = LifecycleOrchestrator & {
   setupUIEventListeners(): void;
 };
 
-type AppOrchestratorDependencies = {
-  rendererDeviceRuntime: LifecycleOrchestrator;
-  streamingOrchestrator: LifecycleOrchestrator;
-  streamingAudioOrchestrator: LifecycleOrchestrator;
-  captureOrchestrator: LifecycleOrchestrator;
-  preferencesOrchestrator: LifecycleOrchestrator;
-  displayModeOrchestrator: LifecycleOrchestrator;
-  updateOrchestrator: LifecycleOrchestrator;
-  uiSetupOrchestrator: UISetupOrchestratorLike;
-  animationPerformanceOrchestrator: LifecycleOrchestrator;
-  performanceMetricsOrchestrator: LifecycleOrchestrator;
-  performanceStateOrchestrator: LifecycleOrchestrator;
-  eventBus: EventBusLike;
-  loggerFactory: LoggerFactoryLike;
-};
-
+@injectable()
 export class AppOrchestrator extends BaseOrchestrator {
-  private readonly rendererDeviceRuntime: LifecycleOrchestrator;
-  private readonly streamingOrchestrator: LifecycleOrchestrator;
-  private readonly streamingAudioOrchestrator: LifecycleOrchestrator;
-  private readonly captureOrchestrator: LifecycleOrchestrator;
-  private readonly preferencesOrchestrator: LifecycleOrchestrator;
-  private readonly displayModeOrchestrator: LifecycleOrchestrator;
-  private readonly updateOrchestrator: LifecycleOrchestrator;
-  private readonly uiSetupOrchestrator: UISetupOrchestratorLike;
-  private readonly animationPerformanceOrchestrator: LifecycleOrchestrator;
-  private readonly performanceMetricsOrchestrator: LifecycleOrchestrator;
-  private readonly performanceStateOrchestrator: LifecycleOrchestrator;
-
-  constructor(dependencies: AppOrchestratorDependencies) {
-    super(
-      dependencies,
-      'AppOrchestrator'
-    );
-    this.rendererDeviceRuntime = dependencies.rendererDeviceRuntime;
-    this.streamingOrchestrator = dependencies.streamingOrchestrator;
-    this.streamingAudioOrchestrator = dependencies.streamingAudioOrchestrator;
-    this.captureOrchestrator = dependencies.captureOrchestrator;
-    this.preferencesOrchestrator = dependencies.preferencesOrchestrator;
-    this.displayModeOrchestrator = dependencies.displayModeOrchestrator;
-    this.updateOrchestrator = dependencies.updateOrchestrator;
-    this.uiSetupOrchestrator = dependencies.uiSetupOrchestrator;
-    this.animationPerformanceOrchestrator = dependencies.animationPerformanceOrchestrator;
-    this.performanceMetricsOrchestrator = dependencies.performanceMetricsOrchestrator;
-    this.performanceStateOrchestrator = dependencies.performanceStateOrchestrator;
-    this.eventBus = dependencies.eventBus;
+  constructor(
+    @inject(TOKENS.rendererDeviceRuntime) private readonly rendererDeviceRuntime: LifecycleOrchestrator,
+    @inject(TOKENS.streamingOrchestrator) private readonly streamingOrchestrator: LifecycleOrchestrator,
+    @inject(TOKENS.streamingAudioOrchestrator) private readonly streamingAudioOrchestrator: LifecycleOrchestrator,
+    @inject(TOKENS.captureOrchestrator) private readonly captureOrchestrator: LifecycleOrchestrator,
+    @inject(TOKENS.preferencesOrchestrator) private readonly preferencesOrchestrator: LifecycleOrchestrator,
+    @inject(TOKENS.displayModeOrchestrator) private readonly displayModeOrchestrator: LifecycleOrchestrator,
+    @inject(TOKENS.updateOrchestrator) private readonly updateOrchestrator: LifecycleOrchestrator,
+    @inject(TOKENS.uiSetupOrchestrator) private readonly uiSetupOrchestrator: UISetupOrchestratorLike,
+    @inject(TOKENS.animationPerformanceOrchestrator) private readonly animationPerformanceOrchestrator: LifecycleOrchestrator,
+    @inject(TOKENS.performanceMetricsOrchestrator) private readonly performanceMetricsOrchestrator: LifecycleOrchestrator,
+    @inject(TOKENS.performanceStateOrchestrator) private readonly performanceStateOrchestrator: LifecycleOrchestrator,
+    @inject(TOKENS.eventBus) eventBus: EventBusLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'AppOrchestrator');
   }
 
   async onInitialize(): Promise<void> {

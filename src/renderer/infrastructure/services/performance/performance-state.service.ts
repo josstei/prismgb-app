@@ -5,9 +5,11 @@
  * Emits state updates through provided callbacks.
  */
 
+import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import type { StreamingCapabilities } from '@platform/events';
 import type { LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
 export type PerformanceState = {
   performanceModeEnabled: boolean;
@@ -36,13 +38,6 @@ type ReducedMotionAdapterLike = {
   onChange: (callback: (reducedMotion: boolean) => void) => () => void;
 };
 
-type PerformanceStateDependencies = {
-  loggerFactory: LoggerFactoryLike;
-  visibilityAdapter: VisibilityAdapterLike;
-  userActivityAdapter: UserActivityAdapterLike;
-  reducedMotionAdapter: ReducedMotionAdapterLike;
-};
-
 const IDLE_TIMER_LIFECYCLE = Symbol('performanceStateIdleTimer');
 const VISIBILITY_LIFECYCLE = Symbol('performanceStateVisibility');
 const ACTIVITY_LIFECYCLE = Symbol('performanceStateActivity');
@@ -64,23 +59,21 @@ interface PerformanceStateInitOptions {
   onStateChange?: (state: PerformanceState) => void;
 }
 
+@injectable()
 class PerformanceStateService extends BaseService {
-  private readonly _visibilityAdapter: VisibilityAdapterLike;
-  private readonly _userActivityAdapter: UserActivityAdapterLike;
-  private readonly _reducedMotionAdapter: ReducedMotionAdapterLike;
-
   private readonly _state: PerformanceState;
   private _isStreaming: boolean;
   private readonly _idleDelayMs: number;
   private _lastIdleReset: number;
   private _onStateChange: ((state: PerformanceState) => void) | null;
 
-  constructor(dependencies: PerformanceStateDependencies) {
-    super(dependencies, 'PerformanceStateService');
-
-    this._visibilityAdapter = dependencies.visibilityAdapter;
-    this._userActivityAdapter = dependencies.userActivityAdapter;
-    this._reducedMotionAdapter = dependencies.reducedMotionAdapter;
+  constructor(
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike,
+    @inject(TOKENS.visibilityAdapter) private readonly _visibilityAdapter: VisibilityAdapterLike,
+    @inject(TOKENS.userActivityAdapter) private readonly _userActivityAdapter: UserActivityAdapterLike,
+    @inject(TOKENS.reducedMotionAdapter) private readonly _reducedMotionAdapter: ReducedMotionAdapterLike
+  ) {
+    super({ loggerFactory }, 'PerformanceStateService');
 
     this._state = { ...DEFAULT_STATE };
     this._isStreaming = false;

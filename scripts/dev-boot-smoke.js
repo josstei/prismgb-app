@@ -27,7 +27,8 @@ const FAILURE_PATTERNS = [
   },
   {
     name: 'di-resolution',
-    pattern: /\b(?:Missing dependency|Could not resolve|Cannot resolve|ResolutionError|Missing token)\b/i,
+    pattern:
+      /\b(?:Missing dependency|Could not resolve|Cannot resolve|ResolutionError|Missing token|No matching bindings found|Ambiguous match found)\b/i,
     reason: 'DI container token resolution failure'
   },
   {

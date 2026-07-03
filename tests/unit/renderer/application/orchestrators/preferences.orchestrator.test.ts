@@ -7,7 +7,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SettingsPreferencesOrchestrator } from '@renderer/application/orchestrators/preferences.orchestrator';
 import { EventChannels } from '@platform/events';
 import {
-  createAppState,
   createEventBus,
   createLoggerFactory,
   createSettingsServiceMock
@@ -16,7 +15,6 @@ import {
 describe('SettingsPreferencesOrchestrator', () => {
   let orchestrator;
   let mockSettingsService;
-  let mockAppState;
   let mockEventBus;
   let mockLogger;
   let mockLoggerFactory;
@@ -34,21 +32,17 @@ describe('SettingsPreferencesOrchestrator', () => {
       }))
     });
 
-    mockAppState = createAppState();
-
-    orchestrator = new SettingsPreferencesOrchestrator({
-      settingsService: mockSettingsService,
-      appState: mockAppState,
-      eventBus: mockEventBus,
-      loggerFactory: mockLoggerFactory
-    });
+    orchestrator = new SettingsPreferencesOrchestrator(
+      mockSettingsService,
+      mockEventBus,
+      mockLoggerFactory
+    );
     mockLogger = mockLoggerFactory._getLogger('SettingsPreferencesOrchestrator');
   });
 
   describe('constructor', () => {
     it('should create orchestrator with dependencies', () => {
       expect(orchestrator.settingsService).toBe(mockSettingsService);
-      expect(orchestrator.appState).toBe(mockAppState);
       expect(orchestrator.eventBus).toBe(mockEventBus);
     });
   });

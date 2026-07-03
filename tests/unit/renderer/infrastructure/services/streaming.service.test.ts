@@ -17,7 +17,6 @@ import {
   createEventBus,
   createLoggerFactory,
   createMediaTrackMock,
-  createStreamingServiceDependencies,
 } from '../../../../factories/index.js';
 
 function createDeferred() {
@@ -47,7 +46,6 @@ function createStreamingTarget(overrides = {}) {
 
 describe('StreamingService', () => {
   let service;
-  let mockDependencies;
   let mockEventBus;
   let mockRendererDeviceRuntime;
   let mockDeviceMediaAcquirer;
@@ -63,13 +61,7 @@ describe('StreamingService', () => {
     });
     mockDeviceMediaAcquirer = createDeviceMediaAcquirerMock();
     mockLoggerFactory = createLoggerFactory();
-    mockDependencies = createStreamingServiceDependencies({
-      rendererDeviceRuntime: mockRendererDeviceRuntime,
-      deviceMediaAcquirer: mockDeviceMediaAcquirer,
-      eventBus: mockEventBus,
-      loggerFactory: mockLoggerFactory
-    });
-    service = new StreamingService(mockDependencies);
+    service = new StreamingService(mockRendererDeviceRuntime, mockDeviceMediaAcquirer, mockEventBus, mockLoggerFactory);
     mockLogger = mockLoggerFactory._getLogger('StreamingService');
   });
 

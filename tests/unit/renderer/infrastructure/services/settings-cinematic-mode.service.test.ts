@@ -22,11 +22,7 @@ describe('SettingsCinematicModeService', () => {
       initialState: { isCinematicModeEnabled: false }
     });
 
-    service = new SettingsCinematicModeService({
-      appState: mockAppState,
-      eventBus: mockEventBus,
-      loggerFactory: mockLoggerFactory
-    });
+    service = new SettingsCinematicModeService(mockAppState, mockEventBus, mockLoggerFactory);
     mockLogger = mockLoggerFactory._getLogger('SettingsCinematicModeService');
   });
 
