@@ -78,15 +78,6 @@
   padding: var(--space-md) 20px;
 }
 
-.settings-section-title {
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-  color: var(--color-text-muted);
-  margin: 0 0 var(--space-md) 0;
-}
-
 .settings-item {
   display: flex;
   align-items: center;
@@ -298,12 +289,6 @@
   right: 20px;
   height: 1px;
   background: rgba(255, 255, 255, 0.08);
-}
-
-.settings-version {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  font-weight: 500;
 }
 
 .settings-footer-links {

@@ -259,12 +259,3 @@
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
-
-/* New version highlight */
-.update-new-version {
-  font-family: var(--font-display);
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  color: var(--color-success);
-  text-shadow: 0 0 8px rgba(var(--color-success-rgb), 0.5);
-}

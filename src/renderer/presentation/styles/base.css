@@ -202,11 +202,6 @@ body.app-animations-off .btn::before {
   display: none;
 }
 
-body.app-animations-off .btn-rainbow {
-  animation: none;
-  background-size: 100% 100%;
-}
-
 body.app-animations-off .status-indicator {
   animation: none;
 }
@@ -298,15 +293,4 @@ h1, h2, h3, h4, h5, h6 {
 :focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
-}
-
-/* Chromatic hover utility */
-.chromatic-hover {
-  transition: text-shadow var(--transition-fast);
-}
-
-.chromatic-hover:hover {
-  text-shadow:
-    -1px 0 var(--chromatic-magenta),
-    1px 0 var(--chromatic-cyan);
 }

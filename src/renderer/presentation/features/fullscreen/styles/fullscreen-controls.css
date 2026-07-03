@@ -37,13 +37,6 @@ body.fullscreen-active .fullscreen-controls.fullscreen-hidden {
   pointer-events: none;
 }
 
-/* Control item wrapper (for volume with popup) */
-.fs-control-item {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
 /* Individual control buttons */
 .fs-control-btn {
   display: flex;

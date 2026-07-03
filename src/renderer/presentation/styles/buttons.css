@@ -80,36 +80,6 @@
   box-shadow: var(--shadow-glow-prismatic);
 }
 
-.btn-rainbow {
-  background: linear-gradient(
-    135deg,
-    #ff0080 0%,
-    #ff4000 20%,
-    #ff8000 35%,
-    #00cc66 50%,
-    #00aaff 70%,
-    #8000ff 90%,
-    #ff0080 100%
-  );
-  background-size: 200% 200%;
-  color: white;
-  box-shadow: var(--shadow-glow-prismatic);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-  animation: rainbow-shift 4s ease infinite;
-}
-
-@keyframes rainbow-shift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-.btn-rainbow:hover {
-  filter: brightness(1.1) saturate(1.1);
-  box-shadow: 0 6px 24px rgba(255, 0, 128, 0.5), 0 0 50px rgba(0, 255, 255, 0.2);
-  animation-duration: 2s;
-}
-
 .btn-secondary {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
   color: var(--color-text-primary);
@@ -119,28 +89,6 @@
 .btn-secondary:hover {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%);
   border-color: rgba(var(--color-primary-rgb), 0.5);
-}
-
-.btn-success {
-  background: linear-gradient(135deg, var(--color-success) 0%, #059669 100%);
-  color: white;
-  box-shadow: 0 4px 14px rgba(var(--color-success-rgb), 0.4);
-}
-
-.btn-success:hover {
-  background: linear-gradient(135deg, #059669 0%, var(--color-success-darker) 100%);
-  box-shadow: 0 6px 20px rgba(var(--color-success-rgb), 0.5);
-}
-
-.btn-danger {
-  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
-  color: white;
-  box-shadow: 0 4px 14px rgba(var(--color-danger-rgb), 0.4);
-}
-
-.btn-danger:hover {
-  background: linear-gradient(135deg, #e11d48 0%, var(--color-danger-darker) 100%);
-  box-shadow: 0 6px 20px rgba(var(--color-danger-rgb), 0.5);
 }
 
 /* Screenshot and record buttons (visibility controlled in states.css) */
