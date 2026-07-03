@@ -53,7 +53,7 @@ export type Dimensions = {
 
 export type NativeResolution = Dimensions;
 
-export type RenderBackend = 'webgpu' | 'webgl2' | 'canvas2d';
+export type RenderBackend = 'webgpu' | 'canvas2d';
 
 export type HandlerErrorPayload = {
   eventName: string;
@@ -69,7 +69,6 @@ export type StreamingCapabilities = {
   frameRate?: number;
   preferredBackend?: RenderBackend;
   webgpu?: boolean;
-  webgl2?: boolean;
   transferControlToOffscreen?: boolean;
   offscreenCanvas?: boolean;
   worker?: boolean;
