@@ -25,11 +25,6 @@ export interface DeviceConnectionCheckError {
   error: string;
 }
 
-export interface DeviceConnectionEvents {
-  statusChanged: DeviceStatus;
-  checkError: DeviceConnectionCheckError;
-}
-
 export interface DeviceConnectionDependencies {
   loggerFactory: LoggerFactoryLike;
   usbMonitor?: UsbMonitor;

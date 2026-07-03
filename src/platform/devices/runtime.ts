@@ -3,7 +3,6 @@ export type {
   DeviceCheckErrorListener,
   DeviceConnectionCheckError,
   DeviceConnectionDependencies,
-  DeviceConnectionEvents,
   DeviceConnectionReason,
   DeviceConnectionUnsubscribe,
   DeviceStatus,

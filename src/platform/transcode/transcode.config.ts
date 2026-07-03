@@ -67,5 +67,3 @@ export const TRANSCODE_CONFIG = Object.freeze({
   progressIntervalMs: 100,
   probeDurationTimeoutMs: 10000
 } as const);
-
-export type TranscodeFormatKey = TranscodeFormat;

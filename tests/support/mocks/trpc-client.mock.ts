@@ -90,8 +90,6 @@ export function createTrpcClientMock() {
   };
 }
 
-export type TrpcClientMock = ReturnType<typeof createTrpcClientMock>;
-
 /**
  * The `subscribe` member is typed `unknown` so callers may pass either a {@link
  * SubscriptionProcedureMock} or the statically-real (mocked-at-runtime) tRPC procedure — the

@@ -2,9 +2,6 @@
  * Domain-agnostic async control-flow utilities.
  */
 
-/** A promise paired with its externally-callable resolve/reject handles. */
-export type Deferred<T> = PromiseWithResolvers<T>;
-
 /** Outcome of racing a promise against a timeout. */
 export type TimedRaceOutcome = 'completed' | 'failed' | 'timed-out';
 
