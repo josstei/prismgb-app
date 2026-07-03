@@ -1,5 +1,5 @@
 /**
- * Dependency boundary gate (north-star P4 — boundaries as configuration).
+ * Dependency boundary gate — boundaries as configuration.
  *
  * Single owner of every import-boundary rule that previously lived in
  * scripts/check-layer-boundaries.js, the import half of
