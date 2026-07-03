@@ -15,6 +15,18 @@ type UISetupOrchestratorLike = LifecycleOrchestrator & {
   setupUIEventListeners(): void;
 };
 
+type SettingsServiceLike = {
+  initialize(): Promise<void> | void;
+};
+
+type UpdateServiceLike = {
+  initialize(): Promise<void>;
+};
+
+type UpdateUiServiceLike = {
+  initialize(): void;
+};
+
 @injectable()
 export class AppOrchestrator extends BaseOrchestrator {
   constructor(
@@ -22,9 +34,10 @@ export class AppOrchestrator extends BaseOrchestrator {
     @inject(TOKENS.streamingOrchestrator) private readonly streamingOrchestrator: LifecycleOrchestrator,
     @inject(TOKENS.streamingAudioOrchestrator) private readonly streamingAudioOrchestrator: LifecycleOrchestrator,
     @inject(TOKENS.captureOrchestrator) private readonly captureOrchestrator: LifecycleOrchestrator,
-    @inject(TOKENS.preferencesOrchestrator) private readonly preferencesOrchestrator: LifecycleOrchestrator,
     @inject(TOKENS.displayModeOrchestrator) private readonly displayModeOrchestrator: LifecycleOrchestrator,
-    @inject(TOKENS.updateOrchestrator) private readonly updateOrchestrator: LifecycleOrchestrator,
+    @inject(TOKENS.settingsService) private readonly settingsService: SettingsServiceLike,
+    @inject(TOKENS.updateService) private readonly updateService: UpdateServiceLike,
+    @inject(TOKENS.updateUiService) private readonly updateUiService: UpdateUiServiceLike,
     @inject(TOKENS.uiSetupOrchestrator) private readonly uiSetupOrchestrator: UISetupOrchestratorLike,
     @inject(TOKENS.animationPerformanceOrchestrator) private readonly animationPerformanceOrchestrator: LifecycleOrchestrator,
     @inject(TOKENS.performanceMetricsOrchestrator) private readonly performanceMetricsOrchestrator: LifecycleOrchestrator,
@@ -47,8 +60,9 @@ export class AppOrchestrator extends BaseOrchestrator {
     await this.animationPerformanceOrchestrator.initialize();
     await this.performanceMetricsOrchestrator.initialize();
     await this.displayModeOrchestrator.initialize();
-    await this.preferencesOrchestrator.initialize();
-    await this.updateOrchestrator.initialize();
+    await this.settingsService.initialize();
+    await this.updateService.initialize();
+    this.updateUiService.initialize();
     await this.uiSetupOrchestrator.initialize();
   }
 
@@ -109,9 +123,7 @@ export class AppOrchestrator extends BaseOrchestrator {
       ['animationPerformanceOrchestrator', this.animationPerformanceOrchestrator],
       ['performanceMetricsOrchestrator', this.performanceMetricsOrchestrator],
       ['performanceStateOrchestrator', this.performanceStateOrchestrator],
-      ['updateOrchestrator', this.updateOrchestrator],
       ['displayModeOrchestrator', this.displayModeOrchestrator],
-      ['preferencesOrchestrator', this.preferencesOrchestrator],
       ['streamingAudioOrchestrator', this.streamingAudioOrchestrator],
       ['streamingOrchestrator', this.streamingOrchestrator],
       ['captureOrchestrator', this.captureOrchestrator],

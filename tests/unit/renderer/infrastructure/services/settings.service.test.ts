@@ -10,6 +10,7 @@ vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => {
 });
 import { SettingsDefinitions as settingsDefinitions } from '@renderer/lib/settings.definitions.js';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
+import { EventChannels } from '@platform/events';
 import { createSettingsServiceHarness } from '../../../../factories/index.js';
 describe('SettingsService', () => {
   let service;
@@ -134,6 +135,47 @@ describe('SettingsService', () => {
       expect(() => service._getSynchronousSetting('launchOnLogin')).toThrow(
         'Setting requires asynchronous access: launchOnLogin'
       );
+    });
+  });
+  describe('initialize', () => {
+    it('publishes the volume-changed event with the loaded value', async () => {
+      localStorageMock.setItem('gameVolume', '80');
+
+      await service.initialize();
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith('settings:volume-changed', 80);
+    });
+    it('publishes the performance-mode-changed event with the loaded value', async () => {
+      localStorageMock.setItem('performanceMode', 'true');
+
+      await service.initialize();
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith('settings:performance-mode-changed', true);
+    });
+    it('publishes PREFERENCES_LOADED with the full preferences payload', async () => {
+      localStorageMock.setItem('gameVolume', '30');
+
+      await service.initialize();
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith(
+        EventChannels.SETTINGS.PREFERENCES_LOADED,
+        expect.objectContaining({ gameVolume: 30 })
+      );
+    });
+    it('logs success message', async () => {
+      await service.initialize();
+
+      expect(mockLogger.info).toHaveBeenCalledWith('Preferences loaded');
+    });
+    it('handles errors gracefully', async () => {
+      const error = new Error('Load failed');
+      vi.spyOn(service, 'loadAllPreferences').mockImplementation(() => {
+        throw error;
+      });
+
+      await service.initialize();
+
+      expect(mockLogger.error).toHaveBeenCalledWith('Error loading preferences:', error);
     });
   });
   describe('launchOnLogin', () => {

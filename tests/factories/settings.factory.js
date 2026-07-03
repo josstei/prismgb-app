@@ -111,6 +111,8 @@ export function createSettingsFullscreenServiceMock(overrides = {}) {
  */
 export function createSettingsCinematicModeServiceMock(overrides = {}) {
   return /** @type {any} */ ({
+    initialize: vi.fn(),
+    dispose: vi.fn(),
     toggleCinematicMode: vi.fn(),
     ...overrides
   });

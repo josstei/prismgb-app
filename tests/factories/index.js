@@ -111,8 +111,6 @@ export {
 // Update factories
 export {
   createUpdateConfigMock,
-  createUpdateServiceMock,
-  createUpdateUiServiceMock,
 } from './update.factory.js';
 
 // Window factories

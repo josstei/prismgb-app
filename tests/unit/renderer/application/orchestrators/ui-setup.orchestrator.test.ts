@@ -9,18 +9,12 @@ import {
   createAppState,
   createEventBus,
   createLoggerFactory,
-  createNotesServiceMock,
-  createOrchestratorMock,
-  createSettingsServiceMock,
   createUISetupControllerMock
 } from '../../../../factories/index.js';
 
 describe('UISetupOrchestrator', () => {
   let orchestrator;
   let mockAppState;
-  let mockUpdateOrchestrator;
-  let mockSettingsService;
-  let mockNotesService;
   let mockUiController;
   let mockEventBus;
   let mockLogger;
@@ -30,9 +24,6 @@ describe('UISetupOrchestrator', () => {
     mockLoggerFactory = createLoggerFactory();
     mockEventBus = createEventBus();
     mockAppState = createAppState();
-    mockUpdateOrchestrator = createOrchestratorMock();
-    mockSettingsService = createSettingsServiceMock();
-    mockNotesService = createNotesServiceMock();
 
     mockUiController = createUISetupControllerMock({
       initializeDeferredComponent: vi.fn(),
@@ -43,9 +34,6 @@ describe('UISetupOrchestrator', () => {
 
     orchestrator = new UISetupOrchestrator(
       mockAppState,
-      mockUpdateOrchestrator,
-      mockSettingsService,
-      mockNotesService,
       mockUiController,
       mockEventBus,
       mockLoggerFactory

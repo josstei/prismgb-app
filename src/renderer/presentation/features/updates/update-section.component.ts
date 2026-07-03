@@ -99,7 +99,7 @@ function actionLabelFor(state: UpdateStateValue): string {
   }
 }
 
-type UpdateOrchestratorLike = {
+type UpdateServiceLike = {
   getStatus(): UpdateStatus;
   checkForUpdates(): Promise<unknown> | unknown;
   downloadUpdate(): Promise<unknown> | unknown;
@@ -149,7 +149,7 @@ function createEmptyUpdateSectionElements(): CachedUpdateSectionElements {
 }
 
 export interface UpdateSectionComponentOptions {
-  updateOrchestrator: UpdateOrchestratorLike;
+  updateService: UpdateServiceLike;
   eventBus: EventBusLike;
   loggerFactory?: LoggerFactoryLike | null;
 }
@@ -160,7 +160,7 @@ export interface UpdateSectionComponentOptions {
  * Only the action-button click flow remains imperative.
  */
 class UpdateSectionComponent extends PresentationComponent {
-  private readonly updateOrchestrator: UpdateOrchestratorLike;
+  private readonly updateService: UpdateServiceLike;
   private readonly eventBus: EventBusLike;
   private readonly logger: LoggerLike;
   private _initialized: boolean;
@@ -172,10 +172,10 @@ class UpdateSectionComponent extends PresentationComponent {
   private readonly _badgeVisible = signal(false);
   private readonly _actionInProgress = signal(false);
 
-  constructor({ updateOrchestrator, eventBus, loggerFactory }: UpdateSectionComponentOptions) {
+  constructor({ updateService, eventBus, loggerFactory }: UpdateSectionComponentOptions) {
     super();
 
-    this.updateOrchestrator = updateOrchestrator;
+    this.updateService = updateService;
     this.eventBus = eventBus;
     this.logger = loggerFactory?.create('UpdateSectionComponent') || console;
 
@@ -313,7 +313,7 @@ class UpdateSectionComponent extends PresentationComponent {
   }
 
   private _loadInitialState(): void {
-    const status = this.updateOrchestrator.getStatus();
+    const status = this.updateService.getStatus();
     this._applyStatus(status);
 
     if (status.state === UpdateState.AVAILABLE || status.state === UpdateState.DOWNLOADED) {
@@ -328,19 +328,19 @@ class UpdateSectionComponent extends PresentationComponent {
     this._actionInProgress.value = true;
 
     try {
-      const status = this.updateOrchestrator.getStatus();
+      const status = this.updateService.getStatus();
 
       switch (status.state) {
         case UpdateState.IDLE:
         case UpdateState.NOT_AVAILABLE:
         case UpdateState.ERROR:
-          await this.updateOrchestrator.checkForUpdates();
+          await this.updateService.checkForUpdates();
           break;
         case UpdateState.AVAILABLE:
-          await this.updateOrchestrator.downloadUpdate();
+          await this.updateService.downloadUpdate();
           break;
         case UpdateState.DOWNLOADED:
-          await this.updateOrchestrator.installUpdate();
+          await this.updateService.installUpdate();
           break;
       }
     } catch (error) {
@@ -351,7 +351,7 @@ class UpdateSectionComponent extends PresentationComponent {
       });
     } finally {
       this._actionInProgress.value = false;
-      this._applyStatus(this.updateOrchestrator.getStatus());
+      this._applyStatus(this.updateService.getStatus());
     }
   }
 

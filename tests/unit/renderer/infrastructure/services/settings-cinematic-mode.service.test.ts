@@ -38,6 +38,26 @@ describe('SettingsCinematicModeService', () => {
     });
   });
 
+  describe('initialize', () => {
+    it('should bind the cinematic toggle-requested event handler', () => {
+      service.initialize();
+
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith(
+        EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED,
+        expect.any(Function)
+      );
+    });
+
+    it('should toggle cinematic mode when CINEMATIC_TOGGLE_REQUESTED is published', () => {
+      mockAppState._forceSet('isCinematicModeEnabled', false);
+      service.initialize();
+
+      mockEventBus.publish(EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED);
+
+      expect(mockAppState.setCinematicMode).toHaveBeenCalledWith(true);
+    });
+  });
+
   describe('toggleCinematicMode', () => {
     describe('when disabled', () => {
       beforeEach(() => {

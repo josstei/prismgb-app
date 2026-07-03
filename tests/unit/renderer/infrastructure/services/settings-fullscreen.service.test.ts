@@ -89,10 +89,19 @@ describe('SettingsFullscreenService', () => {
       );
     });
 
-    it('should register document and native lifecycle disposables', () => {
+    it('should bind the fullscreen toggle-requested event handler', () => {
       service.initialize();
 
-      expect(service.disposables.size).toBe(2);
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith(
+        EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED,
+        expect.any(Function)
+      );
+    });
+
+    it('should register document, native, and event-handler lifecycle disposables', () => {
+      service.initialize();
+
+      expect(service.disposables.size).toBe(3);
     });
 
     it('should sync fullscreen state via tRPC query', () => {
@@ -146,6 +155,17 @@ describe('SettingsFullscreenService', () => {
       await service.toggleFullscreen();
 
       expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith(false);
+    });
+
+    it('should toggle fullscreen when FULLSCREEN_TOGGLE_REQUESTED is published', async () => {
+      service.initialize();
+      vi.mocked(trpcClient.window.isFullScreen.query).mockResolvedValue({ success: true, isFullscreen: false });
+
+      mockEventBus.publish(EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED);
+
+      await vi.waitFor(() => {
+        expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith(true);
+      });
     });
   });
 

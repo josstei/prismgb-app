@@ -67,6 +67,12 @@ describe('SettingsDisplayModeOrchestrator', () => {
 
       expect(mockSettingsFullscreenService.initialize).toHaveBeenCalled();
     });
+
+    it('should initialize cinematic mode service', async () => {
+      await orchestrator.onInitialize();
+
+      expect(mockSettingsCinematicModeService.initialize).toHaveBeenCalled();
+    });
   });
 
   describe('onCleanup', () => {
@@ -75,37 +81,11 @@ describe('SettingsDisplayModeOrchestrator', () => {
 
       expect(mockSettingsFullscreenService.dispose).toHaveBeenCalled();
     });
-  });
 
-  describe('toggleFullscreen', () => {
-    it('should delegate to fullscreen service', () => {
-      orchestrator.toggleFullscreen();
+    it('should dispose cinematic mode service', async () => {
+      await orchestrator.onCleanup();
 
-      expect(mockSettingsFullscreenService.toggleFullscreen).toHaveBeenCalled();
-    });
-  });
-
-  describe('toggleCinematicMode', () => {
-    it('should delegate to cinematic mode service', () => {
-      orchestrator.toggleCinematicMode();
-
-      expect(mockSettingsCinematicModeService.toggleCinematicMode).toHaveBeenCalled();
-    });
-  });
-
-  describe('enterFullscreen', () => {
-    it('should delegate to fullscreen service', () => {
-      orchestrator.enterFullscreen();
-
-      expect(mockSettingsFullscreenService.enterFullscreen).toHaveBeenCalled();
-    });
-  });
-
-  describe('exitFullscreen', () => {
-    it('should delegate to fullscreen service', () => {
-      orchestrator.exitFullscreen();
-
-      expect(mockSettingsFullscreenService.exitFullscreen).toHaveBeenCalled();
+      expect(mockSettingsCinematicModeService.dispose).toHaveBeenCalled();
     });
   });
 

@@ -20,9 +20,6 @@ import { TOKENS } from '@renderer/application/di/tokens.js';
 import type { LoggerFactoryLike } from '@platform/core';
 import type { ReadonlySignal } from '@platform/ui-base/reactive';
 import type { TypedEventBusLike } from '@platform/events';
-import type { SettingsService } from '@renderer/infrastructure/services/settings/settings.service';
-import type { NotesService } from '@platform/notes';
-import type { UpdateOrchestrator } from '@renderer/application/orchestrators/update.orchestrator';
 import type { UIController } from '@renderer/presentation/controller/ui.controller.js';
 import { RendererTemplateDeferredComponentIds } from '@renderer/presentation/primitives/template-dom.contract.js';
 
@@ -40,9 +37,6 @@ export class UISetupOrchestrator extends BaseOrchestrator {
 
   constructor(
     @inject(TOKENS.appState) private readonly appState: AppStateLike,
-    @inject(TOKENS.updateOrchestrator) private readonly updateOrchestrator: UpdateOrchestrator,
-    @inject(TOKENS.settingsService) private readonly settingsService: SettingsService,
-    @inject(TOKENS.notesService) private readonly notesService: NotesService,
     @inject(TOKENS.uiController) private readonly uiController: UIController,
     @inject(TOKENS.eventBus) protected readonly eventBus: TypedEventBusLike,
     @inject(TOKENS.loggerFactory) private readonly loggerFactory: LoggerFactoryLike

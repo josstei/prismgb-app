@@ -14,9 +14,10 @@ describe('AppOrchestrator', () => {
   let mockStreamingOrchestrator;
   let mockStreamingAudioOrchestrator;
   let mockCaptureOrchestrator;
-  let mockSettingsPreferencesOrchestrator;
+  let mockSettingsService;
   let mockSettingsDisplayModeOrchestrator;
-  let mockUpdateOrchestrator;
+  let mockUpdateService;
+  let mockUpdateUiService;
   let mockUISetupOrchestrator;
   let mockPerformanceAnimationOrchestrator;
   let mockPerformanceMetricsOrchestrator;
@@ -40,16 +41,12 @@ describe('AppOrchestrator', () => {
       toggleRecording: vi.fn(),
     });
 
-    mockSettingsPreferencesOrchestrator = createOrchestratorMock({
-      loadPreferences: vi.fn().mockResolvedValue(),
-    });
+    mockSettingsService = { initialize: vi.fn().mockResolvedValue(undefined) };
 
-    mockSettingsDisplayModeOrchestrator = createOrchestratorMock({
-      toggleFullscreen: vi.fn(),
-      toggleCinematicMode: vi.fn(),
-    });
+    mockSettingsDisplayModeOrchestrator = createOrchestratorMock();
 
-    mockUpdateOrchestrator = createOrchestratorMock();
+    mockUpdateService = { initialize: vi.fn().mockResolvedValue(undefined) };
+    mockUpdateUiService = { initialize: vi.fn() };
 
     mockUISetupOrchestrator = createOrchestratorMock({
       initializeDeferredComponents: vi.fn(),
@@ -74,9 +71,10 @@ describe('AppOrchestrator', () => {
       mockStreamingOrchestrator,
       mockStreamingAudioOrchestrator,
       mockCaptureOrchestrator,
-      mockSettingsPreferencesOrchestrator,
       mockSettingsDisplayModeOrchestrator,
-      mockUpdateOrchestrator,
+      mockSettingsService,
+      mockUpdateService,
+      mockUpdateUiService,
       mockUISetupOrchestrator,
       mockPerformanceAnimationOrchestrator,
       mockPerformanceMetricsOrchestrator,
@@ -122,9 +120,10 @@ describe('AppOrchestrator', () => {
     it('should initialize all application orchestrators', async () => {
       await orchestrator.onInitialize();
 
-      expect(mockSettingsPreferencesOrchestrator.initialize).toHaveBeenCalled();
+      expect(mockSettingsService.initialize).toHaveBeenCalled();
       expect(mockSettingsDisplayModeOrchestrator.initialize).toHaveBeenCalled();
-      expect(mockUpdateOrchestrator.initialize).toHaveBeenCalled();
+      expect(mockUpdateService.initialize).toHaveBeenCalled();
+      expect(mockUpdateUiService.initialize).toHaveBeenCalled();
       expect(mockPerformanceStateOrchestrator.initialize).toHaveBeenCalled();
       expect(mockPerformanceAnimationOrchestrator.initialize).toHaveBeenCalled();
       expect(mockPerformanceMetricsOrchestrator.initialize).toHaveBeenCalled();
@@ -143,14 +142,6 @@ describe('AppOrchestrator', () => {
       await orchestrator.start();
 
       expect(mockUISetupOrchestrator.setupUIEventListeners).toHaveBeenCalled();
-    });
-
-    it('should not call loadPreferences directly (delegated to SettingsPreferencesOrchestrator.initialize)', async () => {
-      await orchestrator.start();
-
-      // loadPreferences is now called during SettingsPreferencesOrchestrator.initialize()
-      // not directly by AppOrchestrator.start()
-      expect(mockSettingsPreferencesOrchestrator.loadPreferences).not.toHaveBeenCalled();
     });
   });
 
@@ -202,9 +193,7 @@ describe('AppOrchestrator', () => {
       expect(mockPerformanceAnimationOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockPerformanceMetricsOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockPerformanceStateOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockUpdateOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockSettingsDisplayModeOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockSettingsPreferencesOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockStreamingAudioOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockStreamingOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockCaptureOrchestrator.cleanup).toHaveBeenCalled();

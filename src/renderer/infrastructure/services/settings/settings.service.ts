@@ -1,6 +1,7 @@
 import { injectable, inject } from 'inversify';
 import { BaseService, isPromiseLike } from '@platform/core';
-import { SettingsDefinitions } from '@renderer/lib/settings.definitions.js';
+import { EventChannels } from '@platform/events';
+import { SettingsDefinitions, getStartupPreferenceEventDefinitions } from '@renderer/lib/settings.definitions.js';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import type { LoggerFactoryLike, StorageServiceLike } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
@@ -41,6 +42,22 @@ class SettingsService extends BaseService {
 
     this.settingDefinitions = SettingsDefinitions.definitions;
     this.settingDefinitionMap = createDefinitionMap(this.settingDefinitions);
+  }
+
+  async initialize(): Promise<void> {
+    try {
+      const preferences = this.loadAllPreferences();
+
+      for (const { name, event } of getStartupPreferenceEventDefinitions()) {
+        this.eventBus.publish(event, preferences[name]);
+      }
+
+      this.eventBus.publish(EventChannels.SETTINGS.PREFERENCES_LOADED, preferences);
+
+      this.logger.info('Preferences loaded');
+    } catch (error) {
+      this.logger.error('Error loading preferences:', error);
+    }
   }
 
   listSettings(): string[] {

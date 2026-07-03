@@ -108,9 +108,9 @@ export const presentationModule = new ContainerModule(({ bind }) => {
   bind(TOKENS.settingsMenuComponent).toDynamicValue((ctx) => {
     const eventBus = ctx.get(TOKENS.eventBus);
     const loggerFactory = ctx.get(TOKENS.loggerFactory);
-    const updateOrchestrator = ctx.get(TOKENS.updateOrchestrator);
-    const updateSectionComponent = updateOrchestrator
-      ? new UpdateSectionComponent({ updateOrchestrator, eventBus, loggerFactory })
+    const updateService = ctx.get(TOKENS.updateService);
+    const updateSectionComponent = updateService
+      ? new UpdateSectionComponent({ updateService, eventBus, loggerFactory })
       : null;
 
     const component = new SettingsMenuComponent({

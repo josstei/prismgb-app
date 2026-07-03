@@ -1,6 +1,6 @@
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import { EventChannels } from '@platform/events';
+import { EventChannels, OnEvent } from '@platform/events';
 import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
@@ -25,6 +25,8 @@ class SettingsFullscreenService extends BaseService {
   }
 
   initialize() {
+    this.bindEventHandlers();
+
     this.disposables.cancel(FULLSCREEN_DOCUMENT_LIFECYCLE);
     document.addEventListener('fullscreenchange', this._boundHandleFullscreenChange);
     this.disposables.replace(FULLSCREEN_DOCUMENT_LIFECYCLE, () =>
@@ -45,6 +47,7 @@ class SettingsFullscreenService extends BaseService {
     this._syncFullscreenState();
   }
 
+  @OnEvent(EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED)
   async toggleFullscreen() {
     const isActuallyFullscreen = await this._syncFullscreenState();
 

@@ -6,7 +6,7 @@
 
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import { EventChannels } from '@platform/events';
+import { EventChannels, OnEvent } from '@platform/events';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 
@@ -25,6 +25,11 @@ class SettingsCinematicModeService extends BaseService {
     super({ loggerFactory, eventBus }, 'SettingsCinematicModeService');
   }
 
+  initialize(): void {
+    this.bindEventHandlers();
+  }
+
+  @OnEvent(EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED)
   toggleCinematicMode() {
     const newMode = !this.appState.isCinematicModeEnabled;
     this.appState.setCinematicMode(newMode);

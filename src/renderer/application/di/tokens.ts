@@ -17,13 +17,11 @@ import type { CaptureService } from '../../infrastructure/services/capture/captu
 import type { TranscodeService } from '../../infrastructure/services/transcode/transcode.service';
 import type { CaptureSaveService } from '../../infrastructure/services/capture/capture-save.service';
 import type { CaptureOrchestrator } from '../orchestrators/capture.orchestrator';
-import type { SettingsPreferencesOrchestrator } from '../orchestrators/preferences.orchestrator';
 import type { SettingsFullscreenService } from '../../infrastructure/services/settings/settings-fullscreen.service';
 import type { SettingsCinematicModeService } from '../../infrastructure/services/settings/settings-cinematic-mode.service';
 import type { SettingsDisplayModeOrchestrator } from '../orchestrators/display-mode.orchestrator';
 import type { UpdateService } from '../../infrastructure/services/updates/update.service';
 import type { UpdateUiService } from '../../infrastructure/services/updates/update-ui.service';
-import type { UpdateOrchestrator } from '../orchestrators/update.orchestrator';
 import type { UISetupOrchestrator } from '../orchestrators/ui-setup.orchestrator';
 import type { PerformanceAnimationService } from '../../infrastructure/services/performance/performance-animation.service';
 import type { BodyClassManager } from '../../presentation/effects/body-class.class';
@@ -85,13 +83,11 @@ export const TOKENS = {
   transcodeService: token<TranscodeService>('transcodeService'),
   captureSaveService: token<CaptureSaveService>('captureSaveService'),
   captureOrchestrator: token<CaptureOrchestrator>('captureOrchestrator'),
-  preferencesOrchestrator: token<SettingsPreferencesOrchestrator>('preferencesOrchestrator'),
   fullscreenService: token<SettingsFullscreenService>('fullscreenService'),
   cinematicModeService: token<SettingsCinematicModeService>('cinematicModeService'),
   displayModeOrchestrator: token<SettingsDisplayModeOrchestrator>('displayModeOrchestrator'),
   updateService: token<UpdateService>('updateService'),
   updateUiService: token<UpdateUiService>('updateUiService'),
-  updateOrchestrator: token<UpdateOrchestrator>('updateOrchestrator'),
   notesService: token<NotesService>('notesService'),
   uiSetupOrchestrator: token<UISetupOrchestrator>('uiSetupOrchestrator'),
   animationPerformanceService: token<PerformanceAnimationService>('animationPerformanceService'),

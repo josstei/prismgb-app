@@ -28,7 +28,7 @@ function createElements() {
 describe('UpdateSectionComponent', () => {
   let component;
   let eventBus;
-  let orchestrator;
+  let updateService;
   let status;
   let elements;
 
@@ -36,7 +36,7 @@ describe('UpdateSectionComponent', () => {
     vi.useFakeTimers();
     eventBus = createEventBus();
     status = { state: UpdateState.IDLE, updateInfo: null };
-    orchestrator = {
+    updateService = {
       getStatus: vi.fn(() => status),
       checkForUpdates: vi.fn().mockResolvedValue(undefined),
       downloadUpdate: vi.fn().mockResolvedValue(undefined),
@@ -44,7 +44,7 @@ describe('UpdateSectionComponent', () => {
     };
     elements = createElements();
     component = new UpdateSectionComponent({
-      updateOrchestrator: orchestrator,
+      updateService,
       eventBus,
       loggerFactory: createLoggerFactory()
     });
@@ -114,11 +114,11 @@ describe('UpdateSectionComponent', () => {
     expect(elements.statusText.classList.contains('flash-success')).toBe(false);
   });
 
-  it('routes the action click to the orchestrator for the current state', async () => {
+  it('routes the action click to the update service for the current state', async () => {
     status = { state: UpdateState.AVAILABLE, updateInfo: { version: '2.0.0' } };
     eventBus.publish(EventChannels.UPDATE.STATE_CHANGED, status);
 
     await component._handleActionClick();
-    expect(orchestrator.downloadUpdate).toHaveBeenCalled();
+    expect(updateService.downloadUpdate).toHaveBeenCalled();
   });
 });
