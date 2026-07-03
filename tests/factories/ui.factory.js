@@ -366,17 +366,6 @@ export function createDeviceStatusElementsMock(overrides = {}) {
   };
 }
 
-export function createStatusNotificationElementsMock(overrides = {}) {
-  const elements = {
-    statusMessage: createMockElement('span', { className: 'status-message' }),
-  };
-
-  return {
-    ...elements,
-    ...overrides,
-  };
-}
-
 export function createTranscodeToastElementsMock(overrides = {}) {
   const recordBtn = createMockButton({ className: 'record-btn' });
   const transcodeRing = createMockElement('div', { className: 'transcode-ring' });
@@ -570,42 +559,6 @@ export function createUIController(options = {}) {
   };
 
   return controller;
-}
-
-/**
- * Creates mock capture effects
- */
-export function createCaptureEffects() {
-  const effects = {
-    triggerShutterFlash: vi.fn(),
-    dispose: vi.fn(),
-    _reset() { vi.clearAllMocks(); },
-  };
-  return effects;
-}
-
-/**
- * Creates mock button feedback
- */
-export function createButtonFeedback(options = {}) {
-  const { recordBtn = createMockButton() } = options;
-
-  const feedback = {
-    triggerRecordButtonPop: vi.fn(),
-    triggerRecordButtonPress: vi.fn(),
-    triggerButtonFeedback: vi.fn(),
-    setRecordingButtonState: vi.fn((active) => {
-      if (active) {
-        recordBtn.classList.add('recording');
-      } else {
-        recordBtn.classList.remove('recording');
-      }
-    }),
-    dispose: vi.fn(),
-    _recordBtn: recordBtn,
-    _reset() { vi.clearAllMocks(); },
-  };
-  return feedback;
 }
 
 export function createUISetupControllerMock(overrides = {}) {
@@ -918,14 +871,11 @@ export default {
   createMockButton,
   createMockInput,
   createDeviceStatusElementsMock,
-  createStatusNotificationElementsMock,
   createTranscodeToastElementsMock,
   createShaderSelectorElementsMock,
   createSettingsMenuElementsMock,
   createNotesPanelElementsMock,
   createUIController,
-  createCaptureEffects,
-  createButtonFeedback,
   createUISetupControllerMock,
   createPresentationModeControllerMock,
   createUIEventBridgeControllerMock,

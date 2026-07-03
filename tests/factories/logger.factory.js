@@ -11,7 +11,7 @@ import { vi } from 'vitest';
 /**
  * Log levels in order of severity
  */
-export const LogLevels = {
+const LogLevels = {
   TRACE: 0,
   DEBUG: 1,
   INFO: 2,

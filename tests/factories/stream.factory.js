@@ -351,34 +351,6 @@ export function createStreamPayloadMock(overrides = {}) {
   };
 }
 
-export function createStreamConstraintsMock(overrides = {}) {
-  const {
-    deviceId = CHROMATIC_SPECS.deviceId,
-    audio = {},
-    video = {},
-    ...constraintOverrides
-  } = overrides;
-  const normalizedAudio = typeof audio === 'object' && audio !== null
-    ? {
-      ...audio,
-      ...(!('deviceId' in audio) ? { deviceId: { exact: deviceId } } : {})
-    }
-    : audio;
-  const normalizedVideo = typeof video === 'object' && video !== null
-    ? {
-      width: CHROMATIC_SPECS.nativeWidth,
-      ...video,
-      ...(!('deviceId' in video) ? { deviceId: { exact: deviceId } } : {})
-    }
-    : video;
-
-  return {
-    audio: normalizedAudio,
-    video: normalizedVideo,
-    ...constraintOverrides
-  };
-}
-
 export function createStreamStartedPayloadMock(overrides = {}) {
   const {
     stream = createCaptureStreamMock(),
@@ -460,16 +432,6 @@ export function createStreamCapabilitiesMock(overrides = {}) {
   return createChromaticStreamCapabilities(overrides);
 }
 
-export function createBrowserMediaServiceMock(overrides = {}) {
-  return {
-    enumerateDevices: vi.fn(),
-    getUserMedia: vi.fn(),
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    ...overrides
-  };
-}
-
 export function createDeviceMediaAcquirerMock(overrides = {}) {
   const stream = createCaptureStreamMock();
   const capabilities = createStreamCapabilitiesMock({
@@ -498,13 +460,11 @@ export default {
   createMockVideo,
   StreamingState,
   createStreamPayloadMock,
-  createStreamConstraintsMock,
   createStreamStartedPayloadMock,
   createSupportedDevicePayloadMock,
   createMediaTrackMock,
   createMediaStreamMock,
   createCaptureStreamMock,
   createStreamCapabilitiesMock,
-  createBrowserMediaServiceMock,
   createDeviceMediaAcquirerMock,
 };

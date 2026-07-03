@@ -12,7 +12,7 @@ import { PRESET_POLICY } from '@platform/gpu';
 /**
  * Default application state
  */
-export const DEFAULT_STATE = {
+const DEFAULT_STATE = {
   isStreaming: false,
   selectedDeviceId: null,
   isCinematicModeEnabled: true,
@@ -195,21 +195,6 @@ export function createStreamingAppState(overrides = {}) {
     initialState: {
       isStreaming: true,
       deviceConnected: true,
-      selectedDeviceId: 'chromatic-video-device',
-      ...overrides,
-    },
-  });
-}
-
-/**
- * Creates AppState with recording mode active
- */
-export function createRecordingAppState(overrides = {}) {
-  return createAppState({
-    initialState: {
-      isStreaming: true,
-      deviceConnected: true,
-      isRecording: true,
       selectedDeviceId: 'chromatic-video-device',
       ...overrides,
     },

@@ -18,14 +18,11 @@ export {
   createNotesPanelElementsMock,
   createShaderSelectorElementsMock,
   createSettingsMenuElementsMock,
-  createStatusNotificationElementsMock,
   createTranscodeToastElementsMock,
   createMockElement,
   createMockButton,
   createMockInput,
   createUIController,
-  createCaptureEffects,
-  createButtonFeedback,
   createUISetupControllerMock,
   createPresentationModeControllerMock,
   createUIEventBridgeControllerMock,
@@ -47,7 +44,6 @@ export {
 export {
   createLogger,
   createLoggerFactory,
-  LogLevels,
 } from './logger.factory.js';
 
 // Device factories
@@ -71,10 +67,8 @@ export {
   createMediaStreamMock,
   createCaptureStreamMock,
   createStreamCapabilitiesMock,
-  createStreamConstraintsMock,
   createSupportedDevicePayloadMock,
   createStreamStartedPayloadMock,
-  createBrowserMediaServiceMock,
   createDeviceMediaAcquirerMock,
 } from './stream.factory.js';
 
@@ -93,24 +87,15 @@ export {
 export {
   createAppState,
   createStreamingAppState,
-  createRecordingAppState,
-  DEFAULT_STATE,
 } from './app-state.factory.js';
 
 // System factories
 export {
-  createDisposableMock,
-  createContextBridgeMock,
-  createProcessMetricsApiMock,
-  createOffscreenCanvasElementMock,
   createCallbackMap,
-  createPreloadEventApiMock,
   createMediaQueryListMock,
   createCanvasRenderingContextMock,
   createBitmapMock,
   createPreventDefaultEventMock,
-  createDomEventMock,
-  createShellServiceMock,
   createLoginItemServiceMock,
 } from './system.factory.js';
 
@@ -136,8 +121,6 @@ export {
   createWindowServiceMock,
   createBrowserWindowMock,
   createWindowServiceElectronMock,
-  createTrayMock,
-  createTrayServiceElectronMock,
 } from './window.factory.js';
 
 // Performance factories
@@ -152,7 +135,6 @@ export {
   createPerformanceAnimationServiceMock,
   createBodyClassManagerMock,
   createProcessMetricsMock,
-  createAppMetricsServiceMock,
 } from './performance.factory.js';
 
 // Capture factories
@@ -170,7 +152,6 @@ export {
 
 // Streaming pipeline factories
 export {
-  createWorkerInstanceMock,
   createStreamingViewControllerMock,
   createStreamingAudioPipelineServiceMock,
   createStreamingViewServiceMock,
@@ -178,7 +159,6 @@ export {
   createViewportServiceMock,
   createStreamHealthServiceMock,
   createGpuRendererServiceMock,
-  createStreamViewServiceMock,
   createStreamingServiceFacadeMock,
   createStreamingRenderServiceMock,
   createCanvasLifecycleServiceMock,
@@ -187,7 +167,4 @@ export {
 // Dependency factories
 export {
   createStreamingServiceDependencies,
-  createMockDependencies,
-  createStreamingDependencies,
-  createCaptureDependencies,
 } from './dependencies.factory.js';

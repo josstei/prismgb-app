@@ -144,10 +144,3 @@ export function createProcessMetricsMock(overrides = {}) {
     ...overrides
   };
 }
-
-export function createAppMetricsServiceMock(overrides = {}) {
-  return {
-    getAppMetrics: vi.fn(),
-    ...overrides
-  };
-}

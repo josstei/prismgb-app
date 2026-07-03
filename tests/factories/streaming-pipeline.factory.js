@@ -11,22 +11,6 @@ import { createMockCanvas, createMockVideo } from './stream.factory.js';
 import { createMockElement } from './ui.factory.js';
 
 /**
- * Creates a mock WorkerInstance.
- *
- * @param {Object} [overrides={}] - Mock overrides.
- * @returns {Object} Mock WorkerInstance.
- */
-export function createWorkerInstanceMock(overrides = {}) {
-  return {
-    postMessage: vi.fn(),
-    terminate: vi.fn(),
-    onmessage: null,
-    onerror: null,
-    ...overrides
-  };
-}
-
-/**
  * Creates a mock StreamingViewController.
  *
  * @param {Object} [overrides={}] - Mock overrides.
@@ -192,26 +176,6 @@ export function createGpuRendererServiceMock(overrides = {}) {
     getTargetDimensions: vi.fn(() => ({ width: 640, height: 576 })),
     ...overrides
   });
-}
-
-/**
- * Creates a mock StreamViewService.
- *
- * @param {Object} [overrides={}] - Mock overrides.
- * @returns {Object} Mock StreamViewService.
- */
-export function createStreamViewServiceMock(overrides = {}) {
-  return {
-    getCanvas: vi.fn(),
-    getVideo: vi.fn(),
-    getCanvasContainer: vi.fn(),
-    getCanvasSection: vi.fn(),
-    setCanvas: vi.fn(),
-    attachMutedStream: vi.fn(),
-    clearStream: vi.fn(),
-    setMuted: vi.fn(),
-    ...overrides
-  };
 }
 
 /**
