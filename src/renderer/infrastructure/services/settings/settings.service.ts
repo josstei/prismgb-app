@@ -260,7 +260,7 @@ class SettingsService extends BaseService {
   async _writeLoginItemSetting(definition: SettingDefinition, value: unknown): Promise<boolean> {
     const enabled = this._normalizeBoolean(value);
     try {
-      await trpcClient.loginItem.set.mutate(enabled);
+      await trpcClient.loginItem.set.mutate({ enabled });
     } catch (error) {
       this.logger.error('Failed to set login item state in main process', error);
       return false;

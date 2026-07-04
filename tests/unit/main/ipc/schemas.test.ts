@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   externalUrlSchema,
-  booleanArgumentSchema,
+  enabledFlagSchema,
   transcodeStartSchema,
   transcodeCancelSchema,
   deviceStatusPayloadSchema,
@@ -36,11 +36,14 @@ describe('IPC input schemas (security)', () => {
     expect(accepts(externalUrlSchema, 42)).toBe(false);
   });
 
-  it('booleanArgumentSchema accepts only booleans', () => {
-    expect(accepts(booleanArgumentSchema, true)).toBe(true);
-    expect(accepts(booleanArgumentSchema, false)).toBe(true);
-    expect(accepts(booleanArgumentSchema, 'true')).toBe(false);
-    expect(accepts(booleanArgumentSchema, 1)).toBe(false);
+  it('enabledFlagSchema accepts a boxed boolean flag (incl. false) and rejects bare or malformed values', () => {
+    expect(accepts(enabledFlagSchema, { enabled: true })).toBe(true);
+    expect(accepts(enabledFlagSchema, { enabled: false })).toBe(true);
+    expect(accepts(enabledFlagSchema, true)).toBe(false);
+    expect(accepts(enabledFlagSchema, false)).toBe(false);
+    expect(accepts(enabledFlagSchema, {})).toBe(false);
+    expect(accepts(enabledFlagSchema, { enabled: 'true' })).toBe(false);
+    expect(accepts(enabledFlagSchema, { enabled: 1 })).toBe(false);
   });
 
   it('transcodeStartSchema requires an ArrayBuffer and a supported format', () => {

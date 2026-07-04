@@ -4,7 +4,7 @@
  * ported from the (now retired) generated preload validators.
  */
 
-export { booleanArgumentSchema, externalUrlSchema } from './common.schemas.js';
+export { enabledFlagSchema, externalUrlSchema } from './common.schemas.js';
 export {
   deviceInfoSchema,
   nullableDeviceInfoSchema,

@@ -185,10 +185,21 @@ describe('appRouter — queries / mutations', () => {
     });
   });
 
-  it('window.setFullScreen forwards the flag and resolves void', async () => {
+  it('window.setFullScreen forwards enabled: true to the window service', async () => {
     const context = createContext();
-    await expect(caller(context).window.setFullScreen(true)).resolves.toBeUndefined();
+    await expect(caller(context).window.setFullScreen({ enabled: true })).resolves.toBeUndefined();
     expect(context.windowService.setFullScreen).toHaveBeenCalledWith(true);
+  });
+
+  it('window.setFullScreen forwards enabled: false to the window service (falsy flag survives the boxed input)', async () => {
+    const context = createContext();
+    await expect(caller(context).window.setFullScreen({ enabled: false })).resolves.toBeUndefined();
+    expect(context.windowService.setFullScreen).toHaveBeenCalledWith(false);
+  });
+
+  it('window.setFullScreen rejects a bare boolean at the input boundary', async () => {
+    const context = createContext();
+    await expect(caller(context).window.setFullScreen(false as never)).rejects.toThrow();
   });
 
   it('window.setFullScreen rethrows a thrown handler error', async () => {
@@ -201,7 +212,7 @@ describe('appRouter — queries / mutations', () => {
       }
     });
 
-    await expect(caller(context).window.setFullScreen(true)).rejects.toMatchObject({
+    await expect(caller(context).window.setFullScreen({ enabled: true })).rejects.toMatchObject({
       code: 'INTERNAL_SERVER_ERROR',
       message: 'fullscreen exploded'
     });
@@ -361,15 +372,22 @@ describe('appRouter — queries / mutations', () => {
     });
   });
 
-  it('loginItem.set rejects a non-boolean argument at the input boundary', async () => {
+  it('loginItem.set rejects a malformed or bare argument at the input boundary', async () => {
     const context = createContext();
-    await expect(caller(context).loginItem.set('yes' as never)).rejects.toThrow();
+    await expect(caller(context).loginItem.set({ enabled: 'yes' } as never)).rejects.toThrow();
+    await expect(caller(context).loginItem.set(true as never)).rejects.toThrow();
   });
 
-  it('loginItem.set forwards the flag and resolves void', async () => {
+  it('loginItem.set forwards enabled: true to the login item service', async () => {
     const context = createContext();
-    await expect(caller(context).loginItem.set(true)).resolves.toBeUndefined();
+    await expect(caller(context).loginItem.set({ enabled: true })).resolves.toBeUndefined();
     expect(context.loginItemService.setEnabled).toHaveBeenCalledWith(true);
+  });
+
+  it('loginItem.set forwards enabled: false to the login item service (falsy flag survives the boxed input)', async () => {
+    const context = createContext();
+    await expect(caller(context).loginItem.set({ enabled: false })).resolves.toBeUndefined();
+    expect(context.loginItemService.setEnabled).toHaveBeenCalledWith(false);
   });
 
   it('loginItem.set rethrows a thrown handler error', async () => {
@@ -382,7 +400,7 @@ describe('appRouter — queries / mutations', () => {
       }
     });
 
-    await expect(caller(context).loginItem.set(true)).rejects.toMatchObject({
+    await expect(caller(context).loginItem.set({ enabled: true })).rejects.toMatchObject({
       code: 'INTERNAL_SERVER_ERROR',
       message: 'login item exploded'
     });

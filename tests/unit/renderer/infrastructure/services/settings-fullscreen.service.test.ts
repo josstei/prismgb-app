@@ -142,7 +142,7 @@ describe('SettingsFullscreenService', () => {
 
       await service.toggleFullscreen();
 
-      expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith(true);
+      expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith({ enabled: true });
     });
 
     it('should exit fullscreen when already fullscreen', async () => {
@@ -150,7 +150,7 @@ describe('SettingsFullscreenService', () => {
 
       await service.toggleFullscreen();
 
-      expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith(false);
+      expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith({ enabled: false });
     });
 
     it('should toggle fullscreen when FULLSCREEN_TOGGLE_REQUESTED is published', async () => {
@@ -160,7 +160,7 @@ describe('SettingsFullscreenService', () => {
       mockEventBus.publish(EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED);
 
       await vi.waitFor(() => {
-        expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith(true);
+        expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith({ enabled: true });
       });
     });
   });
@@ -202,7 +202,7 @@ describe('SettingsFullscreenService', () => {
 
       service.enterFullscreen();
 
-      expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith(true);
+      expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith({ enabled: true });
     });
   });
 
@@ -220,7 +220,7 @@ describe('SettingsFullscreenService', () => {
 
       service.exitFullscreen();
 
-      expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith(false);
+      expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith({ enabled: false });
     });
   });
 
@@ -228,7 +228,7 @@ describe('SettingsFullscreenService', () => {
     it('should request fullscreen via tRPC mutate', () => {
       service._forceEnterFullscreen();
 
-      expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith(true);
+      expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith({ enabled: true });
     });
 
     it('should log when entering fullscreen fails', async () => {
@@ -261,7 +261,7 @@ describe('SettingsFullscreenService', () => {
     it('should release fullscreen via tRPC mutate', () => {
       service._forceExitFullscreen();
 
-      expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith(false);
+      expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith({ enabled: false });
     });
 
     it('should log when exiting fullscreen fails', async () => {
@@ -397,7 +397,7 @@ describe('SettingsFullscreenService', () => {
     it('should handle a complete fullscreen entry and exit cycle', async () => {
       vi.mocked(trpcClient.window.isFullScreen.query).mockResolvedValue({ isFullscreen: false });
       await service.toggleFullscreen();
-      expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith(true);
+      expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith({ enabled: true });
 
       mockDocument.fullscreenElement = mockDocumentElement;
       service._handleFullscreenChange();
@@ -410,7 +410,7 @@ describe('SettingsFullscreenService', () => {
 
       vi.mocked(trpcClient.window.isFullScreen.query).mockResolvedValue({ isFullscreen: true });
       await service.toggleFullscreen();
-      expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith(false);
+      expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith({ enabled: false });
 
       mockDocument.fullscreenElement = null;
       service._handleFullscreenChange();

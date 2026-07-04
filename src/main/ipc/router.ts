@@ -22,7 +22,7 @@ import type {
 import { router, publicProcedure, rethrowAsTrpcError, type IpcContext } from './trpc.js';
 import {
   externalUrlSchema,
-  booleanArgumentSchema,
+  enabledFlagSchema,
   transcodeStartSchema,
   transcodeCancelSchema,
   deviceInfoSchema,
@@ -112,10 +112,10 @@ const shellRouter = router({
 });
 
 const windowRouter = router({
-  setFullScreen: publicProcedure.input(booleanArgumentSchema).mutation(({ ctx, input }) =>
+  setFullScreen: publicProcedure.input(enabledFlagSchema).mutation(({ ctx, input }) =>
     rethrowAsTrpcError('Failed to set fullscreen', ctx.logger, () => {
-      ctx.logger.debug(`Setting fullscreen: ${input}`);
-      ctx.windowService.setFullScreen(input);
+      ctx.logger.debug(`Setting fullscreen: ${input.enabled}`);
+      ctx.windowService.setFullScreen(input.enabled);
     })
   ),
   isFullScreen: publicProcedure.query(({ ctx }) =>
@@ -202,10 +202,10 @@ const loginItemRouter = router({
   get: publicProcedure.output(loginItemGetResponseSchema).query(({ ctx }) => {
     return { enabled: ctx.loginItemService.isEnabled() };
   }),
-  set: publicProcedure.input(booleanArgumentSchema).mutation(({ ctx, input }) =>
+  set: publicProcedure.input(enabledFlagSchema).mutation(({ ctx, input }) =>
     rethrowAsTrpcError('Failed to set login item', ctx.logger, () => {
-      ctx.logger.debug(`Setting login item: ${input}`);
-      ctx.loginItemService.setEnabled(input);
+      ctx.logger.debug(`Setting login item: ${input.enabled}`);
+      ctx.loginItemService.setEnabled(input.enabled);
     })
   )
 });

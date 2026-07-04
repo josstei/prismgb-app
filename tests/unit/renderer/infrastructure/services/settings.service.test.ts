@@ -198,7 +198,7 @@ describe('SettingsService', () => {
     it('updates the login item state and cache through setSetting', async () => {
       vi.mocked(trpcClient.loginItem.set.mutate).mockResolvedValue(undefined);
       await expect(service.setSetting('launchOnLogin', true)).resolves.toBe(true);
-      expect(trpcClient.loginItem.set.mutate).toHaveBeenCalledWith(true);
+      expect(trpcClient.loginItem.set.mutate).toHaveBeenCalledWith({ enabled: true });
       expect(localStorageMock.setItem).toHaveBeenCalledWith('launchOnLogin', 'true');
     });
     it('rejects setSetting and logs when the login item mutation throws', async () => {

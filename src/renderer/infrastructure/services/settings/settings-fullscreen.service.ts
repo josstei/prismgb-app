@@ -77,7 +77,7 @@ class SettingsFullscreenService extends BaseService {
   }
 
   _forceEnterFullscreen() {
-    trpcClient.window.setFullScreen.mutate(true).catch(err => {
+    trpcClient.window.setFullScreen.mutate({ enabled: true }).catch(err => {
       this.logger.error('Error entering fullscreen:', err);
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Could not enter fullscreen', type: 'error' });
     });
@@ -91,7 +91,7 @@ class SettingsFullscreenService extends BaseService {
   }
 
   _forceExitFullscreen() {
-    trpcClient.window.setFullScreen.mutate(false).catch(err => {
+    trpcClient.window.setFullScreen.mutate({ enabled: false }).catch(err => {
       this.logger.error('Error exiting fullscreen:', err);
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Could not exit fullscreen', type: 'error' });
     });

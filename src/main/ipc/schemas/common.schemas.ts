@@ -6,7 +6,14 @@ import { z } from 'zod';
  * is preserved at the tRPC `.input(z)` trust boundary.
  */
 
-export const booleanArgumentSchema = z.boolean();
+/**
+ * A boolean "enabled" flag boxed in an object. Scalar IPC inputs are always wrapped in an object
+ * (never sent as a bare `boolean`/`number`/`string`): electron-trpc's IPC link drops a falsy input
+ * value on the main side (`input ? deserialize(input) : undefined`), turning `mutate(false)` into an
+ * `undefined` the schema then rejects. A wrapping object is always truthy, so the flag — `true` or
+ * `false` — survives the round-trip. The object contract is also the more extensible tRPC idiom.
+ */
+export const enabledFlagSchema = z.object({ enabled: z.boolean() });
 
 export const externalUrlSchema = z
   .string()
