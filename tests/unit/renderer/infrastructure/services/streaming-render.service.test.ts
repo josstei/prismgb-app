@@ -139,6 +139,38 @@ describe('StreamingRenderService', () => {
     });
   });
 
+  describe('visibility pause/resume (regression: black screen after fullscreen round-trip)', () => {
+    async function startStreaming() {
+      (video as any).requestVideoFrameCallback = vi.fn();
+      (video as any).cancelVideoFrameCallback = vi.fn();
+      mockAppState.setStreaming(true);
+
+      const startPromise = service.startPipeline({
+        webgpu: true,
+        offscreenCanvas: true,
+        transferControlToOffscreen: true,
+        nativeResolution: { width: 160, height: 144 }
+      });
+      const onHealthyCallback = mockStreamHealthService.checkStreamHealth.mock.calls[0][1];
+      onHealthyCallback({});
+      await startPromise;
+    }
+
+    it('resumes the render loop when the window becomes visible after being hidden', async () => {
+      await startStreaming();
+
+      const scheduleFrame = (video as any).requestVideoFrameCallback as ReturnType<typeof vi.fn>;
+      expect(scheduleFrame).toHaveBeenCalled();
+
+      service.handlePerformanceStateChanged({ hidden: true });
+      const scheduledWhileHidden = scheduleFrame.mock.calls.length;
+
+      service.handlePerformanceStateChanged({ hidden: false });
+
+      expect(scheduleFrame.mock.calls.length).toBeGreaterThan(scheduledWhileHidden);
+    });
+  });
+
   describe('backend selection (regression: GPU capability detection wiring)', () => {
     async function startWith(streamCapabilities: Record<string, unknown>) {
       mockAppState.setStreaming(true);
