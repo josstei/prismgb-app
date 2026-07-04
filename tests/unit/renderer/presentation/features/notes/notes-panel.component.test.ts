@@ -62,12 +62,11 @@ describe('NotesPanelComponent', () => {
       component.initialize(mockElements);
       expect(mockLogger.debug).toHaveBeenCalledWith('NotesPanelComponent initialized');
     });
-    it('should reinitialize without stacking panel toggle listeners', () => {
-      component.initialize(mockElements);
+    it('should not self-wire the notes button (toggling is the action dispatcher\'s responsibility)', () => {
       component.initialize(mockElements);
       mockElements.notesBtn.click();
-      expect(component.isVisible).toBe(true);
-      expect(mockElements.notesPanel.classList.contains(CSSClasses.VISIBLE)).toBe(true);
+      expect(component.isVisible).toBe(false);
+      expect(mockElements.notesPanel.classList.contains(CSSClasses.VISIBLE)).toBe(false);
     });
     it('should clear stale panel state when reinitialized without panel elements', () => {
       component.initialize(mockElements);
@@ -496,12 +495,6 @@ describe('NotesPanelComponent', () => {
   describe('Button click workflows', () => {
     beforeEach(() => {
       component.initialize(mockElements);
-    });
-    it('should toggle panel visibility on notes button click', () => {
-      mockElements.notesBtn.click();
-      expect(component.isVisible).toBe(true);
-      mockElements.notesBtn.click();
-      expect(component.isVisible).toBe(false);
     });
     it('should create new note on new button click', () => {
       mockNotesService.createNote.mockReturnValue({ id: 'new_note', title: 'Untitled Note' });
