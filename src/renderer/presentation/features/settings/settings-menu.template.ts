@@ -8,7 +8,6 @@ import {
   type SettingsListboxDefinition
 } from '@renderer/lib/settings.definitions.js';
 import { escapeHtml } from '@platform/core';
-import { TRANSCODE_CONFIG } from '@platform/transcode';
 
 function createListboxOptionsTemplate(options: ReturnType<typeof getSettingsListboxOptions>): string {
   return options
@@ -144,12 +143,4 @@ export function createSettingsMenuTemplate(): string {
       </div>
     </div>
   `;
-}
-
-export function getRecordingFormatOptions(): Array<{ value: string; label: string; active?: boolean }> {
-  return Object.keys(TRANSCODE_CONFIG.formats).map((format) => ({
-    value: format,
-    label: format === 'webm' ? 'WebM' : format.toUpperCase(),
-    active: format === 'webm'
-  }));
 }

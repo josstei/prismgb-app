@@ -1,6 +1,6 @@
 # Architecture Diagrams (Onboarding)
 
-<!-- Source: docs/architecture-diagrams.md, src/main/application/container.ts, src/renderer/application/di/service-registrations.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts, src/renderer/infrastructure/services/streaming/streaming.service.ts -->
+<!-- Source: docs/architecture-diagrams.md, src/main/application/container.ts, src/renderer/application/di/tokens.ts, src/renderer/application/di/presentation.module.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts, src/renderer/infrastructure/services/streaming/streaming.service.ts -->
 
 This document is a simplified view of the core flows. It favors readability over completeness.
 

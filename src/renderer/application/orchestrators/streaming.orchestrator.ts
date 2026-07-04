@@ -10,7 +10,7 @@ import type {
   StreamStartedPayload,
   StreamingCapabilities,
   SupportedDeviceAvailablePayload
-} from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
+} from '@renderer/infrastructure/services/streaming/streaming.contract.js';
 import type { AppState } from '@renderer/application/state/app-state.js';
 
 

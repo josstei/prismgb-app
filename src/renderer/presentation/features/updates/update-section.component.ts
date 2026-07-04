@@ -1,4 +1,4 @@
-import type { LoggerFactoryLike } from '@platform/core';
+import type { EventBusLike, LoggerFactoryLike, LoggerLike } from '@platform/core';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { EventChannels } from '@platform/events';
 import { UpdateState } from '@platform/config';
@@ -13,19 +13,6 @@ import {
   effect
 } from '@platform/ui-base';
 import { signal } from '@platform/ui-base/reactive';
-
-type Unsubscribe = () => void;
-
-type LoggerLike = {
-  info(...args: unknown[]): void;
-  warn(...args: unknown[]): void;
-  error(...args: unknown[]): void;
-};
-
-type EventBusLike = {
-  subscribe(event: string, handler: (payload?: unknown) => void): Unsubscribe;
-  publish(event: string, data?: unknown): void;
-};
 
 type UpdateInfo = {
   version?: string;

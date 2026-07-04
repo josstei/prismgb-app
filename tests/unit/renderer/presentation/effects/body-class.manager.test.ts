@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { BodyClassManager } from '@renderer/presentation/effects/body-class-manager';
+import { BodyClassManager } from '@renderer/presentation/effects/body-class.effect';
 import { PresentationModeStore } from '@renderer/presentation/state/presentation-mode.store.js';
 import { signal } from '@platform/ui-base/reactive';
 import { PlatformEventBus, EventChannels } from '@platform/events';

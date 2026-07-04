@@ -4,7 +4,7 @@ vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
   trpcClient: (await import('../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
 }));
 
-import { TrpcDeviceStatusPort } from '@renderer/infrastructure/services/devices/device-ports';
+import { TrpcDeviceStatusPort } from '@renderer/infrastructure/services/devices/trpc-device-status.port';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { emitTrpcData } from '../../../../support/mocks/trpc-client.mock';
 import { createLoggerFactory } from '../../../../factories/index.js';

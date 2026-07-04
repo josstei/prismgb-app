@@ -12,7 +12,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const sharedAlias = {
   '@main': path.resolve(__dirname, 'src/main'),
   '@renderer': path.resolve(__dirname, 'src/renderer'),
-  '@preload': path.resolve(__dirname, 'src/preload'),
   ...platformAliasMap(__dirname)
 };
 
@@ -28,8 +27,6 @@ const baseCoverageConfig = {
     '**/*.test.{js,ts}',
     '**/*.spec.{js,ts}',
     '**/index.{js,ts}',
-    'scripts/**',
-    'assets/**',
     // Auto-update feature requires Electron autoUpdater API
     'src/renderer/infrastructure/services/updates/**',
     // UI templates use Vite ?raw imports for SVGs not available in vitest
@@ -123,7 +120,7 @@ export default defineConfig({
           restoreMocks: true,
           environment: 'node',
           include: [
-            'tests/unit/platform/{config,core,devices,events,ipc,notes,transcode,updates}/**/*.{test,spec}.{js,ts}'
+            'tests/unit/platform/{config,core,devices,events,ipc,transcode,updates}/**/*.{test,spec}.{js,ts}'
           ],
           setupFiles: [
             path.resolve(__dirname, 'tests/setup.js'),

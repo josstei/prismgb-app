@@ -27,13 +27,13 @@ const canonicalDeviceInfo = createChromaticDeviceInfoPayload();
 
 describe('IPC input schemas (security)', () => {
   it('externalUrlSchema accepts http/https and rejects other protocols, empty, and over-length', () => {
-    expect(accepts(externalUrlSchema, 'https://example.com')).toBe(true);
-    expect(accepts(externalUrlSchema, 'http://example.com/path')).toBe(true);
-    expect(accepts(externalUrlSchema, 'ftp://example.com')).toBe(false);
-    expect(accepts(externalUrlSchema, 'javascript:alert(1)')).toBe(false);
-    expect(accepts(externalUrlSchema, '')).toBe(false);
-    expect(accepts(externalUrlSchema, `https://example.com/${'a'.repeat(2048)}`)).toBe(false);
-    expect(accepts(externalUrlSchema, 42)).toBe(false);
+    expect(accepts(externalUrlSchema, { url: 'https://example.com' })).toBe(true);
+    expect(accepts(externalUrlSchema, { url: 'http://example.com/path' })).toBe(true);
+    expect(accepts(externalUrlSchema, { url: 'ftp://example.com' })).toBe(false);
+    expect(accepts(externalUrlSchema, { url: 'javascript:alert(1)' })).toBe(false);
+    expect(accepts(externalUrlSchema, { url: '' })).toBe(false);
+    expect(accepts(externalUrlSchema, { url: `https://example.com/${'a'.repeat(2048)}` })).toBe(false);
+    expect(accepts(externalUrlSchema, { url: 42 })).toBe(false);
   });
 
   it('enabledFlagSchema accepts a boxed boolean flag (incl. false) and rejects bare or malformed values', () => {

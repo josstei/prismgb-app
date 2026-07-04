@@ -22,11 +22,11 @@ import type {
 import type {
   LoggerFactoryLike
 } from '@platform/core';
-import { StreamTrackMonitor } from './stream-track-monitor.js';
+import { StreamTrackMonitor } from './stream-track.monitor.js';
 import type {
   DeviceMediaAcquirer,
   DeviceStreamCapabilities
-} from './device-media-acquirer.js';
+} from './device-media-acquirer.service.js';
 import type { DeviceStreamingTarget } from '../devices/device-runtime.service.js';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 

@@ -8,7 +8,7 @@ import type { LoggerFactoryLike } from '@platform/core';
 import type {
   Dimensions,
   StreamingCapabilities
-} from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
+} from '@renderer/infrastructure/services/streaming/streaming.contract.js';
 import { createGpuVideoRendererSession, detectBrowserGpuCapabilities } from '@platform/gpu/runtime';
 import type { GpuVideoRendererSession, GpuVideoRendererStats } from '@platform/gpu/runtime';
 import type { RenderCapabilities } from '@platform/gpu';
@@ -101,6 +101,12 @@ export class StreamingRenderService extends BaseService {
     this.canvasLifecycleService.initialize();
 
     this._globalBrightness = this.settingsService.getNumberSetting('globalBrightness') ?? 1.0;
+    /**
+     * Decision record: the brightness subscription is an `initialize()`-time
+     * keyed subscribe, not an `@OnEvent` binding — `initialize()` re-runs per
+     * canvas lifecycle and `replace()` swaps the prior subscription instead of
+     * accumulating one per run.
+     */
     this.disposables.replace(
       BRIGHTNESS_SUBSCRIPTION_LIFECYCLE,
       this.eventBus.subscribe(

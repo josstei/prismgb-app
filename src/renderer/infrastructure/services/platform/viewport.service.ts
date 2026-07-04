@@ -19,7 +19,7 @@ import { TIMING } from '@platform/config';
 import type {
   LoggerFactoryLike
 } from '@platform/core';
-import type { Dimensions } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
+import type { Dimensions } from '@renderer/infrastructure/services/streaming/streaming.contract.js';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type ResizeDimensions = Dimensions & {

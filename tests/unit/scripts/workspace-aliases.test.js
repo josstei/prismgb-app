@@ -66,12 +66,6 @@ describe('workspace-aliases registry', () => {
     expect(Object.keys(paths).some((key) => key.includes('*'))).toBe(false);
   });
 
-  it('supports a compat prefix during migration', () => {
-    const aliasMap = platformAliasMap('/repo', ['@platform', '@prismgb']);
-    expect(aliasMap['@prismgb/core']).toBe(resolve('/repo', 'src/platform/core/index.ts'));
-    expect(aliasMap['@platform/core']).toBe(resolve('/repo', 'src/platform/core/index.ts'));
-  });
-
   it('tsconfig.base.json @platform paths match the registry emission', () => {
     const tsconfig = JSON.parse(readFileSync(join(process.cwd(), 'tsconfig.base.json'), 'utf8'));
     const actualPlatformPaths = Object.fromEntries(

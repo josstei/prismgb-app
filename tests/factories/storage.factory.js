@@ -21,5 +21,3 @@ export function createStorageService(initialValues = {}) {
     }
   };
 }
-
-export default createStorageService;

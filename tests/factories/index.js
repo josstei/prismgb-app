@@ -8,7 +8,6 @@
 // EventBus factories
 export {
   createEventBus,
-  createContractValidatingEventBus,
 } from './event-bus.factory.js';
 
 // UI factories
@@ -19,8 +18,6 @@ export {
   createSettingsMenuElementsMock,
   createTranscodeToastElementsMock,
   createMockElement,
-  createMockButton,
-  createMockInput,
   createUIController,
   createUISetupControllerMock,
   createPresentationModeControllerMock,
@@ -47,7 +44,6 @@ export {
 // Device factories
 export {
   createDeviceInfo,
-  createVideoTrack,
   createMediaStream,
   createRendererDeviceRuntimeMock,
   createDeviceStatusComponentMock,
@@ -56,7 +52,6 @@ export {
 // Stream factories
 export {
   createStreamingService,
-  createStreamRenderer,
   createMockCanvas,
   createMockVideo,
   StreamingState,
@@ -115,7 +110,6 @@ export {
 // Window factories
 export {
   createWindowServiceMock,
-  createBrowserWindowMock,
   createWindowServiceElectronMock,
 } from './window.factory.js';
 
@@ -159,8 +153,3 @@ export {
   createStreamingRenderServiceMock,
   createCanvasLifecycleServiceMock,
 } from './streaming-pipeline.factory.js';
-
-// Dependency factories
-export {
-  createStreamingServiceDependencies,
-} from './dependencies.factory.js';

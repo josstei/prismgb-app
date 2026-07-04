@@ -1,6 +1,6 @@
 # Architecture Diagrams
 
-<!-- Source: src/main/application/container.ts, src/main/infrastructure/devices/device-integration.service.ts, src/main/ipc/router.ts, src/renderer/application/di/service-registrations.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts, src/renderer/infrastructure/services/streaming/device-media-acquirer.ts, src/platform/devices/index.ts, src/platform/devices/runtime.ts -->
+<!-- Source: src/main/application/container.ts, src/main/infrastructure/devices/device-integration.service.ts, src/main/ipc/router.ts, src/renderer/application/di/tokens.ts, src/renderer/application/di/presentation.module.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts, src/renderer/infrastructure/services/streaming/device-media-acquirer.service.ts, src/platform/devices/index.ts, src/platform/devices/runtime.ts -->
 
 These diagrams provide focused, review-friendly views of the application's core orchestration and service boundaries.
 
@@ -20,8 +20,10 @@ Legend
 ```mermaid
 flowchart LR
   Container["application/container.ts"]
-  Standard["service-registrations.ts"]
-  Manual["manual-providers.ts"]
+  Tokens["di/tokens.ts"]
+  InfraMod["di/infrastructure.module.ts"]
+  AppMod["di/application.module.ts"]
+  PresMod["di/presentation.module.ts"]
   DeviceRuntime[RendererDeviceRuntime]
   MediaAcquirer[DeviceMediaAcquirer]
   StreamingService[StreamingService]
@@ -29,14 +31,18 @@ flowchart LR
   PresentationBridges[Presentation bridges]
   Orchestrators[App orchestrators]
 
-  Container --> Standard
-  Container --> Manual
-  Standard --> DeviceRuntime
-  Standard --> MediaAcquirer
-  Standard --> StreamingService
-  Standard --> CaptureServices
-  Standard --> PresentationBridges
-  Standard --> Orchestrators
+  Container --> InfraMod
+  Container --> AppMod
+  Container --> PresMod
+  Tokens -. token identities .-> InfraMod
+  Tokens -. token identities .-> AppMod
+  Tokens -. token identities .-> PresMod
+  InfraMod --> DeviceRuntime
+  InfraMod --> MediaAcquirer
+  InfraMod --> StreamingService
+  InfraMod --> CaptureServices
+  PresMod --> PresentationBridges
+  AppMod --> Orchestrators
 ```
 
 ## Streaming and Device Selection

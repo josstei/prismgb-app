@@ -17,8 +17,8 @@
     "build:linux": "npm run build:vite && electron-builder --linux",
     "preview": "vite preview",
     "start": "electron dist/main/index.js",
-    "lint": "eslint \"src/**/*.{js,ts}\" && depcruise --config .dependency-cruiser.cjs src",
-    "lint:fix": "eslint \"src/**/*.{js,ts}\" --fix && depcruise --config .dependency-cruiser.cjs src",
+    "lint": "eslint \"src/**/*.ts\" && depcruise --config .dependency-cruiser.cjs src",
+    "lint:fix": "eslint \"src/**/*.ts\" --fix && depcruise --config .dependency-cruiser.cjs src",
     "lint:dead-code": "knip",
     "packaging:check-native-abi": "node scripts/check-electron-native-abi.js",
     "clean:generated": "node scripts/clean-generated.js",
@@ -108,7 +108,7 @@
     "vitest": "^4.0.14"
   },
   "lint-staged": {
-    "src/**/*.{js,ts}": [
+    "src/**/*.ts": [
       "eslint"
     ],
     "*.{js,ts}": [

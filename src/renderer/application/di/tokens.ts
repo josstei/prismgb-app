@@ -3,7 +3,7 @@ import type { LoggerFactoryLike, StorageServiceLike } from '@platform/core';
 import type { NotesService } from '@platform/notes';
 import type { EventBus } from '../../infrastructure/events/event-bus';
 import type { RendererDeviceRuntime } from '../../infrastructure/services/devices/device-runtime.service';
-import type { DeviceMediaAcquirer } from '../../infrastructure/services/streaming/device-media-acquirer';
+import type { DeviceMediaAcquirer } from '../../infrastructure/services/streaming/device-media-acquirer.service';
 import type { StreamingService } from '../../infrastructure/services/streaming/streaming.service';
 import type { AppState } from '../state/app-state';
 import type { StreamingViewService } from '../../infrastructure/services/streaming/streaming-view.service';
@@ -24,7 +24,7 @@ import type { UpdateService } from '../../infrastructure/services/updates/update
 import type { UpdateUiService } from '../../infrastructure/services/updates/update-ui.service';
 import type { UISetupOrchestrator } from '../orchestrators/ui-setup.orchestrator';
 import type { PerformanceAnimationService } from '../../infrastructure/services/performance/performance-animation.service';
-import type { BodyClassManager } from '../../presentation/effects/body-class-manager';
+import type { BodyClassManager } from '../../presentation/effects/body-class.effect';
 import type { PerformanceAnimationOrchestrator } from '../orchestrators/performance/performance-animation.orchestrator';
 import type { MetricsAdapter } from '../../infrastructure/adapters/platform-metrics.adapter';
 import type { PerformanceMetricsService } from '../../infrastructure/services/performance/performance-metrics.service';
@@ -43,12 +43,10 @@ import type { StreamingCanvasLifecycleService } from '../../infrastructure/servi
 import type { CaptureUIBridge } from '../../presentation/bridges/capture-ui.bridge';
 import type { TranscodeUIBridge } from '../../presentation/bridges/transcode-ui.bridge';
 import type { UIEventBridge } from '../../presentation/bridges/ui-event.bridge';
-import type { UIEffects } from '../../presentation/effects/ui-effects';
-import type {
-  TrpcDeviceStatusPort,
-  BrowserMediaDevicesPort,
-  StorageDevicePreferenceStore
-} from '../../infrastructure/services/devices/device-ports';
+import type { UIEffects } from '../../presentation/effects/ui-effects.host';
+import type { TrpcDeviceStatusPort } from '../../infrastructure/services/devices/trpc-device-status.port';
+import type { BrowserMediaDevicesPort } from '../../infrastructure/services/devices/browser-media-devices.port';
+import type { StorageDevicePreferenceStore } from '../../infrastructure/services/devices/storage-device-preference.store';
 import type { PresentationModeStore } from '../../presentation/state/presentation-mode.store';
 import type { UIController } from '../../presentation/controller/ui.controller';
 import type { UiComponentHost, RendererUiComponentInstanceMap } from '../../presentation/controller/ui-component.host';

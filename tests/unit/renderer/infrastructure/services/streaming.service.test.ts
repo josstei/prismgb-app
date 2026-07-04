@@ -9,6 +9,7 @@ import {
   getDeviceStreamProfile
 } from '@platform/devices';
 import { StreamingService } from '@renderer/infrastructure/services/streaming/streaming.service';
+import type { DeviceMediaAcquireResult } from '@renderer/infrastructure/services/streaming/device-media-acquirer.service';
 import {
   createCaptureStreamMock,
   createDeviceInfo,
@@ -16,17 +17,7 @@ import {
   createMediaTrackMock,
 } from '../../../../factories/index.js';
 import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
-
-function createDeferred() {
-  let resolve;
-  let reject;
-  const promise = new Promise((promiseResolve, promiseReject) => {
-    resolve = promiseResolve;
-    reject = promiseReject;
-  });
-
-  return { promise, resolve, reject };
-}
+import { createDeferred } from '../../../../support/deferred.testkit.js';
 
 function createStreamingTarget(overrides = {}) {
   const descriptor = DeviceCatalog.default();
@@ -125,7 +116,7 @@ describe('StreamingService', () => {
     });
 
     it('should reuse in-flight start work for concurrent start calls', async () => {
-      const pendingAcquire = createDeferred();
+      const pendingAcquire = createDeferred<DeviceMediaAcquireResult>();
       mockDeviceMediaAcquirer.acquire.mockReturnValue(pendingAcquire.promise);
 
       const firstStart = service.start('device-1');
@@ -157,7 +148,7 @@ describe('StreamingService', () => {
     });
 
     it('should wait for start to finish when stop is called while starting', async () => {
-      const pendingAcquire = createDeferred();
+      const pendingAcquire = createDeferred<DeviceMediaAcquireResult>();
       mockDeviceMediaAcquirer.acquire.mockReturnValue(pendingAcquire.promise);
 
       const startPromise = service.start('device-1');

@@ -8,6 +8,7 @@ import {
   createChromaticVideoDeviceInfo
 } from '../../../../devices/media.testkit';
 import { createChromaticDeviceInfoPayload } from '../../../../devices/media.testkit';
+import { createDeferred } from '../../../../support/deferred.testkit.js';
 
 const connectedStatus: DeviceStatus = {
   state: 'connected',
@@ -45,17 +46,6 @@ function createPermissionStream() {
     } as unknown as MediaStream,
     track
   };
-}
-
-function createDeferred<T>() {
-  let resolve!: (value: T | PromiseLike<T>) => void;
-  let reject!: (reason?: unknown) => void;
-  const promise = new Promise<T>((promiseResolve, promiseReject) => {
-    resolve = promiseResolve;
-    reject = promiseReject;
-  });
-
-  return { promise, resolve, reject };
 }
 
 function createRuntime(options: {

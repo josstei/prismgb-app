@@ -82,6 +82,12 @@ export class StreamingAudioPipelineService extends BaseService {
 
     this._startPromise = null;
 
+    /**
+     * Decision record: this volume subscription is a constructor-time keyed
+     * subscribe, not an `@OnEvent` binding — the service reads its initial
+     * volume synchronously at construction, and `replace()` guarantees exactly
+     * one live subscription across re-initialization.
+     */
     this.disposables.replace(
       VOLUME_SUBSCRIPTION_LIFECYCLE,
       this.eventBus.subscribe(

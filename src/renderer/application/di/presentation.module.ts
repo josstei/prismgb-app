@@ -2,11 +2,11 @@ import { ContainerModule } from 'inversify';
 import { NotesService } from '@platform/notes';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { PROTECTED_STORAGE_KEYS } from '@renderer/lib/storage-keys.config.js';
-import { BodyClassManager } from '../../presentation/effects/body-class-manager';
+import { BodyClassManager } from '../../presentation/effects/body-class.effect';
 import { CaptureUIBridge } from '../../presentation/bridges/capture-ui.bridge';
 import { TranscodeUIBridge } from '../../presentation/bridges/transcode-ui.bridge';
 import { UIEventBridge } from '../../presentation/bridges/ui-event.bridge';
-import { UIEffects } from '../../presentation/effects/ui-effects';
+import { UIEffects } from '../../presentation/effects/ui-effects.host';
 import { AppState } from '../state/app-state';
 import { PresentationModeStore } from '../../presentation/state/presentation-mode.store';
 import { createDomBindings } from '../../presentation/primitives/dom-bindings.utils';
@@ -24,11 +24,9 @@ import { UpdateSectionComponent } from '../../presentation/features/updates/upda
 import { ShaderSelectorComponent } from '../../presentation/features/toolbar/shader-selector.component';
 import { NotesPanelComponent } from '../../presentation/features/notes/notes-panel.component';
 import { BrowserStorageAdapter } from '../../infrastructure/adapters/browser-storage.adapter';
-import {
-  BrowserMediaDevicesPort,
-  StorageDevicePreferenceStore,
-  TrpcDeviceStatusPort
-} from '../../infrastructure/services/devices/device-ports';
+import { BrowserMediaDevicesPort } from '../../infrastructure/services/devices/browser-media-devices.port';
+import { StorageDevicePreferenceStore } from '../../infrastructure/services/devices/storage-device-preference.store';
+import { TrpcDeviceStatusPort } from '../../infrastructure/services/devices/trpc-device-status.port';
 import { TOKENS } from './tokens.js';
 
 /**
@@ -37,7 +35,7 @@ import { TOKENS } from './tokens.js';
  * tokens (platform storage/device ports, the seven UI components sharing a
  * lazily-resolved `domBindings` singleton) and the non-decorated
  * platform-adjacent classes (`NotesService`, `AppState`, `UIEffects`) bind
- * through factories that mirror their prior cradle wiring.
+ * through factories that assemble their dependency objects explicitly.
  */
 export const presentationModule = new ContainerModule(({ bind }) => {
   bind(TOKENS.bodyClassManager).to(BodyClassManager).inSingletonScope();

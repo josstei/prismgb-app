@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { StreamTrackMonitor } from '@renderer/infrastructure/services/streaming/stream-track-monitor';
+import { StreamTrackMonitor } from '@renderer/infrastructure/services/streaming/stream-track.monitor';
 
 describe('StreamTrackMonitor', () => {
   const createMockLogger = () => ({

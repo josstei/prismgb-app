@@ -1,6 +1,6 @@
 # Feature Map
 
-<!-- Source: src/platform/devices/domain/catalog.json, src/platform/devices/domain/catalog.ts, src/main/infrastructure/devices/device-integration.service.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts, src/renderer/infrastructure/services/streaming/device-media-acquirer.ts, tests/devices/media.testkit.ts -->
+<!-- Source: src/platform/devices/domain/catalog.json, src/platform/devices/domain/catalog.ts, src/main/infrastructure/devices/device-integration.service.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts, src/renderer/infrastructure/services/streaming/device-media-acquirer.service.ts, tests/devices/media.testkit.ts -->
 
 This document maps user-facing features to the codebase for maintenance and onboarding.
 
@@ -26,7 +26,7 @@ This section is manually maintained from architecture, device, and settings mani
 
 | Manifest surface | Generated facts |
 | --- | --- |
-| Architecture paths | aliases: `@`, `@main`, `@renderer`, `@preload`, `@platform/config`, `@platform/core`, `@platform/devices`, `@platform/devices/runtime`, `@platform/devices/testkit`, `@platform/events`, `@platform/gpu`, `@platform/gpu/runtime`, `@platform/ipc`, `@platform/notes`, `@platform/transcode`, `@platform/transcode/service`, `@platform/ui-base`, `@platform/ui-base/reactive`, `@platform/updates`; layers: `main/entry`, `main/application`, `main/infrastructure`, `main/ipc`, `renderer/entry`, `renderer/application`, `renderer/infrastructure`, `renderer/presentation`, `preload`; retired: `@core`, `@shared`, `shared` |
+| Architecture paths | aliases: `@main`, `@renderer`, `@platform/config`, `@platform/core`, `@platform/devices`, `@platform/devices/runtime`, `@platform/devices/testkit`, `@platform/events`, `@platform/gpu`, `@platform/gpu/runtime`, `@platform/ipc`, `@platform/notes`, `@platform/transcode`, `@platform/transcode/service`, `@platform/ui-base`, `@platform/ui-base/reactive`, `@platform/updates`; layers: `main/entry`, `main/application`, `main/infrastructure`, `main/ipc`, `renderer/entry`, `renderer/application`, `renderer/infrastructure`, `renderer/presentation`, `preload`; retired: `@core`, `@shared`, `shared` |
 | Devices | Mod Retro Chromatic (`0x374e:0x0101`, 160x144, fixture `Chromatic`) |
 | Settings UI | `launchOnLogin` -> `settingLaunchOnLogin`, `statusStripVisible` -> `settingStatusStrip`, `fullscreenOnStartup` -> `settingFullscreenOnStartup`, `autoStreamOnConnect` -> `settingAutoStreamOnConnect`, `minimalistFullscreen` -> `settingMinimalistFullscreen`, `performanceMode` -> `settingAnimationSaver`, `recordingFormat` -> `settingRecordingFormat` |
 | Startup preferences | `gameVolume`, `statusStripVisible`, `performanceMode`, `minimalistFullscreen` |
@@ -57,11 +57,11 @@ UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrat
 | Device connect/disconnect | `DeviceConnectionService` reconciles USB status -> `DeviceIntegrationService` publishes EventBus/tray/window side effects -> `WindowService.send` emits to `IpcPushBridge` -> `appRouter` device subscriptions relay through `TrpcDeviceStatusPort` -> `RendererDeviceRuntime` refreshes renderer device events and UI state |
 | Fullscreen/cinematic | fullscreen button -> `ui:fullscreen-toggle-requested` -> `ui:fullscreen-state`; cinematic toggle -> `ui:cinematic-toggle-requested` -> `settings:cinematic-mode-changed` |
 | Notes | notes button toggles `NotesPanelComponent`; create/update/delete actions call `NotesService` and emit `notes:note-*` |
-| Updates | Settings update action -> `UpdateOrchestrator` check/download/install -> `trpcClient.update.*` procedures and subscriptions -> `update:*` events -> `UpdateSectionComponent` refreshes progress and state |
+| Updates | Settings update action -> `UpdateService` check/download/install -> `trpcClient.update.*` procedures and subscriptions -> `update:*` events -> `UpdateSectionComponent` refreshes progress and state |
 
 ## Data and Storage
 
-Screenshots and recordings download to the OS downloads folder. Settings keys live in `src/renderer/lib/settings.definitions.json`, shared protected and notes keys live in `src/renderer/lib/storage-keys.config.ts`, stored media-device IDs are managed by `StorageDevicePreferenceStore` in `src/renderer/infrastructure/services/devices/device-platform.adapters.ts`, and MP4/MOV transcode temp files are created in the system temp directory and cleaned up after completion or cancellation.
+Screenshots and recordings download to the OS downloads folder. Settings keys live in `src/renderer/lib/settings.definitions.json`, shared protected and notes keys live in `src/renderer/lib/storage-keys.config.ts`, stored media-device IDs are managed by `StorageDevicePreferenceStore` in `src/renderer/infrastructure/services/devices/storage-device-preference.store.ts`, and MP4/MOV transcode temp files are created in the system temp directory and cleaned up after completion or cancellation.
 
 ## Screenshots
 

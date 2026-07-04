@@ -6,7 +6,7 @@ import type {
   DeviceConstraintMap,
   DeviceStreamProfile
 } from '@platform/devices';
-import type { MediaDevicesPort } from '../devices/device-ports.js';
+import type { MediaDevicesPort } from '../devices/browser-media-devices.port.js';
 import type { DeviceStreamingTarget } from '../devices/device-runtime.service.js';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 

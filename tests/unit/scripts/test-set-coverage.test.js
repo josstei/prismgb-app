@@ -5,11 +5,10 @@ import picomatch from 'picomatch';
 import vitestConfig from '../../../vitest.config.js';
 
 /**
- * Governance guard (ADR-0001 family): the coverage ratchet enforces coverage %
- * over src/** scopes but does NOT guard the executed-test set. A vitest `projects`
- * include list that fails to enumerate a test directory silently drops those tests
- * while every coverage gate stays green. This test fails when any *.test/spec file
- * on disk is not collected by some project, so a dropped suite can never hide again.
+ * Governance guard: a vitest `projects` include list that fails to enumerate a
+ * test directory silently drops those tests while every other gate stays
+ * green. This test fails when any *.test/spec file on disk is not collected by
+ * some project, so a dropped suite can never hide.
  */
 
 const ROOT = process.cwd();

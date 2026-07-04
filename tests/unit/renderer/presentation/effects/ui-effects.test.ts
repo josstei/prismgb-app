@@ -71,7 +71,7 @@ vi.mock('@platform/ui-base', async (importOriginal) => {
   };
 });
 
-import { UIEffects } from '@renderer/presentation/effects/ui-effects';
+import { UIEffects } from '@renderer/presentation/effects/ui-effects.host';
 import { createUIBodyClassManagerMock, createUIEffectsElementsMock } from '../../../../factories/index.js';
 
 describe('UIEffects', () => {

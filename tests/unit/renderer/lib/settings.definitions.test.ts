@@ -4,7 +4,7 @@
  * The following defensive branches are intentionally left uncovered because they are
  * unreachable through the public API over the frozen, valid settings manifest, and
  * covering them would require exporting private functions or mutating a frozen manifest
- * (forbidden by ADR-0003):
+ * (the manifest is frozen by design; tests must not mutate it or export private internals):
  *  - resolveSettingDefinition: the "Unknown settings allowedValuesSource" and "missing a default" throws.
  *  - shouldLoadAtStartup: the "Startup preference must be synchronously readable" throw.
  *  - assertSettingEventMatchesManifest: the missing-event and payload-mismatch throws.

@@ -165,9 +165,9 @@ describe('appRouter — queries / mutations', () => {
 
   it('shell.openExternal forwards a valid url and rejects an invalid one at the input boundary', async () => {
     const context = createContext();
-    await expect(caller(context).shell.openExternal('https://example.com')).resolves.toBeUndefined();
+    await expect(caller(context).shell.openExternal({ url: 'https://example.com' })).resolves.toBeUndefined();
     expect(context.shell.openExternal).toHaveBeenCalledWith('https://example.com');
-    await expect(caller(context).shell.openExternal('javascript:alert(1)')).rejects.toThrow();
+    await expect(caller(context).shell.openExternal({ url: 'javascript:alert(1)' })).rejects.toThrow();
   });
 
   it('shell.openExternal rethrows a thrown handler error as an INTERNAL_SERVER_ERROR TRPCError', async () => {
@@ -179,7 +179,7 @@ describe('appRouter — queries / mutations', () => {
       }
     });
 
-    await expect(caller(context).shell.openExternal('https://example.com')).rejects.toMatchObject({
+    await expect(caller(context).shell.openExternal({ url: 'https://example.com' })).rejects.toMatchObject({
       code: 'INTERNAL_SERVER_ERROR',
       message: 'shell exploded'
     });

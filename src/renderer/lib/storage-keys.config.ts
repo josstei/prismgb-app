@@ -19,20 +19,6 @@ function getSettingsKeys(): string[] {
   return cachedSettingsKeys!;
 }
 
-export const SETTINGS_STORAGE_KEYS = new Proxy([] as string[], {
-  get(target, prop) {
-    const keys = getSettingsKeys();
-    const value = Reflect.get(keys, prop);
-    return typeof value === 'function' ? value.bind(keys) : value;
-  },
-  ownKeys() {
-    return Reflect.ownKeys(getSettingsKeys());
-  },
-  getOwnPropertyDescriptor(target, prop) {
-    return Reflect.getOwnPropertyDescriptor(getSettingsKeys(), prop);
-  }
-});
-
 let cachedProtectedKeys: string[] | null = null;
 function getProtectedKeys(): string[] {
   if (!cachedProtectedKeys) {

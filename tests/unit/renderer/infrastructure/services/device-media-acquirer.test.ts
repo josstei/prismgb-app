@@ -4,7 +4,7 @@ import {
   getDeviceAcquisitionProfile,
   getDeviceStreamProfile
 } from '@platform/devices';
-import { DeviceMediaAcquirer } from '@renderer/infrastructure/services/streaming/device-media-acquirer';
+import { DeviceMediaAcquirer } from '@renderer/infrastructure/services/streaming/device-media-acquirer.service';
 import {
   createCaptureStreamMock,
   createMediaTrackMock

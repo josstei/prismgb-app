@@ -106,7 +106,7 @@ const deviceRouter = router({
 const shellRouter = router({
   openExternal: publicProcedure.input(externalUrlSchema).mutation(({ ctx, input }) =>
     rethrowAsTrpcError('Failed to open external URL', ctx.logger, async () => {
-      await ctx.shell.openExternal(input);
+      await ctx.shell.openExternal(input.url);
     })
   )
 });

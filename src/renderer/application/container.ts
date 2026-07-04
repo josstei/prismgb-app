@@ -9,6 +9,7 @@ import {
   type RendererUiComponentInstanceMap
 } from '../presentation/controller/ui-component.host.js';
 import { RendererTemplateCoreComponentIds } from '../presentation/primitives/template-dom.contract.js';
+import { applyBindingOverrides } from '@platform/core';
 
 export type RendererServiceContainer = Container;
 
@@ -55,13 +56,7 @@ export function createRendererContainer(overrides: Partial<Record<TokenKey, unkn
     container.get(TOKENS.loggerFactory)
   )).inSingletonScope();
 
-  for (const [key, value] of Object.entries(overrides)) {
-    const token: ServiceIdentifier = TOKENS[key as TokenKey];
-    if (container.isBound(token)) {
-      container.unbind(token);
-    }
-    container.bind(token).toConstantValue(value);
-  }
+  applyBindingOverrides(container, TOKENS, overrides);
 
   return container;
 }

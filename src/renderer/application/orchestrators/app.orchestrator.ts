@@ -77,7 +77,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     this.uiSetupOrchestrator.initializeDeferredComponents();
     this.uiSetupOrchestrator.setupUIEventListeners();
 
-    // Note: Preferences are loaded in PreferencesOrchestrator.onInitialize()
+    // Note: Preferences are loaded (and SETTINGS.PREFERENCES_LOADED published) by SettingsService.initialize()
 
     this.logger.info('Application orchestrator started');
   }

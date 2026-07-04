@@ -2,7 +2,7 @@
  * Domain-agnostic type-level utilities shared across the workspace.
  */
 
-export type { ValueOf, UnionToIntersection } from 'type-fest';
+export type { ValueOf } from 'type-fest';
 
 /** Recursively extracts the string leaf values of a nested record type. */
 export type LeafValues<T> = T extends string

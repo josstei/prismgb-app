@@ -1,6 +1,6 @@
 # Contributing to PrismGB
 
-<!-- Source: package.json, docs/naming-conventions.md, src/main/application/container.ts, src/renderer/application/di/service-registrations.ts, src/platform/devices/domain/catalog.json -->
+<!-- Source: package.json, docs/naming-conventions.md, src/main/application/container.ts, src/renderer/application/di/tokens.ts, src/platform/devices/domain/catalog.json -->
 
 Thank you for your interest in contributing to PrismGB! This document provides guidelines and instructions for contributing.
 
@@ -164,6 +164,7 @@ ci: add security scanning to PR workflow
 This project uses Husky to enforce commit conventions:
 
 - **pre-commit**: Runs `npx lint-staged` and `npm run typecheck:app`
+- **pre-push**: Runs `npm run typecheck`, `npm run lint`, and `npm run test:run`
 - **commit-msg**: Validates commit message format via commitlint
 
 If commits fail validation, check your commit message format against the guidelines above.
@@ -180,8 +181,8 @@ If commits fail validation, check your commit message format against the guideli
 3. **Run quality checks** before pushing:
    ```bash
    npm run lint
-   npm run test:coverage
-   npm run test:integration
+   npm run test:run
+   npm run dev:smoke
    ```
 
 4. **Push your branch** and open a pull request
@@ -195,8 +196,8 @@ If commits fail validation, check your commit message format against the guideli
 All PRs must pass:
 
 - Linting (`npm run lint`)
-- Tests with coverage (`npm run test:coverage`)
-- Integration tests (`npm run test:integration`)
+- Unit and integration tests (`npm run test:run`)
+- Dev boot smoke (`npm run dev:smoke`)
 - Build smoke check (`npm run build:vite`)
 - Conventional commit validation (PR title and commits)
 
@@ -275,21 +276,28 @@ Runtime files follow the pattern: `{name}.{type}.{ext}`
 
 **Rules:**
 - Use kebab-case for filenames
-- Type suffix uses dot separator: `component.registry.ts`, `timing.config.ts`
-- Abstract base classes use `{type}.base.js` pattern: `service.base.js`, `orchestrator.base.js`
-- Entry points (`index.js`) and DI containers (`container.js`) are exceptions
+- Type suffix uses dot separator: `ipc-handler.registry.ts`, `timing.config.ts`
+- Abstract base classes use `{type}.base.ts` pattern: `service.base.ts`, `orchestrator.base.ts`
+- Entry points (`index.ts`) and DI containers (`container.ts`) are exceptions
 
 ### Example Service
 
 ```ts
+import { inject, injectable } from 'inversify';
 import { BaseService } from '@platform/core';
+import type { EventPublisherLike, LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
+@injectable()
 export class MyService extends BaseService {
-  constructor(dependencies) {
-    super(dependencies, 'MyService');
+  constructor(
+    @inject(TOKENS.eventBus) private readonly eventBus: EventPublisherLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'MyService');
   }
 
-  myMethod() {
+  myMethod(): void {
     this.logger.info('Doing something');
     this.eventBus.publish('my:event', { data: 'value' });
   }

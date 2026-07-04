@@ -6,12 +6,9 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { SettingsMenuComponent } from '@renderer/presentation/features/settings/settings-menu.component.js';
 import {
-  createSettingsMenuTemplate,
-  createSettingsControlsTemplate,
-  getRecordingFormatOptions
+  createSettingsControlsTemplate
 } from '@renderer/presentation/features/settings/settings-menu.template.js';
 import { SettingsDefinitions } from '@renderer/lib/settings.definitions.js';
-import { TRANSCODE_CONFIG } from '@platform/transcode';
 import {
   createEventBus,
   createLogger,
@@ -82,20 +79,6 @@ describe('SettingsMenuComponent', () => {
       expect(renderedControlPositions).toEqual([...renderedControlPositions].sort((a, b) => a - b));
     });
 
-    it('derives recording format options from transcode config', () => {
-      const template = createSettingsMenuTemplate();
-      const options = getRecordingFormatOptions();
-
-      expect(options.map((option) => option.value)).toEqual(Object.keys(TRANSCODE_CONFIG.formats));
-      expect(options.find((option) => option.value === 'webm')).toMatchObject({
-        label: 'WebM',
-        active: true
-      });
-
-      for (const format of Object.keys(TRANSCODE_CONFIG.formats)) {
-        expect(template).toContain(`data-value="${format}"`);
-      }
-    });
   });
 
   describe('initialize', () => {

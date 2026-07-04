@@ -15,15 +15,21 @@ import { z } from 'zod';
  */
 export const enabledFlagSchema = z.object({ enabled: z.boolean() });
 
-export const externalUrlSchema = z
-  .string()
-  .min(1)
-  .max(2048)
-  .refine((url) => {
-    try {
-      const parsed = new URL(url);
-      return parsed.protocol === 'http:' || parsed.protocol === 'https:';
-    } catch {
-      return false;
-    }
-  }, 'Only http and https URLs are allowed');
+/**
+ * An external-URL input boxed per the scalar-boxing rule above; only http and
+ * https URLs pass the trust boundary.
+ */
+export const externalUrlSchema = z.object({
+  url: z
+    .string()
+    .min(1)
+    .max(2048)
+    .refine((url) => {
+      try {
+        const parsed = new URL(url);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    }, 'Only http and https URLs are allowed')
+});

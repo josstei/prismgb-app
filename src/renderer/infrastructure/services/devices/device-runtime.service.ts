@@ -14,16 +14,14 @@ import type {
   DeviceStatus,
   DeviceStreamProfile
 } from '@platform/devices';
-import type {
-  DevicePreferenceStore,
-  DeviceStatusPort,
-  MediaDevicesPort
-} from './device-ports.js';
+import type { DevicePreferenceStore } from './storage-device-preference.store.js';
+import type { DeviceStatusPort } from './trpc-device-status.port.js';
+import type { MediaDevicesPort } from './browser-media-devices.port.js';
 import {
   getDeviceDescriptor,
   labelsAreHidden,
   selectDevice
-} from './device-selection.js';
+} from './device-selection.utils.js';
 
 export interface RendererDeviceSnapshot {
   status: DeviceStatus;

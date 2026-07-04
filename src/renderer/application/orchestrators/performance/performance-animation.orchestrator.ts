@@ -14,7 +14,7 @@ import type {
   AnimationPerformanceState,
   PerformanceAnimationService
 } from '@renderer/infrastructure/services/performance/performance-animation.service';
-import type { BodyClassManager } from '@renderer/presentation/effects/body-class-manager';
+import type { BodyClassManager } from '@renderer/presentation/effects/body-class.effect';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 
 @injectable()

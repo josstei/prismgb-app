@@ -3,7 +3,7 @@ import { BaseService, isPromiseLike } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import { SettingsDefinitions, getStartupPreferenceEventDefinitions } from '@renderer/lib/settings.definitions.js';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
-import type { LoggerFactoryLike, LoggerLike, StorageServiceLike } from '@platform/core';
+import type { EventPublisherLike, LoggerFactoryLike, LoggerLike, StorageServiceLike } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type SettingDefinition = (typeof SettingsDefinitions.definitions)[number];
@@ -27,10 +27,6 @@ type SettingEncodeResult = { ok: true; value: SettingValue } | { ok: false };
 interface SettingCodec {
   decode(saved: string, definition: SettingDefinition): SettingValue;
   encode(value: unknown, definition: SettingDefinition, logger: LoggerLike): SettingEncodeResult;
-}
-
-interface SettingsEventBus {
-  publish(event: string, payload?: unknown): void;
 }
 
 function createDefinitionMap(definitions: readonly SettingDefinition[]): Map<string, SettingDefinition> {
@@ -123,7 +119,7 @@ class SettingsService extends BaseService {
   private readonly settingDefinitionMap: Map<string, SettingDefinition>;
 
   constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: SettingsEventBus,
+    @inject(TOKENS.eventBus) private readonly eventBus: EventPublisherLike,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike,
     @inject(TOKENS.storageService) private readonly storageService: StorageServiceLike
   ) {

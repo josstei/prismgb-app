@@ -2,7 +2,7 @@ import { BaseService } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import { DeviceCatalog } from '@platform/devices';
 import type { TypedEventBusLike } from '@platform/events';
-import type { Dimensions } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
+import type { Dimensions } from '@renderer/infrastructure/services/streaming/streaming.contract.js';
 import type {
   LoggerFactoryLike
 } from '@platform/core';

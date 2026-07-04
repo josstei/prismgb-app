@@ -199,5 +199,3 @@ export function createStreamingAppState(overrides = {}) {
     },
   });
 }
-
-export default createAppState;

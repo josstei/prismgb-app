@@ -271,5 +271,3 @@ export function createLoggerFactory(options = {}) {
 
   return factory;
 }
-
-export default createLoggerFactory;

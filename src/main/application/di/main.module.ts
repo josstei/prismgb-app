@@ -21,7 +21,7 @@ function isE2eTestControlEnabled(): boolean {
  * Binding module for every main-process token: main-owned decorated services
  * bind straight to their class; platform-owned classes (which must stay
  * inversify-free) and the env-flag-driven {@link MainProcessTestControl} bind
- * through factories that mirror their prior cradle-object wiring exactly.
+ * through factories that assemble their dependency objects explicitly.
  */
 export const mainModule = new ContainerModule(({ bind }) => {
   bind(TOKENS.eventBus).toDynamicValue((ctx) => new PlatformEventBus({

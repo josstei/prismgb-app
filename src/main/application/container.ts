@@ -3,11 +3,12 @@
  * Wires every main-process service onto an Inversify container.
  */
 
-import { Container, type ServiceIdentifier } from 'inversify';
+import { Container } from 'inversify';
 import pkg from '../../../package.json' assert { type: 'json' };
 import { TOKENS, TOKEN_KEYS, type TokenKey } from './di/tokens.js';
 import { mainModule } from './di/main.module.js';
 import type { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
+import { applyBindingOverrides } from '@platform/core';
 
 /**
  * Main-process DI container, backed by Inversify.
@@ -34,13 +35,7 @@ export function createMainContainer(
 
   container.load(mainModule);
 
-  for (const [key, value] of Object.entries(overrides)) {
-    const token: ServiceIdentifier = TOKENS[key as TokenKey];
-    if (container.isBound(token)) {
-      container.unbind(token);
-    }
-    container.bind(token).toConstantValue(value);
-  }
+  applyBindingOverrides(container, TOKENS, overrides);
 
   return container;
 }

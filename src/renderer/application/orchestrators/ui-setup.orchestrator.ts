@@ -169,7 +169,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
 
   private _openExternalUrl(event: Event, url: string): void {
     event.preventDefault();
-    void trpcClient.shell.openExternal.mutate(url).catch(err => {
+    void trpcClient.shell.openExternal.mutate({ url }).catch(err => {
       this.logger.warn('Failed to open external URL:', err);
     });
   }

@@ -4,7 +4,7 @@ import { EventChannels } from '@platform/events';
 import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { callIpc, type CallIpcResult } from '@renderer/infrastructure/ipc/call-ipc.js';
-import type { LoggerFactoryLike } from '@platform/core';
+import type { EventPublisherLike, LoggerFactoryLike } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 import type {
   TranscodeCancelledPayload,
@@ -18,17 +18,13 @@ import type {
 
 const TRANSCODE_SUBSCRIPTION_LIFECYCLE = Symbol('transcodeSubscriptionLifecycle');
 
-interface TranscodeEventBus {
-  publish(event: string, payload?: unknown): void;
-}
-
 @injectable()
 class TranscodeService extends BaseService {
   private _isTranscoding: boolean;
   private _activeJobId: string | null;
 
   constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: TranscodeEventBus,
+    @inject(TOKENS.eventBus) private readonly eventBus: EventPublisherLike,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
   ) {
     super({ loggerFactory, eventBus }, 'TranscodeService');

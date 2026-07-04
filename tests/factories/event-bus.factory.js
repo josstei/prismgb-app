@@ -264,28 +264,3 @@ export function createEventBus(options = {}) {
 
   return eventBus;
 }
-
-/**
- * Creates an EventBus that validates against contracts
- * @param {Object} contracts - Event contract schemas (Joi schemas)
- * @param {Object} options - Factory options
- */
-export function createContractValidatingEventBus(contracts, options = {}) {
-  const eventBus = createEventBus({
-    ...options,
-    onPublish: (event, data) => {
-      const schema = contracts[event];
-      if (schema) {
-        const { error } = schema.validate(data, { abortEarly: false });
-        if (error) {
-          throw new Error(`Contract violation for '${event}': ${error.message}`);
-        }
-      }
-      options.onPublish?.(event, data);
-    },
-  });
-
-  return eventBus;
-}
-
-export default createEventBus;

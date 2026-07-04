@@ -5,10 +5,10 @@ import type { LoggerFactoryLike } from '@platform/core';
 import type { RecordingErrorPayload, RecordingReadyPayload, TypedEventBusLike } from '@platform/events';
 import { getErrorMessage } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
-import { isStreamingCapabilities } from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
+import { isStreamingCapabilities } from '@renderer/infrastructure/services/streaming/streaming.contract.js';
 import type {
   GpuRecordingStartOptions
-} from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
+} from '@renderer/infrastructure/services/streaming/streaming.contract.js';
 import type { AppState } from '@renderer/application/state/app-state.js';
 
 

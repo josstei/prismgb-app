@@ -11,8 +11,11 @@ export interface LoggerLike {
   error(...args: unknown[]): void;
 }
 
-export interface EventBusLike {
+export interface EventPublisherLike {
   publish(event: string, payload?: unknown): void;
+}
+
+export interface EventBusLike extends EventPublisherLike {
   publishAsync?(event: string, payload?: unknown): Promise<void>;
   subscribe(event: string, handler: (...args: unknown[]) => void | Promise<void>): DisposableFunction;
   unsubscribe?(event: string, handler: (...args: unknown[]) => void): void;

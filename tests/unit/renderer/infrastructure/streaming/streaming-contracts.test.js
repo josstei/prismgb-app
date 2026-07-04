@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   isDimensions,
   isStreamingCapabilities
-} from '@renderer/infrastructure/services/streaming/streaming-contracts';
+} from '@renderer/infrastructure/services/streaming/streaming.contract';
 
 describe('streaming contracts', () => {
   it('guards dimension shapes', () => {

@@ -857,28 +857,3 @@ export function createUIControllerElementsMock(overrides = {}) {
   };
 }
 
-export default {
-  createMockElement,
-  createMockButton,
-  createMockInput,
-  createDeviceStatusElementsMock,
-  createTranscodeToastElementsMock,
-  createShaderSelectorElementsMock,
-  createSettingsMenuElementsMock,
-  createNotesPanelElementsMock,
-  createUIController,
-  createUISetupControllerMock,
-  createPresentationModeControllerMock,
-  createUIEventBridgeControllerMock,
-  createStatusNotificationComponentMock,
-  createStreamControlsComponentMock,
-  createSettingsMenuComponentMock,
-  createShaderSelectorComponentMock,
-  createUiComponentHostMock,
-  createUIEffectsMock,
-  createUIBodyClassManagerMock,
-
-  createUIEffectsElementsMock,
-  createStreamingControlsElementsMock,
-  createUIControllerElementsMock,
-};

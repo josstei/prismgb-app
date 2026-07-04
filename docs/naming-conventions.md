@@ -74,10 +74,8 @@ Device hardware behavior belongs in `src/platform/devices/domain/catalog.json`, 
 ## Imports and Aliases
 
 - Use path aliases for cross-module imports:
-  - `@` -> `src`
   - `@main` -> `src/main`
   - `@renderer` -> `src/renderer`
-  - `@preload` -> `src/preload`
   - `@platform/config` -> `src/platform/config/index.ts`
   - `@platform/core` -> `src/platform/core/index.ts`
   - `@platform/devices` -> `src/platform/devices/index.ts`

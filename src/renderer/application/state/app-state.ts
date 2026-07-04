@@ -18,6 +18,11 @@ type AppStateDependencies = {
   eventBus?: EventBusLike;
 };
 
+/**
+ * Decision record: AppState is a plain signal holder outside the
+ * BaseService/@OnEvent recipe — it is factory-bound in the container and
+ * manages its subscriptions through its own DisposableBag.
+ */
 class AppState {
   streamingService: StreamingServiceLike | undefined;
   rendererDeviceRuntime: RendererDeviceRuntimeLike | undefined;

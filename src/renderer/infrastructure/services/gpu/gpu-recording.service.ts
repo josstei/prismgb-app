@@ -15,7 +15,7 @@ import type {
   GpuRecordingStartOptions,
   GpuRendererServiceLike,
   RecordingScaleParams
-} from '@renderer/infrastructure/services/streaming/streaming-contracts.js';
+} from '@renderer/infrastructure/services/streaming/streaming.contract.js';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 
 const RECORDING_FRAME_LIFECYCLE = Symbol('gpuRecordingFrame');

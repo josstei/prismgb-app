@@ -5,7 +5,7 @@ import { createTrpcEventBridge } from '@renderer/infrastructure/services/platfor
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { UpdateState } from '@platform/config';
 import type { UpdateStateValue } from '@platform/config';
-import type { LoggerFactoryLike } from '@platform/core';
+import type { EventPublisherLike, LoggerFactoryLike } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 import type {
   UpdateCheckPayload,
@@ -16,10 +16,6 @@ import type {
 } from '@platform/ipc';
 
 const UPDATE_SUBSCRIPTION_LIFECYCLE = Symbol('updateSubscriptionLifecycle');
-
-interface UpdateEventBus {
-  publish(event: string, payload?: unknown): void;
-}
 
 type UpdateStatusSnapshot = UpdateStatusPayload & {
   state: UpdateStateValue;
@@ -33,7 +29,7 @@ class UpdateService extends BaseService {
   private _error: string | UpdateErrorPayload | null;
 
   constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: UpdateEventBus,
+    @inject(TOKENS.eventBus) private readonly eventBus: EventPublisherLike,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
   ) {
     super({ loggerFactory, eventBus }, 'UpdateService');

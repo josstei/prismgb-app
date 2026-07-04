@@ -2,7 +2,7 @@ import { ContainerModule } from 'inversify';
 import { ConsoleLoggerFactory } from '@platform/core';
 import { EventBus } from '../../infrastructure/events/event-bus';
 import { RendererDeviceRuntime } from '../../infrastructure/services/devices/device-runtime.service';
-import { DeviceMediaAcquirer } from '../../infrastructure/services/streaming/device-media-acquirer';
+import { DeviceMediaAcquirer } from '../../infrastructure/services/streaming/device-media-acquirer.service';
 import { StreamingService } from '../../infrastructure/services/streaming/streaming.service';
 import { StreamingViewService } from '../../infrastructure/services/streaming/streaming-view.service';
 import { StreamingRenderService } from '../../infrastructure/services/streaming/streaming-render.service';

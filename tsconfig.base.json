@@ -25,9 +25,6 @@
       "@renderer/*": [
         "./src/renderer/*"
       ],
-      "@preload/*": [
-        "./src/preload/*"
-      ],
       "@platform/config": [
         "./src/platform/config/index"
       ],

@@ -159,11 +159,3 @@ export function createDeviceStatusComponentMock(overrides = {}) {
     ...overrides
   };
 }
-
-export default {
-  createDeviceInfo,
-  createVideoTrack,
-  createMediaStream,
-  createRendererDeviceRuntimeMock,
-  createDeviceStatusComponentMock,
-};
