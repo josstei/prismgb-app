@@ -34,10 +34,9 @@ const OUTPUTS = {
 const TRAY_ICON_SIZE = 30; // Slightly smaller again for macOS menu bar clearance
 
 // macOS icon background colors (matches app body gradient)
-// body { background: linear-gradient(135deg, --color-bg-primary 0%, --color-bg-secondary 50%, --color-bg-tertiary 100%); }
+// body { background: linear-gradient(135deg, --color-bg-primary 0%, --color-bg-secondary 50%);
 const ICON_BG_PRIMARY = '#0f0f1e';
 const ICON_BG_SECONDARY = '#1a1a2e';
-const ICON_BG_TERTIARY = '#16213e';
 // Subtle border for depth - slight white tint
 const ICON_BORDER_COLOR = 'rgba(255, 255, 255, 0.08)';
 

@@ -1,37 +1,24 @@
 /**
  * Application Orchestrator
  * Coordinates main process services and application lifecycle
- *
- * Note: This is a bootstrap orchestrator that creates the DI container,
- * so it passes a pre-created loggerFactory to BaseOrchestrator rather
- * than receiving it as an injected dependency.
  */
 
 import { app } from 'electron';
 import fs from 'fs';
 import path from 'path';
-import type { AwilixContainer } from 'awilix';
-import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
-import { safeDisposeAll } from '@shared/utils/safe-disposer.utils.js';
-import { createAppContainer, type ContainerDependencies } from './container.js';
-import { MainLogger } from '@main/infrastructure/logging/index.js';
-import type { WindowService } from '@main/infrastructure/window/index.js';
-import type { DeviceService } from '@main/infrastructure/devices/index.js';
-import type { DeviceLifecycleService } from '@main/infrastructure/devices/index.js';
-import type { TrayService } from '@main/infrastructure/tray/index.js';
+import { injectable, inject } from 'inversify';
+import { BaseOrchestrator } from '@platform/core';
+import { safeDisposeAll } from '@platform/core';
+import { TOKENS } from './di/tokens.js';
+import type { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
+import type { WindowService } from '@main/infrastructure/window/window.service.js';
+import type { DeviceConnectionService } from '@platform/devices/runtime';
+import type { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
+import type { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
-import type { UpdateService } from '@main/infrastructure/updates/index.js';
-import type { DeviceBridgeService } from '@main/infrastructure/devices/index.js';
-import type { UpdateBridge } from '@main/infrastructure/updates/index.js';
-import type { TranscodeService } from '@main/infrastructure/transcode/index.js';
-import type { LoginItemService } from '@main/infrastructure/platform/index.js';
-
-/**
- * Dependencies required by AppOrchestrator
- */
-interface AppOrchestratorDependencies {
-  loggerFactory: MainLogger;
-}
+import type { UpdateService } from '@platform/updates';
+import type { TranscodeService } from '@platform/transcode/service';
+import type { LoginItemService } from '@main/infrastructure/window/login-item.service.js';
 
 function resolveDevDockIconPath(appPath: string): string | null {
   const candidates = [
@@ -42,26 +29,21 @@ function resolveDevDockIconPath(appPath: string): string | null {
   return candidates.find(candidate => fs.existsSync(candidate)) ?? null;
 }
 
-class AppOrchestrator extends BaseOrchestrator {
+@injectable()
+export class AppOrchestrator extends BaseOrchestrator {
 
-  private container: AwilixContainer<ContainerDependencies> | null = null;
-  private _windowService: WindowService | null = null;
-  private _deviceService: DeviceService | null = null;
-  private _deviceLifecycleService: DeviceLifecycleService | null = null;
-  private _trayService: TrayService | null = null;
-  private _ipcHandlerRegistry: IpcHandlerRegistry | null = null;
-  private _updateService: UpdateService | null = null;
-  private _deviceBridgeService: DeviceBridgeService | null = null;
-  private _updateBridgeService: UpdateBridge | null = null;
-  private _transcodeService: TranscodeService | null = null;
-  private _loginItemService: LoginItemService | null = null;
-
-  constructor() {
-    // Create logger factory before calling super (bootstrap pattern)
-    const loggerFactory = new MainLogger();
-
-    // Call base constructor with pre-created loggerFactory
-    super({ loggerFactory } as AppOrchestratorDependencies, ['loggerFactory'], 'AppOrchestrator');
+  constructor(
+    @inject(TOKENS.windowService) private readonly windowService: WindowService,
+    @inject(TOKENS.deviceConnectionService) private readonly deviceConnectionService: DeviceConnectionService,
+    @inject(TOKENS.deviceIntegrationService) private readonly deviceIntegrationService: DeviceIntegrationService,
+    @inject(TOKENS.trayService) private readonly trayService: TrayService,
+    @inject(TOKENS.ipcHandlerRegistry) private readonly ipcHandlerRegistry: IpcHandlerRegistry,
+    @inject(TOKENS.updateService) private readonly updateService: UpdateService,
+    @inject(TOKENS.transcodeService) private readonly transcodeService: TranscodeService,
+    @inject(TOKENS.loginItemService) private readonly loginItemService: LoginItemService,
+    @inject(TOKENS.loggerFactory) loggerFactory: MainLogger
+  ) {
+    super({ loggerFactory }, 'AppOrchestrator');
   }
 
   /**
@@ -71,45 +53,24 @@ class AppOrchestrator extends BaseOrchestrator {
   async onInitialize(): Promise<void> {
     this.logger.info('Starting PrismGB...');
 
-    // Create DI container with shared logger factory (eliminates duplicate instance)
-    this.container = await createAppContainer(this.loggerFactory as MainLogger);
+    // Subscribe app-owned device side effects before the first runtime reconciliation.
+    this.deviceIntegrationService.initialize();
 
-    // Resolve and cache core services
-    this._windowService = this.container.resolve('windowService');
-    this._deviceService = this.container.resolve('deviceService');
-    this._deviceLifecycleService = this.container.resolve('deviceLifecycleService');
-    this._trayService = this.container.resolve('trayService');
-    this._ipcHandlerRegistry = this.container.resolve('ipcHandlerRegistry');
-    this._updateService = this.container.resolve('updateService');
-    this._deviceBridgeService = this.container.resolve('deviceBridgeService');
-    this._updateBridgeService = this.container.resolve('updateBridgeService');
-    this._transcodeService = this.container.resolve('transcodeService');
-    this._loginItemService = this.container.resolve('loginItemService');
-
-    // Initialize device lifecycle service (handles auto-launch)
-    this._deviceLifecycleService.initialize();
-
-    // Initialize update bridge and start auto-check (1 hour interval)
-    this._updateBridgeService.initialize();
+    await this.updateService.initialize();
+    this.updateService.startAutoCheck(3600000);
 
     // Initialize transcode service (validates ffmpeg binaries)
-    this._transcodeService.initialize();
-
-    // Start USB monitoring for hot-plug detection
-    this._deviceService.startUSBMonitoring();
-
-    // Subscribe to device events via bridge
-    this._deviceBridgeService.initialize();
+    this.transcodeService.initialize();
 
     // Create system tray
-    this._trayService.createTray();
+    this.trayService.createTray();
 
     // Set dock icon in dev mode (macOS only)
     // In production, macOS uses icon.icns from app bundle automatically
     if (process.platform === 'darwin' && !app.isPackaged) {
       const iconPath = resolveDevDockIconPath(app.getAppPath());
       if (iconPath) {
-        app.dock.setIcon(iconPath);
+        app.dock?.setIcon(iconPath);
         this.logger.debug(`Set dock icon: ${iconPath}`);
       } else {
         this.logger.warn('Dock icon not found; continuing without custom dock icon');
@@ -117,24 +78,22 @@ class AppOrchestrator extends BaseOrchestrator {
     }
 
     // Register IPC handlers
-    this._ipcHandlerRegistry.registerHandlers();
-
-    // Wait for USB monitoring to initialize and enumerate devices
-    // usb-detection needs time to populate its device cache after startMonitoring()
-    await new Promise(resolve => setTimeout(resolve, 500));
+    this.ipcHandlerRegistry.registerHandlers();
 
     // Detect hidden launch (login item / auto-start)
-    const isHiddenLaunch = this._loginItemService.wasLaunchedAsHidden();
+    const isHiddenLaunch = this.loginItemService.wasLaunchedAsHidden();
     if (isHiddenLaunch) {
       this.logger.info('Hidden launch detected - starting in system tray');
     }
 
     // Create main window (hidden if launched as login item)
-    this._windowService.createWindow({ hidden: isHiddenLaunch });
+    const mainWindow = this.windowService.createWindow({ hidden: isHiddenLaunch });
+    this.ipcHandlerRegistry.attachWindow(mainWindow);
 
-    // Check for already connected devices
-    const deviceFound = await this._deviceService.refreshDeviceStatus();
-    if (deviceFound) {
+    await this.deviceConnectionService.initialize();
+
+    const status = await this.deviceConnectionService.reconcileDeviceStatus('startup');
+    if (status.connected) {
       this.logger.info('Device already connected');
     }
 
@@ -148,61 +107,23 @@ class AppOrchestrator extends BaseOrchestrator {
   async onCleanup(): Promise<void> {
     this.logger.info('Shutting down PrismGB...');
 
-    if (!this.container) {
-      this.logger.info('No container to cleanup');
-      return;
-    }
-
-    // Window cleanup requires special handling (isDestroyed check, devtools)
+    // Window cleanup is safely handled by the window service
     try {
-      const win = this._windowService?.getMainWindow();
-      if (win && !win.isDestroyed()) {
-        if (win.webContents?.isDevToolsOpened()) {
-          win.webContents.closeDevTools();
-          this.logger.debug('Closed DevTools');
-        }
-        win.destroy();
-        this.logger.debug('Destroyed main window');
-      }
+      this.windowService.destroyWindow();
     } catch (error) {
-      this.logger.error('Error destroying window:', error);
+      this.logger.error('Error destroying window during cleanup:', error);
     }
 
     // Dispose services using safe utility (eliminates repetitive try-catch)
     await safeDisposeAll(this.logger, [
-      ['IPC handler registry', this._ipcHandlerRegistry],
-      ['device bridge service', this._deviceBridgeService],
-      ['device lifecycle service', this._deviceLifecycleService],
-      ['device service (USB monitoring)', this._deviceService, 'stopUSBMonitoring'],
-      ['system tray', this._trayService, 'destroy'],
-      ['update bridge service', this._updateBridgeService],
-      ['transcode service', this._transcodeService],
-      ['DI container', this.container]
+      ['IPC handler registry', this.ipcHandlerRegistry],
+      ['device integration service', this.deviceIntegrationService],
+      ['device connection service', this.deviceConnectionService],
+      ['system tray', this.trayService, 'destroy'],
+      ['update service', this.updateService],
+      ['transcode service', this.transcodeService]
     ]);
-
-    // Clear service references
-    this.container = null;
-    this._windowService = null;
-    this._deviceService = null;
-    this._deviceLifecycleService = null;
-    this._trayService = null;
-    this._ipcHandlerRegistry = null;
-    this._updateService = null;
-    this._deviceBridgeService = null;
-    this._updateBridgeService = null;
-    this._transcodeService = null;
-    this._loginItemService = null;
 
     this.logger.info('PrismGB shutdown complete');
   }
-
-  /**
-   * Get the DI container
-   * @returns The DI container
-   */
-  getContainer(): AwilixContainer<ContainerDependencies> | null {
-    return this.container;
-  }
 }
-
-export { AppOrchestrator };

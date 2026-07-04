@@ -6,74 +6,70 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { createUIController } from '../factories/index.js';
+import { createEventBus, createAppState } from '../factories/index.js';
 import {
-  MockDevice,
-  MockDeviceManager,
   CHROMATIC_SPECS,
-  createMockDependencies,
-  createMockEventBus,
-  createMockAppState,
-  createMockUIController,
-  performanceUtils,
-} from '../mocks/index.js';
-import { ResolutionCalculator } from '../utilities/ResolutionCalculator.js';
-import { AnimationCache } from '../../src/shared/utils/performance-cache.utils.js';
+  createManifestMediaEnvironment,
+  createMediaDeviceInfo,
+} from '../devices/media.testkit.ts';
+import { installDocumentPropertyMock } from '../support/mocks/browser-api.installers.js';
 
 describe('Streaming Pipeline Integration', () => {
-  let mockDeviceManager;
-  let chromaticDevice;
-  let deps;
-  let animationCache;
+  let mediaEnvironment;
 
   beforeEach(() => {
-    // Setup mock device infrastructure
-    mockDeviceManager = new MockDeviceManager();
-    chromaticDevice = MockDeviceManager.createChromatic();
-    mockDeviceManager.addDevice(chromaticDevice);
-    mockDeviceManager.setupMediaDevicesMock();
-
-    // Setup mock dependencies
-    deps = createMockDependencies();
-
-    // Create test animation cache
-    animationCache = new AnimationCache();
-
-    // Clear caches
-    ResolutionCalculator.clearCache();
-    animationCache.cancelAllAnimations();
+    mediaEnvironment = createManifestMediaEnvironment({ connected: true }).install();
   });
 
   afterEach(() => {
-    mockDeviceManager.reset();
-    vi.clearAllMocks();
+    mediaEnvironment.cleanup();
   });
 
   describe('Device Detection Flow', () => {
     it('should detect Chromatic device via mediaDevices API', async () => {
       const devices = await navigator.mediaDevices.enumerateDevices();
 
-      expect(devices).toHaveLength(1);
-      expect(devices[0].label).toBe('Chromatic');
-      expect(devices[0].kind).toBe('videoinput');
+      expect(devices).toContainEqual(expect.objectContaining({
+        label: 'Chromatic',
+        kind: 'videoinput',
+      }));
     });
 
     it('should emit device change events', async () => {
       const changeHandler = vi.fn();
       navigator.mediaDevices.addEventListener('devicechange', changeHandler);
 
-      // Add another device
-      const secondDevice = new MockDevice({ deviceId: 'second-device', label: 'Second Camera' });
-      mockDeviceManager.addDevice(secondDevice);
+      mediaEnvironment.addMediaDevice(createMediaDeviceInfo({
+        deviceId: 'second-device',
+        label: 'Second Camera',
+      }));
 
       expect(changeHandler).toHaveBeenCalled();
+    });
+
+    it('should clear stale device change listeners when reinstalling mediaDevices mock', () => {
+      const staleHandler = vi.fn();
+      navigator.mediaDevices.addEventListener('devicechange', staleHandler);
+
+      mediaEnvironment.install();
+
+      const currentHandler = vi.fn();
+      navigator.mediaDevices.addEventListener('devicechange', currentHandler);
+      mediaEnvironment.addMediaDevice(createMediaDeviceInfo({
+        deviceId: 'second-device',
+        label: 'Second Camera',
+      }));
+
+      expect(staleHandler).not.toHaveBeenCalled();
+      expect(currentHandler).toHaveBeenCalledTimes(1);
     });
 
     it('should handle device disconnection', async () => {
       const changeHandler = vi.fn();
       navigator.mediaDevices.addEventListener('devicechange', changeHandler);
 
-      // Disconnect the Chromatic
-      mockDeviceManager.removeDevice(chromaticDevice.deviceInfo.deviceId);
+      mediaEnvironment.disconnect();
 
       const devices = await navigator.mediaDevices.enumerateDevices();
 
@@ -86,7 +82,7 @@ describe('Streaming Pipeline Integration', () => {
     it('should acquire stream from Chromatic device', async () => {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
-          deviceId: { exact: chromaticDevice.deviceInfo.deviceId },
+          deviceId: { exact: mediaEnvironment.videoDevice.deviceId },
           width: { exact: CHROMATIC_SPECS.nativeWidth },
           height: { exact: CHROMATIC_SPECS.nativeHeight },
         },
@@ -103,11 +99,11 @@ describe('Streaming Pipeline Integration', () => {
     });
 
     it('should fail when device is disconnected', async () => {
-      chromaticDevice.disconnect();
+      mediaEnvironment.disconnect();
 
       await expect(
         navigator.mediaDevices.getUserMedia({
-          video: { deviceId: { exact: chromaticDevice.deviceInfo.deviceId } },
+          video: { deviceId: { exact: mediaEnvironment.videoDevice.deviceId } },
         })
       ).rejects.toThrow('Requested device not found');
     });
@@ -120,42 +116,10 @@ describe('Streaming Pipeline Integration', () => {
     });
   });
 
-  describe('Resolution Calculation Integration', () => {
-    it('should calculate correct canvas dimensions for Chromatic', () => {
-      const calc = new ResolutionCalculator(
-        CHROMATIC_SPECS.nativeWidth,
-        CHROMATIC_SPECS.nativeHeight
-      );
-
-      // Default 4x scale
-      const scaled = calc.calculateScaled(4);
-      expect(scaled).toEqual({ width: 640, height: 576, scale: 4 });
-
-      // Fit to typical display
-      const fitted = calc.fitToContainer(1920, 1080, { maxScale: 8 });
-      expect(fitted.scale).toBe(7); // 1920/160=12, 1080/144=7.5, min=7
-    });
-
-    it('should maintain aspect ratio through scaling', () => {
-      const calc = new ResolutionCalculator(
-        CHROMATIC_SPECS.nativeWidth,
-        CHROMATIC_SPECS.nativeHeight
-      );
-
-      const nativeRatio = CHROMATIC_SPECS.nativeWidth / CHROMATIC_SPECS.nativeHeight;
-
-      [1, 2, 4, 8].forEach(scale => {
-        const scaled = calc.calculateScaled(scale);
-        const scaledRatio = scaled.width / scaled.height;
-        expect(scaledRatio).toBeCloseTo(nativeRatio, 10);
-      });
-    });
-  });
-
   describe('Event Flow Integration', () => {
     it('should publish stream events in correct order', async () => {
       const eventOrder = [];
-      const eventBus = createMockEventBus();
+      const eventBus = createEventBus();
 
       eventBus.subscribe('stream:starting', () => eventOrder.push('starting'));
       eventBus.subscribe('stream:started', () => eventOrder.push('started'));
@@ -171,7 +135,7 @@ describe('Streaming Pipeline Integration', () => {
 
     it('should handle device events triggering stream events', async () => {
       const events = [];
-      const eventBus = createMockEventBus();
+      const eventBus = createEventBus();
 
       eventBus.subscribe('device:connected', () => events.push('device:connected'));
       eventBus.subscribe('device:disconnected', () => events.push('device:disconnected'));
@@ -192,7 +156,7 @@ describe('Streaming Pipeline Integration', () => {
 
   describe('State Management Integration', () => {
     it('should update app state during stream lifecycle', () => {
-      const appState = createMockAppState();
+      const appState = createAppState();
 
       // Initial state
       expect(appState.isStreaming).toBe(false);
@@ -211,22 +175,18 @@ describe('Streaming Pipeline Integration', () => {
 
   describe('Canvas Rendering Integration', () => {
     it('should setup canvas with correct dimensions', () => {
-      const uiController = createMockUIController();
+      const uiController = createUIController();
       const canvas = uiController.elements.streamCanvas;
 
-      // Simulate canvas setup for 4x scale
-      const calc = new ResolutionCalculator(160, 144);
-      const dimensions = calc.calculateScaled(4);
-
-      canvas.width = dimensions.width;
-      canvas.height = dimensions.height;
+      canvas.width = 640;
+      canvas.height = 576;
 
       expect(canvas.width).toBe(640);
       expect(canvas.height).toBe(576);
     });
 
     it('should get 2D context with correct options', () => {
-      const uiController = createMockUIController();
+      const uiController = createUIController();
       const canvas = uiController.elements.streamCanvas;
 
       const ctx = canvas.getContext('2d', {
@@ -245,8 +205,8 @@ describe('Streaming Pipeline Integration', () => {
 
   describe('Full Pipeline Simulation', () => {
     it('should complete full stream start/stop cycle', async () => {
-      const eventBus = createMockEventBus();
-      const appState = createMockAppState();
+      const eventBus = createEventBus();
+      const appState = createAppState();
       const events = [];
 
       // Subscribe to all events
@@ -255,24 +215,24 @@ describe('Streaming Pipeline Integration', () => {
       eventBus.subscribe('stream:stopped', () => events.push({ type: 'stream:stopped' }));
 
       // 1. Device connects
-      eventBus.publish('device:connected', { deviceId: chromaticDevice.deviceInfo.deviceId });
+      eventBus.publish('device:connected', { deviceId: mediaEnvironment.videoDevice.deviceId });
 
       // 2. Acquire stream
-      const stream = await chromaticDevice.getStream();
+      const stream = await mediaEnvironment.createStream();
       expect(stream).toBeDefined();
 
       // 3. Start streaming
       appState.setStreaming(true);
       eventBus.publish('stream:started', {
         stream,
-        capabilities: chromaticDevice.getCapabilities(),
+        capabilities: mediaEnvironment.getCapabilities(),
       });
 
       expect(appState.isStreaming).toBe(true);
       expect(events.some(e => e.type === 'stream:started')).toBe(true);
 
       // 4. Stop streaming
-      chromaticDevice.stopStream();
+      mediaEnvironment.stopStreams();
       appState.setStreaming(false);
       eventBus.publish('stream:stopped');
 
@@ -281,7 +241,7 @@ describe('Streaming Pipeline Integration', () => {
     });
 
     it('should handle visibility change during streaming', async () => {
-      const appState = createMockAppState();
+      const appState = createAppState();
       appState.setStreaming(true);
 
       // Simulate tab hidden
@@ -289,24 +249,27 @@ describe('Streaming Pipeline Integration', () => {
       expect(wasRendering).toBe(true);
 
       // Simulate visibility change
-      Object.defineProperty(document, 'hidden', { value: true, writable: true });
+      const hiddenMock = installDocumentPropertyMock('hidden', true);
+      try {
+        // Should pause rendering
+        const shouldRender = appState.isStreaming && !document.hidden;
+        expect(shouldRender).toBe(false);
 
-      // Should pause rendering
-      const shouldRender = appState.isStreaming && !document.hidden;
-      expect(shouldRender).toBe(false);
+        // Restore visibility
+        hiddenMock.setValue(false);
 
-      // Restore visibility
-      Object.defineProperty(document, 'hidden', { value: false, writable: true });
-
-      // Should resume rendering
-      const shouldRenderAgain = appState.isStreaming && !document.hidden;
-      expect(shouldRenderAgain).toBe(true);
+        // Should resume rendering
+        const shouldRenderAgain = appState.isStreaming && !document.hidden;
+        expect(shouldRenderAgain).toBe(true);
+      } finally {
+        hiddenMock.cleanup();
+      }
     });
   });
 
   describe('Error Handling Integration', () => {
     it('should handle stream acquisition failure gracefully', async () => {
-      const eventBus = createMockEventBus();
+      const eventBus = createEventBus();
       let errorReceived = null;
 
       eventBus.subscribe('stream:error', (error) => {
@@ -314,11 +277,11 @@ describe('Streaming Pipeline Integration', () => {
       });
 
       // Disconnect device before stream acquisition
-      chromaticDevice.disconnect();
+      mediaEnvironment.disconnect();
 
       try {
         await navigator.mediaDevices.getUserMedia({
-          video: { deviceId: { exact: chromaticDevice.deviceInfo.deviceId } },
+          video: { deviceId: { exact: mediaEnvironment.videoDevice.deviceId } },
         });
       } catch (error) {
         eventBus.publish('stream:error', { message: error.message, name: error.name });
@@ -329,18 +292,18 @@ describe('Streaming Pipeline Integration', () => {
     });
 
     it('should clean up on unexpected disconnection', async () => {
-      const appState = createMockAppState();
-      const eventBus = createMockEventBus();
+      const appState = createAppState();
+      const eventBus = createEventBus();
 
       // Start streaming
-      const stream = await chromaticDevice.getStream();
+      const stream = await mediaEnvironment.createStream();
       appState.setStreaming(true);
 
       // Simulate unexpected disconnection
-      chromaticDevice.disconnect();
+      mediaEnvironment.disconnect();
 
       // Handle disconnection
-      if (!chromaticDevice.isConnected && appState.isStreaming) {
+      if (!mediaEnvironment.snapshot().connected && appState.isStreaming) {
         appState.setStreaming(false);
         eventBus.publish('stream:stopped');
         eventBus.publish('device:disconnected-during-session');
@@ -350,52 +313,22 @@ describe('Streaming Pipeline Integration', () => {
     });
   });
 
-  describe('Performance Integration', () => {
-    it('should cache resolution calculations across stream restarts', async () => {
-      const calc = new ResolutionCalculator(160, 144);
-
-      // First stream session
-      calc.calculateScaled(4);
-      const statsAfterFirst = ResolutionCalculator.getCacheStats();
-
-      // Second stream session (simulated restart)
-      calc.calculateScaled(4);
-      const statsAfterSecond = ResolutionCalculator.getCacheStats();
-
-      // Should have cache hit on second session
-      expect(statsAfterSecond.hits).toBeGreaterThan(statsAfterFirst.hits);
-    });
-
-    it('should complete 100 stream start/stop cycles under time limit', async () => {
-      const result = await performanceUtils.measureTime(async () => {
-        for (let i = 0; i < 100; i++) {
-          const stream = await chromaticDevice.getStream();
-          chromaticDevice.stopStream();
-        }
-      }, 1);
-
-      console.log(`100 stream cycles: ${result.total.toFixed(2)}ms`);
-
-      // Should complete in under 1 second
-      expect(result.total).toBeLessThan(1000);
-    });
-  });
 });
 
-describe('Mock Device Accuracy', () => {
+describe('Manifest Media Environment Accuracy', () => {
   it('should match real Chromatic specifications', () => {
-    const device = MockDeviceManager.createChromatic();
-    const caps = device.getCapabilities();
+    const environment = createManifestMediaEnvironment();
+    const caps = environment.getCapabilities();
 
     expect(caps.nativeResolution.width).toBe(160);
     expect(caps.nativeResolution.height).toBe(144);
-    expect(caps.canvasScale).toBe(4);
+    expect(caps.canvasResolution.scale).toBe(4);
     expect(caps.deviceName).toBe('Chromatic');
   });
 
   it('should provide accurate stream settings', async () => {
-    const device = MockDeviceManager.createChromatic();
-    const stream = await device.getStream();
+    const environment = createManifestMediaEnvironment();
+    const stream = await environment.createStream();
     const track = stream.getVideoTracks()[0];
     const settings = track.getSettings();
 

@@ -1,82 +1,69 @@
-/**
- * Update Service (Renderer)
- *
- * Bridges window.updateAPI (preload) with EventBus for renderer-side update handling.
- * Tracks update state and re-emits IPC events as EventBus events.
- *
- * Events emitted:
- * - 'update:available' - Update is available
- * - 'update:not-available' - No update available
- * - 'update:progress' - Download progress
- * - 'update:downloaded' - Update downloaded and ready
- * - 'update:error' - Update error occurred
- * - 'update:state-changed' - State transition
- */
-
-import { BaseService } from '@shared/base/service.base.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-import { UpdateState } from '@shared/config/update-state.config';
+import { injectable, inject } from 'inversify';
+import { BaseService, getErrorMessage } from '@platform/core';
+import { EventChannels } from '@platform/events';
+import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
+import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
+import { UpdateState } from '@platform/config';
+import type { UpdateStateValue } from '@platform/config';
+import type { EventPublisherLike, LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 import type {
-  UpdateCheckResponse,
-  UpdateDownloadResponse,
+  UpdateCheckPayload,
   UpdateErrorPayload,
   UpdateInfoPayload,
-  UpdateInstallResponse,
   UpdateProgressPayload,
   UpdateStatusPayload
-} from '@shared/ipc/preload-api.contract.js';
+} from '@platform/ipc';
 
-// Re-export for backward compatibility
-export { UpdateState };
+const UPDATE_SUBSCRIPTION_LIFECYCLE = Symbol('updateSubscriptionLifecycle');
 
+type UpdateStatusSnapshot = UpdateStatusPayload & {
+  state: UpdateStateValue;
+};
+
+@injectable()
 class UpdateService extends BaseService {
+  private _state: UpdateStateValue;
+  private _updateInfo: UpdateInfoPayload | null;
+  private _downloadProgress: UpdateProgressPayload | null;
+  private _error: string | UpdateErrorPayload | null;
 
-  constructor(dependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory'], 'UpdateService');
+  constructor(
+    @inject(TOKENS.eventBus) private readonly eventBus: EventPublisherLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'UpdateService');
 
     this._state = UpdateState.IDLE;
     this._updateInfo = null;
     this._downloadProgress = null;
     this._error = null;
-    this._cleanupFns = [];
-    this._initialized = false;
   }
 
-  async initialize() {
-    if (this._initialized) {
-      this.logger.warn('UpdateService already initialized');
-      return;
-    }
-
-    if (!window.updateAPI) {
-      this.logger.warn('updateAPI not available - updates disabled');
-      return;
-    }
-
+  protected override async onInitialize(): Promise<void> {
     this.logger.info('Initializing UpdateService');
 
     await this._loadInitialStatus();
 
-    this._cleanupFns.push(
-      window.updateAPI.onAvailable((info) => this._handleAvailable(info)),
-      window.updateAPI.onNotAvailable((info) => this._handleNotAvailable(info)),
-      window.updateAPI.onProgress((progress) => this._handleProgress(progress)),
-      window.updateAPI.onDownloaded((info) => this._handleDownloaded(info)),
-      window.updateAPI.onError((error) => this._handleError(error))
-    );
+    this.disposables.replace(UPDATE_SUBSCRIPTION_LIFECYCLE, createTrpcEventBridge('UpdateService', [
+      () => trpcClient.update.onAvailable.subscribe(undefined, { onData: (info) => this._handleAvailable(info) }),
+      () => trpcClient.update.onNotAvailable.subscribe(undefined, { onData: (info) => this._handleNotAvailable(info) }),
+      () => trpcClient.update.onProgress.subscribe(undefined, { onData: (progress) => this._handleProgress(progress) }),
+      () => trpcClient.update.onDownloaded.subscribe(undefined, { onData: (info) => this._handleDownloaded(info) }),
+      () => trpcClient.update.onError.subscribe(undefined, { onData: (error) => this._handleError(error) })
+    ], this.logger));
 
-    this._initialized = true;
     this.logger.info('UpdateService initialized');
   }
 
   async _loadInitialStatus() {
     try {
-      const result = await window.updateAPI.getStatus();
+      const result = await trpcClient.update.getStatus.query();
       if (result) {
         this._state = result.state || UpdateState.IDLE;
-        this._updateInfo = result.updateInfo;
-        this._downloadProgress = result.downloadProgress;
-        this._error = result.error;
+        this._updateInfo = result.updateInfo ?? null;
+        this._downloadProgress = result.downloadProgress ?? null;
+        this._error = result.error ?? null;
       }
     } catch (error) {
       this.logger.warn('Failed to load initial update status', error);
@@ -116,7 +103,25 @@ class UpdateService extends BaseService {
     this.eventBus.publish(EventChannels.UPDATE.ERROR, error);
   }
 
-  _setState(newState: string) {
+  _reconcileCheckResult(result: UpdateCheckPayload): void {
+    if (this._state !== UpdateState.CHECKING) {
+      return;
+    }
+
+    if (result.updateAvailable === false) {
+      this._handleNotAvailable({
+        ...(result.updateInfo ?? {}),
+        reason: result.reason
+      });
+      return;
+    }
+
+    if (result.updateAvailable === true && result.updateInfo) {
+      this._handleAvailable(result.updateInfo);
+    }
+  }
+
+  _setState(newState: UpdateStateValue) {
     const oldState = this._state;
     this._state = newState;
     this._emitStateChanged();
@@ -127,7 +132,7 @@ class UpdateService extends BaseService {
     this.eventBus.publish(EventChannels.UPDATE.STATE_CHANGED, this.getStatus());
   }
 
-  getStatus(): UpdateStatusPayload {
+  getStatus(): UpdateStatusSnapshot {
     return {
       state: this._state,
       updateInfo: this._updateInfo,
@@ -144,87 +149,61 @@ class UpdateService extends BaseService {
     return this._updateInfo;
   }
 
-  async checkForUpdates(): Promise<UpdateCheckResponse> {
-    if (!window.updateAPI) {
-      this.logger.warn('updateAPI not available');
-      return { success: false, error: 'Updates not available' };
-    }
-
+  async checkForUpdates(): Promise<void> {
     this._setState(UpdateState.CHECKING);
 
     try {
-      const result = await window.updateAPI.checkForUpdates();
-      return result;
+      const result = await trpcClient.update.checkForUpdates.mutate();
+      this._reconcileCheckResult(result);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error);
       this.logger.error('Check for updates failed', error);
       this._handleError({ message: errorMessage });
-      return { success: false, error: errorMessage };
     }
   }
 
-  async downloadUpdate(): Promise<UpdateDownloadResponse> {
-    if (!window.updateAPI) {
-      this.logger.warn('updateAPI not available');
-      return { success: false, error: 'Updates not available' };
-    }
-
+  async downloadUpdate(): Promise<void> {
     if (this._state !== UpdateState.AVAILABLE) {
       this.logger.warn('No update available to download');
-      return { success: false, error: 'No update available' };
+      return;
     }
 
     this._setState(UpdateState.DOWNLOADING);
 
     try {
-      const result = await window.updateAPI.downloadUpdate();
-      return result;
+      await trpcClient.update.downloadUpdate.mutate();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error);
       this.logger.error('Download update failed', error);
       this._handleError({ message: errorMessage });
-      return { success: false, error: errorMessage };
     }
   }
 
-  async installUpdate(): Promise<UpdateInstallResponse> {
-    if (!window.updateAPI) {
-      this.logger.warn('updateAPI not available');
-      return { success: false, error: 'Updates not available' };
-    }
-
+  async installUpdate(): Promise<void> {
     if (this._state !== UpdateState.DOWNLOADED) {
       this.logger.warn('No update downloaded to install');
-      return { success: false, error: 'No update downloaded' };
+      return;
     }
 
     this.logger.info('Installing update and restarting...');
 
     try {
-      const result = await window.updateAPI.installUpdate();
-      return result;
+      await trpcClient.update.installUpdate.mutate();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error);
       this.logger.error('Install update failed', error);
       this._handleError({ message: errorMessage });
-      return { success: false, error: errorMessage };
     }
   }
 
-  dispose() {
-    this._cleanupFns.forEach(fn => {
-      if (typeof fn === 'function') fn();
-    });
-    this._cleanupFns = [];
-
-    window.updateAPI?.removeListeners();
-
+  override dispose(): void | Promise<void> {
     this._state = UpdateState.IDLE;
     this._updateInfo = null;
     this._downloadProgress = null;
     this._error = null;
     this._initialized = false;
     this.logger.info('UpdateService disposed');
+    return super.dispose();
   }
 }
 

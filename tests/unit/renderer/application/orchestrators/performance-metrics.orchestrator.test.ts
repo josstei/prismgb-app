@@ -1,0 +1,133 @@
+/**
+ * PerformanceMetricsOrchestrator Unit Tests
+ */
+
+import { describe, it, expect, beforeEach } from 'vitest';
+import { PerformanceMetricsOrchestrator } from '@renderer/application/orchestrators/performance/performance-metrics.orchestrator';
+import { EventChannels } from '@platform/events';
+import { createEventBus } from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+
+describe('PerformanceMetricsOrchestrator', () => {
+  let orchestrator;
+  let mockEventBus;
+  let mockPerformanceMetricsService;
+  let handlers;
+
+  beforeEach(() => {
+    handlers = {};
+    const h = createInjectableHarness(PerformanceMetricsOrchestrator, {
+      overrides: {
+        eventBus: createEventBus({
+          onSubscribe: (channel, handler) => {
+            handlers[channel] = handler;
+          }
+        })
+      }
+    });
+    orchestrator = h.subject;
+    ({
+      eventBus: mockEventBus,
+      performanceMetricsService: mockPerformanceMetricsService
+    } = h.deps);
+  });
+
+  describe('constructor', () => {
+    it('should create orchestrator with required dependencies', () => {
+      expect(orchestrator).toBeDefined();
+      expect(orchestrator.performanceMetricsService).toBe(mockPerformanceMetricsService);
+    });
+  });
+
+  describe('onInitialize', () => {
+    it('should subscribe to MEMORY_SNAPSHOT_REQUESTED event', async () => {
+      await orchestrator.initialize();
+
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith(
+        EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED,
+        expect.any(Function)
+      );
+    });
+
+    it('should forward snapshot requests to service', async () => {
+      await orchestrator.initialize();
+
+      const payload = { label: 'test', delayMs: 500 };
+      handlers[EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED](payload);
+
+      expect(mockPerformanceMetricsService.requestSnapshot).toHaveBeenCalledWith(payload);
+    });
+
+    it('should start periodic snapshots in dev mode', async () => {
+      const originalEnv = import.meta.env.DEV;
+      import.meta.env.DEV = true;
+
+      await orchestrator.initialize();
+
+      expect(mockPerformanceMetricsService.startPeriodicSnapshots).toHaveBeenCalled();
+
+      import.meta.env.DEV = originalEnv;
+    });
+
+    it('should not start periodic snapshots in production mode', async () => {
+      const originalEnv = import.meta.env.DEV;
+      import.meta.env.DEV = false;
+
+      await orchestrator.initialize();
+
+      expect(mockPerformanceMetricsService.startPeriodicSnapshots).not.toHaveBeenCalled();
+
+      import.meta.env.DEV = originalEnv;
+    });
+  });
+
+  describe('onCleanup', () => {
+    it('should stop periodic snapshots', async () => {
+      await orchestrator.initialize();
+      await orchestrator.onCleanup();
+
+      expect(mockPerformanceMetricsService.stopPeriodicSnapshots).toHaveBeenCalled();
+    });
+
+    it('should clear pending requests', async () => {
+      await orchestrator.initialize();
+      await orchestrator.onCleanup();
+
+      expect(mockPerformanceMetricsService.clearPendingRequests).toHaveBeenCalled();
+    });
+  });
+
+  describe('event handling', () => {
+    it('should handle snapshot request with label only', async () => {
+      await orchestrator.initialize();
+
+      handlers[EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED]({ label: 'before render' });
+
+      expect(mockPerformanceMetricsService.requestSnapshot).toHaveBeenCalledWith({
+        label: 'before render'
+      });
+    });
+
+    it('should handle snapshot request with delay', async () => {
+      await orchestrator.initialize();
+
+      handlers[EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED]({
+        label: 'after cleanup',
+        delayMs: 1000
+      });
+
+      expect(mockPerformanceMetricsService.requestSnapshot).toHaveBeenCalledWith({
+        label: 'after cleanup',
+        delayMs: 1000
+      });
+    });
+
+    it('should handle empty payload', async () => {
+      await orchestrator.initialize();
+
+      handlers[EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED]({});
+
+      expect(mockPerformanceMetricsService.requestSnapshot).toHaveBeenCalledWith({});
+    });
+  });
+});

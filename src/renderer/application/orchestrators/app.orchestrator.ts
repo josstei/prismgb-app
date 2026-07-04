@@ -1,70 +1,58 @@
-/**
- * Application Orchestrator
- *
- * THIN coordinator that wires sub-orchestrators together
- * Should be <100 lines - delegates ALL business logic to domain orchestrators
- *
- * Responsibilities:
- * - Initialize and coordinate all sub-orchestrators
- * - Wire high-level cross-orchestrator events
- */
+import { injectable, inject } from 'inversify';
+import { BaseOrchestrator } from '@platform/core';
+import { EventChannels, OnEvent } from '@platform/events';
+import type { DeviceEnumerationFailedPayload, DeviceStatus } from '@platform/events';
+import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
-import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
-import { EventChannels } from '@shared/events/event-channels.js';
+type LifecycleOrchestrator = {
+  initialize(): Promise<void> | void;
+  cleanup(): Promise<void> | void;
+};
 
+type UISetupOrchestratorLike = LifecycleOrchestrator & {
+  initializeDeferredComponents(): void;
+  setupUIEventListeners(): void;
+};
+
+type SettingsServiceLike = {
+  initialize(): Promise<void> | void;
+};
+
+type UpdateServiceLike = {
+  initialize(): Promise<void>;
+};
+
+type UpdateUiServiceLike = {
+  initialize(): void;
+};
+
+@injectable()
 export class AppOrchestrator extends BaseOrchestrator {
-
-  /**
-   * @param {Object} dependencies - Injected dependencies
-   * @param {DeviceOrchestrator} dependencies.deviceOrchestrator - Device management
-   * @param {StreamingOrchestrator} dependencies.streamingOrchestrator - Stream management
-   * @param {StreamingAudioOrchestrator} dependencies.streamingAudioOrchestrator - Audio stream lifecycle
-   * @param {CaptureOrchestrator} dependencies.captureOrchestrator - Screenshot/recording
-   * @param {PreferencesOrchestrator} dependencies.preferencesOrchestrator - User preferences
-   * @param {DisplayModeOrchestrator} dependencies.displayModeOrchestrator - Display modes
-   * @param {UpdateOrchestrator} dependencies.updateOrchestrator - Auto-updates
-   * @param {UISetupOrchestrator} dependencies.uiSetupOrchestrator - UI initialization
-   * @param {AnimationPerformanceOrchestrator} dependencies.animationPerformanceOrchestrator - CSS animation controls
-   * @param {PerformanceMetricsOrchestrator} dependencies.performanceMetricsOrchestrator - Process metrics logging
-   * @param {PerformanceStateOrchestrator} dependencies.performanceStateOrchestrator - Performance state fan-out
-   * @param {EventBus} dependencies.eventBus - Event publisher
-   * @param {Function} dependencies.loggerFactory - Logger factory
-   */
-  constructor(dependencies) {
-    super(
-      dependencies,
-      [
-        'deviceOrchestrator',
-        'streamingOrchestrator',
-        'streamingAudioOrchestrator',
-        'captureOrchestrator',
-        'preferencesOrchestrator',
-        'displayModeOrchestrator',
-        'updateOrchestrator',
-        'uiSetupOrchestrator',
-        'animationPerformanceOrchestrator',
-        'performanceMetricsOrchestrator',
-        'performanceStateOrchestrator',
-        'eventBus',
-        'loggerFactory'
-      ],
-      'AppOrchestrator'
-    );
+  constructor(
+    @inject(TOKENS.rendererDeviceRuntime) private readonly rendererDeviceRuntime: LifecycleOrchestrator,
+    @inject(TOKENS.streamingOrchestrator) private readonly streamingOrchestrator: LifecycleOrchestrator,
+    @inject(TOKENS.streamingAudioOrchestrator) private readonly streamingAudioOrchestrator: LifecycleOrchestrator,
+    @inject(TOKENS.captureOrchestrator) private readonly captureOrchestrator: LifecycleOrchestrator,
+    @inject(TOKENS.displayModeOrchestrator) private readonly displayModeOrchestrator: LifecycleOrchestrator,
+    @inject(TOKENS.settingsService) private readonly settingsService: SettingsServiceLike,
+    @inject(TOKENS.updateService) private readonly updateService: UpdateServiceLike,
+    @inject(TOKENS.updateUiService) private readonly updateUiService: UpdateUiServiceLike,
+    @inject(TOKENS.uiSetupOrchestrator) private readonly uiSetupOrchestrator: UISetupOrchestratorLike,
+    @inject(TOKENS.animationPerformanceOrchestrator) private readonly animationPerformanceOrchestrator: LifecycleOrchestrator,
+    @inject(TOKENS.performanceMetricsOrchestrator) private readonly performanceMetricsOrchestrator: LifecycleOrchestrator,
+    @inject(TOKENS.performanceStateOrchestrator) private readonly performanceStateOrchestrator: LifecycleOrchestrator,
+    @inject(TOKENS.eventBus) eventBus: EventBusLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'AppOrchestrator');
   }
 
-  /**
-   * Initialize all sub-orchestrators in order
-   * Wires high-level events before initializing to catch early events.
-   * @override
-   */
-  async onInitialize() {
-    // Wire high-level events FIRST (before sub-orchestrators emit events)
-    this._wireHighLevelEvents();
-
+  async onInitialize(): Promise<void> {
     // Initialize domain orchestrators
     await this.streamingAudioOrchestrator.initialize();
     await this.streamingOrchestrator.initialize();
-    await this.deviceOrchestrator.initialize();
+    await this.rendererDeviceRuntime.initialize();
     await this.captureOrchestrator.initialize();
 
     // Initialize application orchestrators
@@ -72,8 +60,9 @@ export class AppOrchestrator extends BaseOrchestrator {
     await this.animationPerformanceOrchestrator.initialize();
     await this.performanceMetricsOrchestrator.initialize();
     await this.displayModeOrchestrator.initialize();
-    await this.preferencesOrchestrator.initialize();
-    await this.updateOrchestrator.initialize();
+    await this.settingsService.initialize();
+    await this.updateService.initialize();
+    this.updateUiService.initialize();
     await this.uiSetupOrchestrator.initialize();
   }
 
@@ -81,47 +70,35 @@ export class AppOrchestrator extends BaseOrchestrator {
    * Start the application
    * Initializes UI components and sets up event listeners.
    */
-  async start() {
+  async start(): Promise<void> {
     this.logger.info('Starting application orchestrator...');
 
     // Delegate UI setup to UISetupOrchestrator
-    this.uiSetupOrchestrator.initializeSettingsMenu();
-    this.uiSetupOrchestrator.initializeShaderSelector();
-    this.uiSetupOrchestrator.initializeNotesPanel();
-    this.uiSetupOrchestrator.setupOverlayClickHandlers();
+    this.uiSetupOrchestrator.initializeDeferredComponents();
     this.uiSetupOrchestrator.setupUIEventListeners();
 
-    // Note: Preferences are loaded in PreferencesOrchestrator.onInitialize()
+    // Note: Preferences are loaded (and SETTINGS.PREFERENCES_LOADED published) by SettingsService.initialize()
 
     this.logger.info('Application orchestrator started');
   }
 
-  /**
-   * Wire high-level events across orchestrators
-   * @private
-   */
-  _wireHighLevelEvents() {
-    this.subscribeWithCleanup({
-      [EventChannels.DEVICE.STATUS_CHANGED]: (status) => this._handleDeviceStatusChanged(status),
-      [EventChannels.DEVICE.ENUMERATION_FAILED]: (data: { reason?: string; error?: string }) => {
-        const message = data.reason === 'webcam_access'
-          ? 'Camera access denied. Please allow camera permissions.'
-          : `Device error: ${data.error}`;
-        this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message, type: 'warning' });
-      }
-    });
+  @OnEvent(EventChannels.DEVICE.ENUMERATION_FAILED)
+  private _handleDeviceEnumerationFailed(payload: DeviceEnumerationFailedPayload): void {
+    const reason = payload.reason ?? '';
+    const error = payload.error ?? 'Unknown error';
+    const message = reason === 'webcam_access'
+      ? 'Camera access denied. Please allow camera permissions.'
+      : `Device error: ${error}`;
+    this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message, type: 'warning' });
   }
 
-  /**
-   * Handle device status changed
-   * @private
-   */
-  _handleDeviceStatusChanged(status) {
+  @OnEvent(EventChannels.DEVICE.STATUS_CHANGED)
+  _handleDeviceStatusChanged(status: DeviceStatus): void {
     const connected = status.connected;
 
     this.logger.info('Device ' + (connected ? 'CONNECTED' : 'DISCONNECTED'));
 
-    // Note: App state automatically derives deviceConnected from DeviceService
+    // AppState derives device connection from RendererDeviceRuntime.
     // No need to manually update appState.setDeviceConnected() anymore
 
     // Update UI via events
@@ -137,27 +114,20 @@ export class AppOrchestrator extends BaseOrchestrator {
     }
   }
 
-  /**
-   * Cleanup all sub-orchestrators
-   * Continues cleanup even if individual orchestrators fail.
-   * @override
-   */
-  async onCleanup() {
+  async onCleanup(): Promise<void> {
     this.logger.info('Cleaning up AppOrchestrator...');
 
     // Cleanup all sub-orchestrators (continue even if one fails)
-    const orchestrators = [
+    const orchestrators: Array<[string, LifecycleOrchestrator]> = [
       ['uiSetupOrchestrator', this.uiSetupOrchestrator],
       ['animationPerformanceOrchestrator', this.animationPerformanceOrchestrator],
       ['performanceMetricsOrchestrator', this.performanceMetricsOrchestrator],
       ['performanceStateOrchestrator', this.performanceStateOrchestrator],
-      ['updateOrchestrator', this.updateOrchestrator],
       ['displayModeOrchestrator', this.displayModeOrchestrator],
-      ['preferencesOrchestrator', this.preferencesOrchestrator],
       ['streamingAudioOrchestrator', this.streamingAudioOrchestrator],
       ['streamingOrchestrator', this.streamingOrchestrator],
       ['captureOrchestrator', this.captureOrchestrator],
-      ['deviceOrchestrator', this.deviceOrchestrator]
+      ['rendererDeviceRuntime', this.rendererDeviceRuntime]
     ];
 
     for (const [name, orchestrator] of orchestrators) {

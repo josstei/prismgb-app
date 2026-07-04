@@ -6,113 +6,139 @@
 import { defineConfig } from 'vitest/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { platformAliasMap } from './scripts/lib/workspace-aliases.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const sharedAlias = {
+  '@main': path.resolve(__dirname, 'src/main'),
+  '@renderer': path.resolve(__dirname, 'src/renderer'),
+  ...platformAliasMap(__dirname)
+};
+
+const baseCoverageConfig = {
+  provider: 'v8',
+  reporter: ['text', 'json', 'json-summary', 'html'],
+  reportsDirectory: './artifacts/coverage',
+  all: true,
+  include: ['src/**/*.{js,ts}'],
+  exclude: [
+    'node_modules/**',
+    'dist/**',
+    '**/*.test.{js,ts}',
+    '**/*.spec.{js,ts}',
+    '**/index.{js,ts}',
+    // Auto-update feature requires Electron autoUpdater API
+    'src/renderer/infrastructure/services/updates/**',
+    // UI templates use Vite ?raw imports for SVGs not available in vitest
+    'src/renderer/presentation/shell/*.{js,ts}',
+    'src/renderer/presentation/icons/*.{js,ts}',
+    'src/renderer/presentation/features/**/*.template.{js,ts}',
+    // Type declaration files
+    'src/**/*.d.ts',
+    // JSON configuration files
+    '**/*.json'
+  ]
+};
 
 export default defineConfig({
   root: __dirname,
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, 'src'),
-      '@main': path.resolve(__dirname, 'src/main'),
-      '@renderer': path.resolve(__dirname, 'src/renderer'),
-      '@preload': path.resolve(__dirname, 'src/preload'),
-      '@shared': path.resolve(__dirname, 'src/shared'),
-      '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts')
-    }
+    alias: sharedAlias
   },
   test: {
-    // Test environment (use happy-dom for browser-like environment)
-    environment: 'happy-dom',
-
-    // Global test setup
+    alias: sharedAlias,
+    coverage: baseCoverageConfig,
     globals: true,
-
-    // Coverage configuration
-    coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-      reportsDirectory: './tests/coverage',
-      all: true,
-      include: ['src/**/*.{js,ts}'],
-      exclude: [
-        'node_modules/**',
-        'dist/**',
-        'build/**',
-        '**/*.test.{js,ts}',
-        '**/*.spec.{js,ts}',
-        '**/index.{js,ts}', // Entry points
-        'scripts/**',
-        'assets/**',
-        // Main process files require Electron APIs that can't be tested with vitest/happy-dom
-        'src/main/**',
-        // Preload scripts require Electron contextBridge/ipcRenderer APIs
-        'src/preload/**',
-        // Auto-update feature requires Electron autoUpdater API
-        'src/renderer/infrastructure/services/updates/**',
-        // Web Worker files run in Worker context, not testable in vitest
-        'src/**/workers/*.{js,ts}',
-        // GPU/Canvas/WebGPU APIs not available in vitest
-        'src/**/rendering/gpu/*.{js,ts}',
-        'src/renderer/infrastructure/rendering/capability-detector.utils.ts',
-        'src/renderer/infrastructure/adapters/streaming/canvas2d-renderer.adapter.ts',
-        'src/renderer/infrastructure/adapters/streaming/gpu-renderer.adapter.ts',
-        'src/renderer/infrastructure/factories/streaming-renderer.factory.ts',
-        'src/**/gpu-render-loop.service.{js,ts}',
-        // Audio warmup requires Web Audio API not available in vitest
-        'src/**/audio/*.{js,ts}',
-        // Canvas lifecycle requires complex DOM/Canvas API interactions
-        'src/**/canvas-lifecycle.service.{js,ts}',
-        // UI templates use Vite ?raw imports for SVGs not available in vitest
-        'src/renderer/presentation/shell/*.{js,ts}',
-        'src/renderer/presentation/icons/*.{js,ts}',
-        'src/renderer/presentation/features/**/*.template.{js,ts}',
-        // Interface and type-only files (abstract base classes, contracts, type definitions)
-        'src/shared/interfaces/**',
-        'src/shared/ipc/*.contract.ts',
-        'src/**/*.interface.{js,ts}',
-        'src/**/*.type.ts',
-        'src/**/*.types.ts',
-        // Type declaration files
-        'src/**/*.d.ts',
-        // JSON configuration files
-        '**/*.json'
-      ],
-      // 80% coverage threshold for testable code
-      thresholds: {
-        lines: 80,
-        functions: 80,
-        branches: 75,
-        statements: 80
-      }
-    },
-
-    // Test file patterns
-    include: [
-      'src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts}',
-      'tests/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts}'
-    ],
-
-    // Exclude E2E tests (run with Playwright instead)
-    exclude: [
-      'tests/e2e/**',
-      'tests/workflows/index.js', // Index files not tests
-      'node_modules/**'
-    ],
-
-    // Setup files
-    setupFiles: [
-      path.resolve(__dirname, 'tests/setup.js'),
-      path.resolve(__dirname, 'tests/testing-library.setup.js')
-    ],
-
-    // Test timeout
     testTimeout: 10000,
-
-    // Limit CPU usage: 2 workers max
     pool: 'forks',
     maxWorkers: 2,
     fileParallelism: true,
-    isolate: true
+    isolate: true,
+    // E2E tests still run separately through Playwright.
+    exclude: ['tests/e2e/**'],
+    projects: [
+      {
+        test: {
+          alias: sharedAlias,
+          name: 'scripts-node',
+          globals: true,
+          clearMocks: true,
+          restoreMocks: true,
+          environment: 'node',
+          include: [
+            'tests/unit/scripts/**/*.{test,spec}.{js,ts}',
+            'tests/unit/support/**/*.{test,spec}.{js,ts}'
+          ],
+          setupFiles: [
+            path.resolve(__dirname, 'tests/setup.js'),
+            path.resolve(__dirname, 'tests/support/mocks/node-browser-mocks.setup.js')
+          ]
+        }
+      },
+      {
+        test: {
+          alias: sharedAlias,
+          name: 'renderer-happy-dom',
+          globals: true,
+          clearMocks: true,
+          restoreMocks: true,
+          environment: 'happy-dom',
+          include: [
+            'tests/integration/**/*.{test,spec}.{js,ts}',
+            'tests/workflows/**/*.{test,spec}.{js,ts}',
+            'tests/unit/renderer/**/*.{test,spec}.{js,ts}'
+          ],
+          setupFiles: [
+            path.resolve(__dirname, 'tests/setup.js'),
+            path.resolve(__dirname, 'tests/support/mocks/renderer-browser-mocks.setup.js'),
+            path.resolve(__dirname, 'tests/testing-library.setup.js')
+          ]
+        }
+      },
+      {
+        test: {
+          alias: sharedAlias,
+          name: 'main-node',
+          globals: true,
+          clearMocks: true,
+          restoreMocks: true,
+          environment: 'node',
+          include: [
+            'tests/unit/main/**/*.{test,spec}.{js,ts}'
+          ],
+          setupFiles: [
+            path.resolve(__dirname, 'tests/setup.js')
+          ]
+        }
+      },
+      {
+        test: {
+          alias: sharedAlias,
+          name: 'platform-node',
+          globals: true,
+          clearMocks: true,
+          restoreMocks: true,
+          environment: 'node',
+          include: [
+            'tests/unit/platform/{config,core,devices,events,ipc,transcode,updates}/**/*.{test,spec}.{js,ts}'
+          ],
+          setupFiles: [
+            path.resolve(__dirname, 'tests/setup.js'),
+            path.resolve(__dirname, 'tests/support/mocks/node-browser-mocks.setup.js')
+          ]
+        }
+      },
+      {
+        test: {
+          alias: sharedAlias,
+          name: 'platform-dom',
+          globals: true,
+          clearMocks: true,
+          restoreMocks: true,
+          environment: 'happy-dom',
+          include: ['tests/unit/platform/{gpu,ui-base}/**/*.{test,spec}.{js,ts}']
+        }
+      }
+    ]
   }
 });

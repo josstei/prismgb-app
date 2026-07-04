@@ -1,29 +1,16 @@
-/**
- * Window Service
- * Handles main application window creation and lifecycle
- */
-
 import { BrowserWindow, app, DownloadItem, Event } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { uiConfig } from '@shared/config/config-loader.utils.js';
-import IPC_CHANNELS from '@shared/ipc/channels.json' with { type: 'json' };
-import { BaseService } from '@shared/base/service.base.js';
+import { uiConfig } from '@platform/config';
+import { IPC_CHANNELS } from '@platform/ipc';
+import { injectable, inject } from 'inversify';
+import { BaseService, type LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@main/application/di/tokens.js';
+import type { IpcPushBridge } from '@main/ipc/ipc-push.bridge.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const { WINDOW_CONFIG } = uiConfig;
-
-interface WindowServiceDependencies {
-  loggerFactory: {
-    create: (name: string) => {
-      info: (message: string) => void;
-      debug: (message: string) => void;
-      warn: (message: string) => void;
-      error: (message: string) => void;
-    };
-  };
-}
 
 type ConsoleMessageListener = (
   event: Event,
@@ -37,31 +24,37 @@ type DownloadHandler = (event: Event, item: DownloadItem) => void;
 
 type FullscreenListener = () => void;
 
-type AppWithQuitFlag = typeof app & {
-  isQuitting?: boolean;
-};
-
 interface CreateWindowOptions {
   hidden?: boolean;
 }
 
+const WINDOW_DOWNLOAD_LIFECYCLE = Symbol('windowDownload');
+const WINDOW_CONSOLE_LIFECYCLE = Symbol('windowConsole');
+const WINDOW_READY_TO_SHOW_LIFECYCLE = Symbol('windowReadyToShow');
+const WINDOW_ENTER_FULLSCREEN_LIFECYCLE = Symbol('windowEnterFullscreen');
+const WINDOW_LEAVE_FULLSCREEN_LIFECYCLE = Symbol('windowLeaveFullscreen');
+const WINDOW_RESIZED_LIFECYCLE = Symbol('windowResized');
+const WINDOW_CLOSE_LIFECYCLE = Symbol('windowClose');
+const WINDOW_CLOSED_LIFECYCLE = Symbol('windowClosed');
+
+type CleanupWindowListenersOptions = {
+  includeCloseListener?: boolean;
+  includeClosedListener?: boolean;
+};
+
+@injectable()
 class WindowService extends BaseService {
 
   private mainWindow: BrowserWindow | null = null;
-  private _consoleMessageListener: ConsoleMessageListener | null = null;
-  private _downloadHandler: DownloadHandler | null = null;
-  private _enterFullscreenListener: FullscreenListener | null = null;
-  private _leaveFullscreenListener: FullscreenListener | null = null;
-  private _resizedListener: (() => void) | null = null;
   private _isHiddenLaunch: boolean = false;
 
-  constructor(dependencies: WindowServiceDependencies) {
-    super(dependencies, ['loggerFactory'], 'WindowService');
+  constructor(
+    @inject(TOKENS.ipcPushBridge) private readonly ipcPushBridge: IpcPushBridge,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory }, 'WindowService');
   }
 
-  /**
-   * Create the main application window
-   */
   createWindow(options: CreateWindowOptions = {}): BrowserWindow {
     if (this.mainWindow) {
       this._forceWindowToForeground();
@@ -72,8 +65,6 @@ class WindowService extends BaseService {
 
     this.logger.info('Creating main window');
 
-    // Determine dev vs production mode
-    // ELECTRON_IS_DEV=0 forces production mode for E2E tests
     const isDev = process.env.ELECTRON_IS_DEV === '0' ? false : !app.isPackaged;
     const appPath = app.getAppPath();
 
@@ -102,8 +93,9 @@ class WindowService extends BaseService {
       },
       show: false // Don't show until ready
     });
+    const mainWindow = this.mainWindow;
 
-    this._downloadHandler = (event: Event, item: DownloadItem) => {
+    const downloadHandler: DownloadHandler = (event: Event, item: DownloadItem) => {
       const downloadsPath = app.getPath('downloads');
       const rawFilename = item.getFilename();
 
@@ -132,19 +124,22 @@ class WindowService extends BaseService {
         }
       });
     };
-    this.mainWindow.webContents.session.on('will-download', this._downloadHandler);
+    mainWindow.webContents.session.on('will-download', downloadHandler);
+    this.disposables.replace(WINDOW_DOWNLOAD_LIFECYCLE, () => {
+      if (mainWindow.isDestroyed()) return;
+      mainWindow.webContents.session.off('will-download', downloadHandler);
+    });
 
     if (isDev) {
-      this.mainWindow.loadURL('http://localhost:3000/src/renderer/index.html');
-      this.logger.info('Loading from Vite dev server: http://localhost:3000/src/renderer/index.html');
+      this.mainWindow.loadURL('http://127.0.0.1:3000/src/renderer/index.html');
+      this.logger.info('Loading from Vite dev server: http://127.0.0.1:3000/src/renderer/index.html');
     } else {
       this.mainWindow.loadFile(path.join(__dirname, '../renderer/src/renderer/index.html'));
       this.logger.info('Loading built files');
     }
 
-    // Log renderer console to terminal (dev only) - store reference for cleanup
     if (isDev) {
-      this._consoleMessageListener = (
+      const consoleMessageListener: ConsoleMessageListener = (
         event: Event,
         level: number,
         message: string,
@@ -154,88 +149,90 @@ class WindowService extends BaseService {
         const levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
         console.log(`[Renderer ${levels[level] || level}] ${message}`);
       };
-      this.mainWindow.webContents.on('console-message', this._consoleMessageListener);
+      mainWindow.webContents.on('console-message', consoleMessageListener);
+      this.disposables.replace(WINDOW_CONSOLE_LIFECYCLE, () => {
+        if (mainWindow.isDestroyed()) return;
+        mainWindow.webContents.off('console-message', consoleMessageListener);
+      });
     }
 
-    this.mainWindow.once('ready-to-show', () => {
+    const readyToShowListener = () => {
       if (!this._isHiddenLaunch) {
         this._forceWindowToForeground();
       } else {
         this.logger.info('Window created in hidden mode - awaiting tray click');
       }
+    };
+    mainWindow.once('ready-to-show', readyToShowListener);
+    this.disposables.replace(WINDOW_READY_TO_SHOW_LIFECYCLE, () => {
+      mainWindow.off('ready-to-show', readyToShowListener);
     });
 
-    this._enterFullscreenListener = () => {
+    const enterFullscreenListener: FullscreenListener = () => {
       this.send(IPC_CHANNELS.WINDOW.ENTER_FULLSCREEN);
     };
-    this._leaveFullscreenListener = () => {
+    const leaveFullscreenListener: FullscreenListener = () => {
       this.send(IPC_CHANNELS.WINDOW.LEAVE_FULLSCREEN);
     };
-    this._resizedListener = () => {
+    const resizedListener = () => {
       this.send(IPC_CHANNELS.WINDOW.RESIZED);
     };
-    this.mainWindow.on('enter-full-screen', this._enterFullscreenListener);
-    this.mainWindow.on('leave-full-screen', this._leaveFullscreenListener);
-    this.mainWindow.on('resized', this._resizedListener);
+    mainWindow.on('enter-full-screen', enterFullscreenListener);
+    this.disposables.replace(WINDOW_ENTER_FULLSCREEN_LIFECYCLE, () => {
+      mainWindow.off('enter-full-screen', enterFullscreenListener);
+    });
+    mainWindow.on('leave-full-screen', leaveFullscreenListener);
+    this.disposables.replace(WINDOW_LEAVE_FULLSCREEN_LIFECYCLE, () => {
+      mainWindow.off('leave-full-screen', leaveFullscreenListener);
+    });
+    mainWindow.on('resized', resizedListener);
+    this.disposables.replace(WINDOW_RESIZED_LIFECYCLE, () => {
+      mainWindow.off('resized', resizedListener);
+    });
 
-    // Handle window close - clean up listeners before window is destroyed
-    this.mainWindow.on('close', (event: Event) => {
-      if (!(app as AppWithQuitFlag).isQuitting) {
+    const closeListener = (event: Event) => {
+      if (!app.isQuitting) {
         event.preventDefault();
-        this.mainWindow!.hide();
+        mainWindow.hide();
         return;
       }
 
-      // Clean up console message listener
-      if (this._consoleMessageListener && this.mainWindow!.webContents) {
-        this.mainWindow!.webContents.off('console-message', this._consoleMessageListener);
-      }
-      this._consoleMessageListener = null;
-
-      // Clean up download handler from session
-      if (this._downloadHandler && this.mainWindow?.webContents?.session) {
-        this.mainWindow.webContents.session.off('will-download', this._downloadHandler);
-      }
-      this._downloadHandler = null;
-
-      // Clean up fullscreen and resize listeners
-      if (this._enterFullscreenListener && this.mainWindow) {
-        this.mainWindow.off('enter-full-screen', this._enterFullscreenListener);
-        this.mainWindow.off('leave-full-screen', this._leaveFullscreenListener);
-        this.mainWindow.off('resized', this._resizedListener);
-      }
-      this._enterFullscreenListener = null;
-      this._leaveFullscreenListener = null;
-      this._resizedListener = null;
+      this._cleanupWindowListeners({
+        includeCloseListener: false,
+        includeClosedListener: false
+      });
+    };
+    mainWindow.on('close', closeListener);
+    this.disposables.replace(WINDOW_CLOSE_LIFECYCLE, () => {
+      mainWindow.off('close', closeListener);
     });
 
-    this.mainWindow.on('closed', () => {
-      // Window is already destroyed at this point - just null the reference
+    const closedListener = () => {
+      this._cleanupWindowListeners({
+        includeCloseListener: true,
+        includeClosedListener: true
+      });
       this.mainWindow = null;
+    };
+    mainWindow.on('closed', closedListener);
+    this.disposables.replace(WINDOW_CLOSED_LIFECYCLE, () => {
+      mainWindow.off('closed', closedListener);
     });
 
     return this.mainWindow;
   }
 
-  /**
-   * Force window to foreground with platform-specific methods
-   * Simplified to avoid Chromium compositor crashes on Linux
-   */
   private _forceWindowToForeground(): void {
     if (!this.mainWindow) return;
 
-    // Restore if minimized
     if (this.mainWindow.isMinimized()) {
       this.mainWindow.restore();
     }
 
-    // Show and focus - keep it simple to avoid race conditions
     this.mainWindow.show();
     this.mainWindow.focus();
 
-    // Platform-specific focus methods
     if (process.platform === 'darwin') {
-      // macOS-specific: request focus and activate app
       app.focus({ steal: true });
     }
 
@@ -244,9 +241,6 @@ class WindowService extends BaseService {
     }
   }
 
-  /**
-   * Show the window if it exists
-   */
   showWindow(): void {
     this._isHiddenLaunch = false;
     if (this.mainWindow) {
@@ -256,34 +250,51 @@ class WindowService extends BaseService {
     }
   }
 
-  /**
-   * Check if window exists
-   */
-  hasWindow(): boolean {
-    return this.mainWindow !== null;
+  destroyWindow(): void {
+    if (!this.mainWindow || this.mainWindow.isDestroyed()) {
+      this.mainWindow = null;
+      return;
+    }
+
+    this.logger.info('Destroying main window safely');
+
+    // 1. Clean up listeners while the window is still alive
+    this._cleanupWindowListeners({
+      includeCloseListener: true,
+      includeClosedListener: true
+    });
+
+    // 2. Close DevTools if open
+    try {
+      if (this.mainWindow.webContents && !this.mainWindow.webContents.isDestroyed() && this.mainWindow.webContents.isDevToolsOpened()) {
+        this.mainWindow.webContents.closeDevTools();
+        this.logger.debug('Closed DevTools');
+      }
+    } catch (error) {
+      this.logger.error('Error closing DevTools during window destroy:', error);
+    }
+
+    // 3. Destroy window
+    try {
+      this.mainWindow.destroy();
+      this.logger.debug('Destroyed main window');
+    } catch (error) {
+      this.logger.error('Error destroying window:', error);
+    }
+
+    this.mainWindow = null;
   }
 
-  /**
-   * Get main window reference
-   */
   getMainWindow(): BrowserWindow | null {
     return this.mainWindow;
   }
 
-  /**
-   * Set fullscreen state
-   * @param enabled - Whether to enter or exit fullscreen
-   */
   setFullScreen(enabled: boolean): void {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       this.mainWindow.setFullScreen(enabled);
     }
   }
 
-  /**
-   * Check if window is in fullscreen
-   * @returns True if fullscreen
-   */
   isFullScreen(): boolean {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       return this.mainWindow.isSimpleFullScreen() || this.mainWindow.isFullScreen();
@@ -291,15 +302,46 @@ class WindowService extends BaseService {
     return false;
   }
 
-  /**
-   * Send message to renderer process
-   */
   send(channel: string, ...args: unknown[]): void {
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send(channel, ...args);
+    this.ipcPushBridge.emit(channel, args[0]);
+  }
+
+  private _cleanupWindowListeners({
+    includeCloseListener = true,
+    includeClosedListener = false
+  }: CleanupWindowListenersOptions = {}): void {
+    const lifecycles = [
+      WINDOW_READY_TO_SHOW_LIFECYCLE,
+      WINDOW_CONSOLE_LIFECYCLE,
+      WINDOW_DOWNLOAD_LIFECYCLE,
+      WINDOW_ENTER_FULLSCREEN_LIFECYCLE,
+      WINDOW_LEAVE_FULLSCREEN_LIFECYCLE,
+      WINDOW_RESIZED_LIFECYCLE
+    ];
+
+    if (includeCloseListener) {
+      lifecycles.push(WINDOW_CLOSE_LIFECYCLE);
     }
+    if (includeClosedListener) {
+      lifecycles.push(WINDOW_CLOSED_LIFECYCLE);
+    }
+
+    for (const key of lifecycles) {
+      try {
+        this.disposables.cancel(key);
+      } catch (error) {
+        this.logger.error(`Error cancelling window lifecycle listener for key ${String(key)}:`, error);
+      }
+    }
+  }
+
+  override dispose(): void | Promise<void> {
+    this._cleanupWindowListeners({
+      includeCloseListener: true,
+      includeClosedListener: true
+    });
+    return super.dispose();
   }
 }
 
 export { WindowService };
-export type { WindowServiceDependencies };

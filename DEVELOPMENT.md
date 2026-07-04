@@ -48,8 +48,7 @@ npm run dev
 | `npm run lint` | ESLint + architecture boundary checks (JS/TS import boundaries) |
 | `npm run lint:fix` | Auto-fix linting issues + boundary checks |
 | `npm run typecheck:app` | Typecheck app sources using `tsconfig.app.json` |
-| `npm run typecheck:gpu` | Typecheck `@prismgb/gpu` workspace |
-| `npm run typecheck` | Run app + GPU typecheck gates |
+| `npm run typecheck` | Run `typecheck:app` + `typecheck:tests` |
 | `npm test` | Run tests in watch mode |
 | `npm run test:ui` | Run Vitest UI |
 | `npm run test:run` | Run all tests once |
@@ -57,7 +56,6 @@ npm run dev
 | `npm run test:integration` | Run integration tests only |
 | `npm run test:integration:watch` | Watch integration tests |
 | `npm run test:coverage` | Run tests with coverage report |
-| `npm run test:all` | Run all tests once (alias) |
 | `npm run test:smoke` | Run smoke test against built app |
 | `npm run generate-icons` | Regenerate app icons |
 

@@ -5,5 +5,6 @@ declare namespace Electron {
 }
 
 interface Window {
+  __app?: () => unknown;
   webkitAudioContext?: typeof AudioContext;
 }

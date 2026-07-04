@@ -1,182 +1,108 @@
-/**
- * Transcode Service (Renderer)
- *
- * Bridges window.transcodeAPI (preload) with EventBus for renderer-side transcode handling.
- * Manages transcoding state and re-emits IPC events as EventBus events.
- *
- * Events emitted:
- * - 'transcode:started' - Transcoding started
- * - 'transcode:progress' - Transcoding progress update
- * - 'transcode:completed' - Transcoding completed successfully
- * - 'transcode:error' - Transcoding error occurred
- * - 'transcode:cancelled' - Transcoding was cancelled
- */
-
-import { BaseService } from '@shared/base/service.base.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { injectable, inject } from 'inversify';
+import { BaseService } from '@platform/core';
+import { EventChannels } from '@platform/events';
+import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
+import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
+import { callIpc, type CallIpcResult } from '@renderer/infrastructure/ipc/call-ipc.js';
+import type { EventPublisherLike, LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 import type {
-  TranscodeCancelResponse,
   TranscodeCancelledPayload,
   TranscodeCompletedPayload,
   TranscodeErrorPayload,
   TranscodeFormat,
   TranscodeProgressPayload,
   TranscodeStartOptions,
-  TranscodeStartResponse
-} from '@shared/ipc/preload-api.contract.js';
+  TranscodeStartPayload
+} from '@platform/ipc';
 
+const TRANSCODE_SUBSCRIPTION_LIFECYCLE = Symbol('transcodeSubscriptionLifecycle');
+
+@injectable()
 class TranscodeService extends BaseService {
+  private _isTranscoding: boolean;
+  private _activeJobId: string | null;
 
-  constructor(dependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory'], 'TranscodeService');
+  constructor(
+    @inject(TOKENS.eventBus) private readonly eventBus: EventPublisherLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'TranscodeService');
 
     this._isTranscoding = false;
     this._activeJobId = null;
-    this._cleanupFns = [];
-    this._initialized = false;
   }
 
-  /**
-   * Initialize the service - subscribe to IPC events via window.transcodeAPI
-   */
-  initialize() {
-    if (this._initialized) {
-      this.logger.warn('TranscodeService already initialized');
-      return;
-    }
-
-    if (!window.transcodeAPI) {
-      this.logger.warn('transcodeAPI not available - transcoding disabled');
-      return;
-    }
-
+  protected override onInitialize(): void {
     this.logger.info('Initializing TranscodeService');
 
-    // Subscribe to IPC events and republish on eventBus
-    // Note: No onStarted handler - the main process doesn't emit a STARTED event.
-    // The started state is determined by the successful return of transcode() call.
-    this._cleanupFns.push(
-      window.transcodeAPI.onProgress((data) => this._handleProgress(data)),
-      window.transcodeAPI.onCompleted((data) => this._handleCompleted(data)),
-      window.transcodeAPI.onError((data) => this._handleError(data)),
-      window.transcodeAPI.onCancelled((data) => this._handleCancelled(data))
-    );
+    this.disposables.replace(TRANSCODE_SUBSCRIPTION_LIFECYCLE, createTrpcEventBridge('TranscodeService', [
+      () => trpcClient.transcode.onProgress.subscribe(undefined, { onData: (data) => this._handleProgress(data) }),
+      () => trpcClient.transcode.onCompleted.subscribe(undefined, { onData: (data) => this._handleCompleted(data) }),
+      () => trpcClient.transcode.onError.subscribe(undefined, { onData: (data) => this._handleError(data) }),
+      () => trpcClient.transcode.onCancelled.subscribe(undefined, { onData: (data) => this._handleCancelled(data) })
+    ], this.logger));
 
-    this._initialized = true;
     this.logger.info('TranscodeService initialized');
   }
 
-  /**
-   * Start transcoding a blob to a different format
-   * @param {Blob} blob - The source video blob
-   * @param {string} format - Target format (e.g., 'mp4', 'mov')
-   * @param {string} [outputBaseName] - Base name for output file (without extension)
-   * @param {Object} [options]
-   * @param {string[]} [options.inputArgs] - FFmpeg input args (applied before -i)
-   * @param {boolean} [options.interrupted] - Recording stopped due to stream interruption
-   * @returns {Promise<{success: boolean, jobId?: string, error?: string}>}
-   */
   async transcode(
     blob: Blob,
     format: TranscodeFormat,
     outputBaseName?: string,
     options: TranscodeStartOptions = {}
-  ): Promise<TranscodeStartResponse> {
-    if (!window.transcodeAPI) {
-      this.logger.warn('transcodeAPI not available');
-      return { success: false, error: 'Transcoding not available' };
-    }
-
+  ): Promise<CallIpcResult<TranscodeStartPayload>> {
     if (this._isTranscoding) {
       this.logger.warn('Transcoding already in progress');
-      return { success: false, error: 'Transcoding already in progress' };
+      return { status: 'error', error: 'Transcoding already in progress' };
     }
 
-    try {
-      this.logger.info(`Starting transcode to ${format}`);
+    this.logger.info(`Starting transcode to ${format}`);
 
-      // Convert blob to ArrayBuffer for IPC transfer
+    const result = await callIpc('transcode.start', async () => {
       const arrayBuffer = await blob.arrayBuffer();
-
-      // Call the main process transcode API
-      const result = await window.transcodeAPI.start(
-        arrayBuffer,
+      return trpcClient.transcode.start.mutate({
+        inputBuffer: arrayBuffer,
         format,
-        outputBaseName,
-        {
-          inputArgs: Array.isArray(options.inputArgs) ? options.inputArgs : undefined,
-          interrupted: Boolean(options.interrupted)
-        }
-      );
+        outputFilename: outputBaseName,
+        inputArgs: Array.isArray(options.inputArgs) ? options.inputArgs : undefined,
+        interrupted: Boolean(options.interrupted)
+      });
+    }, this.logger);
 
-      if (result.success && result.jobId) {
-        // Track state locally since main process doesn't emit STARTED event
-        this._isTranscoding = true;
-        this._activeJobId = result.jobId;
-        this.logger.info('Transcode started', { jobId: result.jobId, format });
-        this.eventBus.publish(EventChannels.TRANSCODE.STARTED, { jobId: result.jobId, format });
-      }
-
-      return result;
-    } catch (error) {
-      this.logger.error('Transcode failed', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error)
-      };
+    if (result.status === 'ok' && result.value.jobId) {
+      this._isTranscoding = true;
+      this._activeJobId = result.value.jobId;
+      this.logger.info('Transcode started', { jobId: result.value.jobId, format });
+      this.eventBus.publish(EventChannels.TRANSCODE.STARTED, { jobId: result.value.jobId, format });
     }
+
+    return result;
   }
 
-  /**
-   * Cancel the current transcoding operation
-   * @returns {Promise<{success: boolean, error?: string}>}
-   */
-  async cancel(): Promise<TranscodeCancelResponse> {
-    if (!window.transcodeAPI) {
-      this.logger.warn('transcodeAPI not available');
-      return { success: false, error: 'Transcoding not available' };
-    }
-
+  async cancel(): Promise<CallIpcResult<void>> {
     if (!this._isTranscoding || !this._activeJobId) {
       this.logger.warn('No transcoding in progress to cancel');
-      return { success: false, error: 'No transcoding in progress' };
+      return { status: 'error', error: 'No transcoding in progress' };
     }
 
     this.logger.info('Cancelling transcode', { jobId: this._activeJobId });
-    return window.transcodeAPI.cancel(this._activeJobId);
+    const jobId = this._activeJobId;
+    return callIpc('transcode.cancel', () => trpcClient.transcode.cancel.mutate({ jobId }), this.logger);
   }
 
-  /**
-   * Check if transcoding is currently in progress
-   * @returns {boolean}
-   */
   isTranscoding() {
     return this._isTranscoding;
   }
 
-  /**
-   * Check if transcoding capability is available
-   * Use this instead of directly checking window.transcodeAPI
-   * @returns {boolean}
-   */
   isAvailable() {
-    return Boolean(window.transcodeAPI);
+    return true;
   }
 
-  /**
-   * Handle transcode progress event from IPC
-   * @param {Object} data - Progress data (percent, timeRemaining, etc.)
-   * @private
-   */
   _handleProgress(data: TranscodeProgressPayload) {
     this.eventBus.publish(EventChannels.TRANSCODE.PROGRESS, data);
   }
 
-  /**
-   * Handle transcode completed event from IPC
-   * @param {Object} data - Completion data (outputPath, duration, etc.)
-   * @private
-   */
   _handleCompleted(data: TranscodeCompletedPayload) {
     this.logger.info('Transcode completed', data);
     this._isTranscoding = false;
@@ -184,11 +110,6 @@ class TranscodeService extends BaseService {
     this.eventBus.publish(EventChannels.TRANSCODE.COMPLETED, data);
   }
 
-  /**
-   * Handle transcode error event from IPC
-   * @param {Object} data - Error data
-   * @private
-   */
   _handleError(data: TranscodeErrorPayload) {
     this.logger.error('Transcode error', data);
     this._isTranscoding = false;
@@ -196,11 +117,6 @@ class TranscodeService extends BaseService {
     this.eventBus.publish(EventChannels.TRANSCODE.ERROR, data);
   }
 
-  /**
-   * Handle transcode cancelled event from IPC
-   * @param {Object} data - Cancellation data
-   * @private
-   */
   _handleCancelled(data: TranscodeCancelledPayload) {
     this.logger.info('Transcode cancelled', data);
     this._isTranscoding = false;
@@ -208,21 +124,12 @@ class TranscodeService extends BaseService {
     this.eventBus.publish(EventChannels.TRANSCODE.CANCELLED, data);
   }
 
-  /**
-   * Cleanup subscriptions and reset state
-   */
-  dispose() {
-    this._cleanupFns.forEach(fn => {
-      if (typeof fn === 'function') fn();
-    });
-    this._cleanupFns = [];
-
-    window.transcodeAPI?.removeListeners?.();
-
+  override dispose(): void | Promise<void> {
     this._isTranscoding = false;
     this._activeJobId = null;
     this._initialized = false;
     this.logger.info('TranscodeService disposed');
+    return super.dispose();
   }
 }
 

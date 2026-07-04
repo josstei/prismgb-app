@@ -6,13 +6,12 @@
 
 # CI/CD and GitHub configuration requires careful review
 .github/ @josstei
-.releaserc.json @josstei
 
 # Main process code (security-sensitive)
-src/app/main/ @josstei
+src/main/ @josstei
 
-# Infrastructure (affects entire app)
-src/infrastructure/ @josstei
+# Platform (affects entire app)
+src/platform/ @josstei
 
 # Build and release scripts
 scripts/ @josstei

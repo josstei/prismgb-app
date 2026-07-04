@@ -5,18 +5,31 @@
  * Keeps streaming orchestration free of direct DOM manipulation.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { injectable, inject } from 'inversify';
+import { BaseService } from '@platform/core';
+import type {
+  LoggerFactoryLike
+} from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
+type UiControllerLike = {
+  elements: {
+    streamVideo: HTMLVideoElement | null;
+    streamCanvas: HTMLCanvasElement | null;
+  };
+  setStreamCanvas(canvas: HTMLCanvasElement): void;
+};
+
+@injectable()
 class StreamingViewService extends BaseService {
-  constructor(dependencies) {
-    super(dependencies, ['uiController', 'loggerFactory'], 'StreamingViewService');
+  constructor(
+    @inject(TOKENS.uiController) private readonly uiController: UiControllerLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory }, 'StreamingViewService');
   }
 
-  /**
-   * Attaches a MediaStream to the video element with mute enforced.
-   * @param {MediaStream} stream - The media stream to attach
-   */
-  attachMutedStream(stream) {
+  attachMutedStream(stream: MediaStream): void {
     const video = this.uiController.elements.streamVideo;
     if (!video) {
       this.logger.warn('Stream video element not found');
@@ -32,7 +45,7 @@ class StreamingViewService extends BaseService {
   /**
    * Clears the video element's stream and resets it.
    */
-  clearStream() {
+  clearStream(): void {
     const video = this.uiController.elements.streamVideo;
     if (!video) {
       this.logger.warn('Stream video element not found');
@@ -47,11 +60,7 @@ class StreamingViewService extends BaseService {
     }
   }
 
-  /**
-   * Sets the muted state of the video element.
-   * @param {boolean} muted - Whether the video should be muted
-   */
-  setMuted(muted) {
+  setMuted(muted: boolean): void {
     const video = this.uiController.elements.streamVideo;
     if (!video) {
       this.logger.warn('Stream video element not found');
@@ -61,11 +70,7 @@ class StreamingViewService extends BaseService {
     video.muted = Boolean(muted);
   }
 
-  /**
-   * Gets the stream video element.
-   * @returns {HTMLVideoElement|null} The video element or null if not found
-   */
-  getVideo() {
+  getVideo(): HTMLVideoElement | null {
     const video = this.uiController.elements.streamVideo;
     if (!video) {
       this.logger.warn('Stream video element not found');
@@ -74,11 +79,7 @@ class StreamingViewService extends BaseService {
     return video;
   }
 
-  /**
-   * Gets the stream canvas element.
-   * @returns {HTMLCanvasElement|null} The canvas element or null if not found
-   */
-  getCanvas() {
+  getCanvas(): HTMLCanvasElement | null {
     const canvas = this.uiController.elements.streamCanvas;
     if (!canvas) {
       this.logger.warn('Stream canvas element not found');
@@ -87,11 +88,7 @@ class StreamingViewService extends BaseService {
     return canvas;
   }
 
-  /**
-   * Gets the canvas container element (parent of canvas).
-   * @returns {HTMLElement|null} The canvas container element or null if not found
-   */
-  getCanvasContainer() {
+  getCanvasContainer(): HTMLElement | null {
     const canvas = this.getCanvas();
     if (!canvas) return null;
 
@@ -103,11 +100,7 @@ class StreamingViewService extends BaseService {
     return container;
   }
 
-  /**
-   * Gets the canvas section element (parent of canvas container, used for resize observer).
-   * @returns {HTMLElement|null} The canvas section element or null if not found
-   */
-  getCanvasSection() {
+  getCanvasSection(): HTMLElement | null {
     const container = this.getCanvasContainer();
     if (!container) return null;
 
@@ -119,11 +112,7 @@ class StreamingViewService extends BaseService {
     return section;
   }
 
-  /**
-   * Updates the canvas element reference (used when canvas is recreated for WebGPU).
-   * @param {HTMLCanvasElement} canvas - The new canvas element
-   */
-  setCanvas(canvas) {
+  setCanvas(canvas: HTMLCanvasElement): void {
     if (!canvas || !(canvas instanceof HTMLCanvasElement)) {
       this.logger.warn('Invalid canvas element provided to setCanvas');
       return;

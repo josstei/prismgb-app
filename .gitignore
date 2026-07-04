@@ -39,9 +39,12 @@ Thumbs.db
 .env
 .env.local
 .claude/
+.antigravitycli/
 CLAUDE.md
 GEMINI.md
 AGENT.md
+.agents/
+.agy*
 
 # Git worktrees
 .worktrees/
@@ -52,14 +55,14 @@ screenshots/
 *.mp4
 *.webm
 
-# Test coverage
-tests/coverage/
+# Test coverage and generated reports
 .vitest/
 artifacts/
 
 # Playwright E2E test artifacts
 tests/e2e/test-results/
 tests/e2e/screenshots/
+tests/e2e/.generated/
 playwright-report/
 test-results/
 
@@ -69,3 +72,7 @@ scripts/*.log
 # Docs subdirectories
 docs/superpowers/
 docs/maestro/
+.gemini/
+
+# Scratch directories
+scratch/

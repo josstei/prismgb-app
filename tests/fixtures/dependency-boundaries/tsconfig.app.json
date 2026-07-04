@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@main/*": ["./src/main/*"],
+      "@renderer/*": ["./src/renderer/*"],
+      "@preload/*": ["./src/preload/*"],
+      "@platform/gpu": ["./src/platform/gpu/index"],
+      "@platform/core": ["./src/platform/core/index"]
+    }
+  }
+}

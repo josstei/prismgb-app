@@ -4,7 +4,9 @@
  * Manages the shutter flash effect when taking screenshots.
  */
 
-export class CaptureEffects {
+import { PresentationComponent } from '@platform/ui-base';
+
+export class CaptureEffects extends PresentationComponent {
   /**
    * Trigger shutter flash effect
    */
@@ -12,32 +14,40 @@ export class CaptureEffects {
     this._createFlashOverlay('shutter-flash');
   }
 
-  /**
-   * Create a flash overlay with given class
-   * @param {string} className - CSS class for the flash overlay
-   * @private
-   */
-  _createFlashOverlay(className) {
+  _createFlashOverlay(className: string) {
     const flash = document.createElement('div');
     flash.className = className;
     document.body.appendChild(flash);
 
+    let disposeTimeout = () => {};
+    let disposeAnimationEnd = () => {};
+    let disposeLifecycle = () => {};
+    let isCleanedUp = false;
+
     const cleanup = () => {
+      if (isCleanedUp) {
+        return;
+      }
+
+      isCleanedUp = true;
+      disposeTimeout();
+      disposeAnimationEnd();
       if (flash.parentNode) {
         flash.remove();
       }
-      clearTimeout(timer);
+      disposeLifecycle();
     };
 
     // Fallback timeout in case animation doesn't fire
-    const timer = setTimeout(cleanup, 500);
-    flash.addEventListener('animationend', cleanup, { once: true });
+    disposeTimeout = this.timeout(cleanup, 500);
+    disposeAnimationEnd = this.listen(flash, 'animationend', cleanup, { once: true });
+    disposeLifecycle = this.track(cleanup);
   }
 
   /**
-   * Dispose (no resources to cleanup)
+   * Dispose any pending flash overlays.
    */
-  dispose() {
-    // No persistent state to cleanup
+  override dispose(): void | Promise<void> {
+    return super.dispose();
   }
 }

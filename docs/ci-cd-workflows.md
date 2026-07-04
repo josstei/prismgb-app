@@ -24,7 +24,7 @@ Related docs:
 | Workflow | Purpose |
 | --- | --- |
 | `reusable-ci-lint.yml` | PR title validation and commit linting. |
-| `reusable-ci-tests.yml` | Linux test + coverage, optional macOS/Windows matrix. |
+| `reusable-ci-tests.yml` | Linux test run, optional macOS/Windows matrix. |
 | `reusable-ci-build-smoke.yml` | Vite-only build smoke check. |
 | `reusable-release-check.yml` | Detects release commits, tags, audits, and emits build matrix JSON. |
 | `reusable-build-desktop.yml` | Cross-platform build, smoke tests, artifact upload. |
@@ -57,7 +57,7 @@ flowchart TD
   LINT --> TESTS[reusable-ci-tests.yml]
   LINT --> SMOKE[reusable-ci-build-smoke.yml]
 
-  TESTS --> LINUX[Test: ubuntu-latest + coverage]
+  TESTS --> LINUX[Test: ubuntu-latest]
   TESTS --> MATRIX{Full matrix?}
   MATRIX -->|full-ci label or workflow_dispatch full_matrix| OS[Test: macOS + Windows]
 ```

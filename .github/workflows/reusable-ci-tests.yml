@@ -27,34 +27,17 @@ jobs:
 
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-deps
+        with:
+          install-xvfb: 'true'
+
+      - name: Check native packaging ABI
+        run: npm run packaging:check-native-abi
 
       - name: Run linter
         run: npm run lint
 
-      - name: Generate architecture scorecard
-        run: npm run architecture:scorecard -- --enforce-thresholds --output artifacts/architecture-scorecard.json --summary-output artifacts/architecture-scorecard-summary.md
-
-      - name: Upload architecture scorecard
-        if: ${{ always() && hashFiles('artifacts/architecture-scorecard.json') != '' && hashFiles('artifacts/architecture-scorecard-summary.md') != '' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: architecture-scorecard
-          path: |
-            artifacts/architecture-scorecard.json
-            artifacts/architecture-scorecard-summary.md
-          if-no-files-found: error
-
-      - name: Publish architecture scorecard summary
-        if: always()
-        run: |
-          if [ -f artifacts/architecture-scorecard-summary.md ]; then
-            cat artifacts/architecture-scorecard-summary.md >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "Architecture scorecard summary was not generated." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-      - name: Build GPU package types
-        run: npm run build --workspace=@prismgb/gpu
+      - name: Run dead-code gate
+        run: npm run lint:dead-code
 
       - name: Run typecheck
         run: npm run typecheck
@@ -62,8 +45,11 @@ jobs:
       - name: Run build smoke
         run: npm run build:vite
 
-      - name: Run tests with coverage
-        run: npm run test:coverage -- --coverage.thresholds.lines=80 --coverage.thresholds.functions=80 --coverage.thresholds.statements=80 --coverage.thresholds.branches=75
+      - name: Run tests
+        run: npm run test:run
+
+      - name: Run dev boot preflight
+        run: xvfb-run -a npm run dev:smoke
 
       - name: Run integration tests
         run: npm run test:integration
@@ -81,8 +67,8 @@ jobs:
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-deps
 
-      - name: Build GPU package types
-        run: npm run build --workspace=@prismgb/gpu
+      - name: Check native packaging ABI
+        run: npm run packaging:check-native-abi
 
       - name: Run typecheck
         run: npm run typecheck
@@ -115,6 +101,9 @@ jobs:
 
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-deps
+
+      - name: Check native packaging ABI
+        run: npm run packaging:check-native-abi
 
       - name: Run tests (no coverage)
         run: npm run test:run

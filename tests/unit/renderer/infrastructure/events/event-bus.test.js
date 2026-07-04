@@ -5,16 +5,16 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { EventBus } from '@renderer/infrastructure/events/event-bus.class.js';
-import { createMockLoggerFactory } from '../../../../mocks/index.js';
+import { EventBus } from '@renderer/infrastructure/events/event-bus.js';
+import { createLoggerFactory } from '../../../../factories/index.js';
 
 describe('EventBus', () => {
   let eventBus;
   let mockLoggerFactory;
 
   beforeEach(() => {
-    mockLoggerFactory = createMockLoggerFactory();
-    eventBus = new EventBus({ loggerFactory: mockLoggerFactory });
+    mockLoggerFactory = createLoggerFactory();
+    eventBus = new EventBus(mockLoggerFactory);
   });
 
   describe('Constructor', () => {
@@ -25,7 +25,7 @@ describe('EventBus', () => {
     });
 
     it('should create EventBus with logger factory', () => {
-      const bus = new EventBus({ loggerFactory: mockLoggerFactory });
+      const bus = new EventBus(mockLoggerFactory);
       expect(bus).toBeDefined();
     });
   });
@@ -147,13 +147,15 @@ describe('EventBus', () => {
     it('should allow multiple subscriptions of same handler to same event', () => {
       const handler = vi.fn();
 
-      eventBus.subscribe('test-event', handler);
+      const unsubscribe = eventBus.subscribe('test-event', handler);
       eventBus.subscribe('test-event', handler);
 
       eventBus.publish('test-event', 'data');
+      unsubscribe();
+      eventBus.publish('test-event', 'after');
 
-      // Both subscriptions should fire
-      expect(handler).toHaveBeenCalledTimes(2);
+      expect(handler).toHaveBeenCalledTimes(3);
+      expect(handler).toHaveBeenLastCalledWith('after');
     });
   });
 

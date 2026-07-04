@@ -1,0 +1,90 @@
+/**
+ * Token-name to mock-factory registry for the injectable harness.
+ *
+ * Maps DI token names (the `Symbol.for` key shared by the renderer and main
+ * TOKENS tables) to the canonical tests/factories builders. Tokens without an
+ * entry here are suite-specific; suites supply them through harness overrides.
+ */
+
+import {
+  createEventBus,
+  createLoggerFactory,
+  createAppState,
+  createStorageService,
+  createSettingsServiceMock,
+  createSettingsFullscreenServiceMock,
+  createSettingsCinematicModeServiceMock,
+  createPresentationModeServiceMock,
+  createNotesServiceMock,
+  createRendererDeviceRuntimeMock,
+  createDeviceMediaAcquirerMock,
+  createStreamingServiceFacadeMock,
+  createStreamingViewServiceMock,
+  createStreamingRenderServiceMock,
+  createStreamingAudioPipelineServiceMock,
+  createCanvasLifecycleServiceMock,
+  createViewportServiceMock,
+  createStreamHealthServiceMock,
+  createCaptureServiceMock,
+  createCaptureSaveServiceMock,
+  createCaptureGpuRecordingServiceMock,
+  createTranscodeServiceMock,
+  createPerformanceMetricsAdapterMock,
+  createPerformanceMetricsServiceMock,
+  createPerformanceStateServiceMock,
+  createPerformanceAnimationServiceMock,
+  createVisibilityAdapterMock,
+  createUserActivityAdapterMock,
+  createReducedMotionAdapterMock,
+  createBodyClassManagerMock,
+  createUIController,
+  createOrchestratorMock,
+  createWindowServiceMock,
+  createLoginItemServiceMock
+} from '../../factories/index.js';
+
+export type TokenMockFactory = () => unknown;
+
+export const TOKEN_MOCK_FACTORIES: Readonly<Record<string, TokenMockFactory>> = Object.freeze({
+  eventBus: createEventBus,
+  loggerFactory: createLoggerFactory,
+  appState: createAppState,
+  storageService: createStorageService,
+  settingsService: createSettingsServiceMock,
+  fullscreenService: createSettingsFullscreenServiceMock,
+  cinematicModeService: createSettingsCinematicModeServiceMock,
+  presentationModeService: createPresentationModeServiceMock,
+  notesService: createNotesServiceMock,
+  rendererDeviceRuntime: createRendererDeviceRuntimeMock,
+  deviceMediaAcquirer: createDeviceMediaAcquirerMock,
+  streamingService: createStreamingServiceFacadeMock,
+  streamViewService: createStreamingViewServiceMock,
+  streamingRenderService: createStreamingRenderServiceMock,
+  streamingAudioPipelineService: createStreamingAudioPipelineServiceMock,
+  canvasLifecycleService: createCanvasLifecycleServiceMock,
+  viewportService: createViewportServiceMock,
+  streamHealthService: createStreamHealthServiceMock,
+  captureService: createCaptureServiceMock,
+  captureSaveService: createCaptureSaveServiceMock,
+  gpuRecordingService: createCaptureGpuRecordingServiceMock,
+  transcodeService: createTranscodeServiceMock,
+  metricsAdapter: createPerformanceMetricsAdapterMock,
+  performanceMetricsService: createPerformanceMetricsServiceMock,
+  performanceStateService: createPerformanceStateServiceMock,
+  animationPerformanceService: createPerformanceAnimationServiceMock,
+  visibilityAdapter: createVisibilityAdapterMock,
+  userActivityAdapter: createUserActivityAdapterMock,
+  reducedMotionAdapter: createReducedMotionAdapterMock,
+  bodyClassManager: createBodyClassManagerMock,
+  uiController: createUIController,
+  streamingOrchestrator: createOrchestratorMock,
+  streamingAudioOrchestrator: createOrchestratorMock,
+  captureOrchestrator: createOrchestratorMock,
+  displayModeOrchestrator: createOrchestratorMock,
+  uiSetupOrchestrator: createOrchestratorMock,
+  performanceMetricsOrchestrator: createOrchestratorMock,
+  performanceStateOrchestrator: createOrchestratorMock,
+  animationPerformanceOrchestrator: createOrchestratorMock,
+  windowService: createWindowServiceMock,
+  loginItemService: createLoginItemServiceMock
+});

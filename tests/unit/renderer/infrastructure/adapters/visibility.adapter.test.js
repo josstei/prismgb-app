@@ -4,21 +4,17 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { VisibilityAdapter } from '@renderer/infrastructure/adapters/visibility.adapter.js';
+import { installDocumentPropertyMock } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('VisibilityAdapter', () => {
   let adapter;
   let visibilityChangeListeners;
+  let hiddenMock;
 
   beforeEach(() => {
     visibilityChangeListeners = [];
     adapter = new VisibilityAdapter();
-
-    // Mock document.hidden
-    Object.defineProperty(document, 'hidden', {
-      value: false,
-      writable: true,
-      configurable: true
-    });
+    hiddenMock = installDocumentPropertyMock('hidden', false);
 
     // Mock document.addEventListener
     vi.spyOn(document, 'addEventListener').mockImplementation((event, listener) => {
@@ -32,17 +28,17 @@ describe('VisibilityAdapter', () => {
 
   afterEach(() => {
     adapter.dispose();
-    vi.restoreAllMocks();
+    hiddenMock.cleanup();
   });
 
   describe('isHidden', () => {
     it('should return false when document is visible', () => {
-      Object.defineProperty(document, 'hidden', { value: false, configurable: true });
+      hiddenMock.setValue(false);
       expect(adapter.isHidden()).toBe(false);
     });
 
     it('should return true when document is hidden', () => {
-      Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+      hiddenMock.setValue(true);
       expect(adapter.isHidden()).toBe(true);
     });
   });
@@ -53,7 +49,7 @@ describe('VisibilityAdapter', () => {
       adapter.onVisibilityChange(callback);
 
       // Simulate visibility change
-      Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+      hiddenMock.setValue(true);
       visibilityChangeListeners.forEach(listener => listener());
 
       expect(callback).toHaveBeenCalledWith(true);

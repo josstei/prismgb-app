@@ -26,7 +26,6 @@ describe('UserActivityAdapter', () => {
 
   afterEach(() => {
     adapter.dispose();
-    vi.restoreAllMocks();
   });
 
   describe('onActivity', () => {
@@ -107,7 +106,7 @@ describe('UserActivityAdapter', () => {
         expect(document.removeEventListener).toHaveBeenCalledWith(
           event,
           expect.any(Function),
-          { passive: true }
+          { capture: false }
         );
       });
     });

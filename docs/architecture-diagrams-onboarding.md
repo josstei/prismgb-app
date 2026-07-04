@@ -1,5 +1,7 @@
 # Architecture Diagrams (Onboarding)
 
+<!-- Source: docs/architecture-diagrams.md, src/main/application/container.ts, src/renderer/application/di/tokens.ts, src/renderer/application/di/presentation.module.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts, src/renderer/infrastructure/services/streaming/streaming.service.ts -->
+
 This document is a simplified view of the core flows. It favors readability over completeness.
 
 Related docs:
@@ -10,18 +12,19 @@ Legend
 - Solid edges: direct dependency (constructor injection).
 - Dashed labeled edges: indirect communication via EventBus.
 - Dashed unlabeled edges: error/cleanup or retry path.
+- Dotted labeled edges: package data, contract, or static helper usage.
 - IPC edges are labeled.
 
 ## 1) App Startup (Renderer)
 
 ```mermaid
 flowchart LR
-  RendererAppOrchestrator[RendererAppOrchestrator]
+  AppBootstrap["app-bootstrap.ts"]
   UIEventBridge[UIEventBridge]
   AppOrchestrator[AppOrchestrator]
 
-  RendererAppOrchestrator --> UIEventBridge
-  RendererAppOrchestrator --> AppOrchestrator
+  AppBootstrap --> UIEventBridge
+  AppBootstrap --> AppOrchestrator
 ```
 
 ## 2) UI Events to Streaming
@@ -31,17 +34,17 @@ flowchart LR
   UISetupOrchestrator[UISetupOrchestrator]
   StreamingOrchestrator[StreamingOrchestrator]
   StreamingService[StreamingService]
-  DeviceOrchestrator[DeviceOrchestrator]
-  DeviceService[DeviceService]
-  DeviceMediaService[DeviceMediaService]
+  RendererDeviceRuntime[RendererDeviceRuntime]
+  DeviceMediaAcquirer[DeviceMediaAcquirer]
+  DeviceCatalog[DeviceCatalog]
   UIEventBridge[UIEventBridge]
 
   UISetupOrchestrator -. "ui:stream-start/stop-requested" .-> StreamingOrchestrator
   StreamingOrchestrator --> StreamingService
   StreamingOrchestrator -. "ui:streaming-mode, ui:stream-info" .-> UIEventBridge
-  DeviceOrchestrator --> DeviceService
-  StreamingService --> DeviceService
-  DeviceService --> DeviceMediaService
+  StreamingService --> RendererDeviceRuntime
+  StreamingService --> DeviceMediaAcquirer
+  StreamingService -. "matcher data" .-> DeviceCatalog
 ```
 
 ## 3) Capture and GPU Recording
@@ -84,26 +87,40 @@ flowchart LR
 flowchart LR
   AppOrchestrator["AppOrchestrator (Main)"]
   IpcHandlerRegistry[IpcHandlerRegistry]
+  AppRouter["appRouter (tRPC)"]
+  IpcPushBridge[IpcPushBridge]
+  WindowService[WindowService]
   TrayService[TrayService]
-  DeviceBridge[DeviceBridgeService]
+  EventBus[EventBus]
+  DeviceIntegrationService[DeviceIntegrationService]
+  DeviceConnectionService[DeviceConnectionService]
   UpdateBridge[UpdateBridge]
-  DeviceServiceMain[DeviceServiceMain]
   UpdateServiceMain[UpdateServiceMain]
   TranscodeServiceMain[TranscodeServiceMain]
-  UsbDetection[usb-detection]
+  UsbMonitor[node-usb]
+  DeviceCatalog[DeviceCatalog]
   AutoUpdater[electron-updater]
   FFmpeg[ffmpeg-static]
 
   AppOrchestrator --> IpcHandlerRegistry
+  AppOrchestrator --> DeviceConnectionService
+  AppOrchestrator --> DeviceIntegrationService
   AppOrchestrator --> TrayService
-  AppOrchestrator --> DeviceBridge
   AppOrchestrator --> UpdateBridge
 
-  IpcHandlerRegistry --> DeviceServiceMain
+  IpcHandlerRegistry --> AppRouter
+  IpcHandlerRegistry --> IpcPushBridge
+  AppRouter --> DeviceConnectionService
   IpcHandlerRegistry --> UpdateServiceMain
   IpcHandlerRegistry --> TranscodeServiceMain
-  TrayService --> DeviceServiceMain
-  DeviceServiceMain --> UsbDetection
+  DeviceIntegrationService --> DeviceConnectionService
+  DeviceIntegrationService --> TrayService
+  DeviceIntegrationService --> WindowService
+  DeviceIntegrationService --> EventBus
+  DeviceIntegrationService -. "launch policy lookup" .-> DeviceCatalog
+  WindowService --> IpcPushBridge
+  DeviceConnectionService --> UsbMonitor
+  DeviceConnectionService -. "USB matcher data" .-> DeviceCatalog
   UpdateServiceMain --> AutoUpdater
   TranscodeServiceMain --> FFmpeg
 ```
@@ -112,16 +129,30 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-  DeviceBridge[DeviceBridgeService]
+  DeviceIntegrationService[DeviceIntegrationService]
+  WindowService[WindowService]
+  IpcPushBridge[IpcPushBridge]
+  AppRouter["appRouter (tRPC)"]
   UpdateBridge[UpdateBridge]
   TranscodeService[TranscodeService]
-  DeviceServiceRenderer["DeviceService (Renderer)"]
+  RendererDeviceRuntime[RendererDeviceRuntime]
+  TrpcClient[Renderer tRPC client]
   UIService["UIService / UI Components"]
   TranscodeServiceRenderer["TranscodeService (Renderer)"]
 
-  DeviceBridge -- IPC: device-status --> DeviceServiceRenderer
-  UpdateBridge -- IPC: update-status --> UIService
-  TranscodeServiceRenderer -- IPC: transcode --> TranscodeService
+  DeviceIntegrationService -- "device connected/disconnected" --> WindowService
+  WindowService -- IPC push --> IpcPushBridge
+  TrpcClient -- device queries/mutations/subscriptions --> AppRouter
+  AppRouter --> IpcPushBridge
+  IpcPushBridge -- subscription payloads --> AppRouter
+  TrpcClient --> RendererDeviceRuntime
+  RendererDeviceRuntime -. "device status events" .-> UIService
+  UpdateBridge -- update push --> WindowService
+  TranscodeService -- transcode push --> WindowService
+  TrpcClient -- update/transcode subscriptions --> AppRouter
+  AppRouter -- update/transcode data --> TrpcClient
+  TrpcClient --> UIService
+  TranscodeServiceRenderer -- transcode start/cancel/status --> TrpcClient
 ```
 
 ## What to Look for in Code
@@ -129,5 +160,7 @@ flowchart LR
 - Orchestrators should be thin: they wire flows and delegate to services.
 - Services should be single-responsibility and own the actual work.
 - Managers/handlers are main-process only and interface with OS or device APIs.
-- Bridges are main-process IPC entry points to the renderer.
-- Process-first layout: renderer code lives under `src/renderer`, main process under `src/main`, preload under `src/preload`, shared utilities under `src/shared`.
+- Main-process device ownership is `DeviceConnectionService` for USB status and `DeviceIntegrationService` for tray/window/EventBus side effects.
+- Renderer device ownership is `RendererDeviceRuntime` plus platform ports; streaming uses `DeviceMediaAcquirer` for media capture.
+- `@platform/devices` is the shared catalog and contract package; only its `@platform/devices/runtime` export is main-process connection code.
+- Process-first layout: renderer code lives under `src/renderer`, main process under `src/main`, preload under `src/preload`.

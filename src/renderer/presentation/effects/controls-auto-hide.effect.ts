@@ -5,8 +5,9 @@
  * Takes over cursor management when active.
  */
 
-import { TIMING } from '@renderer/presentation/config/constants.config';
+import { TIMING } from '@platform/config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
+import { PresentationComponent, ActivityAutoHideController } from '@platform/ui-base';
 
 type ControlsAutoHideOptions = {
   onShowAll?: () => void;
@@ -15,209 +16,121 @@ type ControlsAutoHideOptions = {
   onDisable?: () => void;
 };
 
-export class ControlsAutoHide {
-  _enabled: boolean;
+export class ControlsAutoHide extends PresentationComponent {
   _element: HTMLElement | null;
-  _hideTimer: ReturnType<typeof setTimeout> | null;
-  _mouseMoveFramePending: boolean;
-  _rafId: number | null;
+  _activityController: ActivityAutoHideController;
   _onShowAll: () => void;
   _onHideAll: () => void;
   _onEnable: () => void;
   _onDisable: () => void;
-  _boundHandleMouseMove: () => void;
   _boundHandleMouseEnter: () => void;
   _boundHandleMouseLeave: () => void;
   _boundHandleFocusIn: () => void;
   _boundHandleFocusOut: () => void;
 
-  /**
-   * @param {Object} options
-   * @param {Function} [options.onShowAll] - Callback to show cursor and toolbar
-   * @param {Function} [options.onHideAll] - Callback to hide cursor and toolbar
-   * @param {Function} [options.onEnable] - Callback when controls auto-hide is enabled
-   * @param {Function} [options.onDisable] - Callback when controls auto-hide is disabled
-   */
   constructor(options: ControlsAutoHideOptions = {}) {
-    this._enabled = false;
-    this._element = null;
-    this._hideTimer = null;
-    this._mouseMoveFramePending = false;
-    this._rafId = null;
+    super();
 
+    this._element = null;
     this._onShowAll = options.onShowAll || (() => {});
     this._onHideAll = options.onHideAll || (() => {});
     this._onEnable = options.onEnable || (() => {});
     this._onDisable = options.onDisable || (() => {});
 
-    this._boundHandleMouseMove = this._handleMouseMove.bind(this);
+    this._activityController = new ActivityAutoHideController({
+      onActivity: () => {
+        this._show();
+        this._onShowAll();
+        this._startHideTimer();
+      },
+      onTimeout: () => {
+        this._hide();
+        this._onHideAll();
+      },
+      onEnable: () => {
+        this._onEnable();
+      },
+      onDisable: () => {
+        this._show();
+        this._onDisable();
+      },
+      timeoutMs: TIMING.CURSOR_HIDE_DELAY_MS,
+      shouldStartTimer: () => true
+    });
+
     this._boundHandleMouseEnter = this._handleMouseEnter.bind(this);
     this._boundHandleMouseLeave = this._handleMouseLeave.bind(this);
     this._boundHandleFocusIn = this._handleFocusIn.bind(this);
     this._boundHandleFocusOut = this._handleFocusOut.bind(this);
+    this.track(this._activityController);
   }
 
-  /**
-   * Check if controls auto-hide is enabled
-   * @returns {boolean}
-   */
   get isEnabled() {
-    return this._enabled;
+    return this._activityController.isEnabled;
   }
 
-  /**
-   * Enable controls auto-hide
-   * @param {HTMLElement} [element] - The fullscreen controls element
-   */
-  enable(element) {
-    if (this._enabled) return;
-
+  enable(element: HTMLElement | null) {
     if (!element) return;
     this._element = element;
 
-    this._enabled = true;
-    this._onEnable();
-
-    // Mouse/pointer movement and clicks show controls and reset timer
-    document.addEventListener('mousemove', this._boundHandleMouseMove);
-    document.addEventListener('pointermove', this._boundHandleMouseMove);
-    document.addEventListener('mousedown', this._boundHandleMouseMove);
-
-    // Hover pauses the hide timer
-    this._element.addEventListener('mouseenter', this._boundHandleMouseEnter);
-    this._element.addEventListener('mouseleave', this._boundHandleMouseLeave);
-
-    // Focus pauses the hide timer
-    this._element.addEventListener('focusin', this._boundHandleFocusIn);
-    this._element.addEventListener('focusout', this._boundHandleFocusOut);
-
-    this._startHideTimer();
+    this._activityController.enable({
+      activityEvents: [
+        { target: document, type: 'mousemove' },
+        { target: document, type: 'pointermove' },
+        { target: document, type: 'mousedown' }
+      ],
+      directEvents: [
+        { target: element, type: 'mouseenter', handler: this._boundHandleMouseEnter },
+        { target: element, type: 'mouseleave', handler: this._boundHandleMouseLeave },
+        { target: element, type: 'focusin', handler: this._boundHandleFocusIn },
+        { target: element, type: 'focusout', handler: this._boundHandleFocusOut }
+      ],
+      startTimer: true
+    });
   }
 
   /**
    * Disable controls auto-hide
    */
   disable() {
-    if (!this._enabled) return;
-
-    this._enabled = false;
-
-    document.removeEventListener('mousemove', this._boundHandleMouseMove);
-    document.removeEventListener('pointermove', this._boundHandleMouseMove);
-    document.removeEventListener('mousedown', this._boundHandleMouseMove);
-
-    if (this._element) {
-      this._element.removeEventListener('mouseenter', this._boundHandleMouseEnter);
-      this._element.removeEventListener('mouseleave', this._boundHandleMouseLeave);
-      this._element.removeEventListener('focusin', this._boundHandleFocusIn);
-      this._element.removeEventListener('focusout', this._boundHandleFocusOut);
-    }
-
-    // Cancel any pending RAF
-    if (this._rafId) {
-      cancelAnimationFrame(this._rafId);
-      this._rafId = null;
-    }
-    this._mouseMoveFramePending = false;
-
-    this._clearHideTimer();
-    this._show();
+    this._activityController.disable();
     this._element = null;
-    this._onDisable();
   }
 
-  /**
-   * Handle mouse move
-   * Uses RAF throttling to avoid excessive handler execution
-   * @private
-   */
-  _handleMouseMove() {
-    if (this._mouseMoveFramePending) return;
-
-    this._mouseMoveFramePending = true;
-    this._rafId = requestAnimationFrame(() => {
-      this._mouseMoveFramePending = false;
-      this._rafId = null;
-      this._show();
-      this._onShowAll();
-      this._startHideTimer();
-    });
-  }
-
-  /**
-   * Handle mouse enter on controls
-   * @private
-   */
   _handleMouseEnter() {
     this._show();
     this._onShowAll();
     this._startHideTimer();
   }
 
-  /**
-   * Handle mouse leave on controls
-   * @private
-   */
   _handleMouseLeave() {
     this._startHideTimer();
   }
 
-  /**
-   * Handle focus in on controls
-   * @private
-   */
   _handleFocusIn() {
     this._show();
     this._onShowAll();
     this._startHideTimer();
   }
 
-  /**
-   * Handle focus out on controls
-   * @private
-   */
   _handleFocusOut() {
     this._startHideTimer();
   }
 
-  /**
-   * Start or reset the hide timer
-   * @private
-   */
   _startHideTimer() {
-    this._clearHideTimer();
-
-    this._hideTimer = setTimeout(() => {
-      this._hide();
-      this._onHideAll();
-    }, TIMING.CURSOR_HIDE_DELAY_MS);
+    this._activityController.startTimer();
   }
 
-  /**
-   * Clear the hide timer
-   * @private
-   */
   _clearHideTimer() {
-    if (this._hideTimer) {
-      clearTimeout(this._hideTimer);
-      this._hideTimer = null;
-    }
+    this._activityController.clearTimer();
   }
 
-  /**
-   * Hide the fullscreen controls
-   * @private
-   */
   _hide() {
     if (this._element) {
       this._element.classList.add(CSSClasses.FULLSCREEN_HEADER_HIDDEN);
     }
   }
 
-  /**
-   * Show the fullscreen controls
-   * @private
-   */
   _show() {
     if (this._element) {
       this._element.classList.remove(CSSClasses.FULLSCREEN_HEADER_HIDDEN);
@@ -227,7 +140,8 @@ export class ControlsAutoHide {
   /**
    * Dispose and cleanup resources
    */
-  dispose() {
+  override dispose(): void | Promise<void> {
     this.disable();
+    return super.dispose();
   }
 }

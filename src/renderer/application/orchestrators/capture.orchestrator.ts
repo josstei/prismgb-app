@@ -1,34 +1,16 @@
-/**
- * Capture Orchestrator
- *
- * Coordinates screenshot and video recording operations
- * Thin coordinator - delegates to CaptureService, does not contain business logic
- *
- * Responsibilities:
- * - Coordinate screenshot capture
- * - Coordinate recording start/stop
- * - Handle capture events
- * - Manage file saving
- */
-
-import { BaseOrchestrator } from '@shared/base/orchestrator.base.js';
-import { EventChannels } from '@shared/events/event-channels.js';
-import type { LoggerLike } from '@shared/base/service.base.js';
-import type { TypedEventBusLike } from '@shared/events/event-payloads.js';
-import { getErrorMessage } from '@shared/lib/errors/error-guards.js';
-import {
-  isRecordingErrorPayload,
-  isRecordingReadyPayload,
-  isStreamingCapabilities
-} from '@renderer/infrastructure/streaming/streaming-contracts.js';
+import { injectable, inject } from 'inversify';
+import { BaseOrchestrator } from '@platform/core';
+import { EventChannels, OnEvent } from '@platform/events';
+import type { LoggerFactoryLike } from '@platform/core';
+import type { RecordingErrorPayload, RecordingReadyPayload, TypedEventBusLike } from '@platform/events';
+import { getErrorMessage } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
+import { isStreamingCapabilities } from '@renderer/infrastructure/services/streaming/streaming.contract.js';
 import type {
-  GpuRecordingStartOptions,
-  GpuRendererServiceLike
-} from '@renderer/infrastructure/streaming/streaming-contracts.js';
+  GpuRecordingStartOptions
+} from '@renderer/infrastructure/services/streaming/streaming.contract.js';
+import type { AppState } from '@renderer/application/state/app-state.js';
 
-type LoggerFactoryLike = {
-  create(name: string): LoggerLike;
-};
 
 type CaptureSource = HTMLCanvasElement | HTMLVideoElement | ImageBitmap;
 
@@ -40,11 +22,7 @@ type CaptureServiceLike = {
   stopRecording(): Promise<void>;
 };
 
-type AppStateLike = {
-  isStreaming: boolean;
-  currentStream: MediaStream | null;
-  currentCapabilities: unknown;
-};
+type AppStateLike = Pick<AppState, 'isStreaming' | 'currentStream' | 'currentCapabilities'>;
 
 type StreamViewServiceLike = {
   getCanvas(): HTMLCanvasElement | null;
@@ -56,9 +34,7 @@ type GpuRecordingServiceLike = {
   stop(): Promise<void>;
 };
 
-type CanvasRendererLike = {
-  isActive(): boolean;
-};
+
 
 type TranscodeServiceLike = {
   isTranscoding(): boolean;
@@ -78,73 +54,27 @@ type CaptureSaveServiceLike = {
   ): Promise<SaveRecordingResult>;
 };
 
-type CaptureOrchestratorDependencies = {
-  captureService: CaptureServiceLike;
-  appState: AppStateLike;
-  streamViewService: StreamViewServiceLike;
-  gpuRendererService: GpuRendererServiceLike;
-  gpuRecordingService: GpuRecordingServiceLike;
-  canvasRenderer: CanvasRendererLike;
-  transcodeService: TranscodeServiceLike;
-  captureSaveService: CaptureSaveServiceLike;
-  eventBus: TypedEventBusLike;
-  loggerFactory: LoggerFactoryLike;
-};
-
+@injectable()
 export class CaptureOrchestrator extends BaseOrchestrator {
-  declare protected readonly captureService: CaptureServiceLike;
-  declare protected readonly appState: AppStateLike;
-  declare protected readonly streamViewService: StreamViewServiceLike;
-  declare protected readonly gpuRendererService: GpuRendererServiceLike;
-  declare protected readonly gpuRecordingService: GpuRecordingServiceLike;
-  declare protected readonly canvasRenderer: CanvasRendererLike;
-  declare protected readonly transcodeService: TranscodeServiceLike;
-  declare protected readonly captureSaveService: CaptureSaveServiceLike;
-  declare protected readonly eventBus: TypedEventBusLike;
-  declare protected readonly logger: LoggerLike;
+  private _recordingInterrupted: boolean;
 
-  _recordingInterrupted: boolean;
-
-  constructor(dependencies: CaptureOrchestratorDependencies) {
-    super(
-      dependencies,
-      [
-        'captureService',
-        'appState',
-        'streamViewService',
-        'gpuRendererService',
-        'gpuRecordingService',
-        'canvasRenderer',
-        'transcodeService',
-        'captureSaveService',
-        'eventBus',
-        'loggerFactory'
-      ],
-      'CaptureOrchestrator'
-    );
+  constructor(
+    @inject(TOKENS.captureService) private readonly captureService: CaptureServiceLike,
+    @inject(TOKENS.appState) private readonly appState: AppStateLike,
+    @inject(TOKENS.streamViewService) private readonly streamViewService: StreamViewServiceLike,
+    @inject(TOKENS.streamingRenderService) private readonly streamingRenderService: any,
+    @inject(TOKENS.gpuRecordingService) private readonly gpuRecordingService: GpuRecordingServiceLike,
+    @inject(TOKENS.transcodeService) private readonly transcodeService: TranscodeServiceLike,
+    @inject(TOKENS.captureSaveService) private readonly captureSaveService: CaptureSaveServiceLike,
+    @inject(TOKENS.eventBus) protected readonly eventBus: TypedEventBusLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'CaptureOrchestrator');
 
     this._recordingInterrupted = false;
   }
 
-  /**
-   * Initialize capture orchestrator
-   */
-  async onInitialize(): Promise<void> {
-    this.subscribeWithCleanup({
-      [EventChannels.CAPTURE.RECORDING_ERROR]: (data: unknown) => this._handleRecordingError(data),
-      [EventChannels.CAPTURE.RECORDING_READY]: (data: unknown) => this._handleRecordingReady(data),
-      // Stop recording when stream stops to prevent orphaned recording loop
-      [EventChannels.STREAM.STOPPED]: () => this._handleStreamStopped(),
-      // UI command events - decoupled from UISetupOrchestrator
-      [EventChannels.UI.SCREENSHOT_REQUESTED]: () => this.takeScreenshot(),
-      [EventChannels.UI.RECORDING_TOGGLE_REQUESTED]: () => this.toggleRecording()
-    });
-  }
-
-  /**
-   * Take screenshot
-   * Uses AppState.isStreaming instead of direct orchestrator call (decoupled)
-   */
+  @OnEvent(EventChannels.UI.SCREENSHOT_REQUESTED)
   async takeScreenshot(): Promise<void> {
     if (!this.appState.isStreaming) {
       this.logger.warn('Cannot take screenshot - not streaming');
@@ -173,18 +103,9 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * @private
    */
   async _getCaptureSource(): Promise<CaptureSource> {
-    if (this.gpuRendererService.isActive()) {
-      this.logger.debug('Capturing screenshot from GPU renderer');
-      return this.gpuRendererService.captureFrame();
-    }
-
-    if (this.canvasRenderer.isActive()) {
-      this.logger.debug('Capturing screenshot from Canvas2D renderer');
-      const canvas = this.streamViewService.getCanvas();
-      if (!canvas) {
-        throw new Error('Stream canvas element is unavailable');
-      }
-      return canvas;
+    if (this.streamingRenderService.isActive()) {
+      this.logger.debug('Capturing screenshot from renderer session');
+      return this.streamingRenderService.captureFrame();
     }
 
     this.logger.debug('Capturing screenshot from video element (no rendering pipeline)');
@@ -201,6 +122,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * Otherwise falls back to raw device stream.
    * Blocks new recording if transcoding is in progress.
    */
+  @OnEvent(EventChannels.UI.RECORDING_TOGGLE_REQUESTED)
   async toggleRecording(): Promise<void> {
     if (this._isRecordingActive()) {
       await this._stopRecording();
@@ -225,7 +147,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     }
 
     try {
-      if (this.gpuRendererService.isActive()) {
+      if (this.streamingRenderService.isActive()) {
         await this._startGpuRecording(stream);
       } else {
         await this.captureService.startRecording(stream);
@@ -273,15 +195,11 @@ export class CaptureOrchestrator extends BaseOrchestrator {
   }
 
   /**
-   * Clean up GPU recording resources
-   * @private
-   */
-
-  /**
    * Handle stream stopped - stop any active recording
    * Prevents orphaned GPU recording loop when stream stops
    * @private
    */
+  @OnEvent(EventChannels.STREAM.STOPPED)
   async _handleStreamStopped(): Promise<void> {
     if (this._isRecordingActive()) {
       this.logger.info('Stream stopped - stopping active recording');
@@ -294,14 +212,8 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * Handle recording error event
    * @private
    */
-  async _handleRecordingError(data: unknown): Promise<void> {
-    if (!isRecordingErrorPayload(data)) {
-      this.logger.error('Recording error event missing payload', data);
-      await this.gpuRecordingService.stop();
-      this._recordingInterrupted = false;
-      return;
-    }
-
+  @OnEvent(EventChannels.CAPTURE.RECORDING_ERROR)
+  async _handleRecordingError(data: RecordingErrorPayload): Promise<void> {
     const message = getErrorMessage(data.error ?? data.message, 'Recording failed');
     this.logger.error('Recording error:', message);
 
@@ -314,16 +226,8 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * @param {Object} data - Recording data { blob, filename }
    * @private
    */
-  async _handleRecordingReady(data: unknown): Promise<void> {
-    if (!isRecordingReadyPayload(data)) {
-      this.logger.error('Recording ready event missing payload', data);
-      this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
-        message: 'Failed to save recording. Please try again.',
-        type: 'error'
-      });
-      return;
-    }
-
+  @OnEvent(EventChannels.CAPTURE.RECORDING_READY)
+  async _handleRecordingReady(data: RecordingReadyPayload): Promise<void> {
     const { blob, filename } = data;
 
     try {
@@ -332,9 +236,17 @@ export class CaptureOrchestrator extends BaseOrchestrator {
       });
       this._recordingInterrupted = false;
 
+      if (!result.success) {
+        this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
+          message: 'Failed to save recording. Please try again.',
+          type: 'error'
+        });
+        return;
+      }
+
       // Only show status message for direct saves (webm)
       // Transcoded saves show their own status messages
-      if (result.success && !result.transcoded) {
+      if (!result.transcoded) {
         this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Recording saved!' });
       }
     } catch (error) {
@@ -350,13 +262,15 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * Cleanup resources
    */
   async onCleanup(): Promise<void> {
-    if (this.captureService.getRecordingState()) {
+    if (this._isRecordingActive()) {
       try {
-        await this.captureService.stopRecording();
+        this._recordingInterrupted = true;
+        await this._stopRecording();
       } catch (error) {
         this.logger.error('Error stopping recording during cleanup:', getErrorMessage(error, 'Failed to stop recording'));
       }
+    } else {
+      await this.gpuRecordingService.stop();
     }
-    await this.gpuRecordingService.stop();
   }
 }

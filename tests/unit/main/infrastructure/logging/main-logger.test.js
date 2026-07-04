@@ -2,261 +2,132 @@
  * MainLogger Unit Tests
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { installProcessEnvMock } from '../../../../support/mocks/runtime-property.installers.js';
 
-// Mock electron before importing MainLogger
-vi.mock('electron', () => ({
-  app: {
-    getPath: vi.fn((name) => {
-      if (name === 'logs') return '/mock/electron/logs';
-      if (name === 'userData') return '/mock/electron/userData';
-      return '/mock/electron/default';
-    })
+const scopedLogger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+vi.mock('electron-log/main', () => ({
+  default: {
+    scope: vi.fn(() => scopedLogger),
+    transports: {
+      console: { level: undefined },
+      file: { level: undefined, maxSize: undefined, resolvePathFn: undefined }
+    }
   }
 }));
 
-// Mock fs to prevent directory creation errors in tests
-vi.mock('fs', async (importOriginal) => {
-  const actual = await importOriginal();
-  return {
-    default: {
-      ...actual,
-      mkdirSync: vi.fn()
-    },
-    ...actual,
-    mkdirSync: vi.fn()
-  };
-});
-
-import { MainLogger } from '@main/infrastructure/logging/index.js';
-
-// Mock winston
-vi.mock('winston', () => {
-  const mockChildLogger = {
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn()
-  };
-
-  const mockRootLogger = {
-    child: vi.fn(() => mockChildLogger),
-    level: 'debug'
-  };
-
-  return {
-    default: {
-      format: {
-        combine: vi.fn(() => 'combinedFormat'),
-        timestamp: vi.fn(() => 'timestampFormat'),
-        colorize: vi.fn(() => 'colorizeFormat'),
-        printf: vi.fn((fn) => fn),
-        errors: vi.fn(() => 'errorsFormat'),
-        json: vi.fn(() => 'jsonFormat')
-      },
-      transports: {
-        Console: vi.fn(function(opts) {
-          this.opts = opts;
-        }),
-        File: vi.fn(function(opts) {
-          this.opts = opts;
-        })
-      },
-      config: {
-        npm: {
-          levels: { error: 0, warn: 1, info: 2, debug: 3 }
-        }
-      },
-      createLogger: vi.fn(() => mockRootLogger)
-    }
-  };
-});
+import log from 'electron-log/main';
+import { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
 
 describe('MainLogger', () => {
-  let logger;
-  let originalEnv;
+  let envMock;
 
   beforeEach(() => {
-    vi.clearAllMocks();
-    originalEnv = { ...process.env };
-    process.env.NODE_ENV = 'development';
-    delete process.env.LOG_LEVEL;
-    delete process.env.LOG_FILE;
-    delete process.env.LOG_DIR;
-
-    logger = new MainLogger();
+    log.transports.console.level = undefined;
+    log.transports.file.level = undefined;
+    log.transports.file.resolvePathFn = undefined;
+    envMock = installProcessEnvMock({
+      NODE_ENV: 'development',
+      LOG_LEVEL: undefined,
+      LOG_FILE: undefined,
+      LOG_DIR: undefined
+    });
   });
 
   afterEach(() => {
-    process.env = originalEnv;
+    envMock.cleanup();
   });
 
-  describe('constructor', () => {
-    it('should create root logger on construction', () => {
-      expect(logger.rootLogger).toBeDefined();
-    });
-  });
+  describe('transport configuration', () => {
+    it('uses debug console level and disables file logging in development', () => {
+      new MainLogger();
 
-  describe('_createRootLogger', () => {
-    it('should use debug level in development', async () => {
-      process.env.NODE_ENV = 'development';
-      const newLogger = new MainLogger();
-
-      const { default: winston } = vi.mocked(await import('winston'));
-      expect(winston.createLogger).toHaveBeenCalled();
+      expect(log.transports.console.level).toBe('debug');
+      expect(log.transports.file.level).toBe(false);
     });
 
-    it('should use info level in production', async () => {
-      process.env.NODE_ENV = 'production';
-      process.env.LOG_DIR = '/tmp/logs';
+    it('uses info level and enables file logging in production', () => {
+      envMock.setEnv({ NODE_ENV: 'production' });
 
-      const newLogger = new MainLogger();
+      new MainLogger();
 
-      // In production, file transports should be added
-      expect(newLogger.rootLogger).toBeDefined();
+      expect(log.transports.console.level).toBe('info');
+      expect(log.transports.file.level).toBe('info');
     });
 
-    it('should respect LOG_LEVEL env var', () => {
-      process.env.LOG_LEVEL = 'warn';
-      const newLogger = new MainLogger();
+    it('respects the LOG_LEVEL env var', () => {
+      envMock.setEnv({ LOG_LEVEL: 'warn' });
 
-      expect(newLogger.rootLogger).toBeDefined();
+      new MainLogger();
+
+      expect(log.transports.console.level).toBe('warn');
     });
 
-    it('should add file transports when LOG_FILE is set', () => {
-      process.env.LOG_FILE = 'true';
-      process.env.LOG_DIR = '/tmp/logs';
-      const newLogger = new MainLogger();
+    it('enables file logging in development when LOG_FILE is set', () => {
+      envMock.setEnv({ LOG_FILE: 'true' });
 
-      expect(newLogger.rootLogger).toBeDefined();
+      new MainLogger();
+
+      expect(log.transports.file.level).toBe('debug');
     });
 
-    it('should use LOG_DIR env var when provided', () => {
-      process.env.NODE_ENV = 'production';
-      process.env.LOG_DIR = '/custom/log/dir';
-      const newLogger = new MainLogger();
+    it('routes the log file into LOG_DIR when provided', () => {
+      envMock.setEnv({ NODE_ENV: 'production', LOG_DIR: '/custom/log/dir' });
 
-      // LOG_DIR should override Electron's getPath
-      expect(newLogger.rootLogger).toBeDefined();
+      new MainLogger();
+
+      expect(typeof log.transports.file.resolvePathFn).toBe('function');
+      expect(log.transports.file.resolvePathFn()).toMatch(/custom[\\/]log[\\/]dir[\\/]combined\.log$/);
     });
 
-    it('should use Electron app.getPath when LOG_DIR not set', async () => {
-      process.env.NODE_ENV = 'production';
-      delete process.env.LOG_DIR;
+    it('leaves the default log path when LOG_DIR is not set', () => {
+      new MainLogger();
 
-      const newLogger = new MainLogger();
-
-      // Should use Electron's log path
-      expect(newLogger.rootLogger).toBeDefined();
+      expect(log.transports.file.resolvePathFn).toBeUndefined();
     });
   });
 
   describe('create', () => {
-    it('should create child logger with context', () => {
-      const childLogger = logger.create('TestContext');
+    it('creates a scoped logger per context', () => {
+      const logger = new MainLogger();
 
-      expect(logger.rootLogger.child).toHaveBeenCalledWith({ context: 'TestContext' });
-      expect(childLogger).toBeDefined();
+      const contextLogger = logger.create('TestContext');
+
+      expect(log.scope).toHaveBeenCalledWith('TestContext');
+      expect(typeof contextLogger.debug).toBe('function');
+      expect(typeof contextLogger.info).toBe('function');
+      expect(typeof contextLogger.warn).toBe('function');
+      expect(typeof contextLogger.error).toBe('function');
     });
 
-    it('should return logger object with all methods', () => {
-      const childLogger = logger.create('TestContext');
+    it('delegates each level with the given arguments', () => {
+      const contextLogger = new MainLogger().create('TestContext');
 
-      expect(typeof childLogger.debug).toBe('function');
-      expect(typeof childLogger.info).toBe('function');
-      expect(typeof childLogger.warn).toBe('function');
-      expect(typeof childLogger.error).toBe('function');
-      expect(typeof childLogger.getWinstonLogger).toBe('function');
+      contextLogger.debug('debug message', { key: 'value' });
+      contextLogger.info('info message', { data: 123 });
+      contextLogger.warn('warning message', { severity: 'high' });
+
+      expect(scopedLogger.debug).toHaveBeenCalledWith('debug message', { key: 'value' });
+      expect(scopedLogger.info).toHaveBeenCalledWith('info message', { data: 123 });
+      expect(scopedLogger.warn).toHaveBeenCalledWith('warning message', { severity: 'high' });
     });
 
-    describe('child logger methods', () => {
-      let childLogger;
-      let mockWinstonChild;
+    it('passes Error objects through to electron-log intact', () => {
+      const contextLogger = new MainLogger().create('TestContext');
+      const error = new Error('test error');
 
-      beforeEach(async () => {
-        const { default: winston } = await import('winston');
-        mockWinstonChild = winston.createLogger().child();
-        childLogger = logger.create('TestContext');
-      });
+      contextLogger.error('error occurred', error);
 
-      it('should call debug with message and meta', () => {
-        childLogger.debug('test message', { key: 'value' });
-
-        expect(mockWinstonChild.debug).toHaveBeenCalledWith('test message', { key: 'value' });
-      });
-
-      it('should call debug with empty meta by default', () => {
-        childLogger.debug('test message');
-
-        expect(mockWinstonChild.debug).toHaveBeenCalledWith('test message', {});
-      });
-
-      it('should call info with message and meta', () => {
-        childLogger.info('info message', { data: 123 });
-
-        expect(mockWinstonChild.info).toHaveBeenCalledWith('info message', { data: 123 });
-      });
-
-      it('should call warn with message and meta', () => {
-        childLogger.warn('warning message', { severity: 'high' });
-
-        expect(mockWinstonChild.warn).toHaveBeenCalledWith('warning message', { severity: 'high' });
-      });
-
-      it('should call error with message and Error object', () => {
-        const error = new Error('test error');
-        childLogger.error('error occurred', error);
-
-        expect(mockWinstonChild.error).toHaveBeenCalledWith('error occurred', {
-          error: 'test error',
-          stack: error.stack
-        });
-      });
-
-      it('should call error with message and plain object', () => {
-        childLogger.error('error occurred', { code: 500 });
-
-        expect(mockWinstonChild.error).toHaveBeenCalledWith('error occurred', { code: 500 });
-      });
-
-      it('should call error with empty meta by default', () => {
-        childLogger.error('error occurred');
-
-        expect(mockWinstonChild.error).toHaveBeenCalledWith('error occurred', {});
-      });
-
-      it('should return winston logger via getWinstonLogger', () => {
-        const winstonLogger = childLogger.getWinstonLogger();
-
-        expect(winstonLogger).toBe(mockWinstonChild);
-      });
-    });
-  });
-
-  describe('getRootLogger', () => {
-    it('should return root logger', () => {
-      const root = logger.getRootLogger();
-
-      expect(root).toBe(logger.rootLogger);
-    });
-  });
-
-  describe('setLevel', () => {
-    it('should set log level on root logger', () => {
-      logger.setLevel('warn');
-
-      expect(logger.rootLogger.level).toBe('warn');
+      expect(scopedLogger.error).toHaveBeenCalledWith('error occurred', error);
     });
 
-    it('should accept different log levels', () => {
-      logger.setLevel('error');
-      expect(logger.rootLogger.level).toBe('error');
+    it('passes plain metadata objects through on error', () => {
+      const contextLogger = new MainLogger().create('TestContext');
 
-      logger.setLevel('info');
-      expect(logger.rootLogger.level).toBe('info');
+      contextLogger.error('error occurred', { code: 500 });
 
-      logger.setLevel('debug');
-      expect(logger.rootLogger.level).toBe('debug');
+      expect(scopedLogger.error).toHaveBeenCalledWith('error occurred', { code: 500 });
     });
   });
 });

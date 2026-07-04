@@ -41,11 +41,6 @@
     animation: none !important;
   }
 
-  /* Disable chromatic effects */
-  .chromatic-hover:hover {
-    text-shadow: none !important;
-  }
-
   /* Remove pseudo-element animations */
   .stream-overlay::before,
   .stream-overlay::after {

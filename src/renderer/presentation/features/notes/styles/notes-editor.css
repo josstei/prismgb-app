@@ -246,7 +246,7 @@
 }
 
 /* Note: .notes-title-row visibility is handled above */
-/* Keep this for backwards compatibility */
+/* Keep the selected-note input and content area visible together. */
 .notes-editor.has-note .notes-title-input,
 .notes-editor.has-note .notes-content-area {
   display: block;

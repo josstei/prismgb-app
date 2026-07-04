@@ -1,7 +1,7 @@
 /**
  * Streaming Service
  *
- * Manages media streaming with device-specific adapters
+ * Manages media streaming through the catalog-backed device runtime
  * 100% UI-agnostic - only manages MediaStream state and emits events
  *
  * Uses a state machine to prevent race conditions in start/stop operations.
@@ -12,15 +12,24 @@
  * - 'stream:error' - Stream error occurred
  */
 
-import { BaseService } from '@shared/base/service.base.js';
-import { DeviceDetectionHelper } from '@shared/features/devices/device-detection.utils.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
+import { injectable, inject } from 'inversify';
+import { BaseService } from '@platform/core';
+import { EventChannels } from '@platform/events';
+import { getErrorMessage } from '@platform/core';
+import type {
+  TypedEventBusLike
+} from '@platform/events';
+import type {
+  LoggerFactoryLike
+} from '@platform/core';
+import { StreamTrackMonitor } from './stream-track.monitor.js';
+import type {
+  DeviceMediaAcquirer,
+  DeviceStreamCapabilities
+} from './device-media-acquirer.service.js';
+import type { DeviceStreamingTarget } from '../devices/device-runtime.service.js';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
-/**
- * Stream lifecycle states for the state machine
- * @readonly
- * @enum {string}
- */
 const StreamState = {
   IDLE: 'idle',
   STARTING: 'starting',
@@ -29,52 +38,78 @@ const StreamState = {
   ERROR: 'error'
 };
 
-export class StreamingService extends BaseService {
-  /**
-   * @param {Object} dependencies - Injected dependencies
-   * @param {DeviceService} dependencies.deviceService - Device enumeration service
-   * @param {EventBus} dependencies.eventBus - Event publisher
-   * @param {Function} dependencies.loggerFactory - Logger factory
-   * @param {StreamingAdapterFactory} dependencies.adapterFactory - Creates device adapters
-   * @param {Object} dependencies.ipcClient - IPC client for main process communication
-   */
-  constructor(dependencies) {
-    super(dependencies, ['deviceService', 'eventBus', 'loggerFactory', 'adapterFactory', 'ipcClient'], 'StreamingService');
+type StreamLifecycleState = (typeof StreamState)[keyof typeof StreamState];
 
+type StreamSettingsSnapshot = {
+  video: Record<string, unknown> | null;
+  audio: Record<string, unknown> | null;
+  hasAudio: boolean;
+};
+
+type StreamStartResult = {
+  stream: MediaStream;
+  device: MediaDeviceInfo;
+  settings: StreamSettingsSnapshot | null;
+  capabilities: DeviceStreamCapabilities;
+  strategy: string;
+};
+
+type StreamOperationPromise = Promise<StreamStartResult | void>;
+
+type RendererDeviceRuntimeLike = {
+  resolveStreamingTarget(deviceId?: string | null): Promise<DeviceStreamingTarget>;
+};
+
+function toSettingsPayload(
+  settings: MediaTrackSettings | undefined
+): Record<string, unknown> | null {
+  if (!settings) {
+    return null;
+  }
+
+  return Object.fromEntries(
+    Object.entries(settings).filter(([, value]) => value !== undefined)
+  );
+}
+
+@injectable()
+export class StreamingService extends BaseService {
+  private readonly _trackMonitor: StreamTrackMonitor;
+
+  private _state: StreamLifecycleState;
+  private _operationPromise: StreamOperationPromise | null;
+  currentStream: MediaStream | null;
+  currentDevice: MediaDeviceInfo | null;
+  currentCapabilities: DeviceStreamCapabilities | null;
+
+  constructor(
+    @inject(TOKENS.rendererDeviceRuntime) private readonly rendererDeviceRuntime: RendererDeviceRuntimeLike,
+    @inject(TOKENS.deviceMediaAcquirer) private readonly deviceMediaAcquirer: DeviceMediaAcquirer,
+    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'StreamingService');
+
+    this._trackMonitor = new StreamTrackMonitor(this.logger);
     // State machine
     this._state = StreamState.IDLE;
     this._operationPromise = null;
 
     // Stream state
     this.currentStream = null;
-    this.currentAdapter = null;
     this.currentDevice = null;
     this.currentCapabilities = null;
-
-    // Track event handlers for cleanup
-    this._trackEndedHandler = null;
   }
 
-  /**
-   * Check if currently streaming
-   * @returns {boolean} True if in STREAMING state
-   */
-  get isStreaming() {
+  get isStreaming(): boolean {
     return this._state === StreamState.STREAMING;
   }
 
-  /**
-   * Start streaming from a device
-   * Handles state machine transitions: IDLE/ERROR -> STARTING -> STREAMING
-   * @param {string|null} [deviceId=null] - Device ID to stream from, auto-selects if null
-   * @returns {Promise<Object>} Result with stream, device, settings, and capabilities
-   * @throws {Error} If cannot start from current state or device unavailable
-   */
-  async start(deviceId = null) {
+  async start(deviceId: string | null = null): Promise<StreamStartResult> {
     // If already starting, return the existing operation
     if (this._state === StreamState.STARTING && this._operationPromise) {
       this.logger.debug('Start already in progress, reusing promise');
-      return this._operationPromise;
+      return this._operationPromise as Promise<StreamStartResult>;
     }
 
     // If stopping, wait for it to complete first
@@ -102,7 +137,7 @@ export class StreamingService extends BaseService {
     this._operationPromise = this._performStart(deviceId);
 
     try {
-      const result = await this._operationPromise;
+      const result = await this._operationPromise as StreamStartResult;
       this._state = StreamState.STREAMING;
       return result;
     } catch (error) {
@@ -113,39 +148,19 @@ export class StreamingService extends BaseService {
     }
   }
 
-  /**
-   * Perform actual stream start
-   * @private
-   */
-  async _performStart(deviceId) {
+  private async _performStart(deviceId: string | null): Promise<StreamStartResult> {
     try {
-      // Get device
-      let device;
-      if (deviceId) {
-        device = await this._getDeviceById(deviceId);
-      } else {
-        device = await this._autoSelectDevice();
-      }
+      const target = await this.rendererDeviceRuntime.resolveStreamingTarget(deviceId);
+      const acquisition = await this.deviceMediaAcquirer.acquire(target);
 
-      if (!device) {
-        throw new Error('No device available for streaming');
-      }
-
-      // Get adapter for device (pass ipcClient for device adapter)
-      this.currentAdapter = this.adapterFactory.getAdapterForDevice(device, {
-        ipcClient: this.ipcClient
-      });
-
-      // Get stream from adapter
-      this.currentStream = await this.currentAdapter.getStream(device);
-      this.currentDevice = device;
-      this.deviceService.registerSupportedDevice(device);
+      this.currentStream = acquisition.stream;
+      this.currentDevice = target.videoDevice;
 
       // Get stream settings
       const settings = this._getStreamSettings();
 
       // Get and store capabilities
-      const capabilities = await this.currentAdapter.getCapabilities(device);
+      const capabilities = acquisition.capabilities;
       this.currentCapabilities = capabilities;
 
       // Monitor video track for device disconnection/power-off
@@ -158,32 +173,34 @@ export class StreamingService extends BaseService {
         stream: this.currentStream,
         device: this.currentDevice,
         settings,
-        capabilities
+        capabilities,
+        strategy: acquisition.strategy
       });
 
-      return { stream: this.currentStream, device: this.currentDevice, settings, capabilities };
+      return {
+        stream: this.currentStream,
+        device: this.currentDevice,
+        settings,
+        capabilities,
+        strategy: acquisition.strategy
+      };
     } catch (error) {
       this.logger.error('Failed to start stream:', error);
       this.eventBus.publish(EventChannels.STREAM.ERROR, {
         error,
         operation: 'start',
         deviceId: deviceId || 'auto-select',
-        message: error.message || 'Unknown error'
+        message: getErrorMessage(error)
       });
       throw error;
     }
   }
 
-  /**
-   * Stop streaming and release resources
-   * Handles state machine transitions: STREAMING/STARTING -> STOPPING -> IDLE
-   * @returns {Promise<void>}
-   */
-  async stop() {
+  async stop(): Promise<void> {
     // If already stopping, return the existing operation
     if (this._state === StreamState.STOPPING && this._operationPromise) {
       this.logger.debug('Stop already in progress, reusing promise');
-      return this._operationPromise;
+      return this._operationPromise as Promise<void>;
     }
 
     // If starting, wait for it to complete first, then stop
@@ -192,7 +209,7 @@ export class StreamingService extends BaseService {
       try {
         await this._operationPromise;
       } catch (error) {
-        this.logger.warn('Start operation failed during stop, continuing with cleanup:', error.message);
+        this.logger.warn('Start operation failed during stop, continuing with cleanup:', getErrorMessage(error));
       }
     }
 
@@ -217,20 +234,16 @@ export class StreamingService extends BaseService {
     }
   }
 
-  /**
-   * Perform actual stream stop
-   * @private
-   */
-  async _performStop() {
+  private async _performStop(): Promise<void> {
     this.logger.info('Stopping stream');
 
     // Remove track monitoring before releasing stream
     this._removeTrackMonitoring();
 
-    // Release stream via adapter (with error handling to ensure cleanup)
-    if (this.currentAdapter && this.currentStream) {
+    // Release stream via the unified media acquirer.
+    if (this.currentStream) {
       try {
-        await this.currentAdapter.releaseStream(this.currentStream);
+        await this.deviceMediaAcquirer.release(this.currentStream);
       } catch (error) {
         this.logger.error('Error releasing stream:', error);
         // Continue with cleanup even if release fails
@@ -239,31 +252,18 @@ export class StreamingService extends BaseService {
 
     // Clear state (always, even if release failed)
     this.currentStream = null;
-    this.currentAdapter = null;
     this.currentDevice = null;
     this.currentCapabilities = null;
 
-    // Emit event
-    this.eventBus.publish(EventChannels.STREAM.STOPPED);
+    await this.eventBus.publishAsync(EventChannels.STREAM.STOPPED);
 
     this.logger.info('Stream stopped');
   }
 
-  /**
-   * Set up monitoring for video track ended event
-   * Detects when device is powered off or disconnected
-   * @private
-   */
-  _setupTrackMonitoring() {
+  private _setupTrackMonitoring(): void {
     if (!this.currentStream) return;
 
-    const videoTrack = this.currentStream.getVideoTracks()[0];
-    if (!videoTrack) return;
-
-    // Create handler that stops the stream when track ends
-    this._trackEndedHandler = () => {
-      this.logger.warn('Video track ended - device may have been disconnected or powered off');
-
+    this._trackMonitor.start(this.currentStream, () => {
       // Emit error event to notify UI
       this.eventBus.publish(EventChannels.STREAM.ERROR, {
         error: new Error('Video track ended unexpectedly'),
@@ -272,43 +272,17 @@ export class StreamingService extends BaseService {
       });
 
       // Stop the stream (will clean up and emit STOPPED event)
-      this.stop().catch(error => {
+      this.stop().catch((error: unknown) => {
         this.logger.error('Error during track-ended cleanup:', error);
       });
-    };
-
-    videoTrack.addEventListener('ended', this._trackEndedHandler);
-    this.logger.debug('Track monitoring set up for video track');
+    });
   }
 
-  /**
-   * Remove track monitoring event listeners
-   * @private
-   */
-  _removeTrackMonitoring() {
-    // Always clear handler reference to prevent leaks, even if stream is gone
-    const handler = this._trackEndedHandler;
-    this._trackEndedHandler = null;
-
-    if (!handler) return;
-
-    // Only try to remove from track if stream exists
-    if (this.currentStream) {
-      const videoTrack = this.currentStream.getVideoTracks()[0];
-      if (videoTrack) {
-        videoTrack.removeEventListener('ended', handler);
-      }
-    }
-
-    this.logger.debug('Track monitoring removed');
+  private _removeTrackMonitoring(): void {
+    this._trackMonitor.stop();
   }
 
-  /**
-   * Clean up partial state from failed start attempts
-   * Called when transitioning from ERROR state to allow clean restart
-   * @private
-   */
-  async _cleanupPartialState() {
+  private async _cleanupPartialState(): Promise<void> {
     this.logger.debug('Cleaning up partial state from ERROR');
 
     // Remove any track monitoring that might have been set up
@@ -316,109 +290,28 @@ export class StreamingService extends BaseService {
 
     try {
       // Release stream if it was acquired - await to prevent race conditions
-      if (this.currentAdapter && this.currentStream) {
-        await this.currentAdapter.releaseStream(this.currentStream);
+      if (this.currentStream) {
+        await this.deviceMediaAcquirer.release(this.currentStream);
       }
     } catch (error) {
       this.logger.warn('Error releasing stream during partial cleanup:', error);
     } finally {
       // Always clear all state, even if release failed
       this.currentStream = null;
-      this.currentAdapter = null;
       this.currentDevice = null;
       this.currentCapabilities = null;
     }
   }
 
-  /**
-   * Get current media stream
-   * @returns {MediaStream|null} Current stream or null if not streaming
-   */
-  getStream() {
+  getStream(): MediaStream | null {
     return this.currentStream;
   }
 
-  /**
-   * Check if streaming is active (alias for isStreaming)
-   * @returns {boolean} True if streaming
-   */
-  isActive() {
+  isActive(): boolean {
     return this.isStreaming;
   }
 
-  /**
-   * Get device by ID
-   * @param {string} deviceId - Device ID
-   * @returns {Promise<MediaDeviceInfo>} Device info
-   * @private
-   */
-  async _getDeviceById(deviceId) {
-    // Use DeviceService to ensure permission warm-up and caching
-    const { devices } = await this.deviceService.enumerateDevices();
-    const device = devices.find(d => d.deviceId === deviceId && d.kind === 'videoinput');
-
-    if (!device) {
-      throw new Error(`Device not found: ${deviceId}`);
-    }
-
-    return device;
-  }
-
-  /**
-   * Auto-select device by VID/PID
-   * @returns {Promise<MediaDeviceInfo>} Selected device
-   * @throws {Error} If no supported device found
-   * @private
-   */
-  async _autoSelectDevice() {
-    this.logger.info('Auto-selecting device');
-
-    const storedIds = this.deviceService.getRegisteredStoredDeviceIds();
-    if (storedIds.length > 0) {
-      // Try all stored device IDs in parallel for faster restoration when first IDs are stale
-      try {
-        const device = await Promise.any(
-          storedIds.map(deviceId => this._getDeviceById(deviceId))
-        );
-        this.logger.info('Using stored device ID:', device.label);
-        return device;
-      } catch {
-        // AggregateError - all stored IDs failed, fall through to label matching
-        this.logger.warn('All stored device IDs not found in enumeration');
-      }
-    }
-
-    const discoveredDevice = await this.deviceService.discoverSupportedDevice();
-    if (discoveredDevice) {
-      this.logger.info('Discovered supported device:', discoveredDevice.label);
-      return discoveredDevice;
-    }
-
-    const { devices } = await this.deviceService.enumerateDevices();
-    const videoDevices = devices.filter(device => device.kind === 'videoinput');
-    const matchedDevice = videoDevices.find(device =>
-      DeviceDetectionHelper.matchesByLabel(device.label) !== null
-    );
-
-    if (matchedDevice) {
-      this.logger.info('Auto-selected device by label:', matchedDevice.label);
-      return matchedDevice;
-    }
-
-    const labelsHidden = videoDevices.length > 0 && videoDevices.every(device => !device.label);
-    if (labelsHidden) {
-      throw new Error('Chromatic camera not authorized. Please grant permission and retry.');
-    }
-
-    throw new Error('No supported device found');
-  }
-
-  /**
-   * Get stream settings
-   * @returns {Object|null} Stream settings
-   * @private
-   */
-  _getStreamSettings() {
+  private _getStreamSettings(): StreamSettingsSnapshot | null {
     if (!this.currentStream) {
       return null;
     }
@@ -427,8 +320,8 @@ export class StreamingService extends BaseService {
     const audioTracks = this.currentStream.getAudioTracks();
 
     return {
-      video: videoTrack ? videoTrack.getSettings() : null,
-      audio: audioTracks.length > 0 ? audioTracks[0].getSettings() : null,
+      video: toSettingsPayload(videoTrack?.getSettings()),
+      audio: toSettingsPayload(audioTracks[0]?.getSettings()),
       hasAudio: audioTracks.length > 0
     };
   }
@@ -437,8 +330,9 @@ export class StreamingService extends BaseService {
    * Dispose and release all resources
    * Called during application shutdown
    */
-  async dispose() {
+  async dispose(): Promise<void> {
     await this.stop();
+    await super.dispose();
     this.logger.info('StreamingService disposed');
   }
 }
