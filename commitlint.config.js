@@ -1,5 +1,8 @@
 export default {
   extends: ['@commitlint/config-conventional'],
+  // Ignore machine-generated squash-merge commits that don't follow the
+  // conventional format (in addition to the built-in Merge/revert ignores).
+  ignores: [(message) => /^\[codex\]/.test(message)],
   rules: {
     'type-enum': [
       2,
@@ -19,6 +22,7 @@ export default {
       ]
     ],
     'subject-case': [0],  // Allow any case in subject
-    'body-max-line-length': [0]  // Allow long body lines
+    'body-max-line-length': [0],  // Allow long body lines
+    'footer-max-line-length': [0]  // Allow long footer lines (e.g. NOTE:/trailer paragraphs)
   }
 };
