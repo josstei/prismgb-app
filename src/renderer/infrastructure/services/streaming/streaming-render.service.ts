@@ -239,10 +239,17 @@ export class StreamingRenderService extends BaseService {
   }
 
   private _handleVisible(): void {
-    if (this.appState.isStreaming && this._session && this._videoElement) {
-      this._startRenderLoop(this._videoElement);
-      this.logger.debug(`${this._session.backend} rendering resumed (window visible)`);
+    if (!this.appState.isStreaming || !this._session) {
+      return;
     }
+
+    const video = this.streamViewService.getVideo();
+    if (!video) {
+      return;
+    }
+
+    this._startRenderLoop(video);
+    this.logger.debug(`${this._session.backend} rendering resumed (window visible)`);
   }
 
   private _handleHidden(): void {
