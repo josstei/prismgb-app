@@ -137,6 +137,47 @@ describe('StreamingRenderService', () => {
 
       expect(mockSession.terminate).toHaveBeenCalled();
     });
+
+    it('requests canvas expiry on stop so a restarted stream gets a fresh canvas', async () => {
+      mockAppState.setStreaming(true);
+
+      const startPromise = service.startPipeline({
+        webgpu: true,
+        offscreenCanvas: true,
+        transferControlToOffscreen: true,
+        nativeResolution: { width: 160, height: 144 }
+      });
+
+      const onHealthyCallback = mockStreamHealthService.checkStreamHealth.mock.calls[0][1];
+      onHealthyCallback({});
+      await startPromise;
+
+      service.stopPipeline();
+
+      expect(mockSession.terminate).toHaveBeenCalledWith({ emitCanvasExpired: true });
+    });
+  });
+
+  describe('performance mode with idle GPU session', () => {
+    it('requests canvas expiry when terminating the idle GPU session', async () => {
+      mockAppState.setStreaming(true);
+
+      const startPromise = service.startPipeline({
+        webgpu: true,
+        offscreenCanvas: true,
+        transferControlToOffscreen: true,
+        nativeResolution: { width: 160, height: 144 }
+      });
+
+      const onHealthyCallback = mockStreamHealthService.checkStreamHealth.mock.calls[0][1];
+      onHealthyCallback({});
+      await startPromise;
+
+      mockAppState.setStreaming(false);
+      await service.handlePerformanceModeChanged(true);
+
+      expect(mockSession.terminate).toHaveBeenCalledWith({ emitCanvasExpired: true });
+    });
   });
 
   describe('visibility pause/resume (regression: black screen after fullscreen round-trip)', () => {
