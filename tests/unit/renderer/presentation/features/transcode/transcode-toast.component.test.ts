@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TranscodeToastComponent } from '@renderer/presentation/features/transcode/transcode-toast.component.js';
 import { TranscodeProgressStore } from '@renderer/presentation/state/transcode-progress.store.js';
-import { createTranscodeToastElementsMock, createEventBus } from '../../../../factories/index.js';
+import { createTranscodeToastElementsMock, createEventBus } from '../../../../../factories/index.js';
 import { EventChannels } from '@platform/events';
 
 describe('TranscodeToastComponent', () => {

@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CursorAutoHide } from '@renderer/presentation/effects/cursor-auto-hide.effect';
-import { createCallbackMap } from '../../../../../factories/index.js';
+import { createCallbackMap } from '../../../../factories/index.js';
 
 describe('CursorAutoHide', () => {
   let autoHide;

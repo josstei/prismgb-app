@@ -10,7 +10,7 @@ import {
   createLogger,
   createSettingsServiceMock,
   createShaderSelectorElementsMock
-} from '../../../../factories/index.js';
+} from '../../../../../factories/index.js';
 
 let mockCinematicToggle;
 let mockPresetList;
