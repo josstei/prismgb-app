@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * UpdateService Unit Tests
  */
@@ -6,6 +5,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UpdateService } from '@platform/updates';
 import { UpdateState } from '@platform/config';
+import type { LoggerLike } from '@platform/core';
+import type { ProgressInfo, UpdateInfo } from 'electron-updater';
 import { createEventBus, createLoggerFactory, createUpdateConfigMock, createWindowServiceMock } from '../../../factories/index.js';
 
 vi.mock('electron', () => ({
@@ -35,13 +36,46 @@ vi.mock('electron-updater', () => {
 
 import { autoUpdater } from 'electron-updater';
 
+type MockFn = ReturnType<typeof vi.fn>;
+type MockWindowService = ReturnType<typeof createWindowServiceMock> & {
+  send: MockFn;
+};
+type MockLoggerFactory = ReturnType<typeof createLoggerFactory> & {
+  _getLogger(name: string): LoggerLike;
+};
+type UpdateConfigMock = ReturnType<typeof createUpdateConfigMock>;
+type UpdateServiceConfig = {
+  isDevelopment?: boolean;
+  version?: string;
+};
+type TestableUpdateService = Omit<UpdateService, 'config'> & {
+  _initialized: boolean;
+  _autoCheckRunning: boolean;
+  config: UpdateServiceConfig;
+  windowService: MockWindowService | null;
+};
+type UpdateEventHandlers = Record<string, (...args: unknown[]) => void>;
+type AutoUpdaterCheckResult = Awaited<ReturnType<typeof autoUpdater.checkForUpdates>>;
+
+function createUpdateInfo(version: string): UpdateInfo {
+  return { version } as UpdateInfo;
+}
+
+function createDownloadProgress(percent: number): ProgressInfo {
+  return { percent } as ProgressInfo;
+}
+
+function createAutoUpdaterCheckResult(version: string): NonNullable<AutoUpdaterCheckResult> {
+  return { updateInfo: createUpdateInfo(version) } as NonNullable<AutoUpdaterCheckResult>;
+}
+
 describe('UpdateService', () => {
-  let service;
-  let mockWindowService;
-  let mockEventBus;
-  let mockLogger;
-  let mockLoggerFactory;
-  let mockConfig;
+  let service: TestableUpdateService;
+  let mockWindowService: MockWindowService;
+  let mockEventBus: ReturnType<typeof createEventBus>;
+  let mockLogger: LoggerLike;
+  let mockLoggerFactory: MockLoggerFactory;
+  let mockConfig: UpdateConfigMock;
 
   beforeEach(() => {
 
@@ -58,7 +92,7 @@ describe('UpdateService', () => {
       eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory,
       config: mockConfig
-    });
+    }) as unknown as TestableUpdateService;
     mockLogger = mockLoggerFactory._getLogger('UpdateService');
   });
 
@@ -131,12 +165,13 @@ describe('UpdateService', () => {
   });
 
   describe('event handlers', () => {
-    let eventHandlers;
+    let eventHandlers: UpdateEventHandlers;
 
     beforeEach(() => {
       eventHandlers = {};
-      autoUpdater.on.mockImplementation((event, handler) => {
-        eventHandlers[event] = handler;
+      vi.mocked(autoUpdater.on).mockImplementation((event, handler) => {
+        eventHandlers[String(event)] = handler as (...args: unknown[]) => void;
+        return autoUpdater;
       });
       service.initialize();
     });
@@ -242,7 +277,7 @@ describe('UpdateService', () => {
 
     it('should skip check if already downloading', async () => {
       service.state = UpdateState.DOWNLOADING;
-      service.updateInfo = { version: '2.0.0' };
+      service.updateInfo = createUpdateInfo('2.0.0');
 
       const result = await service.checkForUpdates();
 
@@ -252,7 +287,7 @@ describe('UpdateService', () => {
 
     it('should skip check if already downloaded', async () => {
       service.state = UpdateState.DOWNLOADED;
-      service.updateInfo = { version: '2.0.0' };
+      service.updateInfo = createUpdateInfo('2.0.0');
 
       const result = await service.checkForUpdates();
 
@@ -262,7 +297,7 @@ describe('UpdateService', () => {
 
     it('should force check even if downloaded', async () => {
       service.state = UpdateState.DOWNLOADED;
-      autoUpdater.checkForUpdates.mockResolvedValue({ updateInfo: { version: '2.0.0' } });
+      vi.mocked(autoUpdater.checkForUpdates).mockResolvedValue(createAutoUpdaterCheckResult('2.0.0'));
 
       await service.checkForUpdates({ force: true });
 
@@ -270,7 +305,7 @@ describe('UpdateService', () => {
     });
 
     it('should call autoUpdater.checkForUpdates', async () => {
-      autoUpdater.checkForUpdates.mockResolvedValue({ updateInfo: { version: '2.0.0' } });
+      vi.mocked(autoUpdater.checkForUpdates).mockResolvedValue(createAutoUpdaterCheckResult('2.0.0'));
 
       const result = await service.checkForUpdates();
 
@@ -280,7 +315,7 @@ describe('UpdateService', () => {
     });
 
     it('should return updateAvailable false if same version', async () => {
-      autoUpdater.checkForUpdates.mockResolvedValue({ updateInfo: { version: '1.0.0' } });
+      vi.mocked(autoUpdater.checkForUpdates).mockResolvedValue(createAutoUpdaterCheckResult('1.0.0'));
 
       const result = await service.checkForUpdates();
 
@@ -289,14 +324,14 @@ describe('UpdateService', () => {
 
     it('should throw on error', async () => {
       const error = new Error('Network error');
-      autoUpdater.checkForUpdates.mockRejectedValue(error);
+      vi.mocked(autoUpdater.checkForUpdates).mockRejectedValue(error);
 
       await expect(service.checkForUpdates()).rejects.toThrow('Network error');
     });
 
     it('should handle platform manifest not found as not-available without throwing', async () => {
       const error = new Error('Cannot find latest-linux-arm64.yml in the latest release artifacts');
-      autoUpdater.checkForUpdates.mockRejectedValue(error);
+      vi.mocked(autoUpdater.checkForUpdates).mockRejectedValue(error);
 
       const result = await service.checkForUpdates();
 
@@ -306,7 +341,7 @@ describe('UpdateService', () => {
 
     it('should handle any platform yml manifest not found without throwing', async () => {
       const error = new Error('Cannot find latest-mac.yml in the release');
-      autoUpdater.checkForUpdates.mockRejectedValue(error);
+      vi.mocked(autoUpdater.checkForUpdates).mockRejectedValue(error);
 
       const result = await service.checkForUpdates();
 
@@ -333,7 +368,7 @@ describe('UpdateService', () => {
 
     it('should notify renderer if already downloaded', async () => {
       service.state = UpdateState.DOWNLOADED;
-      service.updateInfo = { version: '2.0.0' };
+      service.updateInfo = createUpdateInfo('2.0.0');
 
       await service.downloadUpdate();
 
@@ -343,7 +378,7 @@ describe('UpdateService', () => {
 
     it('should call autoUpdater.downloadUpdate', async () => {
       service.state = UpdateState.AVAILABLE;
-      autoUpdater.downloadUpdate.mockResolvedValue();
+      vi.mocked(autoUpdater.downloadUpdate).mockResolvedValue([]);
 
       await service.downloadUpdate();
 
@@ -354,7 +389,7 @@ describe('UpdateService', () => {
     it('should set ERROR state on failure', async () => {
       service.state = UpdateState.AVAILABLE;
       const error = new Error('Download failed');
-      autoUpdater.downloadUpdate.mockRejectedValue(error);
+      vi.mocked(autoUpdater.downloadUpdate).mockRejectedValue(error);
 
       await expect(service.downloadUpdate()).rejects.toThrow('Download failed');
       expect(service.state).toBe(UpdateState.ERROR);
@@ -399,7 +434,7 @@ describe('UpdateService', () => {
     });
 
     it('should perform initial check after delay', async () => {
-      autoUpdater.checkForUpdates.mockResolvedValue({ updateInfo: { version: '1.0.0' } });
+      vi.mocked(autoUpdater.checkForUpdates).mockResolvedValue(createAutoUpdaterCheckResult('1.0.0'));
 
       service.startAutoCheck(60000);
 
@@ -411,7 +446,7 @@ describe('UpdateService', () => {
     });
 
     it('should set up periodic checks', async () => {
-      autoUpdater.checkForUpdates.mockResolvedValue({ updateInfo: { version: '1.0.0' } });
+      vi.mocked(autoUpdater.checkForUpdates).mockResolvedValue(createAutoUpdaterCheckResult('1.0.0'));
 
       service.startAutoCheck(60000);
 
@@ -441,7 +476,7 @@ describe('UpdateService', () => {
     });
 
     it('should stop periodic checks', async () => {
-      autoUpdater.checkForUpdates.mockResolvedValue({ updateInfo: { version: '1.0.0' } });
+      vi.mocked(autoUpdater.checkForUpdates).mockResolvedValue(createAutoUpdaterCheckResult('1.0.0'));
 
       service.startAutoCheck(60000);
       await vi.advanceTimersByTimeAsync(10000);
@@ -456,8 +491,8 @@ describe('UpdateService', () => {
   describe('getStatus', () => {
     it('should return current status', () => {
       service.state = UpdateState.AVAILABLE;
-      service.updateInfo = { version: '2.0.0' };
-      service.downloadProgress = { percent: 50 };
+      service.updateInfo = createUpdateInfo('2.0.0');
+      service.downloadProgress = createDownloadProgress(50);
       service.error = new Error('Test error');
 
       const status = service.getStatus();

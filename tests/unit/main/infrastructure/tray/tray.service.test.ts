@@ -1,23 +1,22 @@
-// @ts-nocheck
 /**
  * TrayService Unit Tests
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   createWindowServiceMock
 } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createInjectableHarness, type LoggerMockLike } from '../../../../support/di/injectable.harness.js';
+
+type PathModuleWithDefault = typeof import('node:path') & { default: typeof import('node:path') };
 
 vi.mock('electron', () => {
   return {
     Tray: class MockTray {
-      constructor() {
-        this.setToolTip = vi.fn();
-        this.setContextMenu = vi.fn();
-        this.on = vi.fn();
-        this.destroy = vi.fn();
-      }
+      setToolTip = vi.fn();
+      setContextMenu = vi.fn();
+      on = vi.fn();
+      destroy = vi.fn();
     },
     Menu: {
       buildFromTemplate: vi.fn(() => ({}))
@@ -31,26 +30,53 @@ vi.mock('electron', () => {
 });
 
 vi.mock('path', async (importOriginal) => {
-  const actual = await importOriginal();
+  const actual = await importOriginal<PathModuleWithDefault>();
   return {
     ...actual,
     default: {
       ...actual.default,
-      join: vi.fn((...args) => args.join('/'))
+      join: vi.fn((...args: string[]) => args.join('/'))
     },
-    join: vi.fn((...args) => args.join('/'))
+    join: vi.fn((...args: string[]) => args.join('/'))
   };
 });
 
 import { TrayService } from '@main/infrastructure/tray/tray.service.js';
-import { Tray, Menu, app } from 'electron';
+import { Menu, app } from 'electron';
+
+type MockFn = ReturnType<typeof vi.fn>;
+type MockTrayInstance = {
+  setToolTip: MockFn;
+  setContextMenu: MockFn;
+  on: MockFn;
+  destroy: MockFn;
+};
+type MockWindowService = ReturnType<typeof createWindowServiceMock> & {
+  showWindow: MockFn;
+};
+type MockDeviceConnectionService = {
+  isConnected: MockFn;
+  reconcileDeviceStatus: MockFn;
+};
+type MockLoggerFactory = {
+  create: MockFn;
+};
+type TestableTrayService = Omit<TrayService, 'tray'> & {
+  tray: MockTrayInstance | null;
+  windowService: MockWindowService;
+  deviceConnectionService: MockDeviceConnectionService;
+};
+type MenuTemplateItem = {
+  label?: string;
+  click?: () => void;
+};
 
 describe('TrayService', () => {
-  let trayService;
-  let mockWindowService;
-  let mockDeviceConnectionService;
-  let mockLogger;
-  let mockLoggerFactory;
+  let trayService: TestableTrayService;
+  let mockWindowService: MockWindowService;
+  let mockDeviceConnectionService: MockDeviceConnectionService;
+  let mockLogger: LoggerMockLike;
+  let mockLoggerFactory: MockLoggerFactory;
 
   beforeEach(() => {
     const h = createInjectableHarness(TrayService, {
@@ -64,13 +90,17 @@ describe('TrayService', () => {
         }
       }
     });
-    trayService = h.subject;
+    trayService = h.subject as unknown as TestableTrayService;
     mockLogger = h.logger;
     ({
       windowService: mockWindowService,
       deviceConnectionService: mockDeviceConnectionService,
       loggerFactory: mockLoggerFactory
-    } = h.deps);
+    } = h.deps as {
+      windowService: MockWindowService;
+      deviceConnectionService: MockDeviceConnectionService;
+      loggerFactory: MockLoggerFactory;
+    });
   });
 
   describe('Constructor', () => {
@@ -136,7 +166,7 @@ describe('TrayService', () => {
     });
 
     it('should handle dist path for bundled environment', () => {
-      app.getAppPath.mockReturnValue('/app/dist/main');
+      vi.mocked(app.getAppPath).mockReturnValue('/app/dist/main');
 
       trayService.createTray();
 
@@ -152,7 +182,7 @@ describe('TrayService', () => {
     it('should build menu from template', () => {
       trayService.updateTrayMenu();
 
-      expect(Menu.buildFromTemplate).toHaveBeenCalled();
+      expect(vi.mocked(Menu.buildFromTemplate)).toHaveBeenCalled();
     });
 
     it('should set context menu', () => {
@@ -166,7 +196,7 @@ describe('TrayService', () => {
 
       trayService.updateTrayMenu();
 
-      expect(Menu.buildFromTemplate).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(Menu.buildFromTemplate)).toHaveBeenCalledTimes(1);
     });
 
     it('should check device connection status', () => {
@@ -180,9 +210,9 @@ describe('TrayService', () => {
     it('should reconcile through the tray-refresh path from the menu item', () => {
       trayService.updateTrayMenu();
 
-      const template = Menu.buildFromTemplate.mock.calls.at(-1)[0];
+      const template = vi.mocked(Menu.buildFromTemplate).mock.calls.at(-1)?.[0] as MenuTemplateItem[];
       const refreshItem = template.find((item) => item.label === 'Refresh Devices');
-      refreshItem.click();
+      refreshItem?.click?.();
 
       expect(mockDeviceConnectionService.reconcileDeviceStatus).toHaveBeenCalledWith('tray-refresh');
     });

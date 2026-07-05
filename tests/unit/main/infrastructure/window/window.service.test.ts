@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * WindowService Unit Tests
  */
@@ -8,7 +7,10 @@ import {
   createPreventDefaultEventMock,
   createWindowServiceElectronMock
 } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createInjectableHarness, type LoggerMockLike } from '../../../../support/di/injectable.harness.js';
+
+type UrlModuleWithDefault = typeof import('node:url') & { default: typeof import('node:url') };
+type PathModuleWithDefault = typeof import('node:path') & { default: typeof import('node:path') };
 
 // Mock electron - need to use class syntax
 vi.mock('electron', () => {
@@ -16,19 +18,19 @@ vi.mock('electron', () => {
 });
 
 vi.mock('url', async (importOriginal) => {
-  const actual = await importOriginal();
+  const actual = await importOriginal<UrlModuleWithDefault>();
   return {
     ...actual,
     default: {
       ...actual.default,
-      fileURLToPath: vi.fn((urlArg) => {
+      fileURLToPath: vi.fn((urlArg: string | URL) => {
         if (typeof urlArg === 'string' && urlArg.includes('window.service')) {
           return '/app/src/main/window/window.service.js';
         }
         return actual.fileURLToPath(urlArg);
       })
     },
-    fileURLToPath: vi.fn((urlArg) => {
+    fileURLToPath: vi.fn((urlArg: string | URL) => {
       if (typeof urlArg === 'string' && urlArg.includes('window.service')) {
         return '/app/src/main/window/window.service.js';
       }
@@ -38,28 +40,63 @@ vi.mock('url', async (importOriginal) => {
 });
 
 vi.mock('path', async (importOriginal) => {
-  const actual = await importOriginal();
+  const actual = await importOriginal<PathModuleWithDefault>();
   return {
     ...actual,
     default: {
       ...actual.default,
-      join: vi.fn((...args) => args.join('/')),
-      dirname: vi.fn((p) => p.split('/').slice(0, -1).join('/'))
+      join: vi.fn((...args: string[]) => args.join('/')),
+      dirname: vi.fn((p: string) => p.split('/').slice(0, -1).join('/'))
     },
-    join: vi.fn((...args) => args.join('/')),
-    dirname: vi.fn((p) => p.split('/').slice(0, -1).join('/'))
+    join: vi.fn((...args: string[]) => args.join('/')),
+    dirname: vi.fn((p: string) => p.split('/').slice(0, -1).join('/'))
   };
 });
 
 import { WindowService } from '@main/infrastructure/window/window.service.js';
-import { BrowserWindow, app } from 'electron';
+import { app } from 'electron';
+
+type MockFn = ReturnType<typeof vi.fn>;
+type MockBrowserWindow = {
+  loadURL: MockFn;
+  loadFile: MockFn;
+  show: MockFn;
+  hide: MockFn;
+  focus: MockFn;
+  restore: MockFn;
+  destroy: MockFn;
+  isMinimized: MockFn;
+  setSkipTaskbar: MockFn;
+  on: MockFn;
+  off: MockFn;
+  once: MockFn;
+  webContents: {
+    on: MockFn;
+    off: MockFn;
+    isDevToolsOpened: MockFn;
+    closeDevTools: MockFn;
+  };
+};
+type TestableWindowService = Omit<WindowService, 'getMainWindow'> & {
+  mainWindow: MockBrowserWindow | null;
+  _forceWindowToForeground(): void;
+  getMainWindow(): MockBrowserWindow | null;
+};
+type MockLoggerFactory = {
+  create: MockFn;
+};
+type MockIpcPushBridge = {
+  emit: MockFn;
+  on: MockFn;
+  off: MockFn;
+};
 
 describe('WindowService', () => {
-  let windowService;
-  let mockLogger;
-  let mockLoggerFactory;
-  let mockIpcPushBridge;
-  let originalPlatform;
+  let windowService: TestableWindowService;
+  let mockLogger: LoggerMockLike;
+  let mockLoggerFactory: MockLoggerFactory;
+  let mockIpcPushBridge: MockIpcPushBridge;
+  let originalPlatform: NodeJS.Platform;
 
   beforeEach(() => {
     const h = createInjectableHarness(WindowService, {
@@ -67,9 +104,12 @@ describe('WindowService', () => {
         ipcPushBridge: { emit: vi.fn(), on: vi.fn(), off: vi.fn() }
       }
     });
-    windowService = h.subject;
+    windowService = h.subject as unknown as TestableWindowService;
     mockLogger = h.logger;
-    ({ ipcPushBridge: mockIpcPushBridge, loggerFactory: mockLoggerFactory } = h.deps);
+    ({
+      ipcPushBridge: mockIpcPushBridge,
+      loggerFactory: mockLoggerFactory
+    } = h.deps as { ipcPushBridge: MockIpcPushBridge; loggerFactory: MockLoggerFactory });
 
     // Store original platform
     originalPlatform = process.platform;
