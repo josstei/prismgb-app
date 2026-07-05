@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * CaptureSaveService Unit Tests
  * Tests the save coordination for recordings and screenshots with optional transcoding
@@ -20,13 +19,23 @@ import {
   createSettingsServiceMock
 } from '../../../../../factories/index.js';
 
+type CaptureSaveServiceDependencies = {
+  eventBus: ReturnType<typeof createEventBus>;
+  settingsService: ReturnType<typeof createSettingsServiceMock>;
+  transcodeService: ReturnType<typeof createTranscodeServiceMock>;
+};
+
 describe('CaptureSaveService', () => {
-  let service;
-  let mockEventBus;
-  let mockSettingsService;
-  let mockTranscodeService;
-  let mockLogger;
-  let mockLoggerFactory;
+  let service: CaptureSaveService;
+  let mockEventBus: ReturnType<typeof createEventBus>;
+  let mockSettingsService: ReturnType<typeof createSettingsServiceMock>;
+  let mockTranscodeService: ReturnType<typeof createTranscodeServiceMock>;
+  let mockLogger: ReturnType<ReturnType<typeof createLoggerFactory>['create']>;
+  let mockLoggerFactory: ReturnType<typeof createLoggerFactory>;
+
+  function serviceDependencies(): CaptureSaveServiceDependencies {
+    return service as unknown as CaptureSaveServiceDependencies;
+  }
 
   beforeEach(() => {
     mockEventBus = createEventBus();
@@ -45,7 +54,7 @@ describe('CaptureSaveService', () => {
     mockLoggerFactory = createLoggerFactory();
     mockLogger = mockLoggerFactory.create('CaptureSaveService');
 
-    downloadFile.mockResolvedValue();
+    vi.mocked(downloadFile).mockResolvedValue();
 
     vi.useFakeTimers();
   });
@@ -58,9 +67,9 @@ describe('CaptureSaveService', () => {
     it('should store required dependencies', () => {
       service = new CaptureSaveService(mockEventBus, mockSettingsService, mockTranscodeService, mockLoggerFactory);
 
-      expect(service.eventBus).toBe(mockEventBus);
-      expect(service.settingsService).toBe(mockSettingsService);
-      expect(service.transcodeService).toBe(mockTranscodeService);
+      expect(serviceDependencies().eventBus).toBe(mockEventBus);
+      expect(serviceDependencies().settingsService).toBe(mockSettingsService);
+      expect(serviceDependencies().transcodeService).toBe(mockTranscodeService);
     });
 
   });
@@ -247,7 +256,7 @@ describe('CaptureSaveService', () => {
 
     it('should handle errors', async () => {
       const mockBlob = new Blob(['test'], { type: 'video/webm' });
-      downloadFile.mockRejectedValue(new Error('Blob too large'));
+      vi.mocked(downloadFile).mockRejectedValue(new Error('Blob too large'));
 
       const result = await service.saveRecording(mockBlob, 'file.webm');
 

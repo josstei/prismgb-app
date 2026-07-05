@@ -1,16 +1,30 @@
-// @ts-nocheck
 /**
  * UiComponentHost Unit Tests
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { UiComponentHost } from '@renderer/presentation/controller/ui-component.host.js';
+import {
+  UiComponentHost,
+  type UiComponentTokenResolver
+} from '@renderer/presentation/controller/ui-component.host.js';
 import { createLoggerFactory } from '../../../../factories/index.js';
 
+interface CreateHostOptions {
+  resolve?: (token: unknown) => unknown;
+  coreTokens?: Record<string, unknown>;
+  allTokens?: Record<string, unknown>;
+  loggerFactory?: ReturnType<typeof createLoggerFactory>;
+}
+
 describe('UiComponentHost', () => {
-  function createHost({ resolve, coreTokens = {}, allTokens, loggerFactory } = {}) {
+  function createHost({ resolve, coreTokens = {}, allTokens, loggerFactory }: CreateHostOptions = {}) {
+    const tokenResolver: UiComponentTokenResolver = <TInstance>(token: unknown) => {
+      const resolved = resolve ? resolve(token) : { token };
+      return resolved as TInstance;
+    };
+
     return new UiComponentHost(
-      resolve ?? vi.fn((token) => ({ token })),
+      tokenResolver,
       coreTokens,
       allTokens ?? coreTokens,
       loggerFactory
@@ -69,7 +83,7 @@ describe('UiComponentHost', () => {
   });
 
   it('disposes resolved components in reverse resolution order', async () => {
-    const disposeOrder = [];
+    const disposeOrder: string[] = [];
     const componentA = { dispose: vi.fn(() => disposeOrder.push('a')) };
     const componentB = { dispose: vi.fn(() => disposeOrder.push('b')) };
     const resolve = vi.fn((token) => (token === 'tokenA' ? componentA : componentB));

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * StreamingViewportService Unit Tests
  */
@@ -12,17 +11,55 @@ import {
 } from '../../../../../support/mocks/browser-api.installers.js';
 import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
 
-describe('StreamingViewportService', () => {
-  let service;
-  let mockLogger;
-  let mockCanvas;
-  let mockContainer;
-  let mockSection;
-  let mockMainContent;
-  let getComputedStyleMock;
-  let resizeObserverMock;
+interface ViewportComputedStyle {
+  paddingLeft?: string;
+  paddingRight?: string;
+  paddingTop?: string;
+  paddingBottom?: string;
+  borderLeftWidth?: string;
+  borderRightWidth?: string;
+  borderTopWidth?: string;
+  borderBottomWidth?: string;
+  gap?: string;
+}
 
-  function getViewportComputedStyle(element) {
+type ViewportDimensions = {
+  width: number;
+  height: number;
+  scale: number;
+};
+
+type ViewportCachedStyles = {
+  paddingX?: number;
+  paddingY?: number;
+  borderX?: number;
+  borderY?: number;
+  gap?: number;
+};
+
+type StreamingViewportServiceState = {
+  _resizeObserver: ResizeObserver | null;
+  _onResizeCallback: (() => void) | null;
+  _lastDimensions: ViewportDimensions | null;
+  _forceResizePending: boolean;
+  _cachedStyles: ViewportCachedStyles | null;
+};
+
+describe('StreamingViewportService', () => {
+  let service: StreamingViewportService;
+  let mockLogger: ReturnType<typeof createInjectableHarness<StreamingViewportService>>['logger'];
+  let mockCanvas: ReturnType<typeof createMockCanvas>;
+  let mockContainer: ReturnType<typeof createMockElement>;
+  let mockSection: ReturnType<typeof createMockElement>;
+  let mockMainContent: ReturnType<typeof createMockElement>;
+  let getComputedStyleMock: ReturnType<typeof installGetComputedStyleMock>;
+  let resizeObserverMock: ReturnType<typeof installResizeObserverMock>;
+
+  function serviceState(): StreamingViewportServiceState {
+    return service as unknown as StreamingViewportServiceState;
+  }
+
+  function getViewportComputedStyle(element?: unknown): ViewportComputedStyle {
     if (element === mockSection) {
       return {
         paddingLeft: '10px',
@@ -82,8 +119,8 @@ describe('StreamingViewportService', () => {
 
   describe('constructor', () => {
     it('should initialize with default values', () => {
-      expect(service._resizeObserver).toBeNull();
-      expect(service._onResizeCallback).toBeNull();
+      expect(serviceState()._resizeObserver).toBeNull();
+      expect(serviceState()._onResizeCallback).toBeNull();
     });
   });
 
@@ -93,9 +130,9 @@ describe('StreamingViewportService', () => {
 
       service.initialize(mockSection, onResize);
 
-      expect(service._resizeObserver).toBeTruthy();
-      expect(service._resizeObserver.observe).toHaveBeenCalledWith(mockSection);
-      expect(service._onResizeCallback).toBe(onResize);
+      expect(serviceState()._resizeObserver).toBeTruthy();
+      expect(serviceState()._resizeObserver?.observe).toHaveBeenCalledWith(mockSection);
+      expect(serviceState()._onResizeCallback).toBe(onResize);
     });
 
     it('should log debug message', () => {
@@ -111,17 +148,17 @@ describe('StreamingViewportService', () => {
 
       service.initialize(null, onResize);
 
-      expect(service._resizeObserver).toBeNull();
+      expect(serviceState()._resizeObserver).toBeNull();
     });
 
     it('should not create observer if already exists', () => {
       const onResize = vi.fn();
       const existingObserver = new resizeObserverMock.ResizeObserver(() => {});
-      service._resizeObserver = existingObserver;
+      serviceState()._resizeObserver = existingObserver;
 
       service.initialize(mockSection, onResize);
 
-      expect(service._resizeObserver).toBe(existingObserver);
+      expect(serviceState()._resizeObserver).toBe(existingObserver);
     });
   });
 
@@ -197,7 +234,7 @@ describe('StreamingViewportService', () => {
       mockSection.children = [mockContainer, mockControls];
 
       getComputedStyleMock.cleanup();
-      getComputedStyleMock = installGetComputedStyleMock((element) => {
+      getComputedStyleMock = installGetComputedStyleMock((element?: unknown): ViewportComputedStyle => {
         if (element === mockSection) {
           return {
             paddingLeft: '10px',
@@ -236,7 +273,7 @@ describe('StreamingViewportService', () => {
   describe('_handleResize', () => {
     it('should debounce resize callback', () => {
       const onResize = vi.fn();
-      service._onResizeCallback = onResize;
+      serviceState()._onResizeCallback = onResize;
 
       service._handleResize();
       service._handleResize();
@@ -251,7 +288,7 @@ describe('StreamingViewportService', () => {
     });
 
     it('should not call callback if not set', () => {
-      service._onResizeCallback = null;
+      serviceState()._onResizeCallback = null;
 
       service._handleResize();
       vi.advanceTimersByTime(100);
@@ -263,11 +300,11 @@ describe('StreamingViewportService', () => {
 
   describe('resetDimensions', () => {
     it('should clear last dimensions', () => {
-      service._lastDimensions = { width: 640, height: 576, scale: 4 };
+      serviceState()._lastDimensions = { width: 640, height: 576, scale: 4 };
 
       service.resetDimensions();
 
-      expect(service._lastDimensions).toBeNull();
+      expect(serviceState()._lastDimensions).toBeNull();
     });
   });
 
@@ -275,22 +312,22 @@ describe('StreamingViewportService', () => {
     it('should set forceResizePending flag', () => {
       service.forceResize();
 
-      expect(service._forceResizePending).toBe(true);
+      expect(serviceState()._forceResizePending).toBe(true);
     });
 
     it('should reset cached dimensions and styles', () => {
-      service._lastDimensions = { width: 640, height: 576, scale: 4 };
-      service._cachedStyles = { paddingX: 20 };
+      serviceState()._lastDimensions = { width: 640, height: 576, scale: 4 };
+      serviceState()._cachedStyles = { paddingX: 20 };
 
       service.forceResize();
 
-      expect(service._lastDimensions).toBeNull();
-      expect(service._cachedStyles).toBeNull();
+      expect(serviceState()._lastDimensions).toBeNull();
+      expect(serviceState()._cachedStyles).toBeNull();
     });
 
     it('should call callback after delay', () => {
       const onResize = vi.fn();
-      service._onResizeCallback = onResize;
+      serviceState()._onResizeCallback = onResize;
 
       service.forceResize();
 
@@ -299,12 +336,12 @@ describe('StreamingViewportService', () => {
       vi.advanceTimersByTime(32);
 
       expect(onResize).toHaveBeenCalledTimes(1);
-      expect(service._forceResizePending).toBe(false);
+      expect(serviceState()._forceResizePending).toBe(false);
     });
 
     it('should cancel a pending debounced resize', () => {
       const onResize = vi.fn();
-      service._onResizeCallback = onResize;
+      serviceState()._onResizeCallback = onResize;
       service._handleResize();
 
       service.forceResize();
@@ -315,7 +352,7 @@ describe('StreamingViewportService', () => {
 
     it('should cancel previous forceResize timeout', () => {
       const onResize = vi.fn();
-      service._onResizeCallback = onResize;
+      serviceState()._onResizeCallback = onResize;
 
       service.forceResize();
       service.forceResize();
@@ -331,17 +368,17 @@ describe('StreamingViewportService', () => {
       const mockObserver = createMockElement('div');
       mockObserver.observe = vi.fn();
       mockObserver.disconnect = vi.fn();
-      service._resizeObserver = mockObserver;
+      serviceState()._resizeObserver = mockObserver as unknown as ResizeObserver;
 
       service.cleanup();
 
       expect(mockObserver.disconnect).toHaveBeenCalled();
-      expect(service._resizeObserver).toBeNull();
+      expect(serviceState()._resizeObserver).toBeNull();
     });
 
     it('should cancel a pending debounced resize on cleanup', () => {
       const onResize = vi.fn();
-      service._onResizeCallback = onResize;
+      serviceState()._onResizeCallback = onResize;
       service._handleResize();
 
       service.cleanup();
@@ -351,18 +388,18 @@ describe('StreamingViewportService', () => {
     });
 
     it('should clear callback', () => {
-      service._onResizeCallback = vi.fn();
+      serviceState()._onResizeCallback = vi.fn();
 
       service.cleanup();
 
-      expect(service._onResizeCallback).toBeNull();
+      expect(serviceState()._onResizeCallback).toBeNull();
     });
 
     it('should log debug message', () => {
       const mockObserver = createMockElement('div');
       mockObserver.observe = vi.fn();
       mockObserver.disconnect = vi.fn();
-      service._resizeObserver = mockObserver;
+      serviceState()._resizeObserver = mockObserver as unknown as ResizeObserver;
 
       service.cleanup();
 
@@ -370,11 +407,11 @@ describe('StreamingViewportService', () => {
     });
 
     it('should handle cleanup when observer is null', () => {
-      service._resizeObserver = null;
+      serviceState()._resizeObserver = null;
 
       service.cleanup();
 
-      expect(service._resizeObserver).toBeNull();
+      expect(serviceState()._resizeObserver).toBeNull();
     });
   });
 });
