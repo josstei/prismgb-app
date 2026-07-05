@@ -2,16 +2,27 @@
  * BaseOrchestrator Unit Tests
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { BaseOrchestrator } from '@platform/core';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { BaseOrchestrator, type LoggerFactoryLike, type LoggerLike } from '@platform/core';
 import { createLoggerFactory } from '../../../factories/index.js';
 
+type MockLoggerFactory = LoggerFactoryLike & ReturnType<typeof createLoggerFactory>;
+type OrchestratorDependencies = {
+  loggerFactory?: MockLoggerFactory;
+  eventBus?: object;
+};
+type InjectedOrchestratorShape = {
+  loggerFactory?: MockLoggerFactory;
+  logger?: LoggerLike;
+  _orchestratorName: string;
+};
+
 describe('BaseOrchestrator', () => {
-  let mockLoggerFactory;
-  let mockLogger;
+  let mockLoggerFactory: MockLoggerFactory;
+  let mockLogger: LoggerLike;
 
   beforeEach(() => {
-    mockLoggerFactory = createLoggerFactory();
+    mockLoggerFactory = createLoggerFactory() as MockLoggerFactory;
     mockLogger = mockLoggerFactory.create('TestOrchestrator');
   });
 
@@ -21,22 +32,23 @@ describe('BaseOrchestrator', () => {
         { loggerFactory: mockLoggerFactory, eventBus: {} },
         'TestOrchestrator'
       );
+      const injected = orchestrator as unknown as InjectedOrchestratorShape;
 
-      expect(orchestrator.loggerFactory).toBe(mockLoggerFactory);
-      expect(orchestrator.logger).toBe(mockLogger);
+      expect(injected.loggerFactory).toBe(mockLoggerFactory);
+      expect(injected.logger).toBe(mockLogger);
       expect(orchestrator.isInitialized).toBe(false);
     });
 
     it('should use constructor name if name not provided', () => {
       class MyOrchestrator extends BaseOrchestrator {
-        constructor(deps) {
+        constructor(deps: OrchestratorDependencies) {
           super(deps);
         }
       }
 
       const orchestrator = new MyOrchestrator({ loggerFactory: mockLoggerFactory });
 
-      expect(orchestrator._orchestratorName).toBe('MyOrchestrator');
+      expect((orchestrator as unknown as InjectedOrchestratorShape)._orchestratorName).toBe('MyOrchestrator');
     });
 
     it('should work without loggerFactory', () => {
@@ -45,7 +57,7 @@ describe('BaseOrchestrator', () => {
         'TestOrchestrator'
       );
 
-      expect(orchestrator.logger).toBeUndefined();
+      expect((orchestrator as unknown as InjectedOrchestratorShape).logger).toBeUndefined();
     });
   });
 
@@ -77,12 +89,14 @@ describe('BaseOrchestrator', () => {
 
     it('should call onInitialize', async () => {
       class TestOrchestrator extends BaseOrchestrator {
-        constructor(deps) {
+        onInitializeCalled: boolean;
+
+        constructor(deps: OrchestratorDependencies) {
           super(deps, 'TestOrchestrator');
           this.onInitializeCalled = false;
         }
 
-        async onInitialize() {
+        override async onInitialize(): Promise<void> {
           this.onInitializeCalled = true;
         }
       }
@@ -117,12 +131,14 @@ describe('BaseOrchestrator', () => {
 
     it('should call onCleanup', async () => {
       class TestOrchestrator extends BaseOrchestrator {
-        constructor(deps) {
+        onCleanupCalled: boolean;
+
+        constructor(deps: OrchestratorDependencies) {
           super(deps, 'TestOrchestrator');
           this.onCleanupCalled = false;
         }
 
-        async onCleanup() {
+        override async onCleanup(): Promise<void> {
           this.onCleanupCalled = true;
         }
       }
@@ -136,12 +152,14 @@ describe('BaseOrchestrator', () => {
 
     it('should run onCleanup only once when onCleanup re-enters cleanup', async () => {
       class ReentrantOrchestrator extends BaseOrchestrator {
-        constructor(deps) {
+        onCleanupCount: number;
+
+        constructor(deps: OrchestratorDependencies) {
           super(deps, 'ReentrantOrchestrator');
           this.onCleanupCount = 0;
         }
 
-        async onCleanup() {
+        override async onCleanup(): Promise<void> {
           this.onCleanupCount++;
           if (this.onCleanupCount <= 5) {
             await this.cleanup();

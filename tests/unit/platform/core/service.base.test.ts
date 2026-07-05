@@ -2,19 +2,36 @@
  * BaseService Unit Tests
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { BaseService } from '@platform/core';
+import { describe, it, expect, beforeEach, vi, type MockedFunction } from 'vitest';
+import { BaseService, type EventBusLike, type LoggerFactoryLike, type LoggerLike } from '@platform/core';
 import { createEventBus, createLoggerFactory } from '../../../factories/index.js';
 
+type MockEventBus = EventBusLike &
+  ReturnType<typeof createEventBus> & {
+    subscribe: MockedFunction<EventBusLike['subscribe']>;
+  };
+type MockLoggerFactory = LoggerFactoryLike & ReturnType<typeof createLoggerFactory>;
+type ServiceDependencies = {
+  eventBus?: MockEventBus;
+  loggerFactory?: MockLoggerFactory;
+};
+type InjectedServiceShape = {
+  eventBus?: MockEventBus;
+  loggerFactory?: MockLoggerFactory;
+  logger?: LoggerLike;
+  _serviceName: string;
+  _initialized: boolean;
+};
+
 describe('BaseService', () => {
-  let mockEventBus;
-  let mockLoggerFactory;
-  let mockLogger;
+  let mockEventBus: MockEventBus;
+  let mockLoggerFactory: MockLoggerFactory;
+  let mockLogger: LoggerLike;
 
   beforeEach(() => {
-    mockLoggerFactory = createLoggerFactory();
+    mockLoggerFactory = createLoggerFactory() as MockLoggerFactory;
     mockLogger = mockLoggerFactory.create('TestService');
-    mockEventBus = createEventBus();
+    mockEventBus = createEventBus() as MockEventBus;
   });
 
   describe('Constructor', () => {
@@ -23,23 +40,24 @@ describe('BaseService', () => {
         { eventBus: mockEventBus, loggerFactory: mockLoggerFactory },
         'TestService'
       );
+      const injected = service as unknown as InjectedServiceShape;
 
-      expect(service.eventBus).toBe(mockEventBus);
-      expect(service.loggerFactory).toBe(mockLoggerFactory);
-      expect(service.logger).toBe(mockLogger);
-      expect(service._serviceName).toBe('TestService');
+      expect(injected.eventBus).toBe(mockEventBus);
+      expect(injected.loggerFactory).toBe(mockLoggerFactory);
+      expect(injected.logger).toBe(mockLogger);
+      expect(injected._serviceName).toBe('TestService');
     });
 
     it('should use constructor name if serviceName not provided', () => {
       class MyService extends BaseService {
-        constructor(deps) {
+        constructor(deps: ServiceDependencies) {
           super(deps);
         }
       }
 
       const service = new MyService({ loggerFactory: mockLoggerFactory });
 
-      expect(service._serviceName).toBe('MyService');
+      expect((service as unknown as InjectedServiceShape)._serviceName).toBe('MyService');
     });
 
     it('should work without loggerFactory', () => {
@@ -48,12 +66,12 @@ describe('BaseService', () => {
         'TestService'
       );
 
-      expect(service.logger).toBeUndefined();
+      expect((service as unknown as InjectedServiceShape).logger).toBeUndefined();
     });
   });
 
   describe('Lifecycle helpers', () => {
-    let service;
+    let service: BaseService;
 
     beforeEach(() => {
       service = new BaseService(
@@ -65,7 +83,7 @@ describe('BaseService', () => {
     it('tracks EventBus subscriptions through listen()', async () => {
       const listener = vi.fn();
       const unsub = vi.fn();
-      mockEventBus.subscribe = vi.fn(() => unsub);
+      mockEventBus.subscribe = vi.fn(() => unsub) as MockedFunction<EventBusLike['subscribe']>;
 
       const stopListening = service.listen('device:connected', listener);
 
@@ -97,7 +115,7 @@ describe('BaseService', () => {
 
     it('throws nothing when dispose is called multiple times', async () => {
       const unsub = vi.fn();
-      mockEventBus.subscribe = vi.fn(() => unsub);
+      mockEventBus.subscribe = vi.fn(() => unsub) as MockedFunction<EventBusLike['subscribe']>;
       service.listen('one', vi.fn());
 
       await expect(service.dispose()).resolves.toBeUndefined();
@@ -117,7 +135,9 @@ describe('BaseService', () => {
 
     it('should call a synchronous onInitialize and set _initialized synchronously', () => {
       class SyncService extends BaseService {
-        onInitialize() {
+        hookCalled = false;
+
+        protected override onInitialize(): void {
           this.hookCalled = true;
         }
       }
@@ -126,17 +146,19 @@ describe('BaseService', () => {
       service.initialize();
 
       expect(service.hookCalled).toBe(true);
-      expect(service._initialized).toBe(true);
+      expect((service as unknown as InjectedServiceShape)._initialized).toBe(true);
     });
 
     it('should not warn twice in a row when a synchronous hook already ran', () => {
       class CountingService extends BaseService {
-        constructor(deps, name) {
+        callCount: number;
+
+        constructor(deps: ServiceDependencies, name: string) {
           super(deps, name);
           this.callCount = 0;
         }
 
-        onInitialize() {
+        protected override onInitialize(): void {
           this.callCount += 1;
         }
       }
@@ -150,7 +172,9 @@ describe('BaseService', () => {
 
     it('should defer _initialized until an asynchronous onInitialize resolves', async () => {
       class AsyncService extends BaseService {
-        async onInitialize() {
+        hookCalled = false;
+
+        protected override async onInitialize(): Promise<void> {
           await Promise.resolve();
           this.hookCalled = true;
         }
@@ -159,19 +183,19 @@ describe('BaseService', () => {
       const service = new AsyncService({ loggerFactory: mockLoggerFactory }, 'AsyncService');
       const result = service.initialize();
 
-      expect(service._initialized).toBe(false);
+      expect((service as unknown as InjectedServiceShape)._initialized).toBe(false);
 
       await result;
 
       expect(service.hookCalled).toBe(true);
-      expect(service._initialized).toBe(true);
+      expect((service as unknown as InjectedServiceShape)._initialized).toBe(true);
     });
 
     it('should default to a no-op onInitialize', () => {
       const service = new BaseService({ loggerFactory: mockLoggerFactory }, 'TestService');
 
       expect(() => service.initialize()).not.toThrow();
-      expect(service._initialized).toBe(true);
+      expect((service as unknown as InjectedServiceShape)._initialized).toBe(true);
     });
   });
 

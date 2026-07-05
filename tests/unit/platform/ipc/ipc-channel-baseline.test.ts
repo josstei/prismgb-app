@@ -1,18 +1,21 @@
 import { describe, it, expect } from 'vitest';
 import { IPC_CHANNELS as channelsJson } from '@platform/ipc';
 
-function sortObjectByKeys(source) {
+type SortableObject = {
+  readonly [key: string]: string | SortableObject;
+};
+
+type SortedObject = {
+  [key: string]: string | SortedObject;
+};
+
+function sortObjectByKeys(source: SortableObject): SortedObject {
   return Object.keys(source)
     .sort()
-    .reduce((sorted, key) => {
+    .reduce<SortedObject>((sorted, key) => {
       const value = source[key];
       if (value && typeof value === 'object' && !Array.isArray(value)) {
-        sorted[key] = Object.keys(value)
-          .sort()
-          .reduce((sortedValue, nestedKey) => {
-            sortedValue[nestedKey] = value[nestedKey];
-            return sortedValue;
-          }, {});
+        sorted[key] = sortObjectByKeys(value);
       } else {
         sorted[key] = value;
       }

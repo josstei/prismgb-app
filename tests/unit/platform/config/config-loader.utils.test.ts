@@ -24,13 +24,15 @@ describe('ConfigLoader', () => {
 
   describe('uiConfig', () => {
     it('should export WINDOW_CONFIG with required properties', () => {
-      expect(uiConfig.WINDOW_CONFIG).toBeDefined();
-      expect(uiConfig.WINDOW_CONFIG.width).toBe(1280);
-      expect(uiConfig.WINDOW_CONFIG.height).toBe(720);
-      expect(uiConfig.WINDOW_CONFIG.minWidth).toBe(800);
-      expect(uiConfig.WINDOW_CONFIG.minHeight).toBe(600);
-      expect(uiConfig.WINDOW_CONFIG.title).toBe('PrismGB Launcher');
-      expect(uiConfig.WINDOW_CONFIG.backgroundColor).toBeDefined();
+      const windowConfig: typeof uiConfig.WINDOW_CONFIG = uiConfig.WINDOW_CONFIG;
+
+      expect(windowConfig).toBeDefined();
+      expect(windowConfig.width).toBe(1280);
+      expect(windowConfig.height).toBe(720);
+      expect(windowConfig.minWidth).toBe(800);
+      expect(windowConfig.minHeight).toBe(600);
+      expect(windowConfig.title).toBe('PrismGB Launcher');
+      expect(windowConfig.backgroundColor).toBeDefined();
     });
 
     it('should be frozen', () => {
@@ -40,9 +42,11 @@ describe('ConfigLoader', () => {
 
   describe('Config Integrity', () => {
     it('should not allow modification of appConfig', () => {
+      const frozenConfig: typeof appConfig = appConfig;
+
       expect(Object.isFrozen(appConfig)).toBe(true);
       expect(() => {
-        appConfig.DEVICE_LAUNCH_DELAY = 9999;
+        frozenConfig.DEVICE_LAUNCH_DELAY = 9999;
       }).toThrow();
     });
 

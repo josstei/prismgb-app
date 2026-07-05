@@ -27,7 +27,7 @@ describe('IPC Channels', () => {
     });
 
     it('should have expected channel count', () => {
-      const deviceChannels = Object.keys(channels.DEVICE);
+      const deviceChannels = Object.keys(channels.DEVICE) as Array<keyof typeof channels.DEVICE>;
       expect(deviceChannels.length).toBe(3);
     });
   });

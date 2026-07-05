@@ -3,9 +3,12 @@ import { getErrorMessage, isErrorLike } from '@platform/core';
 
 describe('error-guards', () => {
   it('detects values with string messages', () => {
+    const plainErrorLike: { message: string } = { message: 'plain object' };
+    const numericMessage: { message: number } = { message: 42 };
+
     expect(isErrorLike(new Error('boom'))).toBe(true);
-    expect(isErrorLike({ message: 'plain object' })).toBe(true);
-    expect(isErrorLike({ message: 42 })).toBe(false);
+    expect(isErrorLike(plainErrorLike)).toBe(true);
+    expect(isErrorLike(numericMessage)).toBe(false);
   });
 
   it('normalizes unknown catch values to a message', () => {

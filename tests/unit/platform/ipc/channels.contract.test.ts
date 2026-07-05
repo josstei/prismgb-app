@@ -1,8 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { IPC_CHANNELS as channelsJson } from '@platform/ipc';
 
-function flattenChannelValues(node) {
-  const values = [];
+type ChannelTree = {
+  readonly [key: string]: string | ChannelTree;
+};
+
+function flattenChannelValues(node: ChannelTree): string[] {
+  const values: string[] = [];
   for (const value of Object.values(node)) {
     if (typeof value === 'string') {
       values.push(value);
