@@ -21,7 +21,7 @@ import {
 import {
   CHROMATIC_DESCRIPTOR,
   CHROMATIC_SPECS
-} from '../../../devices/media.testkit';
+} from '../../../../devices/media.testkit';
 
 describe('DeviceCatalog', () => {
   it('uses the manifest as the canonical device source', () => {

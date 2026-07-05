@@ -3,12 +3,12 @@ import {
   createNodeUsbMonitor,
   createNoopUsbMonitor,
   toUsbDevice
-} from '../../../../src/platform/devices/infrastructure/usb.monitor.js';
+} from '../../../../../src/platform/devices/infrastructure/usb.monitor.js';
 import type {
   UsbModule,
   UsbModuleLoader
-} from '../../../../src/platform/devices/infrastructure/usb.monitor.js';
-import { CHROMATIC_DESCRIPTOR } from '../../../devices/media.testkit';
+} from '../../../../../src/platform/devices/infrastructure/usb.monitor.js';
+import { CHROMATIC_DESCRIPTOR } from '../../../../devices/media.testkit';
 
 const chromaticUsb = CHROMATIC_DESCRIPTOR.usb;
 const chromaticUsbName = `USB Device ${chromaticUsb.hexVendorId.slice(2)}:${chromaticUsb.hexProductId.slice(2)}`;

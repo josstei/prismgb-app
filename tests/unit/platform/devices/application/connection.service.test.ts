@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DeviceConnectionService } from '@platform/devices/runtime';
-import { createLoggerFactory } from '../../../factories/index.js';
+import { createLoggerFactory } from '../../../../factories/index.js';
 import {
   createChromaticDeviceInfoPayload,
   createChromaticUsbDevice
-} from '../../../devices/media.testkit';
+} from '../../../../devices/media.testkit';
 
 describe('DeviceConnectionService', () => {
   let usbMonitor: {
