@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { StreamingRenderService } from '@renderer/infrastructure/services/streaming/streaming-render.service';
 import { createGpuVideoRendererSession, detectBrowserGpuCapabilities } from '@platform/gpu/runtime';
-import { createStreamingViewServiceMock } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createStreamingViewServiceMock } from '../../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
 
 const mockSession = {
   backend: 'webgpu',

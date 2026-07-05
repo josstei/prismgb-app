@@ -8,8 +8,8 @@ import {
   createCaptureStreamMock,
   createMockVideo,
   createStreamingViewControllerMock,
-} from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+} from '../../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
 
 describe('StreamingViewService', () => {
   let service;

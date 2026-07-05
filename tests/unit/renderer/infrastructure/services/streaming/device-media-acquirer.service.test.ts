@@ -8,16 +8,16 @@ import { DeviceMediaAcquirer } from '@renderer/infrastructure/services/streaming
 import {
   createCaptureStreamMock,
   createMediaTrackMock
-} from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+} from '../../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
 import {
   CHROMATIC_AUDIO_DEVICE_INFO,
   CHROMATIC_VIDEO_DEVICE_INFO
-} from '../../../../devices/media.testkit';
+} from '../../../../../devices/media.testkit';
 import {
   createChromaticAudioDeviceInfo,
   createChromaticVideoDeviceInfo
-} from '../../../../devices/media.testkit';
+} from '../../../../../devices/media.testkit';
 
 function createMediaDevice(overrides = {}) {
   return createChromaticVideoDeviceInfo(overrides);

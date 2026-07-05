@@ -15,9 +15,9 @@ import {
   createDeviceInfo,
   createRendererDeviceRuntimeMock,
   createMediaTrackMock,
-} from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
-import { createDeferred } from '../../../../support/deferred.testkit.js';
+} from '../../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+import { createDeferred } from '../../../../../support/deferred.testkit.js';
 
 function createStreamingTarget(overrides = {}) {
   const descriptor = DeviceCatalog.default();

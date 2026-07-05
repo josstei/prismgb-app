@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { StreamingAudioPipelineService } from '@renderer/infrastructure/services/streaming/audio-pipeline.service';
-import { createSettingsServiceMock } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createSettingsServiceMock } from '../../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
 
 function createService() {
   const h = createInjectableHarness(StreamingAudioPipelineService, {

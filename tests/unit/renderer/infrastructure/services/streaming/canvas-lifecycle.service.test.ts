@@ -8,11 +8,11 @@ import {
   createViewportServiceMock,
   createEventBus,
   createLoggerFactory,
-} from '../../../../factories/index.js';
+} from '../../../../../factories/index.js';
 import {
   installGetComputedStyleMock,
   installDocumentCreateElementMock
-} from '../../../../support/mocks/browser-api.installers.js';
+} from '../../../../../support/mocks/browser-api.installers.js';
 
 describe('StreamingCanvasLifecycleService', () => {
   let service: StreamingCanvasLifecycleService;

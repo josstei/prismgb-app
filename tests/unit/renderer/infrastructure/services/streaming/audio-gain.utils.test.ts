@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeRms, createEaseInCurve } from '../../../../../src/renderer/infrastructure/services/streaming/audio-gain.utils.js';
+import { computeRms, createEaseInCurve } from '@renderer/infrastructure/services/streaming/audio-gain.utils.js';
 
 describe('audio-gain.utils', () => {
   it('computeRms returns 0 for an all-128 (silence) byte buffer', () => {
