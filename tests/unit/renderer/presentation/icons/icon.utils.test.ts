@@ -8,7 +8,7 @@ describe('icon utils', () => {
   });
 
   it('applies explicit icon size overrides', () => {
-    const svg = getIconSvg('toolbar-record', 20);
+    const svg: string = getIconSvg('toolbar-record', 20);
 
     expect(svg).toContain('width="20"');
     expect(svg).toContain('height="20"');

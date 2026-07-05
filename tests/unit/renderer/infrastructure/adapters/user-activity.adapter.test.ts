@@ -5,9 +5,25 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UserActivityAdapter } from '@renderer/infrastructure/adapters/user-activity.adapter.js';
 
+type CapturedDocumentListener = {
+  listener: EventListenerOrEventListenerObject;
+  options?: boolean | AddEventListenerOptions;
+};
+type CapturedDocumentListeners = Record<string, CapturedDocumentListener[]>;
+
+function invokeCapturedListener(listener: EventListenerOrEventListenerObject): void {
+  const event = new Event('test');
+  if (typeof listener === 'function') {
+    listener(event);
+    return;
+  }
+
+  listener.handleEvent(event);
+}
+
 describe('UserActivityAdapter', () => {
-  let adapter;
-  let eventListeners;
+  let adapter: UserActivityAdapter;
+  let eventListeners: CapturedDocumentListeners;
 
   beforeEach(() => {
     eventListeners = {};
@@ -36,7 +52,7 @@ describe('UserActivityAdapter', () => {
       // Simulate pointermove event
       const listeners = eventListeners['pointermove'];
       expect(listeners).toBeDefined();
-      listeners[0].listener();
+      invokeCapturedListener(listeners[0].listener);
 
       expect(callback).toHaveBeenCalledTimes(1);
     });
@@ -48,7 +64,7 @@ describe('UserActivityAdapter', () => {
       // Simulate keydown event
       const listeners = eventListeners['keydown'];
       expect(listeners).toBeDefined();
-      listeners[0].listener();
+      invokeCapturedListener(listeners[0].listener);
 
       expect(callback).toHaveBeenCalledTimes(1);
     });
@@ -60,7 +76,7 @@ describe('UserActivityAdapter', () => {
       // Simulate wheel event
       const listeners = eventListeners['wheel'];
       expect(listeners).toBeDefined();
-      listeners[0].listener();
+      invokeCapturedListener(listeners[0].listener);
 
       expect(callback).toHaveBeenCalledTimes(1);
     });
@@ -72,7 +88,7 @@ describe('UserActivityAdapter', () => {
       // Simulate touchstart event
       const listeners = eventListeners['touchstart'];
       expect(listeners).toBeDefined();
-      listeners[0].listener();
+      invokeCapturedListener(listeners[0].listener);
 
       expect(callback).toHaveBeenCalledTimes(1);
     });

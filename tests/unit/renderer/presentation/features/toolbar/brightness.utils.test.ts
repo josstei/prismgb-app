@@ -51,10 +51,10 @@ describe('brightness.utils', () => {
 
   describe('roundtrip conversion', () => {
     it('should maintain value through slider -> brightness -> slider', () => {
-      const testValues = [0, 25, 50, 75, 100];
-      testValues.forEach(slider => {
-        const brightness = sliderToBrightness(slider);
-        const result = brightnessToSlider(brightness);
+      const testValues: number[] = [0, 25, 50, 75, 100];
+      testValues.forEach((slider: number) => {
+        const brightness: number = sliderToBrightness(slider);
+        const result: number = brightnessToSlider(brightness);
         expect(result).toBe(slider);
       });
     });

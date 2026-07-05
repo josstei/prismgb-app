@@ -7,10 +7,15 @@ import { ReducedMotionAdapter } from '@renderer/infrastructure/adapters/reduced-
 import { installMatchMediaMock } from '../../../../support/mocks/browser-api.installers.js';
 import { createMediaQueryListMock } from '../../../../factories/index.js';
 
+type MediaQueryListMock = ReturnType<typeof createMediaQueryListMock> & {
+  addEventListener?: ReturnType<typeof vi.fn>;
+  removeEventListener?: ReturnType<typeof vi.fn>;
+};
+
 describe('ReducedMotionAdapter', () => {
-  let adapter;
-  let mockMediaQuery;
-  let matchMediaMock;
+  let adapter: ReducedMotionAdapter;
+  let mockMediaQuery: MediaQueryListMock;
+  let matchMediaMock: ReturnType<typeof installMatchMediaMock>;
 
   beforeEach(() => {
     adapter = new ReducedMotionAdapter();
@@ -48,7 +53,7 @@ describe('ReducedMotionAdapter', () => {
       adapter.onChange(callback);
 
       // Simulate change event
-      const changeHandler = mockMediaQuery.addEventListener.mock.calls[0][1];
+      const changeHandler = mockMediaQuery.addEventListener?.mock.calls[0][1] as (event: Pick<MediaQueryListEvent, 'matches'>) => void;
       changeHandler({ matches: true });
 
       expect(callback).toHaveBeenCalledWith(true);

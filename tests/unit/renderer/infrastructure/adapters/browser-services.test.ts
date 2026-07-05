@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { BrowserMediaAdapter } from '@renderer/infrastructure/adapters/browser-media.adapter.js';
 import { BrowserStorageAdapter } from '@renderer/infrastructure/adapters/browser-storage.adapter.js';
+import type { LoggerLike } from '@platform/core';
 import { createLogger } from '../../../../factories/index.js';
 import {
   installClipboardMock,
@@ -13,7 +14,17 @@ import {
   installNavigatorMock
 } from '../../../../support/mocks/browser-api.installers.js';
 
-function withNavigatorMock(value, assertion) {
+type NavigatorMockValue = Navigator | Partial<Navigator> | undefined;
+type BrowserStorageAdapterInternals = {
+  logger: LoggerLike;
+  protectedKeys: string[];
+};
+
+function storageInternals(service: BrowserStorageAdapter): BrowserStorageAdapterInternals {
+  return service as unknown as BrowserStorageAdapterInternals;
+}
+
+function withNavigatorMock<T>(value: NavigatorMockValue, assertion: () => T): T {
   const navigatorMock = installNavigatorMock(value);
 
   try {
@@ -23,7 +34,7 @@ function withNavigatorMock(value, assertion) {
   }
 }
 
-async function withNavigatorMockAsync(value, assertion) {
+async function withNavigatorMockAsync<T>(value: NavigatorMockValue, assertion: () => Promise<T>): Promise<T> {
   const navigatorMock = installNavigatorMock(value);
 
   try {
@@ -35,14 +46,14 @@ async function withNavigatorMockAsync(value, assertion) {
 
 describe('installMediaMocks', () => {
   it('should preserve existing navigator prototype properties while installing mediaDevices', () => {
-    const navigatorPrototype = {};
+    const navigatorPrototype: { userAgent?: string } = {};
     Object.defineProperty(navigatorPrototype, 'userAgent', {
       configurable: true,
       get: () => 'preserved-test-agent',
     });
-    const customNavigator = Object.create(navigatorPrototype);
+    const customNavigator = Object.create(navigatorPrototype) as Navigator;
     const navigatorMock = installNavigatorMock(customNavigator);
-    let mediaMock;
+    let mediaMock: ReturnType<typeof installMediaMocks> | undefined;
 
     try {
       mediaMock = installMediaMocks();
@@ -80,8 +91,8 @@ describe('installClipboardMock', () => {
 });
 
 describe('BrowserMediaAdapter', () => {
-  let service;
-  let mediaMock;
+  let service: BrowserMediaAdapter;
+  let mediaMock: ReturnType<typeof installMediaMocks>;
 
   beforeEach(() => {
     mediaMock = installMediaMocks({
@@ -282,10 +293,10 @@ describe('BrowserMediaAdapter', () => {
 });
 
 describe('BrowserStorageAdapter', () => {
-  let service;
-  let mockLogger;
-  let storageData;
-  let localStorageMock;
+  let service: BrowserStorageAdapter;
+  let mockLogger: ReturnType<typeof createLogger>;
+  let storageData: Record<string, string>;
+  let localStorageMock: ReturnType<typeof installLocalStorageMock>;
 
   beforeEach(() => {
     mockLogger = createLogger({ name: 'BrowserStorageAdapter' });
@@ -301,22 +312,22 @@ describe('BrowserStorageAdapter', () => {
   describe('constructor', () => {
     it('should use console as default logger when none provided', () => {
       const defaultService = new BrowserStorageAdapter();
-      expect(defaultService.logger).toBe(console);
+      expect(storageInternals(defaultService).logger).toBe(console);
     });
 
     it('should use provided logger', () => {
-      expect(service.logger).toBe(mockLogger);
+      expect(storageInternals(service).logger).toBe(mockLogger);
     });
 
     it('should use empty array as default protectedKeys when none provided', () => {
       const defaultService = new BrowserStorageAdapter();
-      expect(defaultService.protectedKeys).toEqual([]);
+      expect(storageInternals(defaultService).protectedKeys).toEqual([]);
     });
 
     it('should use provided protectedKeys', () => {
       const protectedKeys = ['key1', 'key2'];
       const serviceWithProtectedKeys = new BrowserStorageAdapter({ logger: mockLogger, protectedKeys });
-      expect(serviceWithProtectedKeys.protectedKeys).toEqual(protectedKeys);
+      expect(storageInternals(serviceWithProtectedKeys).protectedKeys).toEqual(protectedKeys);
     });
   });
 
@@ -381,8 +392,7 @@ describe('BrowserStorageAdapter', () => {
       localStorageMock.setSetItemImplementation(() => {
         attempts++;
         if (attempts === 1) {
-          const error = new Error('Quota exceeded');
-          error.code = 22;
+          const error = Object.assign(new Error('Quota exceeded'), { code: 22 }) as unknown as Error & { code: string };
           throw error;
         }
       });
@@ -464,7 +474,7 @@ describe('BrowserStorageAdapter', () => {
 
       serviceWithProtectedKeys._cleanupOldEntries();
 
-      const removedKeys = localStorageMock.removeItem.mock.calls.map(call => call[0]);
+      const removedKeys: string[] = localStorageMock.removeItem.mock.calls.map((call) => call[0]);
       expect(removedKeys).not.toContain('gameVolume');
       expect(removedKeys).not.toContain('renderPreset');
       expect(removedKeys).not.toContain('statusStripVisible');

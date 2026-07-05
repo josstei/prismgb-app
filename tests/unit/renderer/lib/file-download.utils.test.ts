@@ -3,8 +3,8 @@ import { downloadFile } from '@renderer/lib/file-download.utils';
 import { installBlobDownloadMock } from '../../../support/mocks/browser-api.installers.js';
 
 describe('fileDownload', () => {
-  let downloadMock;
-  let mockAnchor;
+  let downloadMock: ReturnType<typeof installBlobDownloadMock>;
+  let mockAnchor: ReturnType<typeof installBlobDownloadMock>['anchor'];
 
   beforeEach(() => {
     vi.useFakeTimers();

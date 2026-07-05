@@ -6,10 +6,20 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { VisibilityAdapter } from '@renderer/infrastructure/adapters/visibility.adapter.js';
 import { installDocumentPropertyMock } from '../../../../support/mocks/browser-api.installers.js';
 
+function invokeVisibilityListener(listener: EventListenerOrEventListenerObject): void {
+  const event = new Event('visibilitychange');
+  if (typeof listener === 'function') {
+    listener(event);
+    return;
+  }
+
+  listener.handleEvent(event);
+}
+
 describe('VisibilityAdapter', () => {
-  let adapter;
-  let visibilityChangeListeners;
-  let hiddenMock;
+  let adapter: VisibilityAdapter;
+  let visibilityChangeListeners: EventListenerOrEventListenerObject[];
+  let hiddenMock: ReturnType<typeof installDocumentPropertyMock>;
 
   beforeEach(() => {
     visibilityChangeListeners = [];
@@ -50,7 +60,7 @@ describe('VisibilityAdapter', () => {
 
       // Simulate visibility change
       hiddenMock.setValue(true);
-      visibilityChangeListeners.forEach(listener => listener());
+      visibilityChangeListeners.forEach((listener) => invokeVisibilityListener(listener));
 
       expect(callback).toHaveBeenCalledWith(true);
     });

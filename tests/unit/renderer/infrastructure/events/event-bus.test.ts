@@ -6,11 +6,14 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { EventBus } from '@renderer/infrastructure/events/event-bus.js';
+import type { LoggerFactoryLike } from '@platform/core';
 import { createLoggerFactory } from '../../../../factories/index.js';
 
+type EventTestHandler = (payload?: unknown) => void;
+
 describe('EventBus', () => {
-  let eventBus;
-  let mockLoggerFactory;
+  let eventBus: EventBus;
+  let mockLoggerFactory: ReturnType<typeof createLoggerFactory>;
 
   beforeEach(() => {
     mockLoggerFactory = createLoggerFactory();
@@ -19,7 +22,7 @@ describe('EventBus', () => {
 
   describe('Constructor', () => {
     it('should create EventBus without logger', () => {
-      const bus = new EventBus();
+      const bus = new EventBus(undefined as unknown as LoggerFactoryLike);
       expect(bus).toBeDefined();
       expect(bus.emitter).toBeDefined();
     });
@@ -100,7 +103,7 @@ describe('EventBus', () => {
     });
 
     it('should handle errors when no logger is configured', () => {
-      const busWithoutLogger = new EventBus();
+      const busWithoutLogger = new EventBus(undefined as unknown as LoggerFactoryLike);
       const throwingHandler = vi.fn(() => {
         throw new Error('Handler error');
       });
@@ -120,13 +123,13 @@ describe('EventBus', () => {
     });
 
     it('should throw for non-function handler', () => {
-      expect(() => eventBus.subscribe('test-event', 'not-a-function'))
+      expect(() => eventBus.subscribe('test-event', 'not-a-function' as unknown as EventTestHandler))
         .toThrow('Handler must be a function');
 
-      expect(() => eventBus.subscribe('test-event', null))
+      expect(() => eventBus.subscribe('test-event', null as unknown as EventTestHandler))
         .toThrow('Handler must be a function');
 
-      expect(() => eventBus.subscribe('test-event', {}))
+      expect(() => eventBus.subscribe('test-event', {} as unknown as EventTestHandler))
         .toThrow('Handler must be a function');
     });
 
@@ -286,7 +289,7 @@ describe('EventBus', () => {
 
   describe('Memory Management', () => {
     it('should not leak memory when unsubscribing', () => {
-      const handlers = [];
+      const handlers: Array<ReturnType<typeof vi.fn>> = [];
 
       // Add and remove many handlers
       for (let i = 0; i < 100; i++) {
