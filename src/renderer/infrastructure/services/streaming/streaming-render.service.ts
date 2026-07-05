@@ -193,7 +193,7 @@ export class StreamingRenderService extends BaseService {
         });
       }
 
-      this._session.terminate();
+      this._session.terminate({ emitCanvasExpired: true });
       this._session = null;
 
       if (isGpu) {
@@ -273,7 +273,7 @@ export class StreamingRenderService extends BaseService {
 
     if (this._session && this._session.backend === 'webgpu') {
       this.logger.info('Performance mode enabled - terminating GPU worker for Canvas2D on next stream');
-      this._session.terminate();
+      this._session.terminate({ emitCanvasExpired: true });
       this._session = null;
     }
   }
@@ -538,7 +538,7 @@ export class StreamingRenderService extends BaseService {
   async resetCanvasState(): Promise<void> {
     this._stopRenderLoop();
     if (this._session) {
-      this._session.terminate();
+      this._session.terminate({ emitCanvasExpired: false });
       this._session = null;
     }
   }

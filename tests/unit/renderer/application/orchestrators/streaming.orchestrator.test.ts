@@ -78,6 +78,18 @@ describe('StreamingOrchestrator', () => {
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:started', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:stopped', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:error', expect.any(Function));
+    });
+
+    it('routes canvas expiry to the streaming render service', async () => {
+      await orchestrator.initialize();
+
+      const canvasExpiredSubscription = mockEventBus.subscribe.mock.calls
+        .find(([channel]) => channel === 'render:canvas-expired');
+      expect(canvasExpiredSubscription).toBeDefined();
+
+      await canvasExpiredSubscription[1]();
+
+      expect(mockStreamingRenderService.handleCanvasExpired).toHaveBeenCalledTimes(1);
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('performance:render-mode-changed', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('performance:state-changed', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('device:disconnected-during-session', expect.any(Function));
