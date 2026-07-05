@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
-  trpcClient: (await import('../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
+  trpcClient: (await import('../../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
 }));
 import { UpdateService } from '@renderer/infrastructure/services/updates/update.service';
 import { UpdateState } from '@platform/config';
 import { EventChannels } from '@platform/events';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
-import { emitTrpcData, getTrpcUnsubscribe } from '../../../../support/mocks/trpc-client.mock';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { emitTrpcData, getTrpcUnsubscribe } from '../../../../../support/mocks/trpc-client.mock';
+import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
 
 describe('UpdateService', () => {
   let service, mockEventBus, mockLogger, mockLoggerFactory;

@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PerformanceAnimationService } from '@renderer/infrastructure/services/performance/performance-animation.service';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
 
 describe('PerformanceAnimationService', () => {
   let service;

@@ -8,8 +8,8 @@ import {
   createReducedMotionAdapterMock,
   createUserActivityAdapterMock,
   createVisibilityAdapterMock,
-} from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+} from '../../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
 
 describe('PerformanceStateService', () => {
   let service;

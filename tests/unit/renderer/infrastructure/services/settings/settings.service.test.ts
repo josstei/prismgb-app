@@ -5,12 +5,12 @@ import fs from 'fs';
 import path from 'path';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
-  trpcClient: (await import('../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
+  trpcClient: (await import('../../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
 }));
 import { SettingsDefinitions as settingsDefinitions } from '@renderer/lib/settings.definitions.js';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { EventChannels } from '@platform/events';
-import { createSettingsServiceHarness } from '../../../../factories/index.js';
+import { createSettingsServiceHarness } from '../../../../../factories/index.js';
 describe('SettingsService', () => {
   let service;
   let mockEventBus;

@@ -4,8 +4,8 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingHealthService } from '@renderer/infrastructure/services/platform/health.service';
-import { createMockVideo } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createMockVideo } from '../../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
 
 describe('StreamingHealthService', () => {
   let service;

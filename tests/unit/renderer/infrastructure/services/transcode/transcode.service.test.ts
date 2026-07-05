@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 
 vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
-  trpcClient: (await import('../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
+  trpcClient: (await import('../../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
 }));
 
 import { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service';
 import { EventChannels } from '@platform/events';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
-import { emitTrpcData, getTrpcUnsubscribe } from '../../../../support/mocks/trpc-client.mock';
-import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import { emitTrpcData, getTrpcUnsubscribe } from '../../../../../support/mocks/trpc-client.mock';
+import { createEventBus, createLoggerFactory } from '../../../../../factories/index.js';
 
 describe('TranscodeService', () => {
   let service;

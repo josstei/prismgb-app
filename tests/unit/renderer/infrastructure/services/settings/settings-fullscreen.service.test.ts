@@ -4,15 +4,15 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
-  trpcClient: (await import('../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
+  trpcClient: (await import('../../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
 }));
 
 import { SettingsFullscreenService } from '@renderer/infrastructure/services/settings/settings-fullscreen.service';
 import { EventChannels } from '@platform/events';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
-import { emitTrpcData, getTrpcUnsubscribe } from '../../../../support/mocks/trpc-client.mock';
-import { installFullscreenDocumentMock } from '../../../../support/mocks/browser-api.installers.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { emitTrpcData, getTrpcUnsubscribe } from '../../../../../support/mocks/trpc-client.mock';
+import { installFullscreenDocumentMock } from '../../../../../support/mocks/browser-api.installers.js';
+import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
 
 describe('SettingsFullscreenService', () => {
   let service;

@@ -5,12 +5,12 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingViewportService } from '@renderer/infrastructure/services/platform/viewport.service';
-import { createMockCanvas, createMockElement } from '../../../../factories/index.js';
+import { createMockCanvas, createMockElement } from '../../../../../factories/index.js';
 import {
   installGetComputedStyleMock,
   installResizeObserverMock
-} from '../../../../support/mocks/browser-api.installers.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+} from '../../../../../support/mocks/browser-api.installers.js';
+import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
 
 describe('StreamingViewportService', () => {
   let service;

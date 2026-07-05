@@ -8,8 +8,8 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { PresentationModeService } from '@renderer/infrastructure/services/settings/settings-presentation-mode.service';
-import { createPresentationModeControllerMock } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createPresentationModeControllerMock } from '../../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
 
 describe('PresentationModeService', () => {
   let service;
