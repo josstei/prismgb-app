@@ -1,8 +1,8 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
-import { createEventBus } from '../../factories/index.js';
-import { createChromaticDeviceInfoPayload } from '../../devices/media.testkit';
-import { createInjectableHarness } from '../../support/di/injectable.harness.js';
+import { createEventBus } from '../../../../factories/index.js';
+import { createChromaticDeviceInfoPayload } from '../../../../devices/media.testkit';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('DeviceIntegrationService', () => {
   let statusListener: ((status: unknown, reason: unknown) => void) | null;

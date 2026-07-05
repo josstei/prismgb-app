@@ -6,8 +6,8 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
   createWindowServiceMock
-} from '../../factories/index.js';
-import { createInjectableHarness } from '../../support/di/injectable.harness.js';
+} from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 vi.mock('electron', () => {
   return {

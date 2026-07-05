@@ -7,8 +7,8 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
   createPreventDefaultEventMock,
   createWindowServiceElectronMock
-} from '../../factories/index.js';
-import { createInjectableHarness } from '../../support/di/injectable.harness.js';
+} from '../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 // Mock electron - need to use class syntax
 vi.mock('electron', () => {
