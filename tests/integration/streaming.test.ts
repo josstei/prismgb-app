@@ -13,10 +13,15 @@ import {
   createManifestMediaEnvironment,
   createMediaDeviceInfo,
 } from '../devices/media.testkit.ts';
+import type { ManifestMediaEnvironment } from '../devices/media.testkit.ts';
 import { installDocumentPropertyMock } from '../support/mocks/browser-api.installers.js';
 
+type EventBus = ReturnType<typeof createEventBus>;
+type AppState = ReturnType<typeof createAppState>;
+type UIController = ReturnType<typeof createUIController>;
+
 describe('Streaming Pipeline Integration', () => {
-  let mediaEnvironment;
+  let mediaEnvironment: ManifestMediaEnvironment;
 
   beforeEach(() => {
     mediaEnvironment = createManifestMediaEnvironment({ connected: true }).install();
@@ -118,8 +123,8 @@ describe('Streaming Pipeline Integration', () => {
 
   describe('Event Flow Integration', () => {
     it('should publish stream events in correct order', async () => {
-      const eventOrder = [];
-      const eventBus = createEventBus();
+      const eventOrder: string[] = [];
+      const eventBus: EventBus = createEventBus();
 
       eventBus.subscribe('stream:starting', () => eventOrder.push('starting'));
       eventBus.subscribe('stream:started', () => eventOrder.push('started'));
@@ -134,8 +139,8 @@ describe('Streaming Pipeline Integration', () => {
     });
 
     it('should handle device events triggering stream events', async () => {
-      const events = [];
-      const eventBus = createEventBus();
+      const events: string[] = [];
+      const eventBus: EventBus = createEventBus();
 
       eventBus.subscribe('device:connected', () => events.push('device:connected'));
       eventBus.subscribe('device:disconnected', () => events.push('device:disconnected'));
@@ -156,7 +161,7 @@ describe('Streaming Pipeline Integration', () => {
 
   describe('State Management Integration', () => {
     it('should update app state during stream lifecycle', () => {
-      const appState = createAppState();
+      const appState: AppState = createAppState();
 
       // Initial state
       expect(appState.isStreaming).toBe(false);
@@ -175,7 +180,7 @@ describe('Streaming Pipeline Integration', () => {
 
   describe('Canvas Rendering Integration', () => {
     it('should setup canvas with correct dimensions', () => {
-      const uiController = createUIController();
+      const uiController: UIController = createUIController();
       const canvas = uiController.elements.streamCanvas;
 
       canvas.width = 640;
@@ -186,10 +191,10 @@ describe('Streaming Pipeline Integration', () => {
     });
 
     it('should get 2D context with correct options', () => {
-      const uiController = createUIController();
+      const uiController: UIController = createUIController();
       const canvas = uiController.elements.streamCanvas;
 
-      const ctx = canvas.getContext('2d', {
+      canvas.getContext('2d', {
         alpha: false,
         desynchronized: true,
         willReadFrequently: false,
@@ -205,9 +210,9 @@ describe('Streaming Pipeline Integration', () => {
 
   describe('Full Pipeline Simulation', () => {
     it('should complete full stream start/stop cycle', async () => {
-      const eventBus = createEventBus();
-      const appState = createAppState();
-      const events = [];
+      const eventBus: EventBus = createEventBus();
+      const appState: AppState = createAppState();
+      const events: Array<{ type: string; data?: unknown }> = [];
 
       // Subscribe to all events
       eventBus.subscribe('device:connected', (d) => events.push({ type: 'device:connected', data: d }));
@@ -241,7 +246,7 @@ describe('Streaming Pipeline Integration', () => {
     });
 
     it('should handle visibility change during streaming', async () => {
-      const appState = createAppState();
+      const appState: AppState = createAppState();
       appState.setStreaming(true);
 
       // Simulate tab hidden
@@ -269,8 +274,8 @@ describe('Streaming Pipeline Integration', () => {
 
   describe('Error Handling Integration', () => {
     it('should handle stream acquisition failure gracefully', async () => {
-      const eventBus = createEventBus();
-      let errorReceived = null;
+      const eventBus: EventBus = createEventBus();
+      let errorReceived: { message: string; name: string } | null = null;
 
       eventBus.subscribe('stream:error', (error) => {
         errorReceived = error;
@@ -284,7 +289,8 @@ describe('Streaming Pipeline Integration', () => {
           video: { deviceId: { exact: mediaEnvironment.videoDevice.deviceId } },
         });
       } catch (error) {
-        eventBus.publish('stream:error', { message: error.message, name: error.name });
+        const streamError = error instanceof Error ? error : new Error(String(error));
+        eventBus.publish('stream:error', { message: streamError.message, name: streamError.name });
       }
 
       expect(errorReceived).toBeDefined();
@@ -292,8 +298,8 @@ describe('Streaming Pipeline Integration', () => {
     });
 
     it('should clean up on unexpected disconnection', async () => {
-      const appState = createAppState();
-      const eventBus = createEventBus();
+      const appState: AppState = createAppState();
+      const eventBus: EventBus = createEventBus();
 
       // Start streaming
       const stream = await mediaEnvironment.createStream();
@@ -317,7 +323,7 @@ describe('Streaming Pipeline Integration', () => {
 
 describe('Manifest Media Environment Accuracy', () => {
   it('should match real Chromatic specifications', () => {
-    const environment = createManifestMediaEnvironment();
+    const environment: ManifestMediaEnvironment = createManifestMediaEnvironment();
     const caps = environment.getCapabilities();
 
     expect(caps.nativeResolution.width).toBe(160);
@@ -327,7 +333,7 @@ describe('Manifest Media Environment Accuracy', () => {
   });
 
   it('should provide accurate stream settings', async () => {
-    const environment = createManifestMediaEnvironment();
+    const environment: ManifestMediaEnvironment = createManifestMediaEnvironment();
     const stream = await environment.createStream();
     const track = stream.getVideoTracks()[0];
     const settings = track.getSettings();

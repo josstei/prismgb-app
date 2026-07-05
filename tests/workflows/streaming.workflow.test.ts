@@ -13,12 +13,17 @@ import {
   StreamingState,
 } from '../factories/index.js';
 import { createManifestMediaEnvironment } from '../devices/media.testkit.ts';
+import type { ManifestMediaEnvironment } from '../devices/media.testkit.ts';
 import { EventChannels } from '@platform/events';
 
+type EventBus = ReturnType<typeof createEventBus>;
+type AppState = ReturnType<typeof createAppState>;
+type StreamingService = ReturnType<typeof createStreamingService>;
+
 describe('Streaming Workflow Integration', () => {
-  let eventBus;
-  let appState;
-  let mediaEnvironment;
+  let eventBus: EventBus;
+  let appState: AppState;
+  let mediaEnvironment: ManifestMediaEnvironment;
 
   beforeEach(() => {
     eventBus = createEventBus();
@@ -42,7 +47,7 @@ describe('Streaming Workflow Integration', () => {
   });
 
   it('should acquire a stream through the media device harness', async () => {
-    const events = [];
+    const events: string[] = [];
     eventBus.subscribe(EventChannels.STREAM.STARTED, ({ stream }) => {
       events.push(`stream:${stream.getVideoTracks().length}`);
     });
@@ -66,7 +71,7 @@ describe('Streaming Workflow Integration', () => {
   });
 
   it('should publish disconnect interruption while streaming', async () => {
-    const events = [];
+    const events: string[] = [];
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
     appState.setStreaming(true);
     appState.setDeviceConnected(true);
@@ -87,7 +92,7 @@ describe('Streaming Workflow Integration', () => {
 });
 
 describe('Streaming Service Integration', () => {
-  let streamingService;
+  let streamingService: StreamingService;
 
   beforeEach(() => {
     streamingService = createStreamingService();

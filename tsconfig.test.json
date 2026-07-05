@@ -24,7 +24,8 @@
     "src/types/**/*.d.ts",
     "tests/devices/**/*.ts",
     "tests/unit/**/*.ts",
-    "tests/unit/**/*.js",
+    "tests/integration/**/*.ts",
+    "tests/workflows/**/*.ts",
     "tests/factories/**/*.js",
     "tests/support/**/*.ts",
     "tests/support/**/*.js"

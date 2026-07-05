@@ -23,11 +23,17 @@ import {
 } from '../fixtures/capture.fixture.js';
 import { EventChannels } from '@platform/events';
 
+type EventBus = ReturnType<typeof createEventBus>;
+type BaseAppState = ReturnType<typeof createAppState>;
+type AppState = ReturnType<typeof createStreamingAppState>;
+type LoggerFactory = ReturnType<typeof createLoggerFactory>;
+type UIController = ReturnType<typeof createUIController>;
+
 describe('Capture Workflow Integration', () => {
-  let eventBus;
-  let appState;
-  let loggerFactory;
-  let uiController;
+  let eventBus: EventBus;
+  let appState: AppState;
+  let loggerFactory: LoggerFactory;
+  let uiController: UIController;
 
   beforeEach(() => {
     eventBus = createEventBus();
@@ -42,7 +48,7 @@ describe('Capture Workflow Integration', () => {
 
   describe('Screenshot Workflow', () => {
     it('should complete full screenshot workflow with correct event sequence', async () => {
-      const events = [];
+      const events: string[] = [];
 
       // Subscribe to all capture events
       eventBus.subscribe(EventChannels.CAPTURE.SCREENSHOT_TRIGGERED, () =>
@@ -87,8 +93,8 @@ describe('Capture Workflow Integration', () => {
     });
 
     it('should not trigger screenshot when not streaming', () => {
-      const nonStreamingState = createAppState({ initialState: { isStreaming: false } });
-      const events = [];
+      const nonStreamingState: BaseAppState = createAppState({ initialState: { isStreaming: false } });
+      const events: string[] = [];
 
       eventBus.subscribe(EventChannels.CAPTURE.SCREENSHOT_TRIGGERED, () =>
         events.push('triggered')
@@ -103,7 +109,7 @@ describe('Capture Workflow Integration', () => {
     });
 
     it('should debounce rapid screenshot requests', async () => {
-      const triggers = [];
+      const triggers: number[] = [];
       let lastTriggerTime = 0;
       const debounceMs = 200;
 
@@ -130,7 +136,7 @@ describe('Capture Workflow Integration', () => {
 
   describe('Recording Workflow', () => {
     it('should complete full recording start/stop workflow', async () => {
-      const events = [];
+      const events: string[] = [];
 
       eventBus.subscribe(EventChannels.CAPTURE.RECORDING_STARTED, () =>
         events.push('recording-started')
@@ -141,7 +147,7 @@ describe('Capture Workflow Integration', () => {
       eventBus.subscribe(EventChannels.CAPTURE.RECORDING_READY, () =>
         events.push('recording-ready')
       );
-      eventBus.subscribe(EventChannels.UI.RECORDING_STATE, (data) =>
+      eventBus.subscribe(EventChannels.UI.RECORDING_STATE, (data: { recording: boolean }) =>
         events.push(`ui-recording-${data.recording}`)
       );
 
@@ -189,7 +195,7 @@ describe('Capture Workflow Integration', () => {
     });
 
     it('should handle recording error gracefully', () => {
-      const events = [];
+      const events: string[] = [];
       let recordingState = false;
 
       eventBus.subscribe(EventChannels.CAPTURE.RECORDING_STARTED, () => {
@@ -197,7 +203,7 @@ describe('Capture Workflow Integration', () => {
         recordingState = true;
       });
 
-      eventBus.subscribe(EventChannels.CAPTURE.RECORDING_ERROR, (data) => {
+      eventBus.subscribe(EventChannels.CAPTURE.RECORDING_ERROR, (data: { name: string }) => {
         events.push(`error:${data.name}`);
         recordingState = false;
       });
@@ -217,7 +223,7 @@ describe('Capture Workflow Integration', () => {
     });
 
     it('should stop recording when stream stops unexpectedly', () => {
-      const events = [];
+      const events: string[] = [];
 
       eventBus.subscribe(EventChannels.CAPTURE.RECORDING_STOPPED, () =>
         events.push('recording-stopped')
@@ -245,7 +251,7 @@ describe('Capture Workflow Integration', () => {
 
   describe('Screenshot During Recording', () => {
     it('should allow screenshots while recording', () => {
-      const events = [];
+      const events: string[] = [];
 
       eventBus.subscribe(EventChannels.CAPTURE.SCREENSHOT_READY, () =>
         events.push('screenshot')
@@ -294,8 +300,8 @@ describe('Capture Workflow Integration', () => {
 });
 
 describe('Capture UI Feedback', () => {
-  let eventBus;
-  let uiController;
+  let eventBus: EventBus;
+  let uiController: UIController;
 
   beforeEach(() => {
     eventBus = createEventBus();
@@ -303,12 +309,12 @@ describe('Capture UI Feedback', () => {
   });
 
   it('should trigger button feedback on record start', () => {
-    const feedbackEvents = [];
+    const feedbackEvents: string[] = [];
 
     eventBus.subscribe(EventChannels.UI.RECORD_BUTTON_POP, () =>
       feedbackEvents.push('pop')
     );
-    eventBus.subscribe(EventChannels.UI.BUTTON_FEEDBACK, (data) =>
+    eventBus.subscribe(EventChannels.UI.BUTTON_FEEDBACK, (data: { button: string }) =>
       feedbackEvents.push(`feedback:${data.button}`)
     );
 
@@ -320,7 +326,7 @@ describe('Capture UI Feedback', () => {
 
   it('should update recording button state', () => {
     // Simulate recording state change
-    eventBus.subscribe(EventChannels.UI.RECORDING_STATE, (data) => {
+    eventBus.subscribe(EventChannels.UI.RECORDING_STATE, (data: { recording: boolean }) => {
       uiController.setRecordingState(data.recording);
     });
 
