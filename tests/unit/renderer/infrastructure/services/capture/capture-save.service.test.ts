@@ -18,7 +18,7 @@ import {
   createLoggerFactory,
   createTranscodeServiceMock,
   createSettingsServiceMock
-} from '../../../../factories/index.js';
+} from '../../../../../factories/index.js';
 
 describe('CaptureSaveService', () => {
   let service;

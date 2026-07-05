@@ -12,13 +12,13 @@ import {
   createMediaRecorderErrorEventMock,
   createMediaTrackMock,
   createMockCanvas
-} from '../../../../factories/index.js';
+} from '../../../../../factories/index.js';
 import {
   installBlobMock,
   installDocumentCreateElementMock,
   installMediaRecorderMock
-} from '../../../../support/mocks/browser-api.installers.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+} from '../../../../../support/mocks/browser-api.installers.js';
+import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
 
 import { FilenameGenerator } from '@renderer/lib/filename-generator.utils';
 

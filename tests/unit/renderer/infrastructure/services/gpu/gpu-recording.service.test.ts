@@ -12,13 +12,13 @@ import {
   createMockCanvas,
   createRecordingFrameMock,
   createStreamPayloadMock
-} from '../../../../factories/index.js';
+} from '../../../../../factories/index.js';
 import {
   createCleanupStack,
   installAnimationFrameMock,
   installDocumentCreateElementMock
-} from '../../../../support/mocks/browser-api.installers.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+} from '../../../../../support/mocks/browser-api.installers.js';
+import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
 
 describe('CaptureGpuRecordingService', () => {
   let service;

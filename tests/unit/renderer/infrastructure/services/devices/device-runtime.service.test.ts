@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EventChannels } from '@platform/events';
 import { RendererDeviceRuntime } from '@renderer/infrastructure/services/devices/device-runtime.service';
-import { createEventBus, createLoggerFactory } from '../../../../factories/index.js';
+import { createEventBus, createLoggerFactory } from '../../../../../factories/index.js';
 import type { DeviceStatus } from '@platform/devices';
 import {
   CHROMATIC_SPECS,
   createChromaticVideoDeviceInfo
-} from '../../../../devices/media.testkit';
-import { createChromaticDeviceInfoPayload } from '../../../../devices/media.testkit';
-import { createDeferred } from '../../../../support/deferred.testkit.js';
+} from '../../../../../devices/media.testkit';
+import { createChromaticDeviceInfoPayload } from '../../../../../devices/media.testkit';
+import { createDeferred } from '../../../../../support/deferred.testkit.js';
 
 const connectedStatus: DeviceStatus = {
   state: 'connected',
