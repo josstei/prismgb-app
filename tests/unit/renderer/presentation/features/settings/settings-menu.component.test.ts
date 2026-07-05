@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * SettingsMenuComponent Unit Tests
  */
@@ -10,18 +9,16 @@ import {
 } from '@renderer/presentation/features/settings/settings-menu.template.js';
 import { SettingsDefinitions } from '@renderer/lib/settings.definitions.js';
 import {
-  createEventBus,
   createLogger,
   createSettingsMenuElementsMock,
   createSettingsServiceMock
 } from '../../../../../factories/index.js';
 
 describe('SettingsMenuComponent', () => {
-  let component;
-  let mockSettingsService;
-  let mockEventBus;
-  let mockLogger;
-  let mockElements;
+  let component: SettingsMenuComponent;
+  let mockSettingsService: ReturnType<typeof createSettingsServiceMock>;
+  let mockLogger: ReturnType<typeof createLogger>;
+  let mockElements: ReturnType<typeof createSettingsMenuElementsMock>;
 
   beforeEach(() => {
     mockSettingsService = createSettingsServiceMock({
@@ -35,7 +32,6 @@ describe('SettingsMenuComponent', () => {
       }
     });
 
-    mockEventBus = createEventBus();
     mockLogger = createLogger();
 
     mockElements = createSettingsMenuElementsMock();
@@ -44,7 +40,6 @@ describe('SettingsMenuComponent', () => {
 
     component = new SettingsMenuComponent({
       settingsService: mockSettingsService,
-      eventBus: mockEventBus,
       logger: mockLogger
     });
   });
@@ -261,7 +256,6 @@ describe('SettingsMenuComponent', () => {
 
       const componentWithLimitedService = new SettingsMenuComponent({
         settingsService: serviceWithoutMethod,
-        eventBus: mockEventBus,
         logger: mockLogger
       });
 
@@ -289,7 +283,7 @@ describe('SettingsMenuComponent', () => {
 
     it('should load saved state on initialization', async () => {
       mockSettingsService.setSetting('launchOnLogin', true);
-      await component._loadAsyncSettings({ isActive: () => true });
+      await component._loadAsyncSettings({ isActive: () => true, dispose: vi.fn() });
 
       expect(mockElements.settingLaunchOnLogin.checked).toBe(true);
     });

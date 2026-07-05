@@ -1,14 +1,14 @@
-// @ts-nocheck
 /**
  * ButtonFeedback Unit Tests
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ButtonFeedback } from '@renderer/presentation/effects/button-feedback.effect';
+import type { DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils.js';
 
 describe('ButtonFeedback', () => {
-  let buttonFeedback;
-  let mockRecordBtn;
+  let buttonFeedback: ButtonFeedback;
+  let mockRecordBtn: HTMLButtonElement;
 
   beforeEach(() => {
     mockRecordBtn = document.createElement('button');
@@ -18,7 +18,7 @@ describe('ButtonFeedback', () => {
     buttonFeedback = new ButtonFeedback({
       elements: {
         recordBtn: mockRecordBtn
-      }
+      } as unknown as DomBindingsFlat
     });
 
     vi.useFakeTimers();
