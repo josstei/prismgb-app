@@ -8,7 +8,18 @@ import {
   platformTsconfigPaths
 } from '../../../scripts/lib/workspace-aliases.mjs';
 
-const MODULE_NAMES = [
+type PlatformAliasEntry = {
+  find: RegExp;
+  replacement: string;
+};
+
+type TsconfigWithPaths = {
+  compilerOptions: {
+    paths: Record<string, string[]>;
+  };
+};
+
+const MODULE_NAMES: string[] = [
   'config',
   'core',
   'devices',
@@ -53,8 +64,9 @@ describe('workspace-aliases registry', () => {
   });
 
   it('emits exact-match regex entries for the vite array form', () => {
-    const entries = platformAliasEntries('/repo');
+    const entries = platformAliasEntries('/repo') as PlatformAliasEntry[];
     const gpuBare = entries.find((entry) => entry.find.test('@platform/gpu'));
+    expect(gpuBare).toBeDefined();
     expect(gpuBare.replacement).toBe(resolve('/repo', 'src/platform/gpu/index.ts'));
     expect(entries.some((entry) => entry.find.test('@platform/gpu/infrastructure/shaders'))).toBe(false);
   });
@@ -67,7 +79,7 @@ describe('workspace-aliases registry', () => {
   });
 
   it('tsconfig.base.json @platform paths match the registry emission', () => {
-    const tsconfig = JSON.parse(readFileSync(join(process.cwd(), 'tsconfig.base.json'), 'utf8'));
+    const tsconfig = JSON.parse(readFileSync(join(process.cwd(), 'tsconfig.base.json'), 'utf8')) as TsconfigWithPaths;
     const actualPlatformPaths = Object.fromEntries(
       Object.entries(tsconfig.compilerOptions.paths).filter(([alias]) => alias.startsWith('@platform/'))
     );

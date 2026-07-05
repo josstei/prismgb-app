@@ -4,18 +4,39 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PLATFORM_MODULES } from '../../../scripts/lib/workspace-aliases.mjs';
 
+type DependencyCruiserManifest = {
+  bin: string | {
+    depcruise: string;
+  };
+};
+
+type DependencyCruiserReport = {
+  summary: {
+    violations: Array<{
+      rule: {
+        name: string;
+      };
+      from: string;
+    }>;
+  };
+};
+
+type PlatformModule = {
+  name: string;
+};
+
 const projectRoot = process.cwd();
 const fixtureRoot = path.join(projectRoot, 'tests/fixtures/dependency-boundaries');
 const configPath = path.join(projectRoot, '.dependency-cruiser.cjs');
 
-function resolveDepcruiseBin() {
+function resolveDepcruiseBin(): string {
   const manifestPath = path.join(projectRoot, 'node_modules/dependency-cruiser/package.json');
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as DependencyCruiserManifest;
   const binEntry = typeof manifest.bin === 'string' ? manifest.bin : manifest.bin.depcruise;
   return path.join(projectRoot, 'node_modules/dependency-cruiser', binEntry);
 }
 
-function cruiseFixtureTree() {
+function cruiseFixtureTree(): string[] {
   const result = spawnSync(
     process.execPath,
     [resolveDepcruiseBin(), '--config', configPath, '--output-type', 'json', 'src'],
@@ -24,7 +45,7 @@ function cruiseFixtureTree() {
   if (!result.stdout) {
     throw new Error(`depcruise produced no output: ${result.stderr}`);
   }
-  const report = JSON.parse(result.stdout);
+  const report = JSON.parse(result.stdout) as DependencyCruiserReport;
   return report.summary.violations.map((violation) => `${violation.rule.name} ${violation.from}`).sort();
 }
 
@@ -56,7 +77,7 @@ describe('dependency boundary rules', () => {
   });
 });
 
-function listSourceEntries(relativeDirectory) {
+function listSourceEntries(relativeDirectory: string): string[] {
   return fs.readdirSync(path.join(projectRoot, relativeDirectory))
     .filter((entry) => !entry.startsWith('.'))
     .sort();
@@ -81,7 +102,9 @@ describe('source tree structure', () => {
 
   it('keeps src/platform aligned with the alias registry', () => {
     expect(listSourceEntries('src/platform'))
-      .toEqual(PLATFORM_MODULES.map((platformModule) => platformModule.name).sort());
+      .toEqual((PLATFORM_MODULES as ReadonlyArray<PlatformModule>)
+        .map((platformModule) => platformModule.name)
+        .sort());
   });
 });
 

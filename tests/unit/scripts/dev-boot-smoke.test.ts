@@ -3,14 +3,11 @@ import { EventEmitter } from 'node:events';
 import { evaluateStartupChunk, runDevBootSmoke } from '../../../scripts/dev-boot-smoke.js';
 
 class FakeChildProcess extends EventEmitter {
-  constructor() {
-    super();
-    this.stdout = new EventEmitter();
-    this.stderr = new EventEmitter();
-    this.pid = 9876;
-  }
+  stdout = new EventEmitter();
+  stderr = new EventEmitter();
+  pid = 9876;
 
-  kill() {
+  kill(): boolean {
     return true;
   }
 }

@@ -5,10 +5,35 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { buildMatrix, loadPlatformManifest } from '../../../scripts/ci/build-matrix.mjs';
 import { findExecutable, resolveSmokePlatformEntry } from '../../../scripts/smoke-test.js';
 
-const projectRoot = process.cwd();
-const tempRoots = [];
+type PlatformEntry = {
+  id: string;
+  label: string;
+  name: string;
+  os: string;
+  arch: NodeJS.Architecture;
+  buildScript: string;
+  smokeInput?: string;
+  smokeExecutablePriority: string[];
+};
 
-function createTempRoot() {
+type PlatformManifest = {
+  platformGroups: Record<string, string[]>;
+  smokeInputAliases: Record<string, string>;
+  platforms: PlatformEntry[];
+};
+
+type MatrixEntry = {
+  os: string;
+  build_script: string;
+  arch: string;
+  name: string;
+  label: string;
+};
+
+const projectRoot = process.cwd();
+const tempRoots: string[] = [];
+
+function createTempRoot(): string {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-platform-manifest-'));
   tempRoots.push(tempRoot);
   return tempRoot;
@@ -18,28 +43,37 @@ afterEach(() => {
   while (tempRoots.length > 0) fs.rmSync(tempRoots.pop(), { recursive: true, force: true });
 });
 
-function loadManifest() {
-  return loadPlatformManifest(path.join(projectRoot, 'scripts/manifests/platforms.manifest.json'));
+function loadManifest(): PlatformManifest {
+  return loadPlatformManifest(path.join(projectRoot, 'scripts/manifests/platforms.manifest.json')) as PlatformManifest;
 }
 
-function writeEmptyFile(filePath) {
+function writeEmptyFile(filePath: string): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, '');
 }
 
-function findInTempRoot(rootDirectory, manifest, nodePlatform, nodeArch) {
+function findInTempRoot(
+  rootDirectory: string,
+  manifest: PlatformManifest,
+  nodePlatform: NodeJS.Platform,
+  nodeArch: NodeJS.Architecture
+): string | null {
   return findExecutable({ rootDirectory, manifest, nodePlatform, nodeArch });
 }
 
-function expectedMatrix(manifest, platformIds) {
-  const platforms = new Map(manifest.platforms.map((platform) => [platform.id, platform]));
+function expectedMatrix(manifest: PlatformManifest, platformIds: string[]): MatrixEntry[] {
+  const platforms = new Map<string, PlatformEntry>(manifest.platforms.map((platform) => [platform.id, platform]));
   return platformIds.map((id) => {
-    const { os, buildScript, arch, name, label } = platforms.get(id);
+    const platform = platforms.get(id);
+    if (!platform) {
+      throw new Error(`Missing manifest platform: ${id}`);
+    }
+    const { os, buildScript, arch, name, label } = platform;
     return { os, build_script: buildScript, arch, name, label };
   });
 }
 
-const syntheticManifest = {
+const syntheticManifest: PlatformManifest = {
   platformGroups: { bespoke: ['linux-x64', 'plan9-x64'] },
   smokeInputAliases: { daily: 'plan9-x64' },
   platforms: [
@@ -56,10 +90,10 @@ const syntheticManifest = {
   ]
 };
 
-function toNodePlatform(platformId) {
+function toNodePlatform(platformId: string): NodeJS.Platform {
   if (platformId.startsWith('macos-')) return 'darwin';
   if (platformId.startsWith('windows-')) return 'win32';
-  return platformId.split('-')[0];
+  return platformId.split('-')[0] as NodeJS.Platform;
 }
 
 describe('platform manifest helpers', () => {

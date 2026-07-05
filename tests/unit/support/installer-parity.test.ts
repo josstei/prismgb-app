@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import * as Barrel from '../../support/mocks/browser-api.installers.js';
 
 describe('installer barrel parity', () => {
-  const expectedSymbols = [
+  const expectedSymbols: Array<keyof typeof Barrel> = [
     'createCleanupStack',
     'installTargetProperty',
     'installAnimationFrameMock',

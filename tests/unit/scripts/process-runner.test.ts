@@ -1,3 +1,4 @@
+import { exec } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -7,14 +8,11 @@ import {
 } from '../../../scripts/lib/process-runner.js';
 
 class FakeChildProcess extends EventEmitter {
-  constructor() {
-    super();
-    this.pid = 4242;
-    this.kill = vi.fn(() => {
-      setImmediate(() => this.emit('close', null, 'SIGTERM'));
-      return true;
-    });
-  }
+  pid = 4242;
+  kill = vi.fn((signal?: string) => {
+    setImmediate(() => this.emit('close', null, signal ?? 'SIGTERM'));
+    return true;
+  });
 }
 
 describe('headlessElectronEnv', () => {
@@ -48,8 +46,9 @@ describe('waitForProcessClose', () => {
 describe('terminateProcessTree', () => {
   it('signals the process group when configured', async () => {
     const child = new FakeChildProcess();
-    const signalGroup = vi.fn(() => {
+    const signalGroup = vi.fn((pid: number, signal: string): true => {
       setImmediate(() => child.emit('close', null, 'SIGTERM'));
+      return true;
     });
     await terminateProcessTree(child, { gracefulMs: 100, killProcessGroup: true, platform: 'linux', signalGroup });
     expect(signalGroup).toHaveBeenCalledWith(4242, 'SIGTERM');
@@ -67,7 +66,8 @@ describe('terminateProcessTree', () => {
     const child = new FakeChildProcess();
     const execCommand = vi.fn(() => {
       setImmediate(() => child.emit('close', null, null));
-    });
+      return child as unknown as ReturnType<typeof exec>;
+    }) as unknown as typeof exec;
     await terminateProcessTree(child, { gracefulMs: 100, platform: 'win32', execCommand });
     expect(execCommand).toHaveBeenCalledWith('taskkill /pid 4242 /t /f');
     expect(child.kill).not.toHaveBeenCalled();

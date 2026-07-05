@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { readdirSync } from 'node:fs';
+import { readdirSync, type Dirent } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import picomatch from 'picomatch';
 import vitestConfig from '../../../vitest.config.js';
@@ -13,10 +13,10 @@ import vitestConfig from '../../../vitest.config.js';
 
 const ROOT = process.cwd();
 const TEST_FILE = /\.(test|spec)\.[jt]s$/;
-const SKIP_DIRS = new Set(['node_modules', 'e2e']);
+const SKIP_DIRS: ReadonlySet<string> = new Set(['node_modules', 'e2e']);
 
-function walk(dir, acc) {
-  let entries;
+function walk(dir: string, acc: string[]): string[] {
+  let entries: Dirent[];
   try {
     entries = readdirSync(dir, { withFileTypes: true });
   } catch {
@@ -33,11 +33,13 @@ function walk(dir, acc) {
   return acc;
 }
 
-function collectTestFilesOnDisk() {
+function collectTestFilesOnDisk(): string[] {
   return walk(join(ROOT, 'tests'), []);
 }
 
-const includeGlobs = vitestConfig.test.projects.flatMap((project) => project.test.include);
+const includeGlobs = vitestConfig.test.projects.flatMap((project) =>
+  typeof project === 'object' && project !== null && 'test' in project ? project.test.include : []
+);
 const isCollected = picomatch(includeGlobs);
 
 describe('vitest executed-test-set coverage guard (B4)', () => {

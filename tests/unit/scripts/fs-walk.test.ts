@@ -4,13 +4,13 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { walkPaths } from '../../../scripts/lib/fs-walk.js';
 
-const tempRoots = [];
+const tempRoots: string[] = [];
 
 afterEach(() => {
   while (tempRoots.length > 0) fs.rmSync(tempRoots.pop(), { recursive: true, force: true });
 });
 
-function createTree() {
+function createTree(): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-fs-walk-'));
   tempRoots.push(root);
   fs.mkdirSync(path.join(root, 'nested/deep'), { recursive: true });

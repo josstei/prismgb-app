@@ -4,9 +4,9 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { checkElectronNativeAbi } from '../../../scripts/check-electron-native-abi.js';
 
-const tempRoots = [];
+const tempRoots: string[] = [];
 
-function writeLockfile(root, electronVersion) {
+function writeLockfile(root: string, electronVersion: string): void {
   fs.writeFileSync(
     path.join(root, 'package-lock.json'),
     JSON.stringify(
@@ -41,7 +41,7 @@ function writeLockfile(root, electronVersion) {
   );
 }
 
-function createTempRoot(electronVersion) {
+function createTempRoot(electronVersion: string): string {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-electron-abi-'));
   tempRoots.push(root);
   writeLockfile(root, electronVersion);

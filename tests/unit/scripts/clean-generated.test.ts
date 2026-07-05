@@ -12,25 +12,25 @@ import {
   getArtifactOwnership
 } from '../../../scripts/clean-generated.js';
 
-function createWorkspace() {
+function createWorkspace(): string {
   const prefix = path.join(os.tmpdir(), 'prismgb-clean-generated-');
   return fs.mkdtempSync(prefix);
 }
 
-function createFile(root, relativePath) {
+function createFile(root: string, relativePath: string): void {
   const fullPath = path.join(root, relativePath);
   fs.mkdirSync(fullPath, { recursive: true });
   fs.writeFileSync(path.join(fullPath, 'artifact.txt'), 'generated');
 }
 
-function cleanup(root) {
+function cleanup(root: string): void {
   if (fs.existsSync(root)) {
     fs.rmSync(root, { recursive: true, force: true });
   }
 }
 
 describe('clean-generated script', () => {
-  let workspace;
+  let workspace: ReturnType<typeof createWorkspace>;
 
   beforeEach(() => {
     workspace = createWorkspace();
