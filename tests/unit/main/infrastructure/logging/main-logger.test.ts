@@ -3,9 +3,16 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import type { LoggerLike } from '@platform/core';
 import { installProcessEnvMock } from '../../../../support/mocks/runtime-property.installers.js';
 
-const scopedLogger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+type ProcessEnvOverrides = Record<string, string | number | boolean | undefined>;
+type ProcessEnvMock = ReturnType<typeof installProcessEnvMock> & {
+  cleanup(): void;
+  setEnv(nextOverrides?: ProcessEnvOverrides): NodeJS.ProcessEnv;
+};
+
+const scopedLogger: LoggerLike = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
 vi.mock('electron-log/main', () => ({
   default: {
@@ -21,7 +28,7 @@ import log from 'electron-log/main';
 import { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
 
 describe('MainLogger', () => {
-  let envMock;
+  let envMock: ProcessEnvMock;
 
   beforeEach(() => {
     log.transports.console.level = undefined;
@@ -32,7 +39,7 @@ describe('MainLogger', () => {
       LOG_LEVEL: undefined,
       LOG_FILE: undefined,
       LOG_DIR: undefined
-    });
+    }) as ProcessEnvMock;
   });
 
   afterEach(() => {
@@ -78,7 +85,8 @@ describe('MainLogger', () => {
       new MainLogger();
 
       expect(typeof log.transports.file.resolvePathFn).toBe('function');
-      expect(log.transports.file.resolvePathFn()).toMatch(/custom[\\/]log[\\/]dir[\\/]combined\.log$/);
+      const resolvePath = log.transports.file.resolvePathFn as () => string;
+      expect(resolvePath()).toMatch(/custom[\\/]log[\\/]dir[\\/]combined\.log$/);
     });
 
     it('leaves the default log path when LOG_DIR is not set', () => {
