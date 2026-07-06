@@ -1,16 +1,19 @@
+import * as Comlink from 'comlink';
 import {
+  CANVAS_HANDOFF_MESSAGE,
   WorkerMessageType,
   WorkerResponseType,
   createWorkerMessage,
-  isValidWorkerResponse,
+  isControlPortMessage,
+  isFrameErrorResponse,
+  isFrameRenderedResponse,
+  isStatsResponse,
   type PresetPayload,
-  type ResizePayload,
-  type WorkerMessagePayloadMap,
-  type WorkerMessageTypeValue,
+  type WorkerControlApi,
   type WorkerRendererConfig,
-  type WorkerResponse,
   type WorkerResponsePayloadMap,
-  type WorkerResponseTypeValue
+  type WorkerResponseTypeValue,
+  type WorkerStatsPayload
 } from './protocol';
 
 export type WorkerClientLogger = Pick<Console, 'debug' | 'error' | 'info'>;
@@ -24,22 +27,19 @@ type WorkerResponseHandler<K extends WorkerResponseTypeValue> = (
   payload: WorkerResponsePayloadMap[K]
 ) => void;
 
-type AnyWorkerResponseHandler = (
-  payload: WorkerResponsePayloadMap[WorkerResponseTypeValue]
-) => void;
+type AnyHandler = (payload: unknown) => void;
 
 export class WorkerRendererClient {
   private readonly createWorker: () => Worker;
   private readonly logger: WorkerClientLogger;
   private worker: Worker | null = null;
+  private control: Comlink.Remote<WorkerControlApi> | null = null;
   private isWorkerReady = false;
   private canvas: HTMLCanvasElement | null = null;
   private offscreenCanvas: OffscreenCanvas | null = null;
   private wasCanvasTransferred = false;
-  private readonly messageHandlers = new Map<WorkerResponseTypeValue, AnyWorkerResponseHandler>();
-  private readyResolve: (() => void) | null = null;
-  private readyReject: ((error: Error) => void) | null = null;
-  private readyTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private readonly messageHandlers = new Map<WorkerResponseTypeValue, AnyHandler>();
+  private controlPortPromise: Promise<Comlink.Remote<WorkerControlApi>> | null = null;
 
   constructor({ createWorker, logger = console }: WorkerRendererClientDependencies) {
     this.createWorker = createWorker;
@@ -59,18 +59,8 @@ export class WorkerRendererClient {
     config: WorkerRendererConfig,
     timeout = 5000
   ): Promise<boolean> {
-    if (this.canvas === canvasElement && this.wasCanvasTransferred) {
-      if (this.worker && this.isWorkerReady) {
-        this.logger.info('Reusing existing worker setup');
-        return true;
-      }
-
-      if (this.worker && !this.isWorkerReady) {
-        return this.reinitialize(config, timeout);
-      }
-
-      this.logger.error('Canvas was transferred but worker terminated');
-      return false;
+    if (this.canvas === canvasElement && this.wasCanvasTransferred && this.worker && this.control) {
+      return this.runInitialize(config, timeout);
     }
 
     this.canvas = canvasElement;
@@ -78,170 +68,139 @@ export class WorkerRendererClient {
     this.wasCanvasTransferred = true;
 
     this.worker = this.createWorker();
-    this.worker.onmessage = (event) => this.handleMessage(event);
+    this.worker.onmessage = (event) => this.handleMainMessage(event);
     this.worker.onerror = (error) => this.handleError(error);
 
-    this.worker.postMessage(createWorkerMessage(WorkerMessageType.INIT, {
-      canvas: this.offscreenCanvas,
-      config
-    }), [this.offscreenCanvas]);
-
-    await this.waitForReady(timeout);
-
-    this.logger.info(`Worker initialized with ${config.backend}`);
-    return true;
-  }
-
-  private async reinitialize(config: WorkerRendererConfig, timeout: number): Promise<boolean> {
-    if (!this.worker) {
-      throw new Error('Worker not available for reinitialization');
-    }
-
-    this.worker.postMessage(createWorkerMessage(WorkerMessageType.INIT, { config }));
-    await this.waitForReady(timeout);
-    return true;
-  }
-
-  private waitForReady(timeout: number): Promise<void> {
-    if (this.isWorkerReady) {
-      return Promise.resolve();
-    }
-
-    if (this.readyReject) {
-      this.rejectReady(new Error('Worker initialization superseded'));
-    }
-
-    return new Promise((resolve, reject) => {
-      this.readyResolve = resolve;
-      this.readyReject = reject;
-      this.readyTimeoutId = setTimeout(() => {
-        const rejectReady = this.readyReject;
-        this.readyResolve = null;
-        this.readyReject = null;
-        this.readyTimeoutId = null;
-        rejectReady?.(new Error('Worker initialization timed out'));
-      }, timeout);
+    this.controlPortPromise = new Promise<Comlink.Remote<WorkerControlApi>>((resolve) => {
+      this.resolveControlPort = resolve;
     });
+
+    this.worker.postMessage(
+      { channel: CANVAS_HANDOFF_MESSAGE, canvas: this.offscreenCanvas },
+      [this.offscreenCanvas]
+    );
+
+    this.control = await this.withTimeout(this.controlPortPromise, timeout);
+    return this.runInitialize(config, timeout);
   }
 
-  private handleMessage(event: MessageEvent<unknown>): void {
-    const response = event.data;
-    if (!isValidWorkerResponse(response)) {
-      this.logger.error('Invalid worker response:', response);
+  private resolveControlPort: ((proxy: Comlink.Remote<WorkerControlApi>) => void) | null = null;
+
+  private async withTimeout<T>(operation: Promise<T>, timeout: number): Promise<T> {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const timer = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error('Worker initialization timed out')), timeout);
+    });
+    try {
+      return await Promise.race([operation, timer]);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  }
+
+  private async runInitialize(config: WorkerRendererConfig, timeout: number): Promise<boolean> {
+    if (!this.control) {
+      throw new Error('Worker control channel not available');
+    }
+    try {
+      const ready = await this.withTimeout(this.control.initialize(config), timeout);
+      this.isWorkerReady = true;
+      this.dispatch(WorkerResponseType.READY, ready);
+      this.logger.info(`Worker initialized with ${ready.backend}`);
+      return true;
+    } catch (error) {
+      this.isWorkerReady = false;
+      const err = error instanceof Error ? error : new Error(String(error));
+      this.dispatch(WorkerResponseType.ERROR, { message: err.message });
+      throw err;
+    }
+  }
+
+  private handleMainMessage(event: MessageEvent<unknown>): void {
+    const data = event.data;
+    if (isControlPortMessage(data)) {
+      const proxy = Comlink.wrap<WorkerControlApi>(data.port);
+      this.resolveControlPort?.(proxy);
+      this.resolveControlPort = null;
       return;
     }
-
-    switch (response.type) {
-      case WorkerResponseType.READY:
-        this.isWorkerReady = true;
-        this.resolveReady();
-        this.logger.info(`Worker ready (backend: ${response.payload.backend})`);
-        this.dispatchMessage(response);
-        break;
-
-      case WorkerResponseType.ERROR:
-        this.logger.error('Worker error:', response.payload.message);
-        this.isWorkerReady = false;
-        if (this.readyReject) {
-          this.rejectReady(new Error(response.payload.message));
-        }
-        this.dispatchMessage(response);
-        break;
-
-      default:
-        this.dispatchMessage(response);
+    if (isFrameRenderedResponse(data)) {
+      this.dispatch(WorkerResponseType.FRAME_RENDERED, undefined);
+      return;
     }
-  }
-
-  private dispatchMessage<K extends WorkerResponseTypeValue>(response: WorkerResponse<K>): void {
-    const handler = this.messageHandlers.get(response.type);
-    handler?.(response.payload);
+    if (isStatsResponse(data)) {
+      this.dispatch(WorkerResponseType.STATS, data.payload as WorkerStatsPayload);
+      return;
+    }
+    if (isFrameErrorResponse(data)) {
+      this.dispatch(WorkerResponseType.ERROR, data.payload);
+    }
   }
 
   private handleError(error: ErrorEvent): void {
     this.logger.error('Worker error:', error.message);
     this.isWorkerReady = false;
-
-    if (this.readyReject) {
-      this.rejectReady(new Error(error.message));
-    }
+    this.dispatch(WorkerResponseType.ERROR, { message: error.message });
   }
 
-  private rejectReady(error: Error): void {
-    this.clearReadyTimeout();
-    const rejectReady = this.readyReject;
-
-    this.readyResolve = null;
-    this.readyReject = null;
-    rejectReady?.(error);
+  private dispatch(type: WorkerResponseTypeValue, payload: unknown): void {
+    this.messageHandlers.get(type)?.(payload);
   }
 
-  private resolveReady(): void {
-    this.clearReadyTimeout();
-
-    this.readyResolve?.();
-    this.readyResolve = null;
-    this.readyReject = null;
-  }
-
-  private clearReadyTimeout(): void {
-    if (this.readyTimeoutId) {
-      clearTimeout(this.readyTimeoutId);
-      this.readyTimeoutId = null;
-    }
-  }
-
-  sendCommand<K extends WorkerMessageTypeValue>(
-    type: K,
-    payload?: WorkerMessagePayloadMap[K],
-    transferables: Transferable[] = []
-  ): boolean {
-    if (!this.isWorkerReady || !this.worker) {
-      return false;
-    }
-
-    const message = createWorkerMessage(type, payload);
-
-    if (transferables.length > 0) {
-      this.worker.postMessage(message, transferables);
-    } else {
-      this.worker.postMessage(message);
-    }
-
-    return true;
+  private fireAndForget(operation: Promise<unknown>): void {
+    operation.catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error('Worker control error:', message);
+      this.dispatch(WorkerResponseType.ERROR, { message });
+    });
   }
 
   renderFrame(imageBitmap: ImageBitmap): boolean {
-    return this.sendCommand(WorkerMessageType.FRAME, { imageBitmap }, [imageBitmap]);
+    if (!this.isWorkerReady || !this.worker) {
+      return false;
+    }
+    this.worker.postMessage(createWorkerMessage(WorkerMessageType.FRAME, { imageBitmap }), [imageBitmap]);
+    return true;
   }
 
   setBrightness(brightness: number): boolean {
-    return this.sendCommand(WorkerMessageType.SET_BRIGHTNESS, { brightness });
+    if (!this.isWorkerReady || !this.control) return false;
+    this.fireAndForget(this.control.setBrightness(brightness));
+    return true;
   }
 
   setPreset(presetId: string, preset: PresetPayload['preset']): boolean {
-    return this.sendCommand(WorkerMessageType.SET_PRESET, { presetId, preset });
+    if (!this.isWorkerReady || !this.control) return false;
+    this.fireAndForget(this.control.setPreset({ presetId, preset }));
+    return true;
   }
 
   resize(width: number, height: number, scaleFactor: number): boolean {
-    const payload: ResizePayload = { width, height, scaleFactor };
-    return this.sendCommand(WorkerMessageType.RESIZE, payload);
+    if (!this.isWorkerReady || !this.control) return false;
+    this.fireAndForget(this.control.resize({ width, height, scaleFactor }));
+    return true;
   }
 
   requestCapture(): boolean {
-    return this.sendCommand(WorkerMessageType.REQUEST_CAPTURE);
+    if (!this.isWorkerReady || !this.control) return false;
+    this.fireAndForget(this.control.requestCapture());
+    return true;
   }
 
   requestCapturedFrame(): boolean {
-    return this.sendCommand(WorkerMessageType.CAPTURE);
+    if (!this.isWorkerReady || !this.control) return false;
+    this.control
+      .getCapturedFrame()
+      .then((result) => this.dispatch(WorkerResponseType.CAPTURE_READY, result))
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        this.dispatch(WorkerResponseType.ERROR, { message });
+      });
+    return true;
   }
 
-  onMessage<K extends WorkerResponseTypeValue>(
-    type: K,
-    handler: WorkerResponseHandler<K>
-  ): () => void {
-    this.messageHandlers.set(type, handler as AnyWorkerResponseHandler);
-
+  onMessage<K extends WorkerResponseTypeValue>(type: K, handler: WorkerResponseHandler<K>): () => void {
+    this.messageHandlers.set(type, handler as AnyHandler);
     return () => {
       this.messageHandlers.delete(type);
     };
@@ -280,35 +239,33 @@ export class WorkerRendererClient {
   }
 
   releaseResources(): void {
-    if (!this.worker) {
+    if (!this.control) {
       this.logger.debug('releaseResources: No worker to release');
       return;
     }
-
-    this.worker.postMessage(createWorkerMessage(WorkerMessageType.RELEASE));
+    this.fireAndForget(this.control.release());
     this.isWorkerReady = false;
-
     this.logger.info('GPU resources released (worker kept alive)');
   }
 
   terminate(): void {
-    this.rejectReady(new Error('Worker terminated before initialization completed'));
-
+    if (this.control) {
+      this.fireAndForget(this.control.destroy());
+      this.control[Comlink.releaseProxy]?.();
+      this.control = null;
+    }
     if (this.worker) {
       this.worker.onmessage = null;
       this.worker.onerror = null;
-
-      this.worker.postMessage(createWorkerMessage(WorkerMessageType.DESTROY));
       this.worker.terminate();
       this.worker = null;
     }
-
     this.isWorkerReady = false;
     this.messageHandlers.clear();
     this.canvas = null;
     this.offscreenCanvas = null;
     this.wasCanvasTransferred = false;
-
+    this.controlPortPromise = null;
     this.logger.info('Worker terminated');
   }
 
