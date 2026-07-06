@@ -34,7 +34,13 @@ function createTestUserDataDir() {
 export const test = base.extend({
   /**
    * Electron app instance fixture
-   * Launches the built app with test-mode flags
+   * Launches the built app with test-mode flags.
+   *
+   * Readiness is gated on `app.firstWindow()`, never `app.evaluate(() => app.whenReady())`.
+   * The main window is created inside the `app.whenReady().then(...)` boot chain, so a
+   * resolved `firstWindow()` already implies `whenReady()` completed — and it does so
+   * without a main-process `evaluate` round-trip, which races the first window's initial
+   * navigation and intermittently throws "Execution context was destroyed".
    */
   electronApp: async ({}, use) => {
     const userDataDir = createTestUserDataDir();
@@ -71,9 +77,7 @@ export const test = base.extend({
     });
 
     // Wait for app to be ready
-    await app.evaluate(async ({ app: electronApp }) => {
-      await electronApp.whenReady();
-    });
+    await app.firstWindow();
 
     // Provide the app to the test
     await use(app);

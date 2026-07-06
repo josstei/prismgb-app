@@ -372,12 +372,20 @@ export function createChromaticMediaDevices(options: { includeAudio?: boolean } 
   return devices;
 }
 
-export function createChromaticStreamCapabilities(overrides: Record<string, unknown> = {}) {
+type ChromaticStreamCapabilities = typeof CHROMATIC_STREAM_CAPABILITIES;
+
+export function createChromaticStreamCapabilities<TOverrides extends Record<string, unknown> = Record<string, never>>(
+  overrides?: TOverrides
+): ChromaticStreamCapabilities & TOverrides {
   return {
     ...CHROMATIC_STREAM_CAPABILITIES,
-    ...overrides
-  };
+    ...(overrides ?? {})
+  } as ChromaticStreamCapabilities & TOverrides;
 }
+
+export type ManifestStreamCapabilities = ReturnType<typeof createChromaticStreamCapabilities> & {
+  deviceName: string;
+};
 
 export interface ManifestMediaEnvironmentOptions {
   connected?: boolean;
@@ -391,7 +399,7 @@ export interface ManifestMediaEnvironment {
   connect(): ManifestMediaEnvironment;
   disconnect(): ManifestMediaEnvironment;
   addMediaDevice(device: MediaDeviceInfo): ManifestMediaEnvironment;
-  getCapabilities(overrides?: Record<string, unknown>): ReturnType<typeof createChromaticStreamCapabilities>;
+  getCapabilities(overrides?: Record<string, unknown>): ManifestStreamCapabilities;
   createStream(constraints?: MediaStreamConstraints): Promise<MediaStreamDouble>;
   stopStreams(): ManifestMediaEnvironment;
   startFrameGeneration(callback: (frame: ReturnType<typeof createChromaticFrameData>) => void, fps?: number): void;
@@ -610,7 +618,7 @@ export function createManifestMediaEnvironment(
       dispatchDeviceChange(device);
       return environment;
     },
-    getCapabilities(overrides: Record<string, unknown> = {}) {
+    getCapabilities(overrides: Record<string, unknown> = {}): ManifestStreamCapabilities {
       return createChromaticStreamCapabilities({
         deviceName: videoDevice.label,
         ...overrides
