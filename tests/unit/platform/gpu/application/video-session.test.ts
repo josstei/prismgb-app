@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as Comlink from 'comlink';
 import { createGpuVideoRendererSession } from '../../../../../src/platform/gpu/application/video-session';
 import { createMockCanvas, createRenderCapabilitiesFixture } from '@platform/gpu/testkit';
-import { WorkerResponseType, createWorkerResponse } from '../../../../../src/platform/gpu/worker/protocol';
+import {
+  CONTROL_PORT_MESSAGE,
+  type WorkerCaptureReadyPayload,
+  type WorkerControlApi,
+  type WorkerReadyPayload
+} from '../../../../../src/platform/gpu/worker/protocol';
+import { FakeWorker, flush } from '../worker/golden-harness';
 
 function createCanvas2DRenderFixture() {
   const canvas2dContext = {
@@ -14,13 +21,29 @@ function createCanvas2DRenderFixture() {
   return canvas as unknown as HTMLCanvasElement;
 }
 
-function createWorkerMock(): Worker {
-  return {
-    onmessage: null,
-    onerror: null,
-    postMessage: vi.fn(),
-    terminate: vi.fn()
-  } as unknown as Worker;
+function stubControlWorker(api: Partial<WorkerControlApi> = {}): FakeWorker {
+  const worker = new FakeWorker();
+  const channel = new MessageChannel();
+  Comlink.expose(
+    {
+      initialize: async (): Promise<WorkerReadyPayload> => ({ backend: 'webgpu' }),
+      resize: async () => {},
+      setPreset: async () => {},
+      setBrightness: async () => {},
+      requestCapture: async () => {},
+      getCapturedFrame: async (): Promise<WorkerCaptureReadyPayload> => ({
+        bitmap: { close: () => {} } as unknown as ImageBitmap
+      }),
+      release: async () => {},
+      destroy: async () => {},
+      ...api
+    },
+    channel.port1
+  );
+  queueMicrotask(() =>
+    worker.onmessage?.({ data: { channel: CONTROL_PORT_MESSAGE, port: channel.port2 } } as MessageEvent)
+  );
+  return worker;
 }
 
 describe('GpuVideoRendererSession', () => {
@@ -63,13 +86,13 @@ describe('GpuVideoRendererSession', () => {
 
   it('creates WebGPU session when webgpu is available', async () => {
     const canvas = createMockCanvas() as unknown as HTMLCanvasElement;
-    const worker = createWorkerMock();
+    const setBrightnessSpy = vi.fn(async () => {});
 
-    const sessionPromise = createGpuVideoRendererSession({
+    const session = await createGpuVideoRendererSession({
       canvas,
       nativeResolution: { width: 160, height: 144 },
       preferredBackend: 'webgpu',
-      createWorker: () => worker,
+      createWorker: () => stubControlWorker({ setBrightness: setBrightnessSpy }) as unknown as Worker,
       capabilities: createRenderCapabilitiesFixture({
         webgpu: true,
         offscreenCanvas: true,
@@ -78,37 +101,25 @@ describe('GpuVideoRendererSession', () => {
       })
     });
 
-    setTimeout(() => {
-      worker.onmessage?.({
-        data: createWorkerResponse(WorkerResponseType.READY, { backend: 'webgpu' })
-      } as MessageEvent);
-    }, 10);
-
-    const session = await sessionPromise;
     expect(session.backend).toBe('webgpu');
     expect(session.isCanvasTransferred).toBe(true);
 
     session.setBrightness(1.2);
-    expect(worker.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'setBrightness',
-        payload: { brightness: 1.2 }
-      })
-    );
+    await flush();
+    expect(setBrightnessSpy).toHaveBeenCalledWith(1.2);
 
     session.terminate();
   });
 
   it('invokes onCanvasExpired only when terminate requests it', async () => {
     const canvas = createMockCanvas() as unknown as HTMLCanvasElement;
-    const worker = createWorkerMock();
     const onCanvasExpired = vi.fn();
 
-    const sessionPromise = createGpuVideoRendererSession({
+    const session = await createGpuVideoRendererSession({
       canvas,
       nativeResolution: { width: 160, height: 144 },
       preferredBackend: 'webgpu',
-      createWorker: () => worker,
+      createWorker: () => stubControlWorker() as unknown as Worker,
       onCanvasExpired,
       capabilities: createRenderCapabilitiesFixture({
         webgpu: true,
@@ -117,14 +128,6 @@ describe('GpuVideoRendererSession', () => {
         preferredBackend: 'webgpu'
       })
     });
-
-    setTimeout(() => {
-      worker.onmessage?.({
-        data: createWorkerResponse(WorkerResponseType.READY, { backend: 'webgpu' })
-      } as MessageEvent);
-    }, 10);
-
-    const session = await sessionPromise;
 
     session.terminate();
     expect(onCanvasExpired).not.toHaveBeenCalled();
@@ -135,13 +138,12 @@ describe('GpuVideoRendererSession', () => {
 
   it('reports scaled target dimensions (not a hardcoded native width)', async () => {
     const canvas = createMockCanvas() as unknown as HTMLCanvasElement;
-    const worker = createWorkerMock();
 
-    const sessionPromise = createGpuVideoRendererSession({
+    const session = await createGpuVideoRendererSession({
       canvas,
       nativeResolution: { width: 160, height: 144 },
       preferredBackend: 'webgpu',
-      createWorker: () => worker,
+      createWorker: () => stubControlWorker() as unknown as Worker,
       capabilities: createRenderCapabilitiesFixture({
         webgpu: true,
         offscreenCanvas: true,
@@ -149,14 +151,6 @@ describe('GpuVideoRendererSession', () => {
         preferredBackend: 'webgpu'
       })
     });
-
-    setTimeout(() => {
-      worker.onmessage?.({
-        data: createWorkerResponse(WorkerResponseType.READY, { backend: 'webgpu' })
-      } as MessageEvent);
-    }, 10);
-
-    const session = await sessionPromise;
 
     session.resize(640, 576);
     expect(session.getTargetDimensions()).toEqual({ width: 640, height: 576 });
