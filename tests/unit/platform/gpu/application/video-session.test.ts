@@ -1,14 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import * as Comlink from 'comlink';
 import { createGpuVideoRendererSession } from '../../../../../src/platform/gpu/application/video-session';
 import { createMockCanvas, createRenderCapabilitiesFixture } from '@platform/gpu/testkit';
-import {
-  CONTROL_PORT_MESSAGE,
-  type WorkerCaptureReadyPayload,
-  type WorkerControlApi,
-  type WorkerReadyPayload
-} from '../../../../../src/platform/gpu/worker/protocol';
-import { FakeWorker, flush } from '../worker/golden-harness';
+import { FakeWorker, flush, stubControlWorker } from '../worker/golden-harness';
 
 function createCanvas2DRenderFixture() {
   const canvas2dContext = {
@@ -19,31 +12,6 @@ function createCanvas2DRenderFixture() {
   const canvas = createMockCanvas(160, 144, { '2d': canvas2dContext });
   vi.spyOn(canvas, 'getContext');
   return canvas as unknown as HTMLCanvasElement;
-}
-
-function stubControlWorker(api: Partial<WorkerControlApi> = {}): FakeWorker {
-  const worker = new FakeWorker();
-  const channel = new MessageChannel();
-  Comlink.expose(
-    {
-      initialize: async (): Promise<WorkerReadyPayload> => ({ backend: 'webgpu' }),
-      resize: async () => {},
-      setPreset: async () => {},
-      setBrightness: async () => {},
-      requestCapture: async () => {},
-      getCapturedFrame: async (): Promise<WorkerCaptureReadyPayload> => ({
-        bitmap: { close: () => {} } as unknown as ImageBitmap
-      }),
-      release: async () => {},
-      destroy: async () => {},
-      ...api
-    },
-    channel.port1
-  );
-  queueMicrotask(() =>
-    worker.onmessage?.({ data: { channel: CONTROL_PORT_MESSAGE, port: channel.port2 } } as MessageEvent)
-  );
-  return worker;
 }
 
 describe('GpuVideoRendererSession', () => {

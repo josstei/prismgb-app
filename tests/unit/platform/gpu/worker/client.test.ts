@@ -1,43 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import * as Comlink from 'comlink';
 import { WorkerRendererClient } from '../../../../../src/platform/gpu/worker/client';
 import {
   CANVAS_HANDOFF_MESSAGE,
-  CONTROL_PORT_MESSAGE,
   WorkerMessageType,
   WorkerResponseType,
-  createWorkerResponse,
-  type WorkerCaptureReadyPayload,
-  type WorkerControlApi,
-  type WorkerReadyPayload
+  createWorkerResponse
 } from '../../../../../src/platform/gpu/worker/protocol';
 import { createMockCanvas } from '@platform/gpu/testkit';
-import { FakeWorker, flush } from './golden-harness';
-
-function stubControlWorker(api: Partial<WorkerControlApi> = {}): FakeWorker {
-  const worker = new FakeWorker();
-  const channel = new MessageChannel();
-  Comlink.expose(
-    {
-      initialize: async (): Promise<WorkerReadyPayload> => ({ backend: 'webgpu' }),
-      resize: async () => {},
-      setPreset: async () => {},
-      setBrightness: async () => {},
-      requestCapture: async () => {},
-      getCapturedFrame: async (): Promise<WorkerCaptureReadyPayload> => ({
-        bitmap: { close: () => {} } as unknown as ImageBitmap
-      }),
-      release: async () => {},
-      destroy: async () => {},
-      ...api
-    },
-    channel.port1
-  );
-  queueMicrotask(() =>
-    worker.onmessage?.({ data: { channel: CONTROL_PORT_MESSAGE, port: channel.port2 } } as MessageEvent)
-  );
-  return worker;
-}
+import { FakeWorker, flush, stubControlWorker } from './golden-harness';
 
 function createConfig() {
   return {

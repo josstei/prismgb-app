@@ -70,22 +70,18 @@ describe('split-port transport separation', () => {
       return r.type ?? r.channel ?? 'unknown';
     });
 
-    // The raw main channel carries ONLY the canvas handoff and FRAME envelopes.
     expect(types).toContain(CANVAS_HANDOFF_MESSAGE);
     expect(types).toContain(WorkerMessageType.FRAME);
-    // No control-plane op ever appears on the raw channel.
     expect(types).not.toContain('setPreset');
     expect(types).not.toContain('resize');
     expect(types).not.toContain('setBrightness');
     expect(types).not.toContain('init');
     expect(mainChannel.filter((m) => (m as { type?: string }).type === WorkerMessageType.FRAME).length).toBe(1);
 
-    // Control effects still reached the service — proving they traversed the comlink port.
     expect(driver.record).toContain('setPreset:authentic');
     expect(driver.record).toContain('setBrightness:1.25');
     expect(driver.record).toContain('resize:320x288');
 
-    // "byte-for-byte" frame envelope: exact shape crossing the raw channel.
     const frameEnvelope = mainChannel.find((m) => (m as { type?: string }).type === WorkerMessageType.FRAME) as {
       type: string; payload: { imageBitmap: { sig: string } }; timestamp: number;
     };
@@ -114,18 +110,16 @@ describe('split-port transport separation', () => {
     let captured: { bitmap: ArrayBuffer } | null = null;
     client.onCaptureReady((payload) => { captured = payload as unknown as { bitmap: ArrayBuffer }; });
 
-    client.requestCapture();     // comlink: sets captureRequested on the service
+    client.requestCapture();
     await flush();
-    client.renderFrame(makeDeterministicFrame(1)); // raw channel: populates capturedFrame
+    client.renderFrame(makeDeterministicFrame(1));
     await flush(3);
-    client.requestCapturedFrame(); // comlink: returns Comlink.transfer(bitmap)
+    client.requestCapturedFrame();
     await flush(4);
 
-    // requestCapture never appeared on the raw channel (rode comlink).
     const rawTypes = mainChannel.map((m) => (m as { type?: string; channel?: string }).type ?? (m as { channel?: string }).channel);
     expect(rawTypes).not.toContain('requestCapture');
     expect(rawTypes).not.toContain('capture');
-    // The captured transferable arrived intact over the control port.
     expect(captured).not.toBeNull();
     expect(Array.from(new Uint8Array(captured!.bitmap))).toEqual([9, 8, 7, 6]);
     expect(driver.record).toContain('create:160x144');

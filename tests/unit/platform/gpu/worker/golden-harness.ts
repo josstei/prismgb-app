@@ -1,4 +1,11 @@
 import { vi } from 'vitest';
+import * as Comlink from 'comlink';
+import {
+  CONTROL_PORT_MESSAGE,
+  type WorkerCaptureReadyPayload,
+  type WorkerControlApi,
+  type WorkerReadyPayload
+} from '../../../../../src/platform/gpu/worker/protocol';
 
 /**
  * Transport-agnostic golden-test harness. Touches ONLY the WorkerRendererClient
@@ -124,6 +131,36 @@ export class FakeWorker {
   }
 
   terminate(): void {}
+}
+
+/**
+ * Builds a FakeWorker whose worker-side control API is exposed over comlink on
+ * a dedicated MessagePort, handed back to the client via the CONTROL_PORT_MESSAGE
+ * handoff. `api` overrides let callers spy on or replace individual control methods.
+ */
+export function stubControlWorker(api: Partial<WorkerControlApi> = {}): FakeWorker {
+  const worker = new FakeWorker();
+  const channel = new MessageChannel();
+  Comlink.expose(
+    {
+      initialize: async (): Promise<WorkerReadyPayload> => ({ backend: 'webgpu' }),
+      resize: async () => {},
+      setPreset: async () => {},
+      setBrightness: async () => {},
+      requestCapture: async () => {},
+      getCapturedFrame: async (): Promise<WorkerCaptureReadyPayload> => ({
+        bitmap: { close: () => {} } as unknown as ImageBitmap
+      }),
+      release: async () => {},
+      destroy: async () => {},
+      ...api
+    },
+    channel.port1
+  );
+  queueMicrotask(() =>
+    worker.onmessage?.({ data: { channel: CONTROL_PORT_MESSAGE, port: channel.port2 } } as MessageEvent)
+  );
+  return worker;
 }
 
 export async function flush(times = 6): Promise<void> {

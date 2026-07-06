@@ -37,7 +37,9 @@ function mockCanvas() {
   return { width: 160, height: 144, getContext: () => null, transferControlToOffscreen: () => offscreen } as unknown as HTMLCanvasElement;
 }
 
-// Frame-dominated session: 1 init + a few control calls + many frames — mirrors the 60fps hot path.
+/**
+ * Frame-dominated session: 1 init + a few control calls + many frames — mirrors the 60fps hot path.
+ */
 async function runFrameDominatedSession(frameCount: number): Promise<void> {
   createRecordingDriver(mockCreateGpuRenderer);
   const worker = new FakeWorker();

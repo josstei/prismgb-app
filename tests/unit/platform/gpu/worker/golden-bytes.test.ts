@@ -48,7 +48,9 @@ function mockCanvas() {
   } as unknown as HTMLCanvasElement;
 }
 
-// Golden constant recorded on the UNMODIFIED tree; must remain identical post-port.
+/**
+ * Golden constant recorded on the UNMODIFIED tree; must remain identical post-port.
+ */
 const GOLDEN_HASH = 'afa9ed05';
 
 async function driveDeterministicSession(frameCount: number): Promise<string[]> {
