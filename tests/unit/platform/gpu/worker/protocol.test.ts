@@ -1,56 +1,66 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CANVAS_HANDOFF_MESSAGE,
+  CONTROL_PORT_MESSAGE,
   WorkerMessageType,
   WorkerResponseType,
   createWorkerMessage,
   createWorkerResponse,
-  isValidWorkerMessage,
-  isValidWorkerResponse
+  isCanvasHandoffMessage,
+  isControlPortMessage,
+  isFrameErrorResponse,
+  isFrameMessage,
+  isFramePayload,
+  isFrameRenderedResponse,
+  isStatsResponse
 } from '../../../../../src/platform/gpu/worker/protocol';
 
-const validConfig = {
-  nativeWidth: 160,
-  nativeHeight: 144,
-  targetWidth: 640,
-  targetHeight: 576,
-  scaleFactor: 4,
-  backend: 'webgpu',
-  presetId: 'true-color'
-} as const;
+function bitmap(): ImageBitmap {
+  return { close: () => {} } as unknown as ImageBitmap;
+}
 
 describe('worker protocol', () => {
-  it('creates typed worker messages with timestamps', () => {
-    const message = createWorkerMessage(WorkerMessageType.INIT, { config: validConfig });
-
-    expect(message).toMatchObject({
-      type: WorkerMessageType.INIT,
-      payload: { config: validConfig }
-    });
+  it('creates typed frame-plane messages and responses with timestamps', () => {
+    const message = createWorkerMessage(WorkerMessageType.FRAME, { imageBitmap: bitmap() });
+    expect(message).toMatchObject({ type: WorkerMessageType.FRAME });
     expect(typeof message.timestamp).toBe('number');
+
+    const rendered = createWorkerResponse(WorkerResponseType.FRAME_RENDERED);
+    expect(rendered).toMatchObject({ type: WorkerResponseType.FRAME_RENDERED });
+    expect(typeof rendered.timestamp).toBe('number');
+
+    const stats = createWorkerResponse(WorkerResponseType.STATS, {
+      fps: 60,
+      frameTime: 16,
+      gpuTime: 4,
+      uploadTime: 2
+    });
+    expect(stats).toMatchObject({
+      type: WorkerResponseType.STATS,
+      payload: { fps: 60, frameTime: 16, gpuTime: 4, uploadTime: 2 }
+    });
   });
 
-  it('validates worker messages at the boundary', () => {
-    expect(isValidWorkerMessage(createWorkerMessage(WorkerMessageType.INIT, {
-      config: validConfig
-    }))).toBe(true);
-    expect(isValidWorkerMessage({
-      type: WorkerMessageType.INIT,
-      payload: { config: { ...validConfig, targetWidth: '640' } }
-    })).toBe(false);
-    expect(isValidWorkerMessage({ type: 'unknown', payload: {} })).toBe(false);
-  });
+  it('guards the surviving channel, frame, and response discriminants at the boundary', () => {
+    const frameBitmap = bitmap();
+    const frameMessage = createWorkerMessage(WorkerMessageType.FRAME, { imageBitmap: frameBitmap });
 
-  it('validates worker responses at the boundary', () => {
-    expect(isValidWorkerResponse(createWorkerResponse(WorkerResponseType.READY, {
-      backend: 'webgpu'
-    }))).toBe(true);
-    expect(isValidWorkerResponse(createWorkerResponse(WorkerResponseType.ERROR, {
-      message: 'failed',
-      code: 'INIT_FAILED'
-    }))).toBe(true);
-    expect(isValidWorkerResponse({
-      type: WorkerResponseType.ERROR,
-      payload: { code: 'INIT_FAILED' }
-    })).toBe(false);
+    expect(isFramePayload({ imageBitmap: frameBitmap })).toBe(true);
+    expect(isFramePayload({})).toBe(false);
+    expect(isFrameMessage(frameMessage)).toBe(true);
+    expect(isFrameMessage({ type: WorkerMessageType.FRAME, payload: {} })).toBe(false);
+
+    const port = {} as unknown as MessagePort;
+    expect(isControlPortMessage({ channel: CONTROL_PORT_MESSAGE, port })).toBe(true);
+    expect(isControlPortMessage({ channel: CANVAS_HANDOFF_MESSAGE })).toBe(false);
+
+    const canvas = {} as unknown as OffscreenCanvas;
+    expect(isCanvasHandoffMessage({ channel: CANVAS_HANDOFF_MESSAGE, canvas })).toBe(true);
+    expect(isCanvasHandoffMessage({ channel: CONTROL_PORT_MESSAGE })).toBe(false);
+
+    expect(isFrameRenderedResponse(createWorkerResponse(WorkerResponseType.FRAME_RENDERED))).toBe(true);
+    expect(isStatsResponse(createWorkerResponse(WorkerResponseType.STATS, { fps: 1, frameTime: 1 }))).toBe(true);
+    expect(isFrameErrorResponse({ type: WorkerResponseType.ERROR, payload: { message: 'boom' } })).toBe(true);
+    expect(isFrameErrorResponse({ type: WorkerResponseType.ERROR, payload: {} })).toBe(false);
   });
 });

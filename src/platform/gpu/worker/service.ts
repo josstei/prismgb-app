@@ -33,7 +33,7 @@ type WorkerRendererPipeline = {
   render: (source: TexImageSource) => void;
   resize: (width: number, height: number) => void;
   captureFrame: () => Promise<ImageBitmap>;
-  getStats: () => RenderStats;
+  getStats: () => RenderStats & { uploadTime?: number };
   dispose: () => Promise<void>;
   setPreset: (preset: RenderPreset) => void;
   setBrightness: (value: number) => void;
@@ -240,7 +240,8 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
     workerScope.postMessage(createWorkerResponse(WorkerResponseType.STATS, {
       fps: frameCount,
       frameTime: Number(averageFrameTime.toFixed(2)),
-      gpuTime: stats.gpuTime
+      gpuTime: stats.gpuTime,
+      uploadTime: stats.uploadTime
     }));
     frameCount = 0;
     totalFrameTime = 0;
