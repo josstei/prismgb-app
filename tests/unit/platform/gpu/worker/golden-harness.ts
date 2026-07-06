@@ -1,0 +1,133 @@
+import { vi } from 'vitest';
+
+/**
+ * Transport-agnostic golden-test harness. Touches ONLY the WorkerRendererClient
+ * public API and the createGpuRenderer seam. Identical across pre/post-port trees.
+ */
+
+export type DriverRecord = string[];
+
+export type RecordingDriverHandle = {
+  record: DriverRecord;
+  reset(): void;
+};
+
+export function createRecordingDriver(mockCreateGpuRenderer: ReturnType<typeof vi.fn>): RecordingDriverHandle {
+  const record: DriverRecord = [];
+  mockCreateGpuRenderer.mockImplementation(async (opts: { nativeWidth: number; nativeHeight: number }) => {
+    record.push(`create:${opts.nativeWidth}x${opts.nativeHeight}`);
+    return {
+      backend: 'webgpu',
+      renderFrame: (src: unknown) => {
+        record.push(`render:${(src as { sig?: string }).sig ?? '?'}`);
+      },
+      resize: (w: number, h: number) => {
+        record.push(`resize:${w}x${h}`);
+      },
+      captureFrame: async () => new Uint8Array([9, 8, 7, 6]).buffer,
+      getStats: () => ({ fps: 0, frameTime: 0, framesRendered: 0, framesDropped: 0 }),
+      dispose: async () => {
+        record.push('dispose');
+      },
+      setPreset: (p: { id?: string }) => {
+        record.push(`setPreset:${p.id ?? '?'}`);
+      },
+      setBrightness: (v: number) => {
+        record.push(`setBrightness:${v}`);
+      }
+    };
+  });
+  return {
+    record,
+    reset: () => {
+      record.length = 0;
+    }
+  };
+}
+
+/**
+ * A deterministic fake ImageBitmap. `sig` is a stable function of the frame index,
+ * so the byte crossing the render seam is reproducible.
+ */
+export function makeDeterministicFrame(index: number): ImageBitmap {
+  const bytes = new Uint8Array(8);
+  let acc = (index * 2654435761) >>> 0;
+  for (let i = 0; i < bytes.length; i++) {
+    acc = (acc ^ (acc << 13)) >>> 0;
+    acc = (acc ^ (acc >>> 17)) >>> 0;
+    acc = (acc ^ (acc << 5)) >>> 0;
+    bytes[i] = acc & 0xff;
+  }
+  const sig = Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+  return { sig, close: () => {} } as unknown as ImageBitmap;
+}
+
+export function fnv1aHex(input: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0');
+}
+
+export function hashRecord(record: DriverRecord): string {
+  return fnv1aHex(record.join('|'));
+}
+
+/**
+ * FakeWorker bridges the WorkerRendererClient (main-thread side) to
+ * startWorkerRendererService (worker-scope side) in-process, relaying messages
+ * and transferables by reference. Transport-agnostic: it faithfully relays raw
+ * postMessage in both directions; the service is free to additionally create a
+ * dedicated control MessagePort (comlink) and hand one end back through it.
+ */
+export type WorkerServiceScope = {
+  onmessage: ((event: MessageEvent<unknown>) => void | Promise<void>) | null;
+  postMessage(message: unknown, transfer?: Transferable[]): void;
+  close(): void;
+};
+
+export class FakeWorker {
+  onmessage: ((event: MessageEvent<unknown>) => void) | null = null;
+  onerror: ((event: ErrorEvent) => void) | null = null;
+  private readonly listeners = new Set<(event: MessageEvent<unknown>) => void>();
+  readonly scope: WorkerServiceScope;
+
+  constructor() {
+    const worker = this;
+    this.scope = {
+      onmessage: null,
+      postMessage(message: unknown): void {
+        queueMicrotask(() => {
+          const event = { data: message } as MessageEvent<unknown>;
+          worker.onmessage?.(event);
+          worker.listeners.forEach((listener) => listener(event));
+        });
+      },
+      close(): void {}
+    };
+  }
+
+  postMessage(message: unknown): void {
+    queueMicrotask(() => {
+      void this.scope.onmessage?.({ data: message } as MessageEvent<unknown>);
+    });
+  }
+
+  addEventListener(type: string, listener: (event: MessageEvent<unknown>) => void): void {
+    if (type === 'message') this.listeners.add(listener);
+  }
+
+  removeEventListener(type: string, listener: (event: MessageEvent<unknown>) => void): void {
+    if (type === 'message') this.listeners.delete(listener);
+  }
+
+  terminate(): void {}
+}
+
+export async function flush(times = 6): Promise<void> {
+  for (let i = 0; i < times; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+}
