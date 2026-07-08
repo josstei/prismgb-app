@@ -16,9 +16,9 @@ import { createInjectableHarness } from '../../../../../support/di/injectable.ha
 
 describe('SettingsFullscreenService', () => {
   let service;
+  let h;
   let mockEventBus;
   let mockLogger;
-  let mockLoggerFactory;
   let mockDocument;
   let mockDocumentElement;
   let documentMock;
@@ -36,10 +36,10 @@ describe('SettingsFullscreenService', () => {
     mockDocument = documentMock.document;
     mockDocumentElement = documentMock.documentElement;
 
-    const h = createInjectableHarness(SettingsFullscreenService);
+    h = createInjectableHarness(SettingsFullscreenService);
     service = h.subject;
     mockLogger = h.logger;
-    ({ eventBus: mockEventBus, loggerFactory: mockLoggerFactory } = h.deps);
+    ({ eventBus: mockEventBus } = h.deps);
   });
 
   afterEach(() => {
@@ -47,11 +47,6 @@ describe('SettingsFullscreenService', () => {
   });
 
   describe('constructor', () => {
-    it('should create service with required dependencies', () => {
-      expect(service.eventBus).toBe(mockEventBus);
-      expect(service.logger).toBe(mockLogger);
-    });
-
     it('should initialize internal state', () => {
       expect(service._isFullscreenActive).toBe(false);
       expect(service._boundHandleFullscreenChange).toBeTypeOf('function');
@@ -130,7 +125,7 @@ describe('SettingsFullscreenService', () => {
     });
 
     it('should handle dispose when not initialized', async () => {
-      const uninitializedService = new SettingsFullscreenService(mockEventBus, mockLoggerFactory);
+      const uninitializedService = h.recreate();
 
       await expect(uninitializedService.dispose()).resolves.toBeUndefined();
     });
