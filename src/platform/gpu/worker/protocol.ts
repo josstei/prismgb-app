@@ -27,8 +27,6 @@ export const WorkerMessageType = Object.freeze({
   FRAME: 'frame'
 } as const);
 
-export type WorkerMessageTypeValue = typeof WorkerMessageType[keyof typeof WorkerMessageType];
-
 export const WorkerResponseType = Object.freeze({
   READY: 'ready',
   FRAME_RENDERED: 'frameRendered',
@@ -55,7 +53,6 @@ export type WorkerRendererConfig = {
 };
 
 export type FramePayload = { imageBitmap: ImageBitmap };
-export type BrightnessPayload = { brightness: number };
 export type ResizePayload = { width: number; height: number; scaleFactor: number };
 export type PresetPayload = { presetId: string; preset: RenderPreset };
 export type WorkerReadyPayload = { backend: WorkerRenderBackend };
@@ -64,10 +61,6 @@ export type WorkerErrorPayload = { message: string; stack?: string; code?: strin
 export type WorkerCaptureReadyPayload = { bitmap: ImageBitmap };
 
 export type EmptyWorkerPayload = undefined | Record<string, never>;
-
-export type WorkerMessagePayloadMap = {
-  [WorkerMessageType.FRAME]: FramePayload;
-};
 
 export type WorkerResponsePayloadMap = {
   [WorkerResponseType.READY]: WorkerReadyPayload;
@@ -109,7 +102,6 @@ export type FrameMessage = { type: typeof WorkerMessageType.FRAME; payload: Fram
 export type FrameRenderedResponse = { type: typeof WorkerResponseType.FRAME_RENDERED; payload?: undefined; timestamp: number };
 export type StatsResponse = { type: typeof WorkerResponseType.STATS; payload: WorkerStatsPayload; timestamp: number };
 export type FrameErrorResponse = { type: typeof WorkerResponseType.ERROR; payload: WorkerErrorPayload; timestamp: number };
-export type FrameResponse = FrameRenderedResponse | StatsResponse | FrameErrorResponse;
 
 export function createWorkerMessage(type: typeof WorkerMessageType.FRAME, payload: FramePayload): FrameMessage {
   return { type, payload, timestamp: performance.now() };

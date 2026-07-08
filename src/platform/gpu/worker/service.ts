@@ -4,7 +4,6 @@ import { createGpuRenderer } from '../application/renderer.service';
 import { detectWorkerGpuCapabilities } from '../infrastructure/capabilities.worker';
 import type { RenderCanvas, RenderPipeline, RenderPreset, RenderStats } from '../domain/types';
 import {
-  CANVAS_HANDOFF_MESSAGE,
   CONTROL_PORT_MESSAGE,
   WorkerResponseType,
   createWorkerResponse,
