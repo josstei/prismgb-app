@@ -51,6 +51,17 @@ function createRecordingBus() {
   return { bus, handlers, unsubscribes };
 }
 
+function createDeferred() {
+  let resolve!: () => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<void>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+
+  return { promise, resolve, reject };
+}
+
 class EventBoundService extends BaseService {
   received: unknown[] = [];
   onInitializeOrder: string[];
@@ -72,6 +83,20 @@ class EventBoundService extends BaseService {
   @OnServiceEvent('service:void')
   handleVoid(): void {
     this.received.push('void');
+  }
+}
+
+class QueuedAsyncEventBoundService extends EventBoundService {
+  private readonly initPromises: Promise<void>[];
+
+  constructor(dependencies: object, initPromises: Promise<void>[]) {
+    super(dependencies);
+    this.initPromises = initPromises;
+  }
+
+  protected override onInitialize(): Promise<void> {
+    this.onInitializeOrder.push('onInitialize');
+    return this.initPromises.shift() ?? Promise.resolve();
   }
 }
 
@@ -281,6 +306,56 @@ describe('BaseService', () => {
       service.initialize();
 
       expect(bus.subscribe).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not double-subscribe declared service handlers while async initialize is pending', async () => {
+      const deferred = createDeferred();
+      const { bus } = createRecordingBus();
+      const service = new QueuedAsyncEventBoundService(
+        { eventBus: bus, loggerFactory: mockLoggerFactory },
+        [deferred.promise]
+      );
+
+      const firstInitialize = service.initialize();
+      const secondInitialize = service.initialize();
+
+      expect(secondInitialize).toBe(firstInitialize);
+      expect(bus.subscribe).toHaveBeenCalledTimes(2);
+      expect(service.onInitializeOrder).toEqual(['onInitialize']);
+      expect(mockLoggerFactory._getLogger('EventBoundService')?.warn)
+        .toHaveBeenCalledWith('EventBoundService already initialized');
+
+      deferred.resolve();
+      await firstInitialize;
+
+      expect((service as unknown as InjectedServiceShape)._initialized).toBe(true);
+    });
+
+    it('releases declared service subscriptions before retrying after async initialize rejects', async () => {
+      const firstAttempt = createDeferred();
+      const secondAttempt = createDeferred();
+      const { bus, unsubscribes } = createRecordingBus();
+      const service = new QueuedAsyncEventBoundService(
+        { eventBus: bus, loggerFactory: mockLoggerFactory },
+        [firstAttempt.promise, secondAttempt.promise]
+      );
+
+      const failedInitialize = service.initialize();
+      firstAttempt.reject(new Error('init failed'));
+
+      await expect(failedInitialize).rejects.toThrow('init failed');
+      expect(unsubscribes).toHaveLength(2);
+      expect(unsubscribes[0]).toHaveBeenCalledTimes(1);
+      expect(unsubscribes[1]).toHaveBeenCalledTimes(1);
+      expect((service as unknown as InjectedServiceShape)._initialized).toBe(false);
+
+      const retryInitialize = service.initialize();
+
+      expect(bus.subscribe).toHaveBeenCalledTimes(4);
+      secondAttempt.resolve();
+      await retryInitialize;
+
+      expect((service as unknown as InjectedServiceShape)._initialized).toBe(true);
     });
 
     it('disposes declared service subscriptions', async () => {
