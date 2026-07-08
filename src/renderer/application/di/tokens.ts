@@ -48,7 +48,6 @@ import type { TrpcDeviceStatusPort } from '../../infrastructure/services/devices
 import type { BrowserMediaDevicesPort } from '../../infrastructure/services/devices/browser-media-devices.port';
 import type { StorageDevicePreferenceStore } from '../../infrastructure/services/devices/storage-device-preference.store';
 import type { PresentationModeStore } from '../../presentation/state/presentation-mode.store';
-import type { UIController } from '../../presentation/controller/ui.controller';
 import type { UiComponentHost, RendererUiComponentInstanceMap } from '../../presentation/controller/ui-component.host';
 import type { DomBindings } from '../../presentation/primitives/dom-bindings.utils';
 import type { StatusNotificationComponent } from '../../presentation/shared/status-notification.component';
@@ -122,8 +121,7 @@ export const TOKENS = {
   settingsMenuComponent: token<SettingsMenuComponent>('settingsMenuComponent'),
   shaderSelectorComponent: token<ShaderSelectorComponent>('shaderSelectorComponent'),
   notesPanelComponent: token<NotesPanelComponent>('notesPanelComponent'),
-  uiComponentHost: token<UiComponentHost<RendererUiComponentInstanceMap>>('uiComponentHost'),
-  uiController: token<UIController>('uiController')
+  uiComponentHost: token<UiComponentHost<RendererUiComponentInstanceMap>>('uiComponentHost')
 } as const;
 
 export type TokenKey = keyof typeof TOKENS;

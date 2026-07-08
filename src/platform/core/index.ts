@@ -25,6 +25,8 @@ export type { Disposable, DisposableFunction, DisposableKey, EventTargetLike } f
 export { ManagedLifecycleHost } from './primitives/managed-lifecycle-host.js';
 export { BaseService, type EventPublisherLike, type LoggerLike, type EventBusLike, type LoggerFactoryLike, type StorageServiceLike, type LogLevel } from './primitives/service.base.js';
 export { BaseOrchestrator } from './primitives/orchestrator.base.js';
+export { PlatformBootstrap } from './primitives/platform-bootstrap.js';
+export type { PlatformBootstrapMessages } from './primitives/platform-bootstrap.js';
 export { createOnEventDecorator, getEventHandlerBindings } from './primitives/event-decorator.js';
 export type { EventHandlerBinding } from './primitives/event-decorator.js';
 export { ConsoleLoggerFactory } from './primitives/console-logger.js';

@@ -10,16 +10,12 @@ import type {
 import { TIMING } from '@platform/config';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
-
-type CaptureUiControllerLike = {
-  triggerDownload(blob: Blob, filename: string): void;
-};
+import { downloadFile } from '@renderer/lib/file-download.utils';
 
 @injectable()
 class CaptureUIBridge extends BaseService {
   constructor(
     @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
-    @inject(TOKENS.uiController) private readonly uiController: CaptureUiControllerLike,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
   ) {
     super({ loggerFactory, eventBus }, 'CaptureUIBridge');
@@ -48,7 +44,7 @@ class CaptureUIBridge extends BaseService {
 
   @OnEvent(EventChannels.CAPTURE.SCREENSHOT_READY)
   _handleScreenshotReady(data: ScreenshotReadyPayload) {
-    this.uiController.triggerDownload(data.blob, data.filename);
+    downloadFile(data.blob, data.filename);
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Screenshot saved!' });
   }
 

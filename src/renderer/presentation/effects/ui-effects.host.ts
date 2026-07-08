@@ -65,11 +65,6 @@ export class UIEffects extends PresentationComponent {
     this.track(() => this._disposeRuntimeEffects());
   }
 
-  setElements(elements: UIElements | null): void {
-    this.elements = elements;
-    this._buttonFeedback.setElements(elements);
-  }
-
   triggerShutterFlash() {
     this._captureEffects.triggerShutterFlash();
   }
@@ -101,7 +96,10 @@ export class UIEffects extends PresentationComponent {
     }
   }
 
-  enableToolbarAutoHide(toolbarElement: HTMLElement) {
+  enableToolbarAutoHide(toolbarElement: HTMLElement | null) {
+    if (!toolbarElement) {
+      return;
+    }
     this._toolbar.enable(toolbarElement);
   }
 
@@ -116,7 +114,10 @@ export class UIEffects extends PresentationComponent {
     this._toolbar.invalidatePanelCache();
   }
 
-  enableControlsAutoHide(controlsElement: HTMLElement) {
+  enableControlsAutoHide(controlsElement: HTMLElement | null) {
+    if (!controlsElement) {
+      return;
+    }
     this._controls.enable(controlsElement);
   }
 
@@ -202,7 +203,7 @@ export class UIEffects extends PresentationComponent {
         console.error('Error disposing bodyClassManager', error);
       }
     }
-    this.setElements(null);
+    this.elements = null;
     return disposed;
   }
 }

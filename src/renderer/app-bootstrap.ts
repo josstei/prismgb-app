@@ -1,6 +1,4 @@
-import { ConsoleLoggerFactory } from '@platform/core';
-import { UIController } from '@renderer/presentation/controller/ui.controller.js';
-import { safeDispose } from '@platform/core';
+import { ConsoleLoggerFactory, PlatformBootstrap, safeDispose } from '@platform/core';
 import type { AppOrchestrator } from '@renderer/application/orchestrators/app.orchestrator';
 import type { RendererServiceContainer } from '@renderer/application/container';
 import type { LoggerLike } from '@platform/core';
@@ -10,63 +8,53 @@ import { registerAllowedValuesSource, registerDefaultValueSource } from '@render
 import { TRANSCODE_CONFIG } from '@platform/transcode';
 import { PRESET_POLICY } from '@platform/gpu';
 import { renderAppShell } from './presentation/shell/app-shell.renderer.js';
+import type { UIEffects } from './presentation/effects/ui-effects.host.js';
+import type {
+  RendererUiComponentInstanceMap,
+  UiComponentHost
+} from './presentation/controller/ui-component.host.js';
 
 
-
-class RendererBootstrap {
-  container: RendererServiceContainer | null;
-  orchestrator: AppOrchestrator | null;
-  isInitialized: boolean;
-  logger: LoggerLike;
-  _uiController: UIController | null;
+class RendererBootstrap extends PlatformBootstrap<RendererServiceContainer, AppOrchestrator> {
+  private uiEffects: UIEffects | null;
+  private uiComponentHost: UiComponentHost<RendererUiComponentInstanceMap> | null;
 
   constructor() {
-    this.container = null;
-    this.orchestrator = null;
-    this.isInitialized = false;
-    this._uiController = null;
-
     const loggerFactory = new ConsoleLoggerFactory();
-    this.logger = loggerFactory.create('RendererBootstrap') as LoggerLike;
+    super(loggerFactory.create('RendererBootstrap') as LoggerLike, {
+      alreadyInitialized: 'Renderer application already initialized',
+      initializing: 'Initializing renderer application...',
+      initialized: 'Renderer application initialized successfully',
+      initializeFailed: 'Failed to initialize renderer application:',
+      cleanupStart: 'Cleaning up renderer application...',
+      cleanupFailed: 'Failed during renderer application cleanup:',
+      cleanupComplete: 'Renderer application cleanup complete'
+    });
+    this.uiEffects = null;
+    this.uiComponentHost = null;
   }
 
-  async initialize() {
-    if (this.isInitialized) {
-      this.logger.warn('Renderer application already initialized');
-      return;
+  protected async beforeInitialize(): Promise<void> {
+    registerAllowedValuesSource('TRANSCODE_CONFIG.formats', () => Object.keys(TRANSCODE_CONFIG.formats));
+    registerDefaultValueSource('PRESET_POLICY.rendererDefaultId', () => PRESET_POLICY.rendererDefaultId);
+
+    const appContainer = document.getElementById('appContainer');
+    if (appContainer) {
+      renderAppShell(appContainer);
     }
+  }
 
-    this.logger.info('Initializing renderer application...');
+  protected createContainer(): RendererServiceContainer {
+    return initializeContainer();
+  }
 
-    try {
-      // Register settings options dynamically before resolving definitions
-      registerAllowedValuesSource('TRANSCODE_CONFIG.formats', () => Object.keys(TRANSCODE_CONFIG.formats));
-      registerDefaultValueSource('PRESET_POLICY.rendererDefaultId', () => PRESET_POLICY.rendererDefaultId);
+  protected async afterContainerCreated(container: RendererServiceContainer): Promise<void> {
+    this._initializePresentationPlane(container);
+    await this._initializeUIEventBridge(container);
+  }
 
-      // Render templates into app container
-      const appContainer = document.getElementById('appContainer');
-      if (appContainer) {
-        renderAppShell(appContainer);
-      }
-
-      const container = initializeContainer();
-      this.container = container;
-
-      await this._initializeUI();
-      await this._registerUIComponents();
-      await this._initializeUIEventBridge();
-
-      const orchestrator = container.get(TOKENS.appOrchestrator);
-      this.orchestrator = orchestrator;
-      await orchestrator.initialize();
-
-      this.isInitialized = true;
-      this.logger.info('Renderer application initialized successfully');
-
-    } catch (error) {
-      this.logger.error('Failed to initialize renderer application:', error);
-      throw error;
-    }
+  protected resolveOrchestrator(container: RendererServiceContainer): AppOrchestrator {
+    return container.get(TOKENS.appOrchestrator);
   }
 
   async start() {
@@ -89,62 +77,49 @@ class RendererBootstrap {
     }
   }
 
-  async cleanup() {
-    this.logger.info('Cleaning up renderer application...');
-
+  protected async cleanupOwnedResources(): Promise<void> {
     if (this.orchestrator) {
       await safeDispose(this.logger, 'orchestrator', this.orchestrator as Object, 'cleanup');
     }
 
-    if (this._uiController) {
-      await safeDispose(this.logger, 'uiController', this._uiController);
+    if (this.uiEffects) {
+      await safeDispose(this.logger, 'uiEffects', this.uiEffects);
+    }
+
+    if (this.uiComponentHost) {
+      await safeDispose(this.logger, 'uiComponentHost', this.uiComponentHost);
     }
 
     if (this.container) {
       await safeDispose(this.logger, 'container', this.container as Object);
     }
-
-    this.orchestrator = null;
-    this.container = null;
-    this._uiController = null;
-    delete document.body.dataset.prismgbAppStarted;
-    this.isInitialized = false;
-    this.logger.info('Renderer application cleanup complete');
   }
 
-  async _initializeUI() {
-    const container = this._requireContainer();
+  protected override clearLifecycleState(): void {
+    super.clearLifecycleState();
+    this.uiEffects = null;
+    this.uiComponentHost = null;
+  }
 
+  protected override async afterCleanup(): Promise<void> {
+    delete document.body.dataset.prismgbAppStarted;
+  }
+
+  _initializePresentationPlane(container = this._requireContainer()): void {
     const uiComponentHost = container.get(TOKENS.uiComponentHost);
-    const domBindings = container.get(TOKENS.domBindings);
     const uiEffects = container.get(TOKENS.uiEffects);
     const bodyClassManager = container.get(TOKENS.bodyClassManager);
-    const loggerFactory = container.get(TOKENS.loggerFactory);
-
     const presentationModeStore = container.get(TOKENS.presentationModeStore);
+
     bodyClassManager.bindPresentationMode(presentationModeStore);
 
-    const uiController = new UIController({
-      uiComponentHost,
-      domBindings,
-      uiEffects,
-      loggerFactory
-    });
-
-    uiEffects.setElements(uiController.elements);
-    uiController.initializeComponents();
-    this._uiController = uiController;
+    uiComponentHost.touchCore();
+    this.uiComponentHost = uiComponentHost;
+    this.uiEffects = uiEffects;
   }
 
-  async _registerUIComponents() {
-    const container = this._requireContainer();
-
-    container.bind(TOKENS.uiController).toConstantValue(this._uiController as UIController);
-  }
-
-  async _initializeUIEventBridge() {
+  async _initializeUIEventBridge(container = this._requireContainer()) {
     try {
-      const container = this._requireContainer();
       const uiEventBridge = container.get(TOKENS.uiEventBridge);
       uiEventBridge.initialize();
 
@@ -163,10 +138,7 @@ class RendererBootstrap {
   }
 
   _requireContainer(): RendererServiceContainer {
-    if (!this.container) {
-      throw new Error('Container not initialized');
-    }
-    return this.container;
+    return this.requireContainer();
   }
 }
 

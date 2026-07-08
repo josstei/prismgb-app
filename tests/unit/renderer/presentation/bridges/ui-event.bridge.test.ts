@@ -7,15 +7,17 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge';
 import { EventChannels } from '@platform/events';
 import {
+  createDomBindingsMock,
   createEventBus,
-  createUIEventBridgeControllerMock
+  createUIEffectsMock
 } from '../../../../factories/index.js';
 import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('UIEventBridge', () => {
   let handler;
   let mockEventBus;
-  let mockUiController;
+  let mockUiEffects;
+  let mockDomBindings;
   let mockPresentationModeService;
   let mockLogger;
   let mockLoggerFactory;
@@ -31,14 +33,16 @@ describe('UIEventBridge', () => {
             subscribedHandlers[event] = handlerFn;
           },
         }),
-        uiController: createUIEventBridgeControllerMock()
+        uiEffects: createUIEffectsMock(),
+        domBindings: createDomBindingsMock()
       }
     });
     handler = h.subject;
     mockLogger = h.logger;
     ({
       eventBus: mockEventBus,
-      uiController: mockUiController,
+      uiEffects: mockUiEffects,
+      domBindings: mockDomBindings,
       presentationModeService: mockPresentationModeService,
       loggerFactory: mockLoggerFactory
     } = h.deps);
@@ -47,7 +51,8 @@ describe('UIEventBridge', () => {
   describe('Constructor', () => {
     it('should store dependencies', () => {
       expect(handler.eventBus).toBe(mockEventBus);
-      expect(handler.uiController).toBe(mockUiController);
+      expect(handler.uiEffects).toBe(mockUiEffects);
+      expect(handler.domBindings).toBe(mockDomBindings);
       expect(handler.presentationModeService).toBe(mockPresentationModeService);
     });
 
@@ -102,9 +107,9 @@ describe('UIEventBridge', () => {
       subscribedHandlers[EventChannels.UI.RECORD_BUTTON_POP]();
       subscribedHandlers[EventChannels.UI.RECORD_BUTTON_PRESS]();
 
-      expect(mockUiController.triggerShutterFlash).toHaveBeenCalled();
-      expect(mockUiController.triggerRecordButtonPop).toHaveBeenCalled();
-      expect(mockUiController.triggerRecordButtonPress).toHaveBeenCalled();
+      expect(mockUiEffects.triggerShutterFlash).toHaveBeenCalled();
+      expect(mockUiEffects.triggerRecordButtonPop).toHaveBeenCalled();
+      expect(mockUiEffects.triggerRecordButtonPress).toHaveBeenCalled();
     });
 
     it('routes button feedback events', () => {
@@ -114,7 +119,7 @@ describe('UIEventBridge', () => {
         duration: 200
       });
 
-      expect(mockUiController.triggerButtonFeedback).toHaveBeenCalledWith(
+      expect(mockUiEffects.triggerButtonFeedback).toHaveBeenCalledWith(
         'screenshotBtn',
         'capturing',
         200
@@ -124,22 +129,28 @@ describe('UIEventBridge', () => {
     it('routes recording state updates', () => {
       subscribedHandlers[EventChannels.UI.RECORDING_STATE]({ active: true });
 
-      expect(mockUiController.updateRecordingButtonState).toHaveBeenCalledWith(true);
+      expect(mockUiEffects.setRecordingButtonState).toHaveBeenCalledWith(
+        mockDomBindings.flat.recordBtn,
+        true
+      );
     });
 
     it('ignores invalid recording state payloads', () => {
       subscribedHandlers[EventChannels.UI.RECORDING_STATE]({ active: 'true' });
 
-      expect(mockUiController.updateRecordingButtonState).not.toHaveBeenCalled();
+      expect(mockUiEffects.setRecordingButtonState).not.toHaveBeenCalled();
       expect(mockLogger.warn).toHaveBeenCalledWith('Ignoring invalid recording state payload');
     });
 
     it('disables and enables record button when requested', () => {
       subscribedHandlers[EventChannels.UI.RECORD_BUTTON_DISABLED]();
+      expect(mockDomBindings.flat.recordBtn.disabled).toBe(true);
+      expect(mockDomBindings.flat.recordBtn.classList.contains('disabled')).toBe(true);
+
       subscribedHandlers[EventChannels.UI.RECORD_BUTTON_ENABLED]();
 
-      expect(mockUiController.setRecordButtonDisabled).toHaveBeenCalledWith(true);
-      expect(mockUiController.setRecordButtonDisabled).toHaveBeenCalledWith(false);
+      expect(mockDomBindings.flat.recordBtn.disabled).toBe(false);
+      expect(mockDomBindings.flat.recordBtn.classList.contains('disabled')).toBe(false);
     });
 
     it('publishes a status message on cinematic mode changes', () => {

@@ -3,18 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-
-const { MockUIController } = vi.hoisted(() => ({
-  MockUIController: vi.fn(function() {
-    this.elements = {};
-    this.dispose = vi.fn();
-    this.initializeComponents = vi.fn();
-  })
-}));
-
-vi.mock('@renderer/presentation/controller/ui.controller.js', () => ({
-  UIController: MockUIController
-}));
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
 vi.mock('@renderer/application/container.ts', async () => {
   const { createRendererAppContainerMock } = await import('../../factories/index.js');
@@ -64,11 +53,15 @@ describe('RendererBootstrap', () => {
       expect(app.container).toBeDefined();
     });
 
-    it('should initialize UI', async () => {
+    it('should initialize the presentation plane', async () => {
       await app.initialize();
 
-      expect(MockUIController).toHaveBeenCalled();
-      expect(app._uiController).toBeDefined();
+      expect(app.container.get).toHaveBeenCalledWith(TOKENS.uiComponentHost);
+      expect(app.container.get).toHaveBeenCalledWith(TOKENS.uiEffects);
+      expect(app.container.get(TOKENS.uiComponentHost).touchCore).toHaveBeenCalled();
+      expect(app.container.get(TOKENS.bodyClassManager).bindPresentationMode).toHaveBeenCalledWith(
+        app.container.get(TOKENS.presentationModeStore)
+      );
     });
 
     it('should resolve orchestrator', async () => {

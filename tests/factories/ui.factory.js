@@ -655,6 +655,38 @@ export function createPresentationModeControllerMock(overrides = {}) {
   };
 }
 
+export function createDomBindingsMock(overrides = {}) {
+  const flat = {
+    ...createUIControllerElementsMock(),
+    ...overrides.flat
+  };
+
+  const streaming = {
+    streamVideo: overrides.streaming?.streamVideo ?? flat.streamVideo,
+    streamCanvas: overrides.streaming?.streamCanvas ?? flat.streamCanvas,
+    streamToolbar: overrides.streaming?.streamToolbar ?? flat.streamToolbar,
+    screenshotBtn: overrides.streaming?.screenshotBtn ?? flat.screenshotBtn,
+    recordBtn: overrides.streaming?.recordBtn ?? flat.recordBtn,
+    ...overrides.streaming
+  };
+
+  return {
+    shell: { ...overrides.shell },
+    streaming,
+    settings: { ...overrides.settings },
+    updates: { ...overrides.updates },
+    notes: { ...overrides.notes },
+    flat: {
+      ...flat,
+      streamVideo: streaming.streamVideo,
+      streamCanvas: streaming.streamCanvas,
+      streamToolbar: streaming.streamToolbar,
+      screenshotBtn: streaming.screenshotBtn,
+      recordBtn: streaming.recordBtn
+    }
+  };
+}
+
 export function createUIEventBridgeControllerMock(overrides = {}) {
   const { deviceStatus, ...componentOverrides } = overrides;
 
@@ -715,6 +747,10 @@ export function createUiComponentHostMock(overrides = {}) {
     streamControlsComponent = createStreamControlsComponentMock(),
     settingsMenuComponent = createSettingsMenuComponentMock(),
     shaderSelectorComponent = createShaderSelectorComponentMock(),
+    notesPanelComponent = {
+      toggle: vi.fn(),
+      dispose: vi.fn()
+    },
     touchCore = vi.fn(),
     dispose = vi.fn(),
     get,
@@ -728,6 +764,7 @@ export function createUiComponentHostMock(overrides = {}) {
     streamControlsComponent,
     settingsMenuComponent,
     shaderSelectorComponent,
+    notesPanelComponent,
     ...components
   };
 
@@ -856,4 +893,3 @@ export function createUIControllerElementsMock(overrides = {}) {
     ...overrides
   };
 }
-

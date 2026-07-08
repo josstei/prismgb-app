@@ -19,8 +19,11 @@ import {
 import { TOKENS } from '@renderer/application/di/tokens.js';
 import type { LoggerFactoryLike } from '@platform/core';
 import type { TypedEventBusLike } from '@platform/events';
-import type { UIController } from '@renderer/presentation/controller/ui.controller.js';
 import { RendererTemplateDeferredComponentIds } from '@renderer/presentation/primitives/template-dom.contract.js';
+import type {
+  RendererUiComponentInstanceMap,
+  UiComponentHost
+} from '@renderer/presentation/controller/ui-component.host.js';
 import type { AppState } from '@renderer/application/state/app-state.js';
 
 type AppStateLike = Pick<AppState, 'isStreaming'>;
@@ -33,7 +36,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
 
   constructor(
     @inject(TOKENS.appState) private readonly appState: AppStateLike,
-    @inject(TOKENS.uiController) private readonly uiController: UIController,
+    @inject(TOKENS.uiComponentHost) private readonly uiComponentHost: UiComponentHost<RendererUiComponentInstanceMap>,
     @inject(TOKENS.eventBus) protected readonly eventBus: TypedEventBusLike,
     @inject(TOKENS.loggerFactory) private readonly loggerFactory: LoggerFactoryLike
   ) {
@@ -44,7 +47,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
 
   initializeDeferredComponents(): void {
     RendererTemplateDeferredComponentIds.forEach((componentId) => {
-      this.uiController.initializeDeferredComponent(componentId);
+      this.uiComponentHost.get(componentId);
     });
   }
 
@@ -152,13 +155,13 @@ export class UISetupOrchestrator extends BaseOrchestrator {
   private _executeUiControllerAction(method: UIActionControllerCommand): void {
     switch (method) {
       case 'toggleSettingsMenu':
-        this.uiController.toggleSettingsMenu();
+        this.uiComponentHost.get('settingsMenuComponent')?.toggle();
         break;
       case 'toggleShaderSelector':
-        this.uiController.toggleShaderSelector();
+        this.uiComponentHost.get('shaderSelectorComponent')?.toggle();
         break;
       case 'toggleNotesPanel':
-        this.uiController.toggleNotesPanel();
+        this.uiComponentHost.get('notesPanelComponent')?.toggle();
         break;
     }
   }

@@ -21,6 +21,7 @@ export {
   createUIController,
   createUISetupControllerMock,
   createPresentationModeControllerMock,
+  createDomBindingsMock,
   createUIEventBridgeControllerMock,
   createStatusNotificationComponentMock,
   createStreamControlsComponentMock,

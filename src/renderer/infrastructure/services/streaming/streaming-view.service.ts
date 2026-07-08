@@ -12,25 +12,27 @@ import type {
 } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 
-type UiControllerLike = {
-  elements: {
+type StreamingViewDomBindingsLike = {
+  streaming: {
     streamVideo: HTMLVideoElement | null;
     streamCanvas: HTMLCanvasElement | null;
   };
-  setStreamCanvas(canvas: HTMLCanvasElement): void;
+  flat: {
+    streamCanvas: HTMLCanvasElement | null;
+  };
 };
 
 @injectable()
 class StreamingViewService extends BaseService {
   constructor(
-    @inject(TOKENS.uiController) private readonly uiController: UiControllerLike,
+    @inject(TOKENS.domBindings) private readonly domBindings: StreamingViewDomBindingsLike,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
   ) {
     super({ loggerFactory }, 'StreamingViewService');
   }
 
   attachMutedStream(stream: MediaStream): void {
-    const video = this.uiController.elements.streamVideo;
+    const video = this.domBindings.streaming.streamVideo;
     if (!video) {
       this.logger.warn('Stream video element not found');
       return;
@@ -46,7 +48,7 @@ class StreamingViewService extends BaseService {
    * Clears the video element's stream and resets it.
    */
   clearStream(): void {
-    const video = this.uiController.elements.streamVideo;
+    const video = this.domBindings.streaming.streamVideo;
     if (!video) {
       this.logger.warn('Stream video element not found');
       return;
@@ -61,7 +63,7 @@ class StreamingViewService extends BaseService {
   }
 
   setMuted(muted: boolean): void {
-    const video = this.uiController.elements.streamVideo;
+    const video = this.domBindings.streaming.streamVideo;
     if (!video) {
       this.logger.warn('Stream video element not found');
       return;
@@ -71,7 +73,7 @@ class StreamingViewService extends BaseService {
   }
 
   getVideo(): HTMLVideoElement | null {
-    const video = this.uiController.elements.streamVideo;
+    const video = this.domBindings.streaming.streamVideo;
     if (!video) {
       this.logger.warn('Stream video element not found');
       return null;
@@ -80,7 +82,7 @@ class StreamingViewService extends BaseService {
   }
 
   getCanvas(): HTMLCanvasElement | null {
-    const canvas = this.uiController.elements.streamCanvas;
+    const canvas = this.domBindings.streaming.streamCanvas;
     if (!canvas) {
       this.logger.warn('Stream canvas element not found');
       return null;
@@ -117,7 +119,8 @@ class StreamingViewService extends BaseService {
       this.logger.warn('Invalid canvas element provided to setCanvas');
       return;
     }
-    this.uiController.setStreamCanvas(canvas);
+    this.domBindings.streaming.streamCanvas = canvas;
+    this.domBindings.flat.streamCanvas = canvas;
     this.logger.info('Canvas element reference updated');
   }
 }

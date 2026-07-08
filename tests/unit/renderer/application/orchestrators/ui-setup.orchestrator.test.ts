@@ -4,35 +4,34 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UISetupOrchestrator } from '@renderer/application/orchestrators/ui-setup.orchestrator';
-import { createUISetupControllerMock } from '../../../../factories/index.js';
+import { createUiComponentHostMock } from '../../../../factories/index.js';
 import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('UISetupOrchestrator', () => {
   let orchestrator;
-  let mockUiController;
+  let mockUiComponentHost;
   let mockEventBus;
   let mockLogger;
 
   beforeEach(() => {
     const h = createInjectableHarness(UISetupOrchestrator, {
       overrides: {
-        uiController: createUISetupControllerMock({
-          initializeDeferredComponent: vi.fn(),
-          toggleSettingsMenu: vi.fn(),
-          toggleShaderSelector: vi.fn(),
-          toggleNotesPanel: vi.fn()
+        uiComponentHost: createUiComponentHostMock({
+          settingsMenuComponent: { toggle: vi.fn() },
+          shaderSelectorComponent: { toggle: vi.fn() },
+          notesPanelComponent: { toggle: vi.fn() }
         })
       }
     });
     orchestrator = h.subject;
     mockLogger = h.logger;
-    ({ uiController: mockUiController, eventBus: mockEventBus } = h.deps);
+    ({ uiComponentHost: mockUiComponentHost, eventBus: mockEventBus } = h.deps);
   });
 
   describe('constructor', () => {
     it('should create orchestrator with dependencies', () => {
       expect(orchestrator.eventBus).toBe(mockEventBus);
-      expect(orchestrator.uiController).toBe(mockUiController);
+      expect(orchestrator.uiComponentHost).toBe(mockUiComponentHost);
     });
   });
 
@@ -40,9 +39,9 @@ describe('UISetupOrchestrator', () => {
     it('should initialize all deferred components', () => {
       orchestrator.initializeDeferredComponents();
 
-      expect(mockUiController.initializeDeferredComponent).toHaveBeenCalledWith('settingsMenuComponent');
-      expect(mockUiController.initializeDeferredComponent).toHaveBeenCalledWith('shaderSelectorComponent');
-      expect(mockUiController.initializeDeferredComponent).toHaveBeenCalledWith('notesPanelComponent');
+      expect(mockUiComponentHost.get).toHaveBeenCalledWith('settingsMenuComponent');
+      expect(mockUiComponentHost.get).toHaveBeenCalledWith('shaderSelectorComponent');
+      expect(mockUiComponentHost.get).toHaveBeenCalledWith('notesPanelComponent');
     });
   });
 
