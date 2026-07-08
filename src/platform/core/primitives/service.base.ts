@@ -71,6 +71,7 @@ export class BaseService {
       return;
     }
 
+    this.bindEventHandlers();
     const result = this.onInitialize();
     if (result instanceof Promise) {
       return result.then(() => {

@@ -24,9 +24,7 @@ class SettingsFullscreenService extends BaseService {
     this._isFullscreenActive = false;
   }
 
-  initialize() {
-    this.bindEventHandlers();
-
+  protected override onInitialize(): void {
     this.disposables.cancel(FULLSCREEN_DOCUMENT_LIFECYCLE);
     document.addEventListener('fullscreenchange', this._boundHandleFullscreenChange);
     this.disposables.replace(FULLSCREEN_DOCUMENT_LIFECYCLE, () =>

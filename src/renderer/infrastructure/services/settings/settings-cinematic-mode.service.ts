@@ -25,10 +25,6 @@ class SettingsCinematicModeService extends BaseService {
     super({ loggerFactory, eventBus }, 'SettingsCinematicModeService');
   }
 
-  initialize(): void {
-    this.bindEventHandlers();
-  }
-
   @OnEvent(EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED)
   toggleCinematicMode() {
     const newMode = !this.appState.isCinematicModeEnabled;

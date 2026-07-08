@@ -44,8 +44,7 @@ export class UIEventBridge extends BaseService {
     super({ loggerFactory, eventBus }, 'UIEventBridge');
   }
 
-  initialize(): void {
-    this.bindEventHandlers();
+  protected override onInitialize(): void {
     this.logger.info('UIEventBridge initialized');
   }
 

@@ -3,7 +3,13 @@
  */
 
 import { describe, it, expect, beforeEach, vi, type MockedFunction } from 'vitest';
-import { BaseService, type EventBusLike, type LoggerFactoryLike, type LoggerLike } from '@platform/core';
+import {
+  BaseService,
+  createOnEventDecorator,
+  type EventBusLike,
+  type LoggerFactoryLike,
+  type LoggerLike
+} from '@platform/core';
 import { createEventBus, createLoggerFactory } from '../../../factories/index.js';
 
 type MockEventBus = EventBusLike &
@@ -22,6 +28,52 @@ type InjectedServiceShape = {
   _serviceName: string;
   _initialized: boolean;
 };
+
+type TestPayloadMap = {
+  'service:alpha': { value: number };
+  'service:void': void;
+};
+
+const OnServiceEvent = createOnEventDecorator<TestPayloadMap>();
+
+function createRecordingBus() {
+  const unsubscribes: Array<ReturnType<typeof vi.fn>> = [];
+  const handlers = new Map<string, (payload: unknown) => void | Promise<void>>();
+  const bus = {
+    publish: vi.fn(),
+    subscribe: vi.fn((channel: string, handler: (payload: unknown) => void | Promise<void>) => {
+      handlers.set(channel, handler);
+      const unsubscribe = vi.fn();
+      unsubscribes.push(unsubscribe);
+      return unsubscribe;
+    })
+  };
+  return { bus, handlers, unsubscribes };
+}
+
+class EventBoundService extends BaseService {
+  received: unknown[] = [];
+  onInitializeOrder: string[];
+
+  constructor(dependencies: object) {
+    super(dependencies, 'EventBoundService');
+    this.onInitializeOrder = [];
+  }
+
+  protected override onInitialize(): void {
+    this.onInitializeOrder.push('onInitialize');
+  }
+
+  @OnServiceEvent('service:alpha')
+  handleAlpha(payload: { value: number }): void {
+    this.received.push(payload);
+  }
+
+  @OnServiceEvent('service:void')
+  handleVoid(): void {
+    this.received.push('void');
+  }
+}
 
 describe('BaseService', () => {
   let mockEventBus: MockEventBus;
@@ -196,6 +248,52 @@ describe('BaseService', () => {
 
       expect(() => service.initialize()).not.toThrow();
       expect((service as unknown as InjectedServiceShape)._initialized).toBe(true);
+    });
+
+    it('subscribes declared event handlers before onInitialize', () => {
+      const { bus } = createRecordingBus();
+      const service = new EventBoundService({ eventBus: bus, loggerFactory: mockLoggerFactory });
+
+      service.initialize();
+
+      expect(bus.subscribe).toHaveBeenCalledWith('service:alpha', expect.any(Function));
+      expect(bus.subscribe).toHaveBeenCalledWith('service:void', expect.any(Function));
+      expect(bus.subscribe).toHaveBeenCalledTimes(2);
+      expect(service.onInitializeOrder).toEqual(['onInitialize']);
+    });
+
+    it('invokes decorated service handlers with payload and instance context', () => {
+      const { bus, handlers } = createRecordingBus();
+      const service = new EventBoundService({ eventBus: bus, loggerFactory: mockLoggerFactory });
+
+      service.initialize();
+      handlers.get('service:alpha')?.({ value: 42 });
+      handlers.get('service:void')?.(undefined);
+
+      expect(service.received).toEqual([{ value: 42 }, 'void']);
+    });
+
+    it('does not double-subscribe declared service handlers on duplicate initialize', () => {
+      const { bus } = createRecordingBus();
+      const service = new EventBoundService({ eventBus: bus, loggerFactory: mockLoggerFactory });
+
+      service.initialize();
+      service.initialize();
+
+      expect(bus.subscribe).toHaveBeenCalledTimes(2);
+    });
+
+    it('disposes declared service subscriptions', async () => {
+      const { bus, unsubscribes } = createRecordingBus();
+      const service = new EventBoundService({ eventBus: bus, loggerFactory: mockLoggerFactory });
+
+      service.initialize();
+      await service.dispose();
+
+      expect(unsubscribes).toHaveLength(2);
+      for (const unsubscribe of unsubscribes) {
+        expect(unsubscribe).toHaveBeenCalled();
+      }
     });
   });
 

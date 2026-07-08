@@ -21,8 +21,7 @@ class CaptureUIBridge extends BaseService {
     super({ loggerFactory, eventBus }, 'CaptureUIBridge');
   }
 
-  initialize() {
-    this.bindEventHandlers();
+  protected override onInitialize(): void {
     this.logger.info('CaptureUIBridge initialized');
   }
 
