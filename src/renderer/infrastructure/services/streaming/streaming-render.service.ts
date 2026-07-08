@@ -5,6 +5,7 @@ import { DeviceCatalog } from '@platform/devices';
 import { getErrorMessage } from '@platform/core';
 import type { TypedEventBusLike } from '@platform/events';
 import type { LoggerFactoryLike } from '@platform/core';
+import type { AppState } from '@renderer/application/state/app-state.js';
 import type {
   Dimensions,
   StreamingCapabilities
@@ -25,9 +26,7 @@ type RenderableVideoElement = HTMLVideoElement & {
   cancelVideoFrameCallback?(handle: number): void;
 };
 
-type AppStateLike = {
-  isStreaming: boolean;
-};
+type AppStateLike = Pick<AppState, 'isStreaming'>;
 
 type StreamViewServiceLike = {
   getVideo(): HTMLVideoElement;

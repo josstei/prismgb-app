@@ -58,8 +58,8 @@
       "@platform/notes": [
         "./src/platform/notes/index"
       ],
-      "@platform/transcode/service": [
-        "./src/platform/transcode/service"
+      "@platform/transcode/runtime": [
+        "./src/platform/transcode/runtime"
       ],
       "@platform/transcode": [
         "./src/platform/transcode/index"

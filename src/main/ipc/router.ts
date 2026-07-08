@@ -74,6 +74,12 @@ function pushSubscription<TPayload>(ctx: IpcContext, channel: string, schema: z.
   });
 }
 
+function sub<TPayload>(channel: string, schema: z.ZodTypeAny | null, label: string) {
+  return publicProcedure.subscription(({ ctx }) =>
+    pushSubscription<TPayload>(ctx, channel, schema, label)
+  );
+}
+
 const deviceRouter = router({
   getStatus: publicProcedure.output(deviceStatusPayloadSchema).query(({ ctx }) =>
     rethrowAsTrpcError('Failed to get device status', ctx.logger, () => {
@@ -95,11 +101,11 @@ const deviceRouter = router({
       return toDeviceStatusPayload(await ctx.deviceConnectionService.reconcileDeviceStatus('manual-refresh'));
     })
   ),
-  onConnected: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription<DeviceInfoPayload>(ctx, IPC_CHANNELS.DEVICE.CONNECTED, deviceInfoSchema, 'device-info')
-  ),
-  onDisconnected: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription<DeviceInfoPayload | null | undefined>(ctx, IPC_CHANNELS.DEVICE.DISCONNECTED, nullableDeviceInfoSchema, 'nullable-device-info')
+  onConnected: sub<DeviceInfoPayload>(IPC_CHANNELS.DEVICE.CONNECTED, deviceInfoSchema, 'device-info'),
+  onDisconnected: sub<DeviceInfoPayload | null | undefined>(
+    IPC_CHANNELS.DEVICE.DISCONNECTED,
+    nullableDeviceInfoSchema,
+    'nullable-device-info'
   )
 });
 
@@ -123,15 +129,9 @@ const windowRouter = router({
       isFullscreen: ctx.windowService.isFullScreen()
     }))
   ),
-  onEnterFullscreen: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription<void>(ctx, IPC_CHANNELS.WINDOW.ENTER_FULLSCREEN, null, 'window-enter-fullscreen')
-  ),
-  onLeaveFullscreen: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription<void>(ctx, IPC_CHANNELS.WINDOW.LEAVE_FULLSCREEN, null, 'window-leave-fullscreen')
-  ),
-  onResized: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription<void>(ctx, IPC_CHANNELS.WINDOW.RESIZED, null, 'window-resized')
-  )
+  onEnterFullscreen: sub<void>(IPC_CHANNELS.WINDOW.ENTER_FULLSCREEN, null, 'window-enter-fullscreen'),
+  onLeaveFullscreen: sub<void>(IPC_CHANNELS.WINDOW.LEAVE_FULLSCREEN, null, 'window-leave-fullscreen'),
+  onResized: sub<void>(IPC_CHANNELS.WINDOW.RESIZED, null, 'window-resized')
 });
 
 const updateRouter = router({
@@ -157,21 +157,11 @@ const updateRouter = router({
       return toObjectPayload(status) as UpdateStatusPayload;
     })
   ),
-  onAvailable: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription<UpdateInfoPayload>(ctx, IPC_CHANNELS.UPDATE.AVAILABLE, updateInfoSchema, 'update-info')
-  ),
-  onNotAvailable: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription<UpdateInfoPayload>(ctx, IPC_CHANNELS.UPDATE.NOT_AVAILABLE, updateInfoSchema, 'update-info')
-  ),
-  onProgress: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription<UpdateProgressPayload>(ctx, IPC_CHANNELS.UPDATE.PROGRESS, updateProgressSchema, 'update-progress')
-  ),
-  onDownloaded: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription<UpdateInfoPayload>(ctx, IPC_CHANNELS.UPDATE.DOWNLOADED, updateInfoSchema, 'update-info')
-  ),
-  onError: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription<UpdateErrorPayload>(ctx, IPC_CHANNELS.UPDATE.ERROR, updateErrorSchema, 'update-error')
-  )
+  onAvailable: sub<UpdateInfoPayload>(IPC_CHANNELS.UPDATE.AVAILABLE, updateInfoSchema, 'update-info'),
+  onNotAvailable: sub<UpdateInfoPayload>(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, updateInfoSchema, 'update-info'),
+  onProgress: sub<UpdateProgressPayload>(IPC_CHANNELS.UPDATE.PROGRESS, updateProgressSchema, 'update-progress'),
+  onDownloaded: sub<UpdateInfoPayload>(IPC_CHANNELS.UPDATE.DOWNLOADED, updateInfoSchema, 'update-info'),
+  onError: sub<UpdateErrorPayload>(IPC_CHANNELS.UPDATE.ERROR, updateErrorSchema, 'update-error')
 });
 
 const performanceRouter = router({
@@ -244,18 +234,10 @@ const transcodeRouter = router({
       return { jobs: result.jobs ?? [] } as TranscodeStatusPayload;
     })
   ),
-  onProgress: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription<TranscodeProgressPayload>(ctx, IPC_CHANNELS.TRANSCODE.PROGRESS, transcodeProgressSchema, 'transcode-progress')
-  ),
-  onCompleted: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription<TranscodeCompletedPayload>(ctx, IPC_CHANNELS.TRANSCODE.COMPLETED, transcodeCompletedSchema, 'transcode-completed')
-  ),
-  onError: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription<TranscodeErrorPayload>(ctx, IPC_CHANNELS.TRANSCODE.ERROR, transcodeErrorSchema, 'transcode-error')
-  ),
-  onCancelled: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription<TranscodeCancelledPayload>(ctx, IPC_CHANNELS.TRANSCODE.CANCELLED, transcodeCancelledSchema, 'transcode-cancelled')
-  )
+  onProgress: sub<TranscodeProgressPayload>(IPC_CHANNELS.TRANSCODE.PROGRESS, transcodeProgressSchema, 'transcode-progress'),
+  onCompleted: sub<TranscodeCompletedPayload>(IPC_CHANNELS.TRANSCODE.COMPLETED, transcodeCompletedSchema, 'transcode-completed'),
+  onError: sub<TranscodeErrorPayload>(IPC_CHANNELS.TRANSCODE.ERROR, transcodeErrorSchema, 'transcode-error'),
+  onCancelled: sub<TranscodeCancelledPayload>(IPC_CHANNELS.TRANSCODE.CANCELLED, transcodeCancelledSchema, 'transcode-cancelled')
 });
 
 export const appRouter = router({

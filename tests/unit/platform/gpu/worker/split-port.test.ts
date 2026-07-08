@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkerRendererClient } from '../../../../../src/platform/gpu/worker/client';
-import { startWorkerRendererService } from '../../../../../src/platform/gpu/worker/service';
+import { startWorkerRendererService } from '../../../../../src/platform/gpu/worker/runtime';
 import {
   CANVAS_HANDOFF_MESSAGE,
   CONTROL_PORT_MESSAGE,

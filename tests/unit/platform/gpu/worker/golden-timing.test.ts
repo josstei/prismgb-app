@@ -1,7 +1,7 @@
 import { beforeEach, describe, it, vi } from 'vitest';
 import { appendFileSync, writeFileSync } from 'node:fs';
 import { WorkerRendererClient } from '../../../../../src/platform/gpu/worker/client';
-import { startWorkerRendererService } from '../../../../../src/platform/gpu/worker/service';
+import { startWorkerRendererService } from '../../../../../src/platform/gpu/worker/runtime';
 import {
   createRecordingDriver,
   makeDeterministicFrame,

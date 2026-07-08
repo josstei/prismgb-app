@@ -12,7 +12,7 @@
         "src/platform/gpu/testkit.ts",
         "src/platform/devices/runtime.ts",
         "src/platform/devices/testkit.ts",
-        "src/platform/transcode/service.ts",
+        "src/platform/transcode/runtime.ts",
         "src/platform/ui-base/reactive/index.ts",
         "scripts/*.js",
         "scripts/lib/*.{js,mjs}",

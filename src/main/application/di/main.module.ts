@@ -2,7 +2,7 @@ import { ContainerModule } from 'inversify';
 import { PlatformEventBus } from '@platform/events';
 import { DeviceConnectionService } from '@platform/devices/runtime';
 import { UpdateService } from '@platform/updates';
-import { TranscodeService } from '@platform/transcode/service';
+import { TranscodeService } from '@platform/transcode/runtime';
 import { WindowService } from '@main/infrastructure/window/window.service.js';
 import { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';

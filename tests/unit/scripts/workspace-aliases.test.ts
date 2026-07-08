@@ -49,7 +49,7 @@ describe('workspace-aliases registry', () => {
       gpu: ['.', './runtime', './testkit'],
       ipc: ['.'],
       notes: ['.'],
-      transcode: ['.', './service'],
+      transcode: ['.', './runtime'],
       'ui-base': ['.', './reactive'],
       updates: ['.']
     });

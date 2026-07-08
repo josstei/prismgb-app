@@ -88,7 +88,7 @@ Device hardware behavior belongs in `src/platform/devices/domain/catalog.json`, 
   - `@platform/ipc` -> `src/platform/ipc/index.ts`
   - `@platform/notes` -> `src/platform/notes/index.ts`
   - `@platform/transcode` -> `src/platform/transcode/index.ts`
-  - `@platform/transcode/service` -> `src/platform/transcode/service.ts`
+  - `@platform/transcode/runtime` -> `src/platform/transcode/runtime.ts`
   - `@platform/ui-base` -> `src/platform/ui-base/index.ts`
   - `@platform/ui-base/reactive` -> `src/platform/ui-base/reactive/index.ts`
   - `@platform/updates` -> `src/platform/updates/index.ts`

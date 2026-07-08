@@ -9,7 +9,7 @@ import type { IpcPushBridge } from '@main/ipc/ipc-push.bridge.js';
 import type { MainProcessTestControl } from '@main/ipc/test-control.port.js';
 import type { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
 import type { UpdateService } from '@platform/updates';
-import type { TranscodeService } from '@platform/transcode/service';
+import type { TranscodeService } from '@platform/transcode/runtime';
 import type { LoginItemService } from '@main/infrastructure/window/login-item.service.js';
 import type { AppOrchestrator } from '../app.orchestrator.js';
 

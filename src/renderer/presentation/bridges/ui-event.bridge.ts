@@ -1,6 +1,6 @@
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import { EventChannels, OnEvent } from '@platform/events';
+import { EventChannels, OnEvent, readBooleanPayloadField } from '@platform/events';
 import type {
   TypedEventBusLike,
   UiButtonFeedbackPayload,
@@ -22,15 +22,6 @@ type PresentationModeServiceLike = {
   handleStreamingMode(enabled: boolean): void;
   handleFullscreenState(active: boolean): void;
 };
-
-function getBooleanPayloadValue(data: unknown, key: string): boolean | null {
-  if (typeof data !== 'object' || data === null || !(key in data)) {
-    return null;
-  }
-
-  const value = (data as Record<string, unknown>)[key];
-  return typeof value === 'boolean' ? value : null;
-}
 
 @injectable()
 export class UIEventBridge extends BaseService {
@@ -85,7 +76,7 @@ export class UIEventBridge extends BaseService {
 
   @OnEvent(EventChannels.UI.RECORDING_STATE)
   private _handleRecordingState(data: unknown): void {
-    const active = getBooleanPayloadValue(data, 'active');
+    const active = readBooleanPayloadField(data, 'active');
     if (active === null) {
       this.logger.warn('Ignoring invalid recording state payload');
       return;
@@ -105,7 +96,7 @@ export class UIEventBridge extends BaseService {
 
   @OnEvent(EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED)
   private _handleCinematicMode(data: unknown): void {
-    const enabled = getBooleanPayloadValue(data, 'enabled');
+    const enabled = readBooleanPayloadField(data, 'enabled');
     if (enabled === null) {
       this.logger.warn('Ignoring invalid cinematic mode payload');
       return;
@@ -117,7 +108,7 @@ export class UIEventBridge extends BaseService {
 
   @OnEvent(EventChannels.UI.FULLSCREEN_STATE)
   private _handleFullscreenState(data: unknown): void {
-    const active = getBooleanPayloadValue(data, 'active');
+    const active = readBooleanPayloadField(data, 'active');
     if (active === null) {
       this.logger.warn('Ignoring invalid fullscreen state payload');
       return;
