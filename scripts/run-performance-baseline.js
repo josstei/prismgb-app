@@ -1,11 +1,13 @@
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs/promises';
+import { performance } from 'node:perf_hooks';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PERFORMANCE_BUILD_MANIFEST = 'performance-build-manifest.json';
+const PERFORMANCE_COMMAND_LEDGER = 'performance-command-ledger.json';
 
 export const PERFORMANCE_BUILD_VARIANTS = Object.freeze([
   Object.freeze({ id: 'production', harness: false, instrumentation: false }),
@@ -34,17 +36,21 @@ function npmCommand(platform = process.platform) {
   return platform === 'win32' ? 'npm.cmd' : 'npm';
 }
 
+function commandOutput(value) {
+  return Buffer.isBuffer(value) ? value.toString('utf8') : String(value ?? '');
+}
+
 function readCommandOutput(result, label) {
   if (result.error) {
     fail(`${label} could not start: ${result.error.message}`);
   }
+  const stdout = commandOutput(result.stdout);
+  const stderr = commandOutput(result.stderr);
   if (result.status !== 0) {
-    const stderr = Buffer.isBuffer(result.stderr)
-      ? result.stderr.toString('utf8')
-      : String(result.stderr ?? '');
-    fail(`${label} exited ${result.status}${stderr.trim() ? `: ${stderr.trim()}` : ''}`);
+    const output = [stdout.trim(), stderr.trim()].filter(Boolean).join('\n');
+    fail(`${label} exited ${result.status}${output ? `:\n${output}` : ''}`);
   }
-  return Buffer.isBuffer(result.stdout) ? result.stdout.toString('utf8') : String(result.stdout ?? '');
+  return stdout;
 }
 
 function runCommand(command, args, { cwd, env, spawn = spawnSync }) {
@@ -56,6 +62,84 @@ function runCommand(command, args, { cwd, env, spawn = spawnSync }) {
     windowsHide: true
   });
   return readCommandOutput(result, `${command} ${args.join(' ')}`);
+}
+
+function monotonicSeconds() {
+  return performance.now() / 1000;
+}
+
+function readClock(clock) {
+  const value = clock();
+  if (!Number.isFinite(value) || value < 0) fail('clock must return a nonnegative finite number of seconds');
+  return value;
+}
+
+function cloneCommandLedgerEntry(entry) {
+  return Object.freeze({
+    ...entry,
+    closure: Object.freeze({
+      ...entry.closure,
+      exit: Object.freeze({ ...entry.closure.exit })
+    })
+  });
+}
+
+/**
+ * @param {{ sourceSha: string, clock?: () => number }} options
+ */
+export function createPerformanceCommandLedger({ sourceSha, clock = monotonicSeconds } = {}) {
+  if (typeof sourceSha !== 'string' || !/^[a-f0-9]{40}$/i.test(sourceSha)) {
+    fail('command ledger sourceSha must be a Git commit SHA');
+  }
+  if (typeof clock !== 'function') fail('command ledger clock must be a function');
+
+  const entries = [];
+  let previousEnd = 0;
+  let recording = false;
+
+  return Object.freeze({
+    async recordBuild(buildId, work) {
+      if (typeof buildId !== 'string' || buildId.length === 0) fail('command ledger buildId must be nonempty');
+      if (typeof work !== 'function') fail('command ledger build work must be a function');
+      if (recording) fail('command ledger cannot record overlapping commands');
+      const start = readClock(clock);
+      if (start < previousEnd) fail('command ledger clock regressed before a build command');
+      recording = true;
+      try {
+        const value = await work();
+        const end = readClock(clock);
+        if (end < start) fail('command ledger clock regressed during a build command');
+        const entry = Object.freeze({
+          sequence: entries.length + 1,
+          operationId: 'build-spawn',
+          start,
+          end,
+          buildId,
+          closure: Object.freeze({
+            closed: true,
+            stdoutDrained: true,
+            stderrDrained: true,
+            inputClosed: true,
+            exit: Object.freeze({ code: 0, durationMs: (end - start) * 1000 }),
+            zeroSurvivors: true
+          })
+        });
+        entries.push(entry);
+        previousEnd = end;
+        return value;
+      } finally {
+        recording = false;
+      }
+    },
+
+    snapshot() {
+      return Object.freeze({
+        schemaVersion: 1,
+        sourceSha: sourceSha.toLowerCase(),
+        entries: Object.freeze(entries.map(cloneCommandLedgerEntry))
+      });
+    }
+  });
 }
 
 function parseRole(value) {
@@ -203,7 +287,8 @@ export async function buildPerformanceVariants({
   outputDirectory,
   baseEnvironment = process.env,
   spawn = spawnSync,
-  platform = process.platform
+  platform = process.platform,
+  clock = monotonicSeconds
 } = {}) {
   if (typeof outputDirectory !== 'string' || outputDirectory.length === 0) {
     fail('outputDirectory is required');
@@ -219,16 +304,17 @@ export async function buildPerformanceVariants({
   const distDirectory = path.join(cwd, 'dist');
   const buildsDirectory = path.join(outputDirectory, 'builds');
   await fs.mkdir(buildsDirectory, { recursive: true });
+  const commandLedger = createPerformanceCommandLedger({ sourceSha, clock });
   const variants = [];
 
   for (const variant of PERFORMANCE_BUILD_VARIANTS) {
     await fs.rm(distDirectory, { recursive: true, force: true });
     const environment = createPerformanceBuildEnvironment(baseEnvironment, variant);
-    runCommand(npmCommand(platform), ['run', 'build:vite'], {
+    await commandLedger.recordBuild(variant.id, () => runCommand(npmCommand(platform), ['run', 'build:vite'], {
       cwd,
       env: environment,
       spawn
-    });
+    }));
     await assertBuiltVariant(distDirectory);
 
     const buildDirectory = path.join(buildsDirectory, variant.id);
@@ -249,7 +335,16 @@ export async function buildPerformanceVariants({
   });
   const manifestPath = path.join(outputDirectory, PERFORMANCE_BUILD_MANIFEST);
   await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
-  return Object.freeze({ manifest, manifestPath, buildsDirectory });
+  const commandLedgerPath = path.join(outputDirectory, PERFORMANCE_COMMAND_LEDGER);
+  const commandLedgerSnapshot = commandLedger.snapshot();
+  await fs.writeFile(commandLedgerPath, `${JSON.stringify(commandLedgerSnapshot, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
+  return Object.freeze({
+    manifest,
+    manifestPath,
+    buildsDirectory,
+    commandLedger: commandLedgerSnapshot,
+    commandLedgerPath
+  });
 }
 
 export async function runPerformanceBaseline({
@@ -257,7 +352,8 @@ export async function runPerformanceBaseline({
   argv = process.argv.slice(2),
   baseEnvironment = process.env,
   spawn = spawnSync,
-  platform = process.platform
+  platform = process.platform,
+  clock = monotonicSeconds
 } = {}) {
   const options = parsePerformanceBaselineArgs(argv, { cwd });
   const build = await buildPerformanceVariants({
@@ -265,7 +361,8 @@ export async function runPerformanceBaseline({
     outputDirectory: options.outputDirectory,
     baseEnvironment,
     spawn,
-    platform
+    platform,
+    clock
   });
 
   if (options.buildOnly) {

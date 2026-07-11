@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   PERFORMANCE_BUILD_VARIANTS,
   createBundleManifest,
+  createPerformanceCommandLedger,
   createPerformanceBuildEnvironment,
   parsePerformanceBaselineArgs,
   runPerformanceBaseline
@@ -81,6 +82,56 @@ describe('createBundleManifest', () => {
   });
 });
 
+describe('createPerformanceCommandLedger', () => {
+  it('records append-only build closure evidence on one monotonic runner clock', async () => {
+    const clock = vi.fn()
+      .mockReturnValueOnce(1)
+      .mockReturnValueOnce(2.5)
+      .mockReturnValueOnce(3)
+      .mockReturnValueOnce(4);
+    const ledger = createPerformanceCommandLedger({ sourceSha: 'a'.repeat(40), clock });
+
+    await expect(ledger.recordBuild('production', () => 'production-output')).resolves.toBe('production-output');
+    await expect(ledger.recordBuild('instrumented', async () => 'instrumented-output')).resolves.toBe('instrumented-output');
+    expect(ledger.snapshot()).toEqual({
+      schemaVersion: 1,
+      sourceSha: 'a'.repeat(40),
+      entries: [
+        {
+          sequence: 1,
+          operationId: 'build-spawn',
+          start: 1,
+          end: 2.5,
+          buildId: 'production',
+          closure: {
+            closed: true,
+            stdoutDrained: true,
+            stderrDrained: true,
+            inputClosed: true,
+            exit: { code: 0, durationMs: 1500 },
+            zeroSurvivors: true
+          }
+        },
+        {
+          sequence: 2,
+          operationId: 'build-spawn',
+          start: 3,
+          end: 4,
+          buildId: 'instrumented',
+          closure: {
+            closed: true,
+            stdoutDrained: true,
+            stderrDrained: true,
+            inputClosed: true,
+            exit: { code: 0, durationMs: 1000 },
+            zeroSurvivors: true
+          }
+        }
+      ]
+    });
+  });
+});
+
 describe('runPerformanceBaseline', () => {
   it('clean-builds and preserves all three variant bundles before invoking the performance lane', async () => {
     const cwd = await createTemporaryWorkspace();
@@ -137,6 +188,40 @@ describe('runPerformanceBaseline', () => {
     await expect(fs.readFile(path.join(result.buildsDirectory, 'instrumented', 'main', 'index.js'), 'utf8'))
       .resolves.toBe('main:1:1');
     await expect(fs.readFile(result.manifestPath, 'utf8')).resolves.toContain('"harness-control"');
+    await expect(fs.readFile(result.commandLedgerPath, 'utf8')).resolves.toContain('"build-spawn"');
+    expect(result.commandLedger.entries.map((entry) => entry.buildId)).toEqual([
+      'production',
+      'harness-control',
+      'instrumented'
+    ]);
+  });
+
+  it('retains command stdout and stderr when the performance lane fails', async () => {
+    const cwd = await createTemporaryWorkspace();
+    const spawn = vi.fn((command: string, args: readonly string[], options: { cwd: string; env: NodeJS.ProcessEnv }) => {
+      if (command === 'git' && args[0] === 'status') return { status: 0, stdout: '', stderr: '' };
+      if (command === 'git' && args[0] === 'rev-parse') return { status: 0, stdout: `${'a'.repeat(40)}\n`, stderr: '' };
+      if (command === 'npm') {
+        const dist = path.join(options.cwd, 'dist');
+        fsSync.mkdirSync(path.join(dist, 'main'), { recursive: true });
+        fsSync.mkdirSync(path.join(dist, 'preload'), { recursive: true });
+        fsSync.mkdirSync(path.join(dist, 'renderer'), { recursive: true });
+        fsSync.writeFileSync(path.join(dist, 'main', 'index.js'), 'main');
+        fsSync.writeFileSync(path.join(dist, 'preload', 'index.js'), 'preload');
+        fsSync.writeFileSync(path.join(dist, 'renderer', 'index.js'), 'renderer');
+        return { status: 0, stdout: '', stderr: '' };
+      }
+      if (command === 'npx') return { status: 1, stdout: 'playwright assertion detail', stderr: 'playwright warning' };
+      throw new Error(`unexpected command ${command}`);
+    });
+
+    await expect(runPerformanceBaseline({
+      cwd,
+      argv: ['--output', 'performance-output', '--role', 'ci-integrity'],
+      baseEnvironment: { PATH: '/bin' },
+      spawn: spawn as unknown as typeof spawnSync,
+      platform: 'linux'
+    })).rejects.toThrow(/playwright assertion detail[\s\S]*playwright warning/);
   });
 
   it('rejects a dirty source tree before building any variant', async () => {
