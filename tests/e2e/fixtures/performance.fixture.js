@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { ChromaticDeviceFixture } from './chromatic-device.fixture.js';
+import { AppShellPage } from '../pages/app-shell.page.js';
 import {
   assertPerformanceController,
   createPerformanceLaunchId,
@@ -52,6 +53,7 @@ export const test = base.extend({
     let window;
     try {
       window = await app.firstWindow();
+      await new AppShellPage(window).waitForReady();
       const marker = await window.evaluate(() => window.prismgbPerformanceLaunchMarker);
       if (marker?.launchId !== launchId) {
         throw new Error('renderer marker does not match the launch controller identity');
