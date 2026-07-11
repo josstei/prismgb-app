@@ -22,8 +22,11 @@ describe('instrumented StreamingRenderService', () => {
   let sessionOptions: GpuVideoRendererSessionOptions;
   let sessionTerminate: ReturnType<typeof vi.fn>;
   let eventBus: { _getEventsOfType: (event: string) => Array<{ data: unknown }> };
+  let originalLocation: string;
 
   beforeEach(() => {
+    originalLocation = window.location.href;
+    window.history.replaceState(null, '', '/?prismgb-e2e-diagnostics=1');
     Object.defineProperty(window, 'prismgbPerformanceLaunchMarker', {
       configurable: true,
       value: Object.freeze({ launchId: '6e3cc1a1-c341-4e20-9737-56ac2c4bd192' })
@@ -101,6 +104,7 @@ describe('instrumented StreamingRenderService', () => {
     await service.cleanup();
     mockCreateSession.mockReset();
     mockDetectCapabilities.mockReset();
+    window.history.replaceState(null, '', originalLocation);
     delete (window as Window & { prismgbPerformanceLaunchMarker?: unknown }).prismgbPerformanceLaunchMarker;
     delete (window as Window & { prismgbPerformanceControlProbe?: unknown }).prismgbPerformanceControlProbe;
     document.body.innerHTML = '';
@@ -161,6 +165,17 @@ describe('instrumented StreamingRenderService', () => {
       outcome: 'canvas-draw-completed',
       frameToken: null
     });
+  });
+
+  it('does not create diagnostics without the explicit runtime marker', async () => {
+    window.history.replaceState(null, '', '/');
+    appState.setStreaming(true);
+    const start = service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
+    const onHealthy = streamHealthService.checkStreamHealth.mock.calls[0][1];
+    onHealthy({});
+    await start;
+
+    expect(service.getPerformanceDiagnosticsSnapshot()).toBeNull();
   });
 
   it('records a missing session as an ordered source opportunity before the render-loop guard', async () => {

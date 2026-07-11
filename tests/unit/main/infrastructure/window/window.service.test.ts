@@ -68,7 +68,7 @@ vi.mock('path', async (importOriginal) => {
   };
 });
 
-import { WindowService } from '@main/infrastructure/window/window.service.js';
+import { loadRendererContent, WindowService } from '@main/infrastructure/window/window.service.js';
 import { app } from 'electron';
 
 type MockFn = ReturnType<typeof vi.fn>;
@@ -226,6 +226,50 @@ describe('WindowService', () => {
       };
 
       expect(browserWindowOptions.webPreferences.additionalArguments).toBeUndefined();
+    });
+  });
+
+  describe('performance diagnostics navigation', () => {
+    it('adds the marker query to the development URL only when diagnostics are enabled', () => {
+      const window = { loadURL: vi.fn(), loadFile: vi.fn() };
+
+      loadRendererContent(window as never, {
+        isDev: true,
+        rendererFilePath: '/app/renderer/index.html',
+        diagnosticsEnabled: false
+      });
+      expect(window.loadURL).toHaveBeenCalledWith('http://127.0.0.1:3000/src/renderer/index.html');
+
+      window.loadURL.mockClear();
+      loadRendererContent(window as never, {
+        isDev: true,
+        rendererFilePath: '/app/renderer/index.html',
+        diagnosticsEnabled: true
+      });
+      expect(window.loadURL).toHaveBeenCalledWith(
+        'http://127.0.0.1:3000/src/renderer/index.html?prismgb-e2e-diagnostics=1'
+      );
+    });
+
+    it('adds the marker query to packaged loads only when diagnostics are enabled', () => {
+      const window = { loadURL: vi.fn(), loadFile: vi.fn() };
+
+      loadRendererContent(window as never, {
+        isDev: false,
+        rendererFilePath: '/app/renderer/index.html',
+        diagnosticsEnabled: false
+      });
+      expect(window.loadFile).toHaveBeenCalledWith('/app/renderer/index.html');
+
+      window.loadFile.mockClear();
+      loadRendererContent(window as never, {
+        isDev: false,
+        rendererFilePath: '/app/renderer/index.html',
+        diagnosticsEnabled: true
+      });
+      expect(window.loadFile).toHaveBeenCalledWith('/app/renderer/index.html', {
+        query: { 'prismgb-e2e-diagnostics': '1' }
+      });
     });
   });
 

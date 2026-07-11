@@ -14,6 +14,12 @@ import type {
   UiComponentHost
 } from './presentation/controller/ui-component.host.js';
 
+const PERFORMANCE_DIAGNOSTICS_QUERY_KEY = 'prismgb-e2e-diagnostics';
+
+function hasPerformanceDiagnosticsMarker(): boolean {
+  return new URLSearchParams(window.location.search).get(PERFORMANCE_DIAGNOSTICS_QUERY_KEY) === '1';
+}
+
 class RendererBootstrap extends PlatformBootstrap<RendererServiceContainer, AppOrchestrator> {
   private uiEffects: UIEffects | null;
   private uiComponentHost: UiComponentHost<RendererUiComponentInstanceMap> | null;
@@ -125,7 +131,8 @@ class RendererBootstrap extends PlatformBootstrap<RendererServiceContainer, AppO
       typeof __PRISMGB_PERF_HARNESS__ === 'undefined' ||
       !__PRISMGB_PERF_HARNESS__ ||
       typeof __PRISMGB_PERF_INSTRUMENTATION__ === 'undefined' ||
-      !__PRISMGB_PERF_INSTRUMENTATION__
+      !__PRISMGB_PERF_INSTRUMENTATION__ ||
+      !hasPerformanceDiagnosticsMarker()
     ) {
       return;
     }

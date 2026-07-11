@@ -17,8 +17,9 @@ import {
 
 export const test = base.extend({
   performanceVariant: ['instrumented', { option: true }],
+  performanceDiagnostics: [true, { option: true }],
 
-  performanceLaunch: async ({ performanceVariant }, use) => {
+  performanceLaunch: async ({ performanceVariant, performanceDiagnostics }, use) => {
     const loadedManifest = await loadPerformanceBuildManifest();
     const build = getPerformanceBuild(loadedManifest, performanceVariant);
     if (!build.harness) {
@@ -42,7 +43,7 @@ export const test = base.extend({
         ELECTRON_IS_DEV: '0',
         PRISMGB_PERF_MEASUREMENT: '1',
         PRISMGB_PERF_LAUNCH_ID: launchId,
-        PRISMGB_E2E_DIAGNOSTICS: build.instrumentation ? '1' : '0',
+        PRISMGB_E2E_DIAGNOSTICS: build.instrumentation && performanceDiagnostics ? '1' : '0',
         PRISMGB_E2E_TEST_CONTROL: '1',
         DISABLE_AUTO_UPDATER: 'true',
         DISABLE_CRASH_REPORTER: 'true',

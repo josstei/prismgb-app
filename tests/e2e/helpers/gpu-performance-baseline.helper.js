@@ -18,7 +18,9 @@ const PRODUCTION_FORBIDDEN_SENTINELS = Object.freeze([
   'canvas-draw-completed',
   'webgpu-queue-submit-completed',
   'adapter-unavailable',
-  'performance-diagnostics'
+  'performance-diagnostics',
+  'prismgb-e2e-diagnostics',
+  'PRISMGB_E2E_DIAGNOSTICS'
 ]);
 
 const PERFORMANCE_CONTROL_PROBE_SYMBOL = 'prismgb.performance.controlProbe';

@@ -1,6 +1,8 @@
 export const PERFORMANCE_MEASUREMENT_ENV = 'PRISMGB_PERF_MEASUREMENT';
 export const PERFORMANCE_LAUNCH_ID_ENV = 'PRISMGB_PERF_LAUNCH_ID';
+export const PERFORMANCE_E2E_DIAGNOSTICS_ENV = 'PRISMGB_E2E_DIAGNOSTICS';
 export const PERFORMANCE_LAUNCH_ID_ARGUMENT_PREFIX = '--prismgb-performance-launch-id=';
+export const PERFORMANCE_DIAGNOSTICS_QUERY_KEY = 'prismgb-e2e-diagnostics';
 
 export type PerformanceLaunchMarkerEnvironment = Readonly<Record<string, string | undefined>>;
 export type PerformanceLaunchMarkerApp = object;
@@ -86,4 +88,16 @@ export function installPerformanceLaunchMarker(
 
 export function getInstalledPerformanceLaunchMarker(app: PerformanceLaunchMarkerApp): string | null {
   return installedLaunchIds.get(app) ?? null;
+}
+
+export function shouldInstallPerformanceDiagnostics(
+  launchId: string | null,
+  instrumentationEnabled: boolean,
+  environment: PerformanceLaunchMarkerEnvironment
+): boolean {
+  if (typeof instrumentationEnabled !== 'boolean') {
+    throw new TypeError('Performance diagnostics instrumentation state must be boolean');
+  }
+
+  return instrumentationEnabled && launchId !== null && environment[PERFORMANCE_E2E_DIAGNOSTICS_ENV] === '1';
 }

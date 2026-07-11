@@ -1,7 +1,8 @@
 import { expect, test } from './fixtures/performance.fixture.js';
 import {
   assertProductionBundleIsolation,
-  loadPerformanceBuildManifest
+  loadPerformanceBuildManifest,
+  readPerformanceDiagnostics
 } from './helpers/gpu-performance-baseline.helper.js';
 import { StreamPage } from './pages/stream.page.js';
 
@@ -13,6 +14,17 @@ test('the instrumented harness echoes one marker identity through main and rende
   expect(performanceLaunch.build.id).toBe('instrumented');
   expect(performanceLaunch.launchId).toMatch(/^[0-9a-f-]{36}$/);
   await expect(performanceLaunch.readPerformanceControlProbe()).resolves.toEqual([]);
+});
+
+test.describe('instrumented diagnostics gate', () => {
+  test.use({ performanceDiagnostics: false });
+
+  test('does not expose renderer diagnostics without the explicit runtime marker', async ({ performanceLaunch }) => {
+    expect(performanceLaunch.build.id).toBe('instrumented');
+    await expect(
+      readPerformanceDiagnostics(performanceLaunch.window, performanceLaunch.launchId)
+    ).rejects.toThrow('performance renderer diagnostics reader is unavailable');
+  });
 });
 
 test.describe('harness-control build', () => {

@@ -68,7 +68,12 @@ type SettingsServiceLike = {
 type GpuBackend = 'webgpu' | 'canvas2d';
 
 const BRIGHTNESS_SUBSCRIPTION_LIFECYCLE = Symbol('gpuBrightnessSubscription');
+const PERFORMANCE_DIAGNOSTICS_QUERY_KEY = 'prismgb-e2e-diagnostics';
 let performanceControlSourceSequence = 0;
+
+function hasPerformanceDiagnosticsMarker(): boolean {
+  return new URLSearchParams(window.location.search).get(PERFORMANCE_DIAGNOSTICS_QUERY_KEY) === '1';
+}
 
 @injectable()
 export class StreamingRenderService extends BaseService {
@@ -213,7 +218,8 @@ export class StreamingRenderService extends BaseService {
 
           if (
             typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
-            __PRISMGB_PERF_INSTRUMENTATION__
+            __PRISMGB_PERF_INSTRUMENTATION__ &&
+            this._performanceInstrumentation !== undefined
           ) {
             this.eventBus.publish(EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED, {
               diagnosticBoundary: {
@@ -520,6 +526,7 @@ export class StreamingRenderService extends BaseService {
       __PRISMGB_PERF_HARNESS__ &&
       typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
       __PRISMGB_PERF_INSTRUMENTATION__ &&
+      hasPerformanceDiagnosticsMarker() &&
       this._performanceInstrumentation === undefined
     ) {
       const launchId = window.prismgbPerformanceLaunchMarker?.launchId;

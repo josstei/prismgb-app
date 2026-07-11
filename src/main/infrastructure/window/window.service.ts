@@ -10,8 +10,10 @@ import { TOKENS } from '@main/application/di/tokens.js';
 import type { IpcPushBridge } from '@main/ipc/ipc-push.bridge.js';
 import {
   getInstalledPerformanceLaunchMarker,
+  PERFORMANCE_DIAGNOSTICS_QUERY_KEY,
   PERFORMANCE_LAUNCH_ID_ARGUMENT_PREFIX,
-  PERFORMANCE_MEASUREMENT_ENV
+  PERFORMANCE_MEASUREMENT_ENV,
+  shouldInstallPerformanceDiagnostics
 } from '@main/infrastructure/diagnostics/performance-launch-marker.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -46,6 +48,40 @@ type CleanupWindowListenersOptions = {
   includeCloseListener?: boolean;
   includeClosedListener?: boolean;
 };
+
+type RendererWindowLike = Pick<BrowserWindow, 'loadFile' | 'loadURL'>;
+
+export function loadRendererContent(
+  window: RendererWindowLike,
+  {
+    isDev,
+    rendererFilePath,
+    diagnosticsEnabled
+  }: {
+    isDev: boolean;
+    rendererFilePath: string;
+    diagnosticsEnabled: boolean;
+  }
+): void {
+  if (isDev) {
+    if (diagnosticsEnabled) {
+      const rendererUrl = new URL('http://127.0.0.1:3000/src/renderer/index.html');
+      rendererUrl.searchParams.set(PERFORMANCE_DIAGNOSTICS_QUERY_KEY, '1');
+      window.loadURL(rendererUrl.toString());
+      return;
+    }
+    window.loadURL('http://127.0.0.1:3000/src/renderer/index.html');
+    return;
+  }
+
+  if (diagnosticsEnabled) {
+    window.loadFile(rendererFilePath, {
+      query: { [PERFORMANCE_DIAGNOSTICS_QUERY_KEY]: '1' }
+    });
+    return;
+  }
+  window.loadFile(rendererFilePath);
+}
 
 @injectable()
 class WindowService extends BaseService {
@@ -84,6 +120,11 @@ class WindowService extends BaseService {
       process.env[PERFORMANCE_MEASUREMENT_ENV] === '1'
       ? getInstalledPerformanceLaunchMarker(app)
       : null;
+    const performanceDiagnosticsEnabled = shouldInstallPerformanceDiagnostics(
+      performanceLaunchMarker,
+      typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' && __PRISMGB_PERF_INSTRUMENTATION__,
+      process.env
+    );
 
     this.mainWindow = new BrowserWindow({
       width: WINDOW_CONFIG.width,
@@ -147,11 +188,15 @@ class WindowService extends BaseService {
       mainWindow.webContents.session.off('will-download', downloadHandler);
     });
 
+    const rendererFilePath = path.join(__dirname, '../renderer/src/renderer/index.html');
+    loadRendererContent(this.mainWindow, {
+      isDev,
+      rendererFilePath,
+      diagnosticsEnabled: performanceDiagnosticsEnabled
+    });
     if (isDev) {
-      this.mainWindow.loadURL('http://127.0.0.1:3000/src/renderer/index.html');
       this.logger.info('Loading from Vite dev server: http://127.0.0.1:3000/src/renderer/index.html');
     } else {
-      this.mainWindow.loadFile(path.join(__dirname, '../renderer/src/renderer/index.html'));
       this.logger.info('Loading built files');
     }
 

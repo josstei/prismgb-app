@@ -3,7 +3,8 @@ import {
   getInstalledPerformanceLaunchMarker,
   installPerformanceLaunchMarker,
   parsePerformanceLaunchMarker,
-  readPerformanceLaunchMarker
+  readPerformanceLaunchMarker,
+  shouldInstallPerformanceDiagnostics
 } from '@main/infrastructure/diagnostics/performance-launch-marker.js';
 
 const LAUNCH_ID = '3b36b7b0-9111-4e8e-8e51-d279d8c26166';
@@ -43,5 +44,21 @@ describe('performance launch marker', () => {
       ...MEASUREMENT_ENV,
       PRISMGB_PERF_LAUNCH_ID: '9f03b141-e7aa-4ea7-bd64-aa00a80e3ab3'
     })).toThrow(/must match/);
+  });
+
+  it('requires an instrumented measurement launch and explicit diagnostics environment marker', () => {
+    expect(shouldInstallPerformanceDiagnostics(LAUNCH_ID, true, {
+      ...MEASUREMENT_ENV,
+      PRISMGB_E2E_DIAGNOSTICS: '1'
+    })).toBe(true);
+    expect(shouldInstallPerformanceDiagnostics(LAUNCH_ID, true, MEASUREMENT_ENV)).toBe(false);
+    expect(shouldInstallPerformanceDiagnostics(LAUNCH_ID, false, {
+      ...MEASUREMENT_ENV,
+      PRISMGB_E2E_DIAGNOSTICS: '1'
+    })).toBe(false);
+    expect(shouldInstallPerformanceDiagnostics(null, true, {
+      ...MEASUREMENT_ENV,
+      PRISMGB_E2E_DIAGNOSTICS: '1'
+    })).toBe(false);
   });
 });
