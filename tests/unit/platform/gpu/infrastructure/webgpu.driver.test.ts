@@ -127,7 +127,7 @@ describe('WebGpuDriver', () => {
     }, new WebGpuDriver());
 
     await renderer.initialize();
-    renderer.renderFrame({} as TexImageSource);
+    expect(renderer.renderFrame({} as TexImageSource)).toBeUndefined();
 
     expect(runtime.setPipeline.mock.calls.map(([renderPipeline]) => renderPipeline.label)).toEqual([
       'pixel-upscale pipeline',

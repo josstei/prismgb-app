@@ -1,3 +1,4 @@
+import type { FrameRenderResult } from '../domain/types';
 import type { PipelineState, RenderDriver } from './pipeline-controller';
 
 export class CanvasDriver implements RenderDriver {
@@ -18,8 +19,13 @@ export class CanvasDriver implements RenderDriver {
     this.disableImageSmoothing();
   }
 
-  renderFrame(source: TexImageSource, state: PipelineState): void {
-    if (!state.isActive || !this.ctx) return;
+  renderFrame(source: TexImageSource, state: PipelineState): FrameRenderResult {
+    if (!state.isActive || !this.ctx) {
+      if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+        return { outcome: 'skipped-inactive' };
+      }
+      return undefined;
+    }
 
     const startTime = performance.now();
 
@@ -32,6 +38,10 @@ export class CanvasDriver implements RenderDriver {
     );
 
     state.recordFrame(performance.now() - startTime);
+    if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+      return { outcome: 'canvas-draw-completed' };
+    }
+    return undefined;
   }
 
   async captureFrame(state: PipelineState): Promise<ImageBitmap> {

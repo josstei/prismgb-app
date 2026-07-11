@@ -5,8 +5,10 @@ import {
   WorkerResponseType,
   createWorkerMessage,
   isControlPortMessage,
+  isFrameToken,
   isFrameErrorResponse,
   isFrameRenderedResponse,
+  isPerformanceHarnessBuild,
   isStatsResponse,
   type PresetPayload,
   type WorkerControlApi,
@@ -40,6 +42,8 @@ export class WorkerRendererClient {
   private wasCanvasTransferred = false;
   private readonly messageHandlers = new Map<WorkerResponseTypeValue, AnyHandler>();
   private controlPortPromise: Promise<Comlink.Remote<WorkerControlApi>> | null = null;
+  private readonly pendingHarnessFrameTokens = new Set<number>();
+  private lastHarnessFrameToken = 0;
 
   constructor({ createWorker, logger = console }: WorkerRendererClientDependencies) {
     this.createWorker = createWorker;
@@ -102,6 +106,7 @@ export class WorkerRendererClient {
     if (!this.control) {
       throw new Error('Worker control channel not available');
     }
+    this.resetHarnessFrameTokens();
     try {
       const ready = await this.withTimeout(this.control.initialize(config), timeout);
       this.isWorkerReady = true;
@@ -116,6 +121,11 @@ export class WorkerRendererClient {
     }
   }
 
+  private resetHarnessFrameTokens(): void {
+    this.pendingHarnessFrameTokens.clear();
+    this.lastHarnessFrameToken = 0;
+  }
+
   private handleMainMessage(event: MessageEvent<unknown>): void {
     const data = event.data;
     if (isControlPortMessage(data)) {
@@ -125,7 +135,25 @@ export class WorkerRendererClient {
       return;
     }
     if (isFrameRenderedResponse(data)) {
+      if (isPerformanceHarnessBuild) {
+        const acknowledgement = data.payload;
+        if (!acknowledgement || !this.pendingHarnessFrameTokens.delete(acknowledgement.frameToken)) {
+          this.logger.error('Worker frame acknowledgement used an unknown frame token');
+          return;
+        }
+        this.dispatch(WorkerResponseType.FRAME_RENDERED, acknowledgement);
+        return;
+      }
       this.dispatch(WorkerResponseType.FRAME_RENDERED, undefined);
+      return;
+    }
+    if (
+      isPerformanceHarnessBuild &&
+      typeof data === 'object' &&
+      data !== null &&
+      (data as { type?: unknown }).type === WorkerResponseType.FRAME_RENDERED
+    ) {
+      this.logger.error('Worker frame acknowledgement did not match the harness protocol');
       return;
     }
     if (isStatsResponse(data)) {
@@ -155,10 +183,37 @@ export class WorkerRendererClient {
     });
   }
 
-  renderFrame(imageBitmap: ImageBitmap): boolean {
+  renderFrame(imageBitmap: ImageBitmap, frameToken?: number): boolean {
     if (!this.isWorkerReady || !this.worker) {
       return false;
     }
+
+    if (isPerformanceHarnessBuild) {
+      if (
+        !isFrameToken(frameToken) ||
+        frameToken <= this.lastHarnessFrameToken ||
+        this.pendingHarnessFrameTokens.has(frameToken)
+      ) {
+        this.logger.error('Worker frame token must be a new positive monotonic value');
+        return false;
+      }
+
+      this.pendingHarnessFrameTokens.add(frameToken);
+      try {
+        this.worker.postMessage(
+          createWorkerMessage(WorkerMessageType.FRAME, { imageBitmap, frameToken }),
+          [imageBitmap]
+        );
+      } catch (error) {
+        this.pendingHarnessFrameTokens.delete(frameToken);
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error('Worker frame post failed:', message);
+        return false;
+      }
+      this.lastHarnessFrameToken = frameToken;
+      return true;
+    }
+
     this.worker.postMessage(createWorkerMessage(WorkerMessageType.FRAME, { imageBitmap }), [imageBitmap]);
     return true;
   }
@@ -244,6 +299,7 @@ export class WorkerRendererClient {
       return;
     }
     this.fireAndForget(this.control.release());
+    this.resetHarnessFrameTokens();
     this.isWorkerReady = false;
     this.logger.info('GPU resources released (worker kept alive)');
   }
@@ -261,6 +317,7 @@ export class WorkerRendererClient {
       this.worker = null;
     }
     this.isWorkerReady = false;
+    this.resetHarnessFrameTokens();
     this.messageHandlers.clear();
     this.canvas = null;
     this.offscreenCanvas = null;

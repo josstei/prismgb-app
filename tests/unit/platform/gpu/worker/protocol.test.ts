@@ -23,10 +23,12 @@ describe('worker protocol', () => {
   it('creates typed frame-plane messages and responses with timestamps', () => {
     const message = createWorkerMessage(WorkerMessageType.FRAME, { imageBitmap: bitmap() });
     expect(message).toMatchObject({ type: WorkerMessageType.FRAME });
+    expect(message.payload).toEqual({ imageBitmap: expect.any(Object) });
     expect(typeof message.timestamp).toBe('number');
 
     const rendered = createWorkerResponse(WorkerResponseType.FRAME_RENDERED);
     expect(rendered).toMatchObject({ type: WorkerResponseType.FRAME_RENDERED });
+    expect(rendered.payload).toBeUndefined();
     expect(typeof rendered.timestamp).toBe('number');
 
     const stats = createWorkerResponse(WorkerResponseType.STATS, {

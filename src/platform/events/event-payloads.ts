@@ -122,10 +122,17 @@ export type PerformanceUiModePayload = {
   weakGpuDetected: boolean;
 };
 
+export type PerformanceDiagnosticShutdownBoundary = Readonly<{
+  readonly kind: 'performance-shutdown-boundary';
+  readonly boundary: 'before-release' | 'release-dispatched';
+  readonly launchId: string;
+}>;
+
 export type MemorySnapshotRequestPayload = {
   reason?: string;
   label?: string;
   delayMs?: number;
+  diagnosticBoundary?: PerformanceDiagnosticShutdownBoundary;
   [key: string]: unknown;
 };
 

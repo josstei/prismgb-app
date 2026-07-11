@@ -16,8 +16,17 @@ describe('@platform/gpu/runtime export surface', () => {
 
     expect(runtime.createGpuVideoRendererSession).toEqual(expect.any(Function));
     expect(runtime.detectBrowserGpuCapabilities).toEqual(expect.any(Function));
+    expect(runtime.probeBrowserGpuCapabilitiesForMeasurement).toEqual(expect.any(Function));
     await expect(runtime.detectBrowserGpuCapabilities()).resolves.toEqual(expect.objectContaining({
       preferredBackend: 'webgpu'
     }));
+  });
+
+  it('does not expose the detailed runtime probe through the public GPU index', async () => {
+    const gpu = await import('@platform/gpu');
+    const gpuSurface = gpu as unknown as Record<string, unknown>;
+
+    expect(gpuSurface.probeBrowserGpuCapabilities).toBeUndefined();
+    expect(gpuSurface.probeBrowserGpuCapabilitiesForMeasurement).toBeUndefined();
   });
 });

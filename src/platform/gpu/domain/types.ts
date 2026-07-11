@@ -75,6 +75,30 @@ export interface RenderCapabilities {
   webgpuLimits?: WebGPULimits;
 }
 
+export type BrowserCapabilityProbeError = Readonly<{
+  name: string;
+  message: string;
+}>;
+
+export type WebGpuCapabilityProbeResult =
+  | Readonly<{ status: 'available' }>
+  | Readonly<{ status: 'api-unavailable' }>
+  | Readonly<{ status: 'adapter-unavailable' }>
+  | Readonly<{ status: 'adapter-error'; error: BrowserCapabilityProbeError }>
+  | Readonly<{ status: 'device-error'; error: BrowserCapabilityProbeError }>;
+
+export type OffscreenCanvasTransferProbeResult =
+  | Readonly<{ status: 'available' }>
+  | Readonly<{ status: 'api-unavailable' }>
+  | Readonly<{ status: 'method-unavailable' }>
+  | Readonly<{ status: 'allowlisted-not-supported' }>
+  | Readonly<{ status: 'unexpected-error'; error: BrowserCapabilityProbeError }>;
+
+export type BrowserCapabilityProbeResult = Readonly<{
+  webgpu: WebGpuCapabilityProbeResult;
+  transferControlToOffscreen: OffscreenCanvasTransferProbeResult;
+}>;
+
 export interface RenderStats {
   fps: number;
   frameTime: number;
@@ -96,13 +120,29 @@ export interface GpuVideoRendererError {
   stack?: string;
 }
 
+export type FrameDispositionOutcome =
+  | 'canvas-draw-completed'
+  | 'webgpu-queue-submit-completed'
+  | 'skipped-inactive'
+  | 'failed';
+
+/**
+ * Harness-only evidence of the synchronous renderer boundary reached for one
+ * frame. This is not GPU completion or display completion.
+ */
+export interface FrameDisposition {
+  readonly outcome: FrameDispositionOutcome;
+}
+
+export type FrameRenderResult = FrameDisposition | undefined;
+
 export interface RenderPipeline {
   readonly backend: RenderBackend;
   readonly isInitialized: boolean;
   readonly isActive: boolean;
 
   initialize(): Promise<void>;
-  renderFrame(source: TexImageSource): void;
+  renderFrame(source: TexImageSource): FrameRenderResult;
   resize(width: number, height: number): void;
 
   setPreset(preset: RenderPreset): void;

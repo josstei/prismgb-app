@@ -101,6 +101,10 @@ describe('WorkerRendererClient', () => {
       expect.objectContaining({ type: WorkerMessageType.FRAME }),
       [imageBitmap]
     );
+    const frameMessage = (worker.postMessage as ReturnType<typeof vi.fn>).mock.calls.find(
+      ([message]) => (message as { type?: string }).type === WorkerMessageType.FRAME
+    )?.[0] as { payload: unknown };
+    expect(frameMessage.payload).toEqual({ imageBitmap });
     expect(onFrameRendered).toHaveBeenCalledWith(undefined);
   });
 

@@ -7,14 +7,97 @@ import type {
   GpuVideoRendererStats,
   GpuVideoRendererError,
   RenderPipeline,
-  RenderCapabilities
+  RenderCapabilities,
+  FrameDispositionOutcome,
+  FrameRenderResult
 } from '../domain/types';
+
+export type GpuVideoFrameMeasurementContext = Readonly<{
+  readonly sourceSequence: number;
+  readonly measurementEpochId: string;
+}>;
+
+export type GpuVideoPerformanceObservation =
+  | Readonly<{
+    readonly kind: 'canvas-disposition';
+    readonly context: GpuVideoFrameMeasurementContext;
+    readonly outcome: FrameDispositionOutcome;
+    readonly startedAt: number;
+    readonly endedAt: number;
+  }>
+  | Readonly<{
+    readonly kind: 'worker-frame-submitted';
+    readonly context: GpuVideoFrameMeasurementContext;
+    readonly frameToken: number;
+  }>
+  | Readonly<{
+    readonly kind: 'worker-frame-acknowledged';
+    readonly context: GpuVideoFrameMeasurementContext;
+    readonly frameToken: number;
+    readonly outcome: FrameDispositionOutcome;
+  }>
+  | Readonly<{
+    readonly kind: 'worker-terminal-error';
+    readonly context: GpuVideoFrameMeasurementContext;
+    readonly frameToken: number;
+  }>
+  | Readonly<{
+    readonly kind: 'bitmap-creation';
+    readonly context: GpuVideoFrameMeasurementContext;
+    readonly startedAt: number;
+    readonly endedAt: number;
+    readonly sourceWidth: number;
+    readonly sourceHeight: number;
+  }>
+  | Readonly<{
+    readonly kind: 'session-disposition';
+    readonly context: GpuVideoFrameMeasurementContext;
+    readonly disposition: 'session-inactive' | 'worker-not-ready' | 'backpressure' | 'no-current-data' | 'bitmap-creation-failed' | 'enqueue-failed';
+  }>;
+
+/**
+ * Harness-control branch evidence intentionally omits timestamps and samples.
+ * It lets the external fixture reconcile source opportunities and worker tokens
+ * without making the non-instrumented build a diagnostics collector.
+ */
+export type GpuVideoHarnessObservation =
+  | Readonly<{
+    readonly kind: 'canvas-disposition';
+    readonly context: GpuVideoFrameMeasurementContext;
+    readonly outcome: FrameDispositionOutcome;
+  }>
+  | Readonly<{
+    readonly kind: 'worker-frame-submitted';
+    readonly context: GpuVideoFrameMeasurementContext;
+    readonly frameToken: number;
+  }>
+  | Readonly<{
+    readonly kind: 'worker-frame-acknowledged';
+    readonly context: GpuVideoFrameMeasurementContext;
+    readonly frameToken: number;
+    readonly outcome: FrameDispositionOutcome;
+  }>
+  | Readonly<{
+    readonly kind: 'worker-terminal-error';
+    readonly context: GpuVideoFrameMeasurementContext;
+    readonly frameToken: number;
+  }>
+  | Readonly<{
+    readonly kind: 'bitmap-creation';
+    readonly context: GpuVideoFrameMeasurementContext;
+    readonly outcome: 'created' | 'failed';
+  }>
+  | Readonly<{
+    readonly kind: 'session-disposition';
+    readonly context: GpuVideoFrameMeasurementContext;
+    readonly disposition: 'session-inactive' | 'worker-not-ready' | 'backpressure' | 'no-current-data' | 'bitmap-creation-failed' | 'enqueue-failed';
+  }>;
 
 export type GpuVideoRendererSession = {
   readonly backend: RenderBackend;
   readonly isActive: boolean;
   readonly isCanvasTransferred: boolean;
-  renderFrame(video: HTMLVideoElement): Promise<void>;
+  renderFrame(video: HTMLVideoElement, measurement?: GpuVideoFrameMeasurementContext): Promise<FrameRenderResult>;
   resize(width: number, height: number): void;
   setPreset(presetId: string): void;
   setBrightness(value: number): void;
@@ -38,8 +121,28 @@ export type GpuVideoRendererSessionOptions = {
   onStats?: (stats: GpuVideoRendererStats) => void;
   onError?: (error: GpuVideoRendererError) => void;
   onCanvasExpired?: () => void;
+  onHarnessObservation?: (observation: GpuVideoHarnessObservation) => void;
+  onPerformanceObservation?: (observation: GpuVideoPerformanceObservation) => void;
   logger?: Pick<Console, 'debug' | 'error' | 'info' | 'warn'>;
 };
+
+function isPerformanceHarnessBuild(): boolean {
+  return typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__;
+}
+
+function isPerformanceInstrumentationBuild(): boolean {
+  return (
+    isPerformanceHarnessBuild() &&
+    typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+    __PRISMGB_PERF_INSTRUMENTATION__ &&
+    typeof window !== 'undefined' &&
+    window.prismgbPerformanceLaunchMarker !== undefined
+  );
+}
+
+function harnessDisposition(outcome: FrameDispositionOutcome): FrameRenderResult {
+  return isPerformanceHarnessBuild() ? { outcome } : undefined;
+}
 
 class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
   readonly backend: RenderBackend;
@@ -64,6 +167,8 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
   private onStatsCb?: (stats: GpuVideoRendererStats) => void;
   private onErrorCb?: (error: GpuVideoRendererError) => void;
   private onCanvasExpiredCb?: () => void;
+  private onHarnessObservationCb?: (observation: GpuVideoHarnessObservation) => void;
+  private onPerformanceObservationCb?: (observation: GpuVideoPerformanceObservation) => void;
   private logger: Pick<Console, 'debug' | 'error' | 'info' | 'warn'>;
 
   private pendingCaptureResolve: ((result: ImageBitmap) => void) | null = null;
@@ -72,6 +177,8 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
   private captureTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   private messageUnsubscribers: Array<() => void> = [];
+  private nextHarnessFrameToken = 0;
+  private pendingHarnessFrameContexts = new Map<number, GpuVideoFrameMeasurementContext>();
 
   constructor(
     backend: RenderBackend,
@@ -92,6 +199,10 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
     this.onStatsCb = options.onStats;
     this.onErrorCb = options.onError;
     this.onCanvasExpiredCb = options.onCanvasExpired;
+    if (isPerformanceHarnessBuild()) {
+      this.onHarnessObservationCb = options.onHarnessObservation;
+      this.onPerformanceObservationCb = options.onPerformanceObservation;
+    }
     this.logger = options.logger || console;
 
     this.imageBitmapOptions = {
@@ -191,8 +302,37 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
         this.onReadyCb?.({ backend: payload.backend });
       }),
 
-      this.workerClient.onFrameRendered(() => {
+      this.workerClient.onFrameRendered((payload) => {
         this.pendingFrames = Math.max(0, this.pendingFrames - 1);
+        if (
+          typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+          __PRISMGB_PERF_HARNESS__ &&
+          payload !== undefined &&
+          'frameToken' in payload &&
+          'outcome' in payload
+        ) {
+          const context = this.pendingHarnessFrameContexts.get(payload.frameToken);
+          this.pendingHarnessFrameContexts.delete(payload.frameToken);
+          if (context) {
+            this.recordHarnessObservation({
+              kind: 'worker-frame-acknowledged',
+              context,
+              frameToken: payload.frameToken,
+              outcome: payload.outcome
+            });
+            if (
+              typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+              __PRISMGB_PERF_INSTRUMENTATION__
+            ) {
+              this.recordPerformanceObservation({
+                kind: 'worker-frame-acknowledged',
+                context,
+                frameToken: payload.frameToken,
+                outcome: payload.outcome
+              });
+            }
+          }
+        }
         if (this.isWaitingForCapturedFrame) {
           this.isWaitingForCapturedFrame = false;
           this.workerClient?.requestCapturedFrame();
@@ -214,6 +354,29 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
         }
         this.logger.error('Render worker error:', payload.message);
         this.pendingFrames = 0;
+        if (
+          typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+          __PRISMGB_PERF_HARNESS__
+        ) {
+          for (const [frameToken, context] of this.pendingHarnessFrameContexts) {
+            this.recordHarnessObservation({
+              kind: 'worker-terminal-error',
+              context,
+              frameToken
+            });
+            if (
+              typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+              __PRISMGB_PERF_INSTRUMENTATION__
+            ) {
+              this.recordPerformanceObservation({
+                kind: 'worker-terminal-error',
+                context,
+                frameToken
+              });
+            }
+          }
+          this.pendingHarnessFrameContexts.clear();
+        }
         this.onErrorCb?.({
           message: payload.message,
           code: payload.code,
@@ -235,38 +398,244 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
     this.messageUnsubscribers = [];
   }
 
-  async renderFrame(video: HTMLVideoElement): Promise<void> {
-    if (!this._isActive) return;
+  private recordPerformanceObservation(observation: GpuVideoPerformanceObservation): void {
+    if (isPerformanceInstrumentationBuild()) {
+      this.onPerformanceObservationCb?.(observation);
+    }
+  }
+
+  private recordHarnessObservation(observation: GpuVideoHarnessObservation): void {
+    if (isPerformanceHarnessBuild()) {
+      this.onHarnessObservationCb?.(observation);
+    }
+  }
+
+  async renderFrame(
+    video: HTMLVideoElement,
+    measurement?: GpuVideoFrameMeasurementContext
+  ): Promise<FrameRenderResult> {
+    if (!this._isActive) {
+      if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+        this.recordSessionDisposition(measurement, 'session-inactive');
+      }
+      return harnessDisposition('skipped-inactive');
+    }
 
     if (this.backend === 'canvas2d') {
-      if (this.localPipeline && video.readyState >= video.HAVE_CURRENT_DATA) {
-        this.localPipeline.renderFrame(video);
+      if (!this.localPipeline) {
+        if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+          this.recordSessionDisposition(measurement, 'session-inactive');
+        }
+        return harnessDisposition('skipped-inactive');
       }
-    } else {
-      if (!this.workerClient || !this.workerClient.isReady() || this.pendingFrames >= 2) {
-        return;
-      }
-
       if (video.readyState < video.HAVE_CURRENT_DATA) {
-        return;
+        if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+          this.recordSessionDisposition(measurement, 'no-current-data');
+        }
+        return harnessDisposition('skipped-inactive');
       }
 
-      let imageBitmap: ImageBitmap | null = null;
+      const startedAt = performance.now();
       try {
-        imageBitmap = await createImageBitmap(video, this.imageBitmapOptions);
-        this.pendingFrames++;
+        const disposition = this.localPipeline.renderFrame(video);
+        const endedAt = performance.now();
+        if (
+          measurement &&
+          disposition &&
+          typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+          __PRISMGB_PERF_HARNESS__
+        ) {
+          this.recordHarnessObservation({
+            kind: 'canvas-disposition',
+            context: measurement,
+            outcome: disposition.outcome
+          });
+          if (
+            typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+            __PRISMGB_PERF_INSTRUMENTATION__
+          ) {
+            this.recordPerformanceObservation({
+              kind: 'canvas-disposition',
+              context: measurement,
+              outcome: disposition.outcome,
+              startedAt,
+              endedAt
+            });
+          }
+        }
+        return disposition;
+      } catch (error: unknown) {
+        this.logger.error('Failed to render frame in Canvas2D pipeline:', error);
+        if (
+          measurement &&
+          typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+          __PRISMGB_PERF_HARNESS__
+        ) {
+          this.recordHarnessObservation({
+            kind: 'canvas-disposition',
+            context: measurement,
+            outcome: 'failed'
+          });
+          if (
+            typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+            __PRISMGB_PERF_INSTRUMENTATION__
+          ) {
+            this.recordPerformanceObservation({
+              kind: 'canvas-disposition',
+              context: measurement,
+              outcome: 'failed',
+              startedAt,
+              endedAt: performance.now()
+            });
+          }
+        }
+        return harnessDisposition('failed');
+      }
+    }
 
-        if (this.workerClient.renderFrame(imageBitmap)) {
-          imageBitmap = null;
-        } else {
-          this.pendingFrames = Math.max(0, this.pendingFrames - 1);
-          imageBitmap.close();
+    if (!this.workerClient || !this.workerClient.isReady()) {
+      if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+        this.recordSessionDisposition(measurement, 'worker-not-ready');
+      }
+      return harnessDisposition('skipped-inactive');
+    }
+    if (this.pendingFrames >= 2) {
+      if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+        this.recordSessionDisposition(measurement, 'backpressure');
+      }
+      return harnessDisposition('skipped-inactive');
+    }
+    if (video.readyState < video.HAVE_CURRENT_DATA) {
+      if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+        this.recordSessionDisposition(measurement, 'no-current-data');
+      }
+      return harnessDisposition('skipped-inactive');
+    }
+
+    const bitmapStartedAt = performance.now();
+    let imageBitmap: ImageBitmap;
+    let bitmapOwnershipTransferred = false;
+    try {
+      imageBitmap = await createImageBitmap(video, this.imageBitmapOptions);
+    } catch (error: unknown) {
+      this.logger.error('Failed to create image bitmap for worker frame:', error);
+      if (
+        measurement &&
+        typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+        __PRISMGB_PERF_HARNESS__
+      ) {
+        this.recordHarnessObservation({
+          kind: 'bitmap-creation',
+          context: measurement,
+          outcome: 'failed'
+        });
+      }
+      if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+        this.recordSessionDisposition(measurement, 'bitmap-creation-failed');
+      }
+      return harnessDisposition('failed');
+    }
+
+    const bitmapEndedAt = performance.now();
+    if (
+      measurement &&
+      typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+      __PRISMGB_PERF_HARNESS__
+    ) {
+      this.recordHarnessObservation({
+        kind: 'bitmap-creation',
+        context: measurement,
+        outcome: 'created'
+      });
+      if (
+        typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+        __PRISMGB_PERF_INSTRUMENTATION__
+      ) {
+        this.recordPerformanceObservation({
+          kind: 'bitmap-creation',
+          context: measurement,
+          startedAt: bitmapStartedAt,
+          endedAt: bitmapEndedAt,
+          sourceWidth: video.videoWidth,
+          sourceHeight: video.videoHeight
+        });
+      }
+    }
+
+    const frameToken = isPerformanceHarnessBuild() ? ++this.nextHarnessFrameToken : undefined;
+    this.pendingFrames++;
+    try {
+      const submitted = this.workerClient.renderFrame(imageBitmap, frameToken);
+      if (!submitted) {
+        this.pendingFrames = Math.max(0, this.pendingFrames - 1);
+        imageBitmap.close();
+        if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+          this.recordSessionDisposition(measurement, 'enqueue-failed');
         }
-      } catch (err: unknown) {
-        this.logger.error('Failed to render frame in worker:', err);
-        if (imageBitmap) {
-          imageBitmap.close();
+        return harnessDisposition('failed');
+      }
+
+      bitmapOwnershipTransferred = true;
+      if (
+        measurement &&
+        frameToken !== undefined &&
+        typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+        __PRISMGB_PERF_HARNESS__
+      ) {
+        this.pendingHarnessFrameContexts.set(frameToken, measurement);
+        this.recordHarnessObservation({
+          kind: 'worker-frame-submitted',
+          context: measurement,
+          frameToken
+        });
+        if (
+          typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+          __PRISMGB_PERF_INSTRUMENTATION__
+        ) {
+          this.recordPerformanceObservation({
+            kind: 'worker-frame-submitted',
+            context: measurement,
+            frameToken
+          });
         }
+      }
+      return undefined;
+    } catch (error: unknown) {
+      this.pendingFrames = Math.max(0, this.pendingFrames - 1);
+      this.logger.error('Failed to render frame in worker:', error);
+      if (!bitmapOwnershipTransferred) {
+        imageBitmap.close();
+      }
+      if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+        this.recordSessionDisposition(measurement, 'enqueue-failed');
+      }
+      return harnessDisposition('failed');
+    }
+  }
+
+  private recordSessionDisposition(
+    measurement: GpuVideoFrameMeasurementContext | undefined,
+    disposition: Extract<GpuVideoPerformanceObservation, { readonly kind: 'session-disposition' }>['disposition']
+  ): void {
+    if (
+      measurement &&
+      typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+      __PRISMGB_PERF_HARNESS__
+    ) {
+      this.recordHarnessObservation({
+        kind: 'session-disposition',
+        context: measurement,
+        disposition
+      });
+      if (
+        typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+        __PRISMGB_PERF_INSTRUMENTATION__
+      ) {
+        this.recordPerformanceObservation({
+          kind: 'session-disposition',
+          context: measurement,
+          disposition
+        });
       }
     }
   }
@@ -374,6 +743,8 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
 
   release(): void {
     this.pendingFrames = 0;
+    this.pendingHarnessFrameContexts.clear();
+    this.nextHarnessFrameToken = 0;
     if (this.backend === 'canvas2d') {
       this.localPipeline?.releaseResources();
     } else {
@@ -384,6 +755,8 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
   terminate(options?: { emitCanvasExpired?: boolean }): void {
     this._isActive = false;
     this.unregisterMessageHandlers();
+    this.pendingHarnessFrameContexts.clear();
+    this.nextHarnessFrameToken = 0;
     this.resolvePendingCapture(null, new Error('Session terminated'));
 
     if (this.backend === 'canvas2d') {

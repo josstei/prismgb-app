@@ -12,9 +12,24 @@ import { createInjectableHarness, type LoggerMockLike } from '../../../../suppor
 type UrlModuleWithDefault = typeof import('node:url') & { default: typeof import('node:url') };
 type PathModuleWithDefault = typeof import('node:path') & { default: typeof import('node:path') };
 
+const browserWindowInvocation = vi.hoisted(() => ({
+  options: undefined as unknown
+}));
+
 // Mock electron - need to use class syntax
 vi.mock('electron', () => {
-  return createWindowServiceElectronMock();
+  const electronMock = createWindowServiceElectronMock();
+  const BaseBrowserWindow = electronMock.BrowserWindow;
+
+  return {
+    ...electronMock,
+    BrowserWindow: class MockBrowserWindow extends BaseBrowserWindow {
+      constructor(options: unknown) {
+        super();
+        browserWindowInvocation.options = options;
+      }
+    }
+  };
 });
 
 vi.mock('url', async (importOriginal) => {
@@ -99,6 +114,7 @@ describe('WindowService', () => {
   let originalPlatform: NodeJS.Platform;
 
   beforeEach(() => {
+    browserWindowInvocation.options = undefined;
     const h = createInjectableHarness(WindowService, {
       overrides: {
         ipcPushBridge: { emit: vi.fn(), on: vi.fn(), off: vi.fn() }
@@ -200,6 +216,16 @@ describe('WindowService', () => {
       windowService.createWindow();
 
       expect(mockLogger.info).toHaveBeenCalledWith('Creating main window');
+    });
+
+    it('does not add a performance marker argument when no marker is installed', () => {
+      windowService.createWindow();
+
+      const browserWindowOptions = browserWindowInvocation.options as {
+        webPreferences: { additionalArguments?: string[] };
+      };
+
+      expect(browserWindowOptions.webPreferences.additionalArguments).toBeUndefined();
     });
   });
 

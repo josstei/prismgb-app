@@ -1,5 +1,12 @@
 import type { PipelineUniforms } from '../domain/uniforms';
-import type { RenderBackend, RenderCanvas, RenderPipeline, RenderPreset, RenderStats } from '../domain/types';
+import type {
+  FrameRenderResult,
+  RenderBackend,
+  RenderCanvas,
+  RenderPipeline,
+  RenderPreset,
+  RenderStats
+} from '../domain/types';
 import { buildUniforms } from '../application/uniform-builder';
 
 export interface PipelineControllerConfig {
@@ -33,7 +40,7 @@ export interface PipelineState {
 export interface RenderDriver {
   readonly backend: RenderBackend;
   initialize(state: PipelineState): Promise<void>;
-  renderFrame(source: TexImageSource, state: PipelineState): void;
+  renderFrame(source: TexImageSource, state: PipelineState): FrameRenderResult;
   resize(state: PipelineState): void;
   clearFrame(state: PipelineState): void;
   captureFrame(state: PipelineState): Promise<ImageBitmap>;
@@ -107,8 +114,8 @@ export class PipelineController implements RenderPipeline, PipelineState {
     this._isActive = true;
   }
 
-  renderFrame(source: TexImageSource): void {
-    this.driver.renderFrame(source, this);
+  renderFrame(source: TexImageSource): FrameRenderResult {
+    return this.driver.renderFrame(source, this);
   }
 
   setPreset(preset: RenderPreset): void {

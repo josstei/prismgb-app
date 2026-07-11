@@ -87,6 +87,7 @@ describe('split-port transport separation', () => {
     };
     expect(frameEnvelope.type).toBe('frame');
     expect(typeof frameEnvelope.timestamp).toBe('number');
+    expect(Object.keys(frameEnvelope.payload)).toEqual(['imageBitmap']);
     expect(frameEnvelope.payload.imageBitmap.sig).toBe((makeDeterministicFrame(1) as unknown as { sig: string }).sig);
     client.dispose();
   });

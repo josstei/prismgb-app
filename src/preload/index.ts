@@ -1,4 +1,5 @@
 import type { IpcRenderer } from 'electron';
+import { installPreloadPerformanceLaunchMarker } from './performance-launch-marker.js';
 
 /**
  * Preload bridge for electron-trpc (the renderer↔main tRPC transport).
@@ -17,6 +18,10 @@ type PreloadElectron = {
 const ELECTRON_TRPC_CHANNEL = 'electron-trpc';
 
 const { contextBridge, ipcRenderer } = require('electron') as PreloadElectron;
+
+if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+  installPreloadPerformanceLaunchMarker(contextBridge, process.argv, process.env);
+}
 
 contextBridge.exposeInMainWorld('electronTRPC', {
   sendMessage: (operation: unknown) => ipcRenderer.send(ELECTRON_TRPC_CHANNEL, operation),

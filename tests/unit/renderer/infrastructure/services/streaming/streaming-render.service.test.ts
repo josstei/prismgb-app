@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { StreamingRenderService } from '@renderer/infrastructure/services/streaming/streaming-render.service';
 import { createGpuVideoRendererSession, detectBrowserGpuCapabilities } from '@platform/gpu/runtime';
+import { EventChannels } from '@platform/events';
 import { createStreamingViewServiceMock } from '../../../../../factories/index.js';
 import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
 
@@ -136,6 +137,14 @@ describe('StreamingRenderService', () => {
       service.stopPipeline();
 
       expect(mockSession.terminate).toHaveBeenCalled();
+      expect(mockEventBus._getEventsOfType(EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED)).toEqual([
+        expect.objectContaining({
+          data: { label: 'before gpu release' }
+        }),
+        expect.objectContaining({
+          data: { label: 'after gpu release', delayMs: 1000 }
+        })
+      ]);
     });
 
     it('requests canvas expiry on stop so a restarted stream gets a fresh canvas', async () => {

@@ -204,9 +204,8 @@ describe('worker service', () => {
     await sendFrame(worker, frameBitmap);
 
     expect(mockRenderer.renderFrame).toHaveBeenCalledWith(frameBitmap);
-    expect(postedMessages.at(-1)).toMatchObject({
-      type: WorkerResponseType.FRAME_RENDERED
-    });
+    expect(postedMessages.at(-1)).toMatchObject({ type: WorkerResponseType.FRAME_RENDERED });
+    expect((postedMessages.at(-1) as { payload?: unknown }).payload).toBeUndefined();
   });
 
   it('reports interval fps from worker-rendered frames instead of renderer instantaneous fps', async () => {

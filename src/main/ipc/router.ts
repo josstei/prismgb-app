@@ -46,6 +46,28 @@ function toObjectPayload(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
 }
 
+function readBrokeredPerformanceMetrics<T>(readMetrics: () => T): T {
+  if (
+    typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+    __PRISMGB_PERF_HARNESS__ &&
+    typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+    __PRISMGB_PERF_INSTRUMENTATION__
+  ) {
+    const controller = (globalThis as Record<PropertyKey, unknown>)[
+      Symbol.for('prismgb.performance.measurementController')
+    ] as { sampleCached?: (purpose: 'measurement') => { rawAppMetrics: unknown } } | undefined;
+    if (typeof controller?.sampleCached === 'function') {
+      const rawAppMetrics = controller.sampleCached('measurement').rawAppMetrics;
+      if (!Array.isArray(rawAppMetrics)) {
+        throw new Error('Performance measurement controller returned a non-array app metrics snapshot');
+      }
+      return rawAppMetrics as T;
+    }
+  }
+
+  return readMetrics();
+}
+
 /**
  * Subscription procedure relaying one push channel from the {@link IpcContext.ipcPushBridge}.
  *
@@ -167,7 +189,7 @@ const updateRouter = router({
 const performanceRouter = router({
   getProcessMetrics: publicProcedure.query(({ ctx }) =>
     rethrowAsTrpcError('Failed to get process metrics', ctx.logger, () => {
-      const metrics = ctx.app.getAppMetrics();
+      const metrics = readBrokeredPerformanceMetrics(() => ctx.app.getAppMetrics());
       const totalKB = metrics.reduce((sum, proc) => sum + proc.memory.workingSetSize, 0);
       return {
         timestamp: Date.now(),

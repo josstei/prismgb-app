@@ -2,13 +2,16 @@ import * as Comlink from 'comlink';
 import { resolvePreset } from '../application/catalog';
 import { createGpuRenderer } from '../application/renderer.service';
 import { detectWorkerGpuCapabilities } from '../infrastructure/capabilities.worker';
-import type { RenderCanvas, RenderPipeline, RenderPreset, RenderStats } from '../domain/types';
+import type { FrameRenderResult, RenderCanvas, RenderPipeline, RenderPreset, RenderStats } from '../domain/types';
 import {
   CONTROL_PORT_MESSAGE,
   WorkerResponseType,
   createWorkerResponse,
   isCanvasHandoffMessage,
+  isFrameDispositionOutcome,
   isFrameMessage,
+  isFrameToken,
+  isPerformanceHarnessBuild,
   isWorkerRenderBackend,
   type FrameErrorResponse,
   type FramePayload,
@@ -29,7 +32,7 @@ export type WorkerRendererServiceScope = {
 
 type WorkerRendererPipeline = {
   backend: WorkerRenderBackend;
-  render: (source: TexImageSource) => void;
+  render: (source: TexImageSource) => FrameRenderResult;
   resize: (width: number, height: number) => void;
   captureFrame: () => Promise<ImageBitmap>;
   getStats: () => RenderStats & { uploadTime?: number };
@@ -91,6 +94,7 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
   let lastStatsTime = performance.now();
   let captureRequested = false;
   let capturedFrame: ImageBitmap | null = null;
+  let lastHarnessFrameToken = 0;
 
   let resolveCanvas: (value: OffscreenCanvas) => void;
   let canvasPromise = new Promise<OffscreenCanvas>((resolve) => {
@@ -128,6 +132,7 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
       frameCount = 0;
       totalFrameTime = 0;
       lastStatsTime = performance.now();
+      lastHarnessFrameToken = 0;
 
       return { backend: pipeline.backend };
     },
@@ -175,6 +180,7 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
       frameCount = 0;
       totalFrameTime = 0;
       lastStatsTime = performance.now();
+      lastHarnessFrameToken = 0;
       if (pipeline) {
         await pipeline.dispose();
         pipeline = null;
@@ -192,6 +198,7 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
       canvas = null;
       frameCount = 0;
       totalFrameTime = 0;
+      lastHarnessFrameToken = 0;
       workerScope.close();
     }
   };
@@ -202,7 +209,7 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
     const frameStart = performance.now();
     const { imageBitmap } = payload;
     try {
-      pipeline.render(imageBitmap);
+      const renderResult = pipeline.render(imageBitmap);
 
       if (captureRequested) {
         capturedFrame = await pipeline.captureFrame();
@@ -214,7 +221,16 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
       totalFrameTime += frameTime;
       maybePostStats();
 
-      workerScope.postMessage(createWorkerResponse(WorkerResponseType.FRAME_RENDERED));
+      if (isPerformanceHarnessBuild) {
+        const frameToken = payload.frameToken;
+        const outcome = renderResult?.outcome;
+        if (!isFrameToken(frameToken) || !isFrameDispositionOutcome(outcome)) {
+          throw new Error('Harness worker frame acknowledgement requires a valid token and pipeline outcome');
+        }
+        workerScope.postMessage(createWorkerResponse(WorkerResponseType.FRAME_RENDERED, { frameToken, outcome }));
+      } else {
+        workerScope.postMessage(createWorkerResponse(WorkerResponseType.FRAME_RENDERED));
+      }
     } catch (error) {
       workerScope.postMessage({
         type: WorkerResponseType.ERROR,
@@ -247,6 +263,18 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
     lastStatsTime = now;
   }
 
+  function rejectHarnessFrameToken(payload: FramePayload): void {
+    payload.imageBitmap.close();
+    workerScope.postMessage({
+      type: WorkerResponseType.ERROR,
+      payload: {
+        message: 'Worker frame token must be a new positive monotonic value',
+        code: 'FRAME_TOKEN_REJECTED'
+      },
+      timestamp: performance.now()
+    } satisfies FrameErrorResponse);
+  }
+
   const controlChannel = new MessageChannel();
   Comlink.expose(controlApi, controlChannel.port1);
   workerScope.postMessage({ channel: CONTROL_PORT_MESSAGE, port: controlChannel.port2 }, [controlChannel.port2]);
@@ -260,6 +288,14 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
       return;
     }
     if (isFrameMessage(message)) {
+      if (isPerformanceHarnessBuild) {
+        const frameToken = message.payload.frameToken;
+        if (!isFrameToken(frameToken) || frameToken <= lastHarnessFrameToken) {
+          rejectHarnessFrameToken(message.payload);
+          return;
+        }
+        lastHarnessFrameToken = frameToken;
+      }
       await handleFrame(message.payload);
     }
   };

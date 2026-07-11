@@ -30,6 +30,16 @@ export class PerformanceMetricsOrchestrator extends BaseOrchestrator {
 
   @OnEvent(EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED)
   private _handleMemorySnapshotRequested(payload: MemorySnapshotRequestPayload): void {
+    if (
+      typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+      __PRISMGB_PERF_HARNESS__ &&
+      typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+      __PRISMGB_PERF_INSTRUMENTATION__ &&
+      payload.diagnosticBoundary?.kind === 'performance-shutdown-boundary'
+    ) {
+      return;
+    }
+
     this.performanceMetricsService.requestSnapshot(payload);
   }
 

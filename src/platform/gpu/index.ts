@@ -5,9 +5,8 @@
 // Internal implementation details are not exposed.
 // =============================================================================
 
-export type { RenderCapabilities } from './domain/types';
+export type { BrowserCapabilityProbeResult, RenderCapabilities } from './domain/types';
 
 export { PRESET_POLICY } from './domain/presets';
 
 export { getUiPresets, resolvePreset } from './application/catalog';
-

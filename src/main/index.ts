@@ -3,12 +3,66 @@
  * Initializes the application using dependency injection
  */
 
-import { app, BrowserWindow, dialog, Menu, type MenuItemConstructorOptions } from 'electron';
+import { app, BrowserWindow, dialog, Menu, powerMonitor, screen, type MenuItemConstructorOptions } from 'electron';
 import { MainBootstrap } from './app-bootstrap.js';
 import { getGpuPolicy, applyChromiumFlags, GPU_ENV_VARS } from './infrastructure/gpu/gpu-policy.js';
 import { TOKENS } from './application/di/tokens.js';
+import { installPerformanceLaunchMarker } from './infrastructure/diagnostics/performance-launch-marker.js';
+import {
+  installPerformanceMeasurementGuard,
+  type MeasurementEventSource
+} from './infrastructure/diagnostics/performance-measurement-guard.js';
 
 const APP_NAME = 'PrismGB';
+
+type MeasurementEventEmitter = {
+  on(event: string, listener: (...args: unknown[]) => void): unknown;
+  off(event: string, listener: (...args: unknown[]) => void): unknown;
+};
+
+function createMeasurementEventSource(
+  name: string,
+  emitter: unknown,
+  events: readonly string[]
+): MeasurementEventSource {
+  const source = emitter as MeasurementEventEmitter;
+  return {
+    name,
+    events,
+    on: (event, listener) => source.on(event, listener),
+    off: (event, listener) => source.off(event, listener)
+  };
+}
+
+const performanceMeasurementController =
+  typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__
+    ? (() => {
+        const launchId = installPerformanceLaunchMarker(app, process.argv, process.env);
+        if (launchId === null) return null;
+        return installPerformanceMeasurementGuard(launchId, {
+          getAppMetrics: () => app.getAppMetrics(),
+          getEnvironmentSnapshot: async () => ({
+            gpuFeatureStatus: app.getGPUFeatureStatus(),
+            gpuInfo: await app.getGPUInfo('complete'),
+            commandLine: [...process.argv]
+          }),
+          eventSources: [
+            createMeasurementEventSource('power', powerMonitor, [
+              'on-ac',
+              'on-battery',
+              'speed-limit-change',
+              'thermal-state-change'
+            ]),
+            createMeasurementEventSource('screen', screen, [
+              'display-added',
+              'display-removed',
+              'display-metrics-changed'
+            ]),
+            createMeasurementEventSource('app', app, ['gpu-info-update'])
+          ]
+        });
+      })()
+    : null;
 
 /**
  * Build a lightweight macOS application menu so the system uses the correct app name.
@@ -69,6 +123,7 @@ if (process.platform === 'darwin') {
 // =================================================================
 if (process.argv.includes('--smoke-test')) {
   app.whenReady().then(() => {
+    performanceMeasurementController?.installEnvironmentListeners();
     console.log('Smoke test: Electron app ready');
     console.log('Smoke test: Main process initialized');
 
@@ -135,6 +190,7 @@ if (process.argv.includes('--smoke-test')) {
 
     // App lifecycle events
     app.whenReady().then(async () => {
+      performanceMeasurementController?.installEnvironmentListeners();
       // Set macOS application menu with correct app name
       if (process.platform === 'darwin') {
         const macMenu = Menu.buildFromTemplate(createMacAppMenu(APP_NAME));

@@ -27,6 +27,7 @@ export function createRecordingDriver(mockCreateGpuRenderer: ReturnType<typeof v
       backend: 'webgpu',
       renderFrame: (src: unknown) => {
         record.push(`render:${(src as { sig?: string }).sig ?? '?'}`);
+        return { outcome: 'webgpu-queue-submit-completed' as const };
       },
       resize: (w: number, h: number) => {
         record.push(`resize:${w}x${h}`);

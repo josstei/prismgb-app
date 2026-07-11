@@ -1,4 +1,4 @@
-import type { RenderBackend, RenderPreset } from '../domain/types';
+import type { FrameDispositionOutcome, RenderBackend, RenderPreset } from '../domain/types';
 
 /**
  * Traffic routes by plane, not payload type: frame plane (canvas handoff, FRAME,
@@ -22,6 +22,14 @@ function isString(value: unknown): value is string {
 function isImageBitmapLike(value: unknown): value is ImageBitmap {
   return isRecord(value) && typeof value.close === 'function';
 }
+
+function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
+  const actualKeys = Object.keys(value);
+  return actualKeys.length === keys.length && keys.every((key) => Object.hasOwn(value, key));
+}
+
+export const isPerformanceHarnessBuild =
+  typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__;
 
 export const WorkerMessageType = Object.freeze({
   FRAME: 'frame'
@@ -52,7 +60,8 @@ export type WorkerRendererConfig = {
   presetId: string;
 };
 
-export type FramePayload = { imageBitmap: ImageBitmap };
+export type FramePayload = { imageBitmap: ImageBitmap; frameToken?: number };
+type HarnessFramePayload = { imageBitmap: ImageBitmap; frameToken: number };
 export type ResizePayload = { width: number; height: number; scaleFactor: number };
 export type PresetPayload = { presetId: string; preset: RenderPreset };
 export type WorkerReadyPayload = { backend: WorkerRenderBackend };
@@ -61,10 +70,11 @@ export type WorkerErrorPayload = { message: string; stack?: string; code?: strin
 export type WorkerCaptureReadyPayload = { bitmap: ImageBitmap };
 
 export type EmptyWorkerPayload = undefined | Record<string, never>;
+type FrameAcknowledgementPayload = { frameToken: number; outcome: FrameDispositionOutcome };
 
 export type WorkerResponsePayloadMap = {
   [WorkerResponseType.READY]: WorkerReadyPayload;
-  [WorkerResponseType.FRAME_RENDERED]: EmptyWorkerPayload;
+  [WorkerResponseType.FRAME_RENDERED]: EmptyWorkerPayload | FrameAcknowledgementPayload;
   [WorkerResponseType.ERROR]: WorkerErrorPayload;
   [WorkerResponseType.STATS]: WorkerStatsPayload;
   [WorkerResponseType.CAPTURE_REQUESTED]: EmptyWorkerPayload;
@@ -99,17 +109,46 @@ export type ControlPortMessage = { channel: typeof CONTROL_PORT_MESSAGE; port: M
 export type CanvasHandoffMessage = { channel: typeof CANVAS_HANDOFF_MESSAGE; canvas: OffscreenCanvas };
 
 export type FrameMessage = { type: typeof WorkerMessageType.FRAME; payload: FramePayload; timestamp: number };
-export type FrameRenderedResponse = { type: typeof WorkerResponseType.FRAME_RENDERED; payload?: undefined; timestamp: number };
+export type FrameRenderedResponse = {
+  type: typeof WorkerResponseType.FRAME_RENDERED;
+  payload?: FrameAcknowledgementPayload;
+  timestamp: number;
+};
 export type StatsResponse = { type: typeof WorkerResponseType.STATS; payload: WorkerStatsPayload; timestamp: number };
 export type FrameErrorResponse = { type: typeof WorkerResponseType.ERROR; payload: WorkerErrorPayload; timestamp: number };
 
 export function createWorkerMessage(type: typeof WorkerMessageType.FRAME, payload: FramePayload): FrameMessage {
-  return { type, payload, timestamp: performance.now() };
+  if (isPerformanceHarnessBuild) {
+    if (!isHarnessFramePayload(payload)) {
+      throw new TypeError('Harness FRAME payload requires exactly one positive frame token');
+    }
+    return {
+      type,
+      payload: { imageBitmap: payload.imageBitmap, frameToken: payload.frameToken },
+      timestamp: performance.now()
+    };
+  }
+
+  return { type, payload: { imageBitmap: payload.imageBitmap }, timestamp: performance.now() };
 }
 
-export function createWorkerResponse(type: typeof WorkerResponseType.FRAME_RENDERED): FrameRenderedResponse;
+export function createWorkerResponse(
+  type: typeof WorkerResponseType.FRAME_RENDERED,
+  payload?: FrameAcknowledgementPayload
+): FrameRenderedResponse;
 export function createWorkerResponse(type: typeof WorkerResponseType.STATS, payload: WorkerStatsPayload): StatsResponse;
 export function createWorkerResponse(type: WorkerResponseTypeValue, payload?: unknown): { type: WorkerResponseTypeValue; payload?: unknown; timestamp: number } {
+  if (type === WorkerResponseType.FRAME_RENDERED) {
+    if (isPerformanceHarnessBuild && !isFrameAcknowledgementPayload(payload)) {
+      throw new TypeError('Harness FRAME acknowledgement requires exactly one frame token and outcome');
+    }
+    return {
+      type,
+      payload: isPerformanceHarnessBuild ? payload : undefined,
+      timestamp: performance.now()
+    };
+  }
+
   return { type, payload, timestamp: performance.now() };
 }
 
@@ -117,8 +156,43 @@ export function isWorkerRenderBackend(value: unknown): value is WorkerRenderBack
   return value === 'webgpu';
 }
 
+export function isFrameToken(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+}
+
+export function isFrameDispositionOutcome(value: unknown): value is FrameDispositionOutcome {
+  return (
+    value === 'canvas-draw-completed' ||
+    value === 'webgpu-queue-submit-completed' ||
+    value === 'skipped-inactive' ||
+    value === 'failed'
+  );
+}
+
+function isHarnessFramePayload(value: unknown): value is HarnessFramePayload {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['imageBitmap', 'frameToken']) &&
+    isImageBitmapLike(value.imageBitmap) &&
+    isFrameToken(value.frameToken)
+  );
+}
+
+function isFrameAcknowledgementPayload(value: unknown): value is FrameAcknowledgementPayload {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['frameToken', 'outcome']) &&
+    isFrameToken(value.frameToken) &&
+    isFrameDispositionOutcome(value.outcome)
+  );
+}
+
 export function isFramePayload(value: unknown): value is FramePayload {
-  return isRecord(value) && isImageBitmapLike(value.imageBitmap);
+  return (
+    isRecord(value) &&
+    isImageBitmapLike(value.imageBitmap) &&
+    (!isPerformanceHarnessBuild || isHarnessFramePayload(value))
+  );
 }
 
 export function isFrameMessage(message: unknown): message is FrameMessage {
@@ -134,7 +208,9 @@ export function isCanvasHandoffMessage(message: unknown): message is CanvasHando
 }
 
 export function isFrameRenderedResponse(value: unknown): value is FrameRenderedResponse {
-  return isRecord(value) && value.type === WorkerResponseType.FRAME_RENDERED;
+  if (!isRecord(value) || value.type !== WorkerResponseType.FRAME_RENDERED) return false;
+  if (isPerformanceHarnessBuild) return isFrameAcknowledgementPayload(value.payload);
+  return value.payload === undefined || (isRecord(value.payload) && Object.keys(value.payload).length === 0);
 }
 
 export function isStatsResponse(value: unknown): value is StatsResponse {

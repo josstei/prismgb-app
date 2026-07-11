@@ -8,6 +8,11 @@ import { injectable, inject } from 'inversify';
 import { BaseService, type LoggerFactoryLike } from '@platform/core';
 import { TOKENS } from '@main/application/di/tokens.js';
 import type { IpcPushBridge } from '@main/ipc/ipc-push.bridge.js';
+import {
+  getInstalledPerformanceLaunchMarker,
+  PERFORMANCE_LAUNCH_ID_ARGUMENT_PREFIX,
+  PERFORMANCE_MEASUREMENT_ENV
+} from '@main/infrastructure/diagnostics/performance-launch-marker.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const { WINDOW_CONFIG } = uiConfig;
@@ -73,6 +78,13 @@ class WindowService extends BaseService {
     this.logger.info(`isDev: ${isDev}`);
     this.logger.debug(`appPath: ${appPath}, preloadPath: ${preloadPath}`);
 
+    const performanceLaunchMarker =
+      typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+      __PRISMGB_PERF_HARNESS__ &&
+      process.env[PERFORMANCE_MEASUREMENT_ENV] === '1'
+      ? getInstalledPerformanceLaunchMarker(app)
+      : null;
+
     this.mainWindow = new BrowserWindow({
       width: WINDOW_CONFIG.width,
       height: WINDOW_CONFIG.height,
@@ -89,7 +101,12 @@ class WindowService extends BaseService {
         nodeIntegration: false,
         contextIsolation: true,
         sandbox: true,
-        preload: preloadPath
+        preload: preloadPath,
+        ...(performanceLaunchMarker === null
+          ? {}
+          : {
+              additionalArguments: [`${PERFORMANCE_LAUNCH_ID_ARGUMENT_PREFIX}${performanceLaunchMarker}`]
+            })
       },
       show: false // Don't show until ready
     });

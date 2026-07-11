@@ -1,6 +1,7 @@
 import type { PipelineState, RenderDriver } from './pipeline-controller';
 import { loadWebGpuShaders } from './shaders';
 import { RecoverableBackendInitializationError } from '../domain/errors';
+import type { FrameRenderResult } from '../domain/types';
 import type { PipelineUniforms } from '../domain/uniforms';
 import {
   compileRenderPasses,
@@ -361,9 +362,25 @@ export class WebGpuDriver implements RenderDriver {
     this.uniformBuffers = uniformBuffers;
   }
 
-  renderFrame(source: TexImageSource, state: PipelineState): void {
-    if (!state.isActive || !this.device || !this.context || this.hasError) return;
-    if (!this.renderPipelines || !this.uniformBuffers || !this.sourceTexture) return;
+  renderFrame(source: TexImageSource, state: PipelineState): FrameRenderResult {
+    if (!state.isActive || !this.device || !this.context) {
+      if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+        return { outcome: 'skipped-inactive' };
+      }
+      return undefined;
+    }
+    if (this.hasError) {
+      if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+        return { outcome: 'failed' };
+      }
+      return undefined;
+    }
+    if (!this.renderPipelines || !this.uniformBuffers || !this.sourceTexture) {
+      if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+        return { outcome: 'skipped-inactive' };
+      }
+      return undefined;
+    }
 
     const startTime = performance.now();
 
@@ -413,9 +430,17 @@ export class WebGpuDriver implements RenderDriver {
 
       this.device.queue.submit([commandEncoder.finish()]);
       state.recordFrame(performance.now() - startTime);
+      if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+        return { outcome: 'webgpu-queue-submit-completed' };
+      }
+      return undefined;
     } catch {
       this.hasError = true;
       state.deactivate();
+      if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+        return { outcome: 'failed' };
+      }
+      return undefined;
     }
   }
 

@@ -14,7 +14,6 @@ import type {
   UiComponentHost
 } from './presentation/controller/ui-component.host.js';
 
-
 class RendererBootstrap extends PlatformBootstrap<RendererServiceContainer, AppOrchestrator> {
   private uiEffects: UIEffects | null;
   private uiComponentHost: UiComponentHost<RendererUiComponentInstanceMap> | null;
@@ -51,6 +50,7 @@ class RendererBootstrap extends PlatformBootstrap<RendererServiceContainer, AppO
   protected async afterContainerCreated(container: RendererServiceContainer): Promise<void> {
     this._initializePresentationPlane(container);
     await this._initializeUIEventBridge(container);
+    this._installPerformanceDiagnosticsBridge(container);
   }
 
   protected resolveOrchestrator(container: RendererServiceContainer): AppOrchestrator {
@@ -78,6 +78,8 @@ class RendererBootstrap extends PlatformBootstrap<RendererServiceContainer, AppO
   }
 
   protected async cleanupOwnedResources(): Promise<void> {
+    this._removePerformanceDiagnosticsBridge();
+
     if (this.orchestrator) {
       await safeDispose(this.logger, 'orchestrator', this.orchestrator as Object, 'cleanup');
     }
@@ -116,6 +118,56 @@ class RendererBootstrap extends PlatformBootstrap<RendererServiceContainer, AppO
     uiComponentHost.touchCore();
     this.uiComponentHost = uiComponentHost;
     this.uiEffects = uiEffects;
+  }
+
+  private _installPerformanceDiagnosticsBridge(container: RendererServiceContainer): void {
+    if (
+      typeof __PRISMGB_PERF_HARNESS__ === 'undefined' ||
+      !__PRISMGB_PERF_HARNESS__ ||
+      typeof __PRISMGB_PERF_INSTRUMENTATION__ === 'undefined' ||
+      !__PRISMGB_PERF_INSTRUMENTATION__
+    ) {
+      return;
+    }
+
+    const launchId = window.prismgbPerformanceLaunchMarker?.launchId;
+    if (launchId === undefined) {
+      return;
+    }
+
+    const diagnosticsSymbol = Symbol.for('prismgb.performance.rendererDiagnostics');
+    const target = window as unknown as Record<PropertyKey, unknown>;
+    if (Object.prototype.hasOwnProperty.call(target, diagnosticsSymbol)) {
+      throw new Error('Performance renderer diagnostics bridge is already installed');
+    }
+
+    const streamingRenderService = container.get(TOKENS.streamingRenderService);
+    Object.defineProperty(target, diagnosticsSymbol, {
+      configurable: true,
+      enumerable: false,
+      writable: false,
+      value: (requestedLaunchId: string) => {
+        if (requestedLaunchId !== launchId) {
+          throw new Error('Performance renderer diagnostics launch ID does not match the preload marker');
+        }
+        return streamingRenderService.getPerformanceDiagnosticsSnapshot();
+      }
+    });
+  }
+
+  private _removePerformanceDiagnosticsBridge(): void {
+    if (
+      typeof __PRISMGB_PERF_HARNESS__ === 'undefined' ||
+      !__PRISMGB_PERF_HARNESS__ ||
+      typeof __PRISMGB_PERF_INSTRUMENTATION__ === 'undefined' ||
+      !__PRISMGB_PERF_INSTRUMENTATION__
+    ) {
+      return;
+    }
+
+    const diagnosticsSymbol = Symbol.for('prismgb.performance.rendererDiagnostics');
+    const target = window as unknown as Record<PropertyKey, unknown>;
+    delete target[diagnosticsSymbol];
   }
 
   async _initializeUIEventBridge(container = this._requireContainer()) {
