@@ -13,14 +13,17 @@ afterEach(() => {
 });
 
 describe('GPU performance baseline helper', () => {
-  it('evaluates the measurement controller in the Electron main global context', async () => {
+  it("uses Electron evaluation's module and argument callback positions", async () => {
     const assertLaunchId = vi.fn();
     Object.defineProperty(globalThis, controllerSymbol, {
       configurable: true,
       value: { assertLaunchId }
     });
     const electronApp = {
-      evaluate: async (callback: (expectedLaunchId: string) => { mainPid: number }, expectedLaunchId: string) => callback(expectedLaunchId)
+      evaluate: async (
+        callback: (electronModule: object, expectedLaunchId: string) => { mainPid: number },
+        expectedLaunchId: string
+      ) => callback({}, expectedLaunchId)
     };
 
     await expect(assertPerformanceController(electronApp, 'launch-id')).resolves.toEqual({ mainPid: process.pid });
