@@ -105,7 +105,7 @@ export async function assertProductionBundleIsolation(loadedManifest) {
 }
 
 export async function assertPerformanceController(electronApp, launchId) {
-  return electronApp.evaluate(({ process }, expectedLaunchId) => {
+  return electronApp.evaluate((expectedLaunchId) => {
     const controller = globalThis[Symbol.for('prismgb.performance.measurementController')];
     if (!controller || typeof controller.assertLaunchId !== 'function') {
       throw new Error('measurement controller is not installed');
