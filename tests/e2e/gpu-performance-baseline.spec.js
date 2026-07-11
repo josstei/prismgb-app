@@ -50,7 +50,31 @@ test('the instrumented harness records raw branch evidence for the animated Chro
   const sourceSequences = writes
     .filter((write) => write.kind === 'source-opportunity')
     .map((write) => write.sourceSequence);
+  const diagnostics = await performanceLaunch.readPerformanceDiagnostics();
+
   expect(sourceSequences).toEqual(sourceSequences.map((_, index) => index + 1));
   expect(writes.some((write) => write.kind === 'shutdown-boundary' && write.boundary === 'before-release')).toBe(true);
   expect(writes.some((write) => write.kind === 'shutdown-boundary' && write.boundary === 'release-dispatched')).toBe(true);
+  expect(diagnostics).toMatchObject({
+    source: {
+      sourceOpportunities: sourceSequences.length,
+      reconciliation: {
+        accountedOpportunities: sourceSequences.length,
+        isConserved: true
+      }
+    },
+    shutdown: {
+      beforeRelease: {
+        availability: 'observed',
+        unavailableReason: null,
+        launchId: performanceLaunch.launchId
+      },
+      releaseDispatched: {
+        availability: 'observed',
+        unavailableReason: null,
+        launchId: performanceLaunch.launchId
+      }
+    }
+  });
+  expect(diagnostics.timingSamples['source-callback']).not.toHaveLength(0);
 });

@@ -3,6 +3,7 @@ import {
   assertPerformanceController,
   installPerformanceControlProbe,
   readPerformanceControlProbe,
+  readPerformanceDiagnostics,
   removePerformanceControlProbe
 } from '../../e2e/helpers/gpu-performance-baseline.helper.js';
 
@@ -59,5 +60,23 @@ describe('GPU performance baseline helper', () => {
     await removePerformanceControlProbe(page);
     expect(windowTarget['prismgbPerformanceControlProbe']).toBeUndefined();
     expect(windowTarget[Symbol.for('prismgb.performance.controlProbe')]).toBeUndefined();
+  });
+
+  it('passes the marker-bound launch ID into the renderer diagnostics reader', async () => {
+    const diagnostics = { source: { sourceOpportunities: 1 } };
+    const reader = vi.fn(() => diagnostics);
+    const windowTarget: Record<PropertyKey, unknown> = {
+      [Symbol.for('prismgb.performance.rendererDiagnostics')]: reader
+    };
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: windowTarget
+    });
+    const page = {
+      evaluate: async <T>(callback: (argument: T) => unknown, argument: T) => callback(argument)
+    };
+
+    await expect(readPerformanceDiagnostics(page, 'launch-id')).resolves.toEqual(diagnostics);
+    expect(reader).toHaveBeenCalledWith('launch-id');
   });
 });

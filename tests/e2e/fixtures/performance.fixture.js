@@ -11,7 +11,8 @@ import {
   installPerformanceControlProbe,
   loadPerformanceBuildManifest,
   removePerformanceControlProbe,
-  readPerformanceControlProbe
+  readPerformanceControlProbe,
+  readPerformanceDiagnostics
 } from '../helpers/gpu-performance-baseline.helper.js';
 
 export const test = base.extend({
@@ -65,7 +66,13 @@ export const test = base.extend({
         window,
         launchId,
         build,
-        readPerformanceControlProbe: () => readPerformanceControlProbe(window)
+        readPerformanceControlProbe: () => readPerformanceControlProbe(window),
+        readPerformanceDiagnostics: () => {
+          if (!build.instrumentation) {
+            throw new Error('renderer diagnostics require an instrumented performance build');
+          }
+          return readPerformanceDiagnostics(window, launchId);
+        }
       });
     } finally {
       if (window) {

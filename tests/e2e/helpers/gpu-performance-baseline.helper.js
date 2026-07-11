@@ -22,6 +22,7 @@ const PRODUCTION_FORBIDDEN_SENTINELS = Object.freeze([
 ]);
 
 const PERFORMANCE_CONTROL_PROBE_SYMBOL = 'prismgb.performance.controlProbe';
+const PERFORMANCE_RENDERER_DIAGNOSTICS_SYMBOL = 'prismgb.performance.rendererDiagnostics';
 
 function fail(message) {
   throw new Error(`GPU performance baseline helper failed: ${message}`);
@@ -228,6 +229,16 @@ export async function readPerformanceControlProbe(page) {
     }
     return reader();
   }, PERFORMANCE_CONTROL_PROBE_SYMBOL);
+}
+
+export async function readPerformanceDiagnostics(page, launchId) {
+  return page.evaluate(({ launchId: expectedLaunchId, diagnosticsSymbol }) => {
+    const reader = window[Symbol.for(diagnosticsSymbol)];
+    if (typeof reader !== 'function') {
+      throw new Error('performance renderer diagnostics reader is unavailable');
+    }
+    return reader(expectedLaunchId);
+  }, { launchId, diagnosticsSymbol: PERFORMANCE_RENDERER_DIAGNOSTICS_SYMBOL });
 }
 
 export async function removePerformanceControlProbe(page) {
