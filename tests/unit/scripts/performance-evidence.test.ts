@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { canonicalSha256 } from '../../../scripts/lib/baseline-report.js';
 import {
   classifyFailure,
   computeComparisonFingerprint,
@@ -102,13 +103,54 @@ function validLedger({
   ];
 }
 
+function completePairAttempt({
+  sessionId,
+  pairIndex,
+  attemptIndex,
+  retryReason,
+  sequenceOffset,
+  timeOffset,
+  ledgerOptions = {}
+}: {
+  sessionId: string;
+  pairIndex: number;
+  attemptIndex: number;
+  retryReason: string | null;
+  sequenceOffset: number;
+  timeOffset: number;
+  ledgerOptions?: {
+    experimentId?: string;
+    backend?: 'canvas2d' | 'webgpu';
+    comparisonKind?: 'harness-overhead' | 'instrumentation-overhead';
+  };
+}) {
+  return validLedger(ledgerOptions).map((entry) => {
+    const attempt = { ...entry, sequence: entry.sequence + sequenceOffset, start: entry.start + timeOffset, end: entry.end + timeOffset } as Record<string, unknown>;
+    if ('metricSessionId' in attempt) attempt.metricSessionId = sessionId;
+    if (attempt.operationId === 'metric-adapter-session-open') {
+      attempt.attempt = { pairIndex, attemptIndex, retryReason };
+    }
+    if (attempt.operationId === 'internal-reset') attempt.resetId = `${sessionId}-${attempt.resetId}`;
+    if (attempt.operationId === 'electron-harness-spawn') {
+      attempt.runId = `${sessionId}-${attempt.runId}`;
+      attempt.launchId = `${sessionId}-${attempt.launchId}`;
+      attempt.executionId = `${sessionId}-${attempt.executionId}`;
+    }
+    if (attempt.operationId === 'production-sentinel-spawn') {
+      attempt.runId = `${sessionId}-${attempt.runId}`;
+      attempt.externalExecutionId = `${sessionId}-${attempt.externalExecutionId}`;
+    }
+    return attempt;
+  });
+}
+
 function rawEvidence(ledger: ReturnType<typeof validLedger>) {
   const launches = ledger.filter((entry) => entry.operationId === 'electron-harness-spawn' || entry.operationId === 'production-sentinel-spawn');
   return {
     runs: launches.map((launch: any) => {
       const sourceSequences = launch.buildVariant === 'instrumented' ? launch.frameSourceSequences : [1];
       const identity = `${launch.runId}-identity`;
-      const cpuSamples = Array.from({ length: 55 }, (_, index) => {
+      const cpuSamples = Array.from({ length: 61 }, (_, index) => {
         const readStart = index * 0.5;
         const readEnd = readStart + 0.01;
         return {
@@ -133,7 +175,7 @@ function rawEvidence(ledger: ReturnType<typeof validLedger>) {
         environment: {
           staticIdentity: { host: 'test', runtime: 'electron', gpu: 'fixture', switches: 'none' },
           dynamicState,
-          traces: sources.flatMap((source) => Array.from({ length: 29 }, (_, index) => ({ source, sourceSequence: index + 1, observedAt: index, dynamicState })))
+          traces: sources.flatMap((source) => Array.from({ length: 32 }, (_, index) => ({ source, sourceSequence: index + 1, observedAt: index, dynamicState })))
         },
         process: {
           adapterId: 'linux-procfs-v1',
@@ -252,6 +294,15 @@ describe('performance evidence policy evaluator', () => {
       return rows.length === 0 ? [] : [{ rawKind, encoded: encodePerformanceEvidence(rawKind, rows, policy) }];
     });
     expect(deriveAllocationEvidence({ ...allocationInput(completeRows), rows: undefined, encodedRows }, policy).state).toBe('measured-request-proxy');
+    const splitFrameManifests = [
+      ...completeRows.filter((row) => row.carrier === 'frame-request').map((row) => ({
+        rawKind: 'frame-request',
+        encoded: encodePerformanceEvidence('frame-request', [row], policy)
+      })),
+      ...encodedRows.filter((entry) => entry.rawKind === 'lifecycle-request')
+    ];
+    expect(() => deriveAllocationEvidence({ ...allocationInput(completeRows), rows: undefined, encodedRows: splitFrameManifests }, policy)).toThrow(/exactly one canonical manifest/);
+    expect(() => deriveAllocationEvidence({ ...allocationInput(completeRows), rows: undefined, encodedRows: [...encodedRows].reverse() }, policy)).toThrow(/ordered by canonical raw kind/);
     expect(() => deriveAllocationEvidence({ ...allocationInput(completeRows), encodedRows }, policy)).toThrow(/exactly one of raw rows, canonical encoded rows, or synthetic capacity coverage/);
     expect(() => evaluatePerformanceExperiment({
       experimentId,
@@ -272,6 +323,52 @@ describe('performance evidence policy evaluator', () => {
     expect(() => deriveAllocationEvidence({ experimentId, backend: 'webgpu', policyHash, ledger: validLedger({ experimentId, backend: 'webgpu', comparisonKind: 'instrumentation-overhead' }), rows: [], evidenceProvenance: runtimeEvidenceProvenance }, policy)).toThrow(/nonempty observed subset/);
     expect(() => deriveAllocationEvidence(allocationInput([{ ...allocationRow(frame, 1), byteValue: 1 }]), policy)).toThrow(/RGBA transfer footprint/);
     expect(deriveAllocationEvidence({ backend: 'canvas2d', rows: [], evidenceProvenance: runtimeEvidenceProvenance }, policy).state).toBe('not-applicable-no-covered-allocation-request');
+  });
+
+  it('keeps all accepted runs for an allocation raw kind in one canonical manifest', () => {
+    const policy = loadBaselinePolicy();
+    const ledgerOptions = { experimentId, backend: 'webgpu' as const, comparisonKind: 'instrumentation-overhead' as const };
+    const firstAttempt = completePairAttempt({
+      sessionId: 'first-pair', pairIndex: 1, attemptIndex: 1, retryReason: null,
+      sequenceOffset: 0, timeOffset: 0, ledgerOptions
+    });
+    const secondAttempt = completePairAttempt({
+      sessionId: 'second-pair', pairIndex: 2, attemptIndex: 1, retryReason: null,
+      sequenceOffset: 6, timeOffset: 6, ledgerOptions
+    });
+    const ledger = [...firstAttempt, ...secondAttempt];
+    const acceptedRuns = deriveAcceptedInstrumentedLedgerRuns(ledger, { experimentId, backend: 'webgpu' }, policy);
+    expect(acceptedRuns).toHaveLength(2);
+    const runsById = new Map<string, { measurementEpochId: string; executionId: string }>(acceptedRuns.map((run) => [
+      run.runId,
+      { measurementEpochId: run.measurementEpochId, executionId: run.executionId }
+    ]));
+    const expected = deriveAllocationExpectedCoverage({
+      acceptedRunIds: acceptedRuns.map((run) => run.runId),
+      frameCountByRun: Object.fromEntries(acceptedRuns.map((run) => [run.runId, run.frameSourceSequences.length]))
+    }, policy);
+    const rows = expected.flatMap((entry) => Array.from({ length: entry.expectedCardinality }, (_, offset) => {
+      const row = allocationRow(entry, offset + 1);
+      const run = runsById.get(entry.runId);
+      if (!run) throw new Error(`missing accepted run ${entry.runId}`);
+      row.runId = entry.runId;
+      if (entry.carrier === 'frame-request') row.measurementEpochId = run.measurementEpochId;
+      else row.executionId = run.executionId;
+      return row;
+    }));
+    const encodedRows = ['frame-request', 'lifecycle-request'].map((rawKind) => ({
+      rawKind,
+      encoded: encodePerformanceEvidence(rawKind, rows.filter((row) => row.carrier === rawKind), policy)
+    }));
+    expect(deriveAllocationEvidence({
+      experimentId,
+      backend: 'webgpu',
+      policyHash,
+      ledger,
+      rows: undefined,
+      encodedRows,
+      evidenceProvenance: runtimeEvidenceProvenance
+    }, policy).state).toBe('measured-request-proxy');
   });
 
   it('keeps policy-owned synthetic capacity coverage non-publication and binds it to the logical frame cohort', () => {
@@ -345,7 +442,129 @@ describe('performance evidence policy evaluator', () => {
     expect(cpuWindow.cpuLowerPp).toBeLessThanOrEqual(cpuWindow.cpuUpperPp);
     expect(score.verdict).toBe('pass');
     const encoded = encodePerformanceEvidence('cpu-sample', [{ runId: 'run', ordinal: 2 }, { runId: 'run', ordinal: 1 }]);
+    expect(encoded.columns).toEqual(compiledPolicy.policy.performanceEvidenceChunkPolicy.rawKinds['cpu-sample'].columns);
     expect(decodePerformanceEvidence(encoded)).toEqual([{ runId: 'run', ordinal: 1 }, { runId: 'run', ordinal: 2 }]);
+  });
+
+  it('uses raw-kind schemas and policy-defined columns for canonical optional cells', () => {
+    const coverage = deriveAllocationExpectedCoverage({ acceptedRunIds: ['run'], frameCountByRun: { run: 1 } }, compiledPolicy);
+    const rgba = coverage.find((entry) => entry.byteSemantics === 'rgba-transfer-footprint');
+    const countOnly = coverage.find((entry) => entry.byteSemantics === 'count-only-unavailable');
+    if (!rgba || !countOnly) throw new Error('expected frame allocation coverage fixtures');
+    const rows = [allocationRow(rgba, 1), allocationRow(countOnly, 1)];
+    const encoded = encodePerformanceEvidence('frame-request', rows, compiledPolicy);
+    expect(encoded.columns).toEqual(compiledPolicy.policy.performanceEvidenceChunkPolicy.rawKinds['frame-request'].columns);
+    expect(encoded.dictionary.map((entry: { state: number }) => entry.state)).toEqual(expect.arrayContaining([0, 1, 2]));
+    expect(decodePerformanceEvidence(encoded)).toEqual([rows[1], rows[0]]);
+    expect(() => encodePerformanceEvidence('frame-request', [{ ...rows[0], unexpected: true }], compiledPolicy)).toThrow(/unrecognized column/);
+    const missingRunId = { ...rows[0] };
+    delete missingRunId.runId;
+    expect(() => encodePerformanceEvidence('frame-request', [missingRunId], compiledPolicy)).toThrow(/missing required column runId/);
+    expect(() => encodePerformanceEvidence('frame-request', [{ ...rows[0], byteValue: undefined }], compiledPolicy)).toThrow(/JSON values or null/);
+  });
+
+  it('enforces the raw-row cap per run and raw kind', () => {
+    const acceptedAcrossRuns = [
+      ...Array.from({ length: 8193 }, (_, ordinal) => ({ runId: 'run-a', ordinal })),
+      ...Array.from({ length: 8192 }, (_, ordinal) => ({ runId: 'run-b', ordinal }))
+    ];
+    expect(encodePerformanceEvidence('cpu-sample', acceptedAcrossRuns, compiledPolicy).chunks).not.toHaveLength(0);
+    const overflowOneRun = Array.from({ length: 16385 }, (_, ordinal) => ({ runId: 'run-overflow', ordinal }));
+    expect(() => encodePerformanceEvidence('cpu-sample', overflowOneRun, compiledPolicy)).toThrow(/run run-overflow exceeds 16384 rows/);
+  });
+
+  it('keeps performance ordering stable when locale comparison behavior changes', () => {
+    const input = { acceptedRunIds: ['z-run', 'a-run', 'ä-run'], frameCountByRun: { 'z-run': 1, 'a-run': 1, 'ä-run': 1 } };
+    const baseline = deriveAllocationExpectedCoverage(input, compiledPolicy);
+    const originalLocaleCompare = String.prototype.localeCompare;
+    let contrasted: ReturnType<typeof deriveAllocationExpectedCoverage>;
+    try {
+      String.prototype.localeCompare = () => -1;
+      contrasted = deriveAllocationExpectedCoverage(input, compiledPolicy);
+    } finally {
+      String.prototype.localeCompare = originalLocaleCompare;
+    }
+    expect(contrasted).toEqual(baseline);
+  });
+
+  it('allows only contiguous, bounded whole-pair retries and reserves completed retries for CPU-boundary overlap', () => {
+    const first = completePairAttempt({ sessionId: 'pair-1-attempt-1', pairIndex: 1, attemptIndex: 1, retryReason: null, sequenceOffset: 0, timeOffset: 0 });
+    const retry = completePairAttempt({ sessionId: 'pair-1-attempt-2', pairIndex: 1, attemptIndex: 2, retryReason: 'cpu-boundary-overlap', sequenceOffset: 6, timeOffset: 6 });
+    expect(validatePerformanceLedger([...first, ...retry] as never)).toEqual([...first, ...retry]);
+    const nonCpuCompletedRetry = completePairAttempt({ sessionId: 'pair-1-attempt-2', pairIndex: 1, attemptIndex: 2, retryReason: 'sample-floor', sequenceOffset: 6, timeOffset: 6 });
+    expect(() => validatePerformanceLedger([...first, ...nonCpuCompletedRetry] as never)).toThrow(/completed cpu-boundary-overlap/);
+    const fourthAttempt = completePairAttempt({ sessionId: 'pair-1-attempt-4', pairIndex: 1, attemptIndex: 4, retryReason: 'cpu-boundary-overlap', sequenceOffset: 18, timeOffset: 18 });
+    expect(() => validatePerformanceLedger([...first, ...retry, ...completePairAttempt({ sessionId: 'pair-1-attempt-3', pairIndex: 1, attemptIndex: 3, retryReason: 'cpu-boundary-overlap', sequenceOffset: 12, timeOffset: 12 }), ...fourthAttempt] as never)).toThrow(/retry limit|attempt indices/);
+    const harnessOptions = { experimentId, backend: 'webgpu' as const, comparisonKind: 'harness-overhead' as const };
+    const instrumentationOptions = { experimentId, backend: 'webgpu' as const, comparisonKind: 'instrumentation-overhead' as const };
+    const harnessFirstAttempt = completePairAttempt({
+      sessionId: 'harness-pair-1-attempt-1', pairIndex: 1, attemptIndex: 1, retryReason: null,
+      sequenceOffset: 0, timeOffset: 0, ledgerOptions: harnessOptions
+    });
+    const crossKindAttemptTwo = completePairAttempt({
+      sessionId: 'instrumentation-pair-1-attempt-2', pairIndex: 1, attemptIndex: 2, retryReason: 'cpu-boundary-overlap',
+      sequenceOffset: 6, timeOffset: 6, ledgerOptions: instrumentationOptions
+    });
+    expect(() => validatePerformanceLedger([...harnessFirstAttempt, ...crossKindAttemptTwo] as never)).toThrow(/attempt indices must be contiguous/);
+    const instrumentationFirstAttempt = completePairAttempt({
+      sessionId: 'instrumentation-pair-1-attempt-1', pairIndex: 1, attemptIndex: 1, retryReason: null,
+      sequenceOffset: 6, timeOffset: 6, ledgerOptions: instrumentationOptions
+    });
+    expect(validatePerformanceLedger([...harnessFirstAttempt, ...instrumentationFirstAttempt] as never)).toEqual([...harnessFirstAttempt, ...instrumentationFirstAttempt]);
+    expect(classifyFailure({ phase: 'measurement', backend: 'webgpu', reason: 'cpu-boundary-overlap' })).toBe('retryable-pair-invalid');
+  });
+
+  it('rejects mixed retry representations before a later legacy launch can be accepted', () => {
+    const ledgerOptions = { experimentId, backend: 'webgpu' as const, comparisonKind: 'instrumentation-overhead' as const };
+    const abortReason = { phase: 'side-a', backend: 'webgpu', reason: 'host-noise' };
+    const explicitAbortedAttempt = completePairAttempt({
+      sessionId: 'explicit-aborted', pairIndex: 1, attemptIndex: 1, retryReason: null,
+      sequenceOffset: 0, timeOffset: 0, ledgerOptions
+    }).slice(0, 3) as Array<Record<string, any>>;
+    explicitAbortedAttempt[2] = {
+      ...explicitAbortedAttempt[2],
+      outcome: 'failed',
+      abortReason,
+      lastBoundary: 'reset-a'
+    };
+    explicitAbortedAttempt.push({
+      sequence: 4,
+      operationId: 'metric-adapter-session-close',
+      start: 3,
+      end: 4,
+      metricSessionId: 'explicit-aborted',
+      outcome: 'aborted',
+      abortReason,
+      lastBoundary: 'reset-a',
+      closure: explicitAbortedAttempt[2].cleanup
+    });
+    const legacySession = (sequenceOffset: number, prefix: string) => validLedger(ledgerOptions).map((entry) => {
+      const remapped = {
+        ...entry,
+        sequence: entry.sequence + sequenceOffset,
+        start: entry.start + sequenceOffset,
+        end: entry.end + sequenceOffset
+      } as Record<string, any>;
+      if ('metricSessionId' in remapped) remapped.metricSessionId = `${prefix}-session`;
+      if (remapped.operationId === 'internal-reset') remapped.resetId = `${prefix}-${remapped.resetId}`;
+      if (remapped.operationId === 'electron-harness-spawn') {
+        remapped.runId = `${prefix}-${remapped.runId}`;
+        remapped.launchId = `${prefix}-${remapped.launchId}`;
+        remapped.executionId = `${prefix}-${remapped.executionId}`;
+        if (remapped.measurementEpochId) remapped.measurementEpochId = `${prefix}-${remapped.measurementEpochId}`;
+      }
+      return remapped;
+    });
+    const laterLegacyAttempt = legacySession(4, 'legacy-after-abort');
+    expect(() => deriveAcceptedInstrumentedLedgerRuns(
+      [...explicitAbortedAttempt, ...laterLegacyAttempt] as never,
+      { experimentId, backend: 'webgpu' },
+      compiledPolicy
+    )).toThrow(/attempt metadata/);
+    expect(() => validatePerformanceLedger([
+      ...validLedger(ledgerOptions),
+      ...legacySession(6, 'second-legacy')
+    ] as never)).toThrow(/legacy ledger representation/);
   });
 
   it('fails closed on invalid failure tuples and metric-session grammar', () => {
@@ -427,13 +646,89 @@ describe('performance evidence policy evaluator', () => {
       ['comparison fingerprint unknown', (policy) => { policy.comparisonFingerprintPolicy.extra = true; }],
       ['qualification fingerprint incomplete', (policy) => { policy.qualificationFingerprintPolicy.includedFields.pop(); }],
       ['chunk schema unknown raw kind', (policy) => { policy.performanceEvidenceChunkPolicy.rawKinds.unknown = { sortKeys: [] }; }],
+      ['chunk schema missing columns', (policy) => { delete policy.performanceEvidenceChunkPolicy.rawKinds['cpu-sample'].columns; }],
+      ['chunk schema has nonrequired reference', (policy) => { policy.performanceEvidenceChunkPolicy.rawKinds['cpu-sample'].referenceColumns = ['processIdentity']; }],
       ['limit nested shape malformed', (policy) => { delete policy.performanceLimits.window.maximumCallbacks; }],
-      ['allocation nested schema malformed', (policy) => { policy.allocationEvidencePolicy.webgpu.coverage[0].lifecyclePhase = 'startup'; }]
+      ['allocation nested schema malformed', (policy) => { policy.allocationEvidencePolicy.webgpu.coverage[0].lifecyclePhase = 'startup'; }],
+      ['transcode impacts reordered', (policy) => { policy.transcodeDecisionPolicy.rows[0].impactedContractIds.reverse(); }],
+      ['transcode option strategy mapping changed', (policy) => {
+        [policy.transcodeDecisionPolicy.rows[0].strategy, policy.transcodeDecisionPolicy.rows[1].strategy] = [
+          policy.transcodeDecisionPolicy.rows[1].strategy,
+          policy.transcodeDecisionPolicy.rows[0].strategy
+        ];
+      }],
+      ['transcode test mapping changed', (policy) => { policy.transcodeDecisionPolicy.rows[1].impactedTestIds = ['unlisted-progress-test']; }],
+      ['transcode closure test mapping changed', (policy) => { policy.transcodeDecisionPolicy.contracts[1].closureTestIds = ['transcode-other-semantics']; }]
     ];
     for (const [label, mutate] of mutations) {
       const policy = JSON.parse(JSON.stringify(compiledPolicy.policy));
       mutate(policy);
       expect(() => validateBaselinePolicy(policy), label).toThrow(/Performance evidence failed/);
+    }
+  });
+
+  it('pins the policy-owned transcode registry as an immutable v1 semantic matrix', () => {
+    const clonePolicy = () => JSON.parse(JSON.stringify(compiledPolicy.policy));
+    const semanticBody = (policy: any) => {
+      const { version, contracts, rows } = policy.transcodeDecisionPolicy;
+      return { version, contracts, rows };
+    };
+    const expectRejected = (label: string, mutate: (policy: any) => void, message: RegExp = /Performance evidence failed/) => {
+      const policy = clonePolicy();
+      mutate(policy);
+      expect(() => validateBaselinePolicy(policy), label).toThrow(message);
+    };
+
+    expect(validateBaselinePolicy(clonePolicy()).transcodeDecisionPolicy.semanticIntegritySha256)
+      .toBe(compiledPolicy.policy.transcodeDecisionPolicy.semanticIntegritySha256);
+
+    expectRejected('arbitrary alpha beta gamma triples', (policy) => {
+      const triples = [['alpha', 'first', false], ['beta', 'second', false], ['gamma', 'third', true]];
+      policy.transcodeDecisionPolicy.rows.forEach((row: any, index: number) => {
+        [row.option, row.strategy, row.blocked] = triples[index];
+      });
+    }, /semantic integrity checksum is stale/);
+
+    for (const [left, right] of [[0, 1], [0, 2], [1, 2]]) {
+      expectRejected(`off-diagonal semantic swap ${left}-${right}`, (policy) => {
+        const rows = policy.transcodeDecisionPolicy.rows;
+        const leftState = { strategy: rows[left].strategy, blocked: rows[left].blocked };
+        rows[left].strategy = rows[right].strategy;
+        rows[left].blocked = rows[right].blocked;
+        rows[right].strategy = leftState.strategy;
+        rows[right].blocked = leftState.blocked;
+      }, /semantic integrity checksum is stale/);
+    }
+
+    expectRejected('stale policy-owned semantic integrity checksum', (policy) => {
+      policy.transcodeDecisionPolicy.rows[0].option = 'alpha';
+    }, /semantic integrity checksum is stale/);
+    expectRejected('recomputed policy-owned semantic integrity checksum', (policy) => {
+      policy.transcodeDecisionPolicy.rows[0].option = 'alpha';
+      policy.transcodeDecisionPolicy.semanticIntegritySha256 = canonicalSha256(semanticBody(policy));
+    }, /frozen v1 integrity pin/);
+    expectRejected('recomputed checksum after an omitted contract impact', (policy) => {
+      policy.transcodeDecisionPolicy.rows[0].impactedContractIds.splice(0, 1);
+      policy.transcodeDecisionPolicy.semanticIntegritySha256 = canonicalSha256(semanticBody(policy));
+    }, /frozen v1 integrity pin/);
+
+    for (const [rowIndex, row] of compiledPolicy.policy.transcodeDecisionPolicy.rows.entries()) {
+      for (const [impactIndex, contractId] of row.impactedContractIds.entries()) {
+        expectRejected(`row ${rowIndex} omits contract impact ${contractId}`, (policy) => {
+          policy.transcodeDecisionPolicy.rows[rowIndex].impactedContractIds.splice(impactIndex, 1);
+        });
+        expectRejected(`row ${rowIndex} misspells contract impact ${contractId}`, (policy) => {
+          policy.transcodeDecisionPolicy.rows[rowIndex].impactedContractIds[impactIndex] = `${contractId}-misspelled`;
+        });
+      }
+      for (const [impactIndex, testId] of row.impactedTestIds.entries()) {
+        expectRejected(`row ${rowIndex} omits test impact ${testId}`, (policy) => {
+          policy.transcodeDecisionPolicy.rows[rowIndex].impactedTestIds.splice(impactIndex, 1);
+        });
+        expectRejected(`row ${rowIndex} misspells test impact ${testId}`, (policy) => {
+          policy.transcodeDecisionPolicy.rows[rowIndex].impactedTestIds[impactIndex] = `${testId}-misspelled`;
+        });
+      }
     }
   });
 
@@ -449,6 +744,54 @@ describe('performance evidence policy evaluator', () => {
     invalidCadence.rawEvidence.runs[0].cpuSamples[1].readStart = 2;
     invalidCadence.rawEvidence.runs[0].cpuSamples[1].readEnd = 2.01;
     expect(() => evaluatePerformanceExperiment(invalidCadence, compiledPolicy)).toThrow(/cadence/);
+
+    const delayedCpuStart = JSON.parse(JSON.stringify(input));
+    delayedCpuStart.rawEvidence.runs[0].cpuSamples.forEach((sample: { readStart: number; readEnd: number }, index: number) => {
+      sample.readStart += 0.5;
+      sample.readEnd += 0.5;
+      delayedCpuStart.rawEvidence.runs[0].process.observations[index].observedAt = (sample.readStart + sample.readEnd) / 2;
+    });
+    expect(() => evaluatePerformanceExperiment(delayedCpuStart, compiledPolicy)).toThrow(/immediate workload-start/);
+
+    const missingTerminalCpuSample = JSON.parse(JSON.stringify(input));
+    missingTerminalCpuSample.rawEvidence.runs[0].cpuSamples.pop();
+    missingTerminalCpuSample.rawEvidence.runs[0].process.observations.pop();
+    expect(() => evaluatePerformanceExperiment(missingTerminalCpuSample, compiledPolicy)).toThrow(/terminal CPU sample/);
+
+    const straddlingTerminalCpuSample = JSON.parse(JSON.stringify(input));
+    const straddlingRun = straddlingTerminalCpuSample.rawEvidence.runs[0];
+    const straddlingSample = straddlingRun.cpuSamples.at(-1);
+    straddlingSample.readStart = 29.995;
+    straddlingSample.readEnd = 30.005;
+    straddlingRun.process.observations.at(-1).observedAt = 30;
+    expect(() => evaluatePerformanceExperiment(straddlingTerminalCpuSample, compiledPolicy)).toThrow(/exactly the first terminal CPU sample/);
+
+    const extraPostClosureCpuSample = JSON.parse(JSON.stringify(input));
+    const extraPostClosureRun = extraPostClosureCpuSample.rawEvidence.runs[0];
+    const firstTerminal = extraPostClosureRun.cpuSamples.at(-1);
+    const trailingSample = {
+      ...firstTerminal,
+      ordinal: firstTerminal.ordinal + 1,
+      readStart: firstTerminal.readStart + 0.5,
+      readEnd: firstTerminal.readEnd + 0.5,
+      cumulativeCpuSeconds: firstTerminal.cumulativeCpuSeconds + 0.05
+    };
+    extraPostClosureRun.cpuSamples.push(trailingSample);
+    extraPostClosureRun.process.observations.push({
+      sequence: trailingSample.ordinal,
+      observedAt: (trailingSample.readStart + trailingSample.readEnd) / 2,
+      identity: extraPostClosureRun.process.identity,
+      alive: true
+    });
+    expect(() => evaluatePerformanceExperiment(extraPostClosureCpuSample, compiledPolicy)).toThrow(/exactly the first terminal CPU sample/);
+
+    const terminalWorkingSetSpike = JSON.parse(JSON.stringify(input));
+    const instrumentedRun = terminalWorkingSetSpike.rawEvidence.runs.find((run: { runId: string }) => run.runId === 'run');
+    instrumentedRun.cpuSamples.slice(-4).forEach((sample: { workingSetMiB: number }) => {
+      sample.workingSetMiB = 1024;
+    });
+    const inWindowWorkingSetEvaluation = evaluatePerformanceExperiment(terminalWorkingSetSpike, compiledPolicy);
+    expect(inWindowWorkingSetEvaluation.rawEvidence.scores.find((score: { metricId: string }) => score.metricId === 'external-working-set-p95')).toMatchObject({ scoreUpper: 0 });
 
     const invalidTiming = JSON.parse(JSON.stringify(input));
     invalidTiming.rawEvidence.runs[0].callbackTiming.timingSpans[0].firstSourceSequence = 2;

@@ -4,6 +4,19 @@ import { fileURLToPath } from 'node:url';
 import { canonicalSha256, stableStringify, validateCaptureProvenance } from './baseline-report.js';
 
 const POLICY_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../manifests/baseline-policy.json');
+
+// Pins the policy-owned v1 transcode registry without duplicating its semantic table in code.
+const TRANSCODE_DECISION_POLICY_V1_INTEGRITY_SHA256 = '8c53e47b7ba7fe50368e779dc4e1c2028901acf4e546e02679f9a9a3f78e5bb3';
+
+function compareCodeUnitStrings(left, right) {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
+}
+
+function sortCodeUnitStrings(values) {
+  return [...values].sort(compareCodeUnitStrings);
+}
+
 const REQUIRED_OPERATION_IDS = [
   'build-spawn',
   'generic-transport-spawn',
@@ -92,7 +105,10 @@ const EXPECTED_ABORT_TUPLES = (() => {
       }
     }
   }
-  return tuples.sort((left, right) => `${left.phase}\u0000${left.backend}\u0000${left.reason}`.localeCompare(`${right.phase}\u0000${right.backend}\u0000${right.reason}`));
+  return tuples.sort((left, right) => compareCodeUnitStrings(
+    `${left.phase}\u0000${left.backend}\u0000${left.reason}`,
+    `${right.phase}\u0000${right.backend}\u0000${right.reason}`
+  ));
 })();
 
 function fail(message) {
@@ -165,6 +181,15 @@ function assertExactStringArray(value, expected, label) {
   assertArray(value, label);
   value.forEach((entry, index) => assertString(entry, `${label}[${index}]`));
   if (value.join('\u0000') !== expected.join('\u0000')) fail(`${label} is incomplete or reordered`);
+}
+
+function assertSortedUniqueStringArray(value, label, { nonEmpty = true } = {}) {
+  assertArray(value, label);
+  if (nonEmpty && value.length === 0) fail(`${label} must not be empty`);
+  value.forEach((entry, index) => assertString(entry, `${label}[${index}]`));
+  if (new Set(value).size !== value.length || stableStringify(value) !== stableStringify(sortCodeUnitStrings(value))) {
+    fail(`${label} must be a sorted, unique string array`);
+  }
 }
 
 function assertPathArray(value, label) {
@@ -358,8 +383,34 @@ export function validateBaselinePolicy(policy) {
   assertExactKeys(policy.performanceEvidenceChunkPolicy.rawKinds, Object.keys(EXPECTED_RAW_KIND_SORT_KEYS), 'performanceEvidenceChunkPolicy.rawKinds');
   for (const [rawKind, expectedSortKeys] of Object.entries(EXPECTED_RAW_KIND_SORT_KEYS)) {
     const definition = policy.performanceEvidenceChunkPolicy.rawKinds[rawKind];
-    assertExactKeys(definition, ['sortKeys'], `raw kind ${rawKind}`);
+    assertExactKeys(definition, ['sortKeys', 'columns', 'requiredColumns', 'referenceColumns', 'literalValues'], `raw kind ${rawKind}`);
     assertExactStringArray(definition.sortKeys, expectedSortKeys, `raw kind ${rawKind}.sortKeys`);
+    assertSortedUniqueStringArray(definition.columns, `raw kind ${rawKind}.columns`);
+    assertSortedUniqueStringArray(definition.requiredColumns, `raw kind ${rawKind}.requiredColumns`);
+    assertSortedUniqueStringArray(definition.referenceColumns, `raw kind ${rawKind}.referenceColumns`);
+    for (const field of [...definition.requiredColumns, ...definition.referenceColumns]) {
+      if (!definition.columns.includes(field)) fail(`raw kind ${rawKind}.${field} is not a declared column`);
+    }
+    if (!definition.referenceColumns.every((field) => definition.requiredColumns.includes(field))) {
+      fail(`raw kind ${rawKind} reference columns must be required`);
+    }
+    if (!definition.referenceColumns.includes('runId')) fail(`raw kind ${rawKind} must bind every row to a runId`);
+    if (!definition.sortKeys.every((field) => definition.requiredColumns.includes(field))) {
+      fail(`raw kind ${rawKind} sort keys must be required columns`);
+    }
+    assertObject(definition.literalValues, `raw kind ${rawKind}.literalValues`);
+    for (const [field, literal] of Object.entries(definition.literalValues)) {
+      if (!definition.columns.includes(field) || !definition.requiredColumns.includes(field)) {
+        fail(`raw kind ${rawKind} literal ${field} must be a declared required column`);
+      }
+      assertString(literal, `raw kind ${rawKind}.literalValues.${field}`);
+    }
+    const expectedCarrier = ['frame-request', 'lifecycle-request'].includes(rawKind) ? rawKind : null;
+    if (expectedCarrier === null) {
+      if (Object.keys(definition.literalValues).length !== 0) fail(`raw kind ${rawKind} cannot declare literal values`);
+    } else if (stableStringify(definition.literalValues) !== stableStringify({ carrier: expectedCarrier })) {
+      fail(`raw kind ${rawKind} must bind carrier to its raw kind`);
+    }
   }
 
   assertExactKeys(policy.performanceLimits, ['version', 'buildSeconds', 'seedMaterializationSeconds', 'cooldownAndIdleSeconds', 'readinessSeconds', 'sourceFlowSeconds', 'warmup', 'window', 'oneLaunchSeconds', 'ciExperimentSeconds', 'referenceExperimentSeconds', 'maximumEnvironmentPolls', 'maximumSameStateEvents', 'maximumProcessObservations', 'maximumIdentities', 'maximumIdentifierBytes', 'maximumPathBytes'], 'performanceLimits');
@@ -372,36 +423,63 @@ export function validateBaselinePolicy(policy) {
   for (const [label, value] of Object.entries({ ...policy.performanceLimits.warmup, ...policy.performanceLimits.window })) assertSafeInteger(value, `performanceLimits.${label}`, 1);
   if (policy.performanceLimits.buildSeconds !== 600 || policy.performanceLimits.seedMaterializationSeconds !== 30 || policy.performanceLimits.cooldownAndIdleSeconds !== 135 || policy.performanceLimits.readinessSeconds !== 30 || policy.performanceLimits.sourceFlowSeconds !== 15 || policy.performanceLimits.warmup.minimumSeconds !== 10 || policy.performanceLimits.warmup.minimumCallbacks !== 600 || policy.performanceLimits.warmup.maximumSeconds !== 30 || policy.performanceLimits.warmup.maximumCallbacks !== 900 || policy.performanceLimits.window.maximumSeconds !== 45 || policy.performanceLimits.window.maximumCallbacks !== 2048 || policy.performanceLimits.maximumEnvironmentPolls !== 300 || policy.performanceLimits.maximumSameStateEvents !== 4096 || policy.performanceLimits.maximumProcessObservations !== 1024 || policy.performanceLimits.maximumIdentities !== 128 || policy.performanceLimits.maximumIdentifierBytes !== 1024 || policy.performanceLimits.maximumPathBytes !== 4096) fail('performanceLimits are incompatible with the closed performance limits policy');
 
-  assertExactKeys(policy.transcodeDecisionPolicy, ['version', 'contracts', 'rows'], 'transcodeDecisionPolicy');
+  assertExactKeys(policy.transcodeDecisionPolicy, ['version', 'semanticIntegritySha256', 'contracts', 'rows'], 'transcodeDecisionPolicy');
   if (policy.transcodeDecisionPolicy.version !== 1) fail('transcodeDecisionPolicy.version must be 1');
+  assertSha(policy.transcodeDecisionPolicy.semanticIntegritySha256, 'transcodeDecisionPolicy.semanticIntegritySha256');
   assertArray(policy.transcodeDecisionPolicy.contracts, 'transcodeDecisionPolicy.contracts');
-  if (policy.transcodeDecisionPolicy.contracts.length === 0) fail('transcodeDecisionPolicy.contracts must not be empty');
-  const contractIds = new Set();
+  if (policy.transcodeDecisionPolicy.contracts.length === 0) fail('transcodeDecisionPolicy contracts must not be empty');
+  const transcodeContractsById = new Map();
   for (const [index, contract] of policy.transcodeDecisionPolicy.contracts.entries()) {
-    assertExactKeys(contract, ['id', 'path', 'closureAssertion'], `transcodeDecisionPolicy.contracts[${index}]`);
+    assertExactKeys(contract, ['id', 'path', 'sourceSymbol', 'closureTestIds'], `transcodeDecisionPolicy.contracts[${index}]`);
     assertString(contract.id, `transcodeDecisionPolicy.contracts[${index}].id`);
     assertString(contract.path, `transcodeDecisionPolicy.contracts[${index}].path`);
-    assertString(contract.closureAssertion, `transcodeDecisionPolicy.contracts[${index}].closureAssertion`);
-    if (contractIds.has(contract.id)) fail('transcodeDecisionPolicy contracts must be unique');
-    contractIds.add(contract.id);
+    assertString(contract.sourceSymbol, `transcodeDecisionPolicy.contracts[${index}].sourceSymbol`);
+    assertSortedUniqueStringArray(contract.closureTestIds, `transcodeDecisionPolicy.contracts[${index}].closureTestIds`);
+    if (transcodeContractsById.has(contract.id)) fail('transcodeDecisionPolicy contract IDs must be unique');
+    transcodeContractsById.set(contract.id, contract);
   }
   assertArray(policy.transcodeDecisionPolicy.rows, 'transcodeDecisionPolicy.rows');
+  if (policy.transcodeDecisionPolicy.rows.length !== 3) fail('transcodeDecisionPolicy must define exactly three decision rows');
+  const rowOptions = new Set();
+  const rowStrategies = new Set();
+  let blockedRows = 0;
+  let previousRowKey = null;
   for (const [index, row] of policy.transcodeDecisionPolicy.rows.entries()) {
     assertExactKeys(row, ['option', 'strategy', 'blocked', 'impactedContractIds', 'impactedTestIds'], `transcodeDecisionPolicy.rows[${index}]`);
     assertString(row.option, `transcodeDecisionPolicy.rows[${index}].option`);
     assertString(row.strategy, `transcodeDecisionPolicy.rows[${index}].strategy`);
     assertBoolean(row.blocked, `transcodeDecisionPolicy.rows[${index}].blocked`);
-    assertArray(row.impactedContractIds, `transcodeDecisionPolicy.rows[${index}].impactedContractIds`);
-    assertArray(row.impactedTestIds, `transcodeDecisionPolicy.rows[${index}].impactedTestIds`);
-    row.impactedContractIds.forEach((id, contractIndex) => {
-      assertString(id, `transcodeDecisionPolicy.rows[${index}].impactedContractIds[${contractIndex}]`);
-      if (!contractIds.has(id)) fail('transcodeDecisionPolicy row references an unknown contract');
-    });
-    row.impactedTestIds.forEach((id, testIndex) => assertString(id, `transcodeDecisionPolicy.rows[${index}].impactedTestIds[${testIndex}]`));
+    if (rowOptions.has(row.option) || rowStrategies.has(row.strategy)) fail('transcodeDecisionPolicy row options and strategies must be unique');
+    rowOptions.add(row.option);
+    rowStrategies.add(row.strategy);
+    blockedRows += Number(row.blocked);
+    const rowKey = `${row.option}\u0000${row.strategy}`;
+    if (previousRowKey !== null && compareCodeUnitStrings(previousRowKey, rowKey) >= 0) {
+      fail('transcodeDecisionPolicy rows must be sorted by option and strategy');
+    }
+    previousRowKey = rowKey;
+    assertSortedUniqueStringArray(row.impactedContractIds, `transcodeDecisionPolicy.rows[${index}].impactedContractIds`);
+    assertSortedUniqueStringArray(row.impactedTestIds, `transcodeDecisionPolicy.rows[${index}].impactedTestIds`);
+    const resolvedClosureTestIds = sortCodeUnitStrings(new Set(row.impactedContractIds.flatMap((contractId) => {
+      const contract = transcodeContractsById.get(contractId);
+      if (!contract) fail(`transcodeDecisionPolicy row references an unknown contract: ${contractId}`);
+      return contract.closureTestIds;
+    })));
+    if (stableStringify(row.impactedTestIds) !== stableStringify(resolvedClosureTestIds)) {
+      fail('transcodeDecisionPolicy row test IDs must resolve from its impacted contract closure test IDs');
+    }
   }
-  const rows = policy.transcodeDecisionPolicy.rows.map((row) => `${row.option}:${row.strategy}:${row.blocked}`);
-  if (rows.join('\u0000') !== 'approved-option-a:indeterminate-no-ffprobe:false\u0000approved-option-b:exact-duration-probe:false\u0000unresolved:unresolved:true') {
-    fail('transcodeDecisionPolicy rows are invalid');
+  if (blockedRows !== 1) fail('transcodeDecisionPolicy must define exactly one blocked decision row');
+  const semanticIntegritySha256 = canonicalSha256({
+    version: policy.transcodeDecisionPolicy.version,
+    contracts: policy.transcodeDecisionPolicy.contracts,
+    rows: policy.transcodeDecisionPolicy.rows
+  });
+  if (policy.transcodeDecisionPolicy.semanticIntegritySha256 !== semanticIntegritySha256) {
+    fail('transcodeDecisionPolicy semantic integrity checksum is stale');
+  }
+  if (semanticIntegritySha256 !== TRANSCODE_DECISION_POLICY_V1_INTEGRITY_SHA256) {
+    fail('transcodeDecisionPolicy does not match the frozen v1 integrity pin');
   }
   return clone(policy);
 }
@@ -434,9 +512,32 @@ export function loadBaselinePolicy(policyPath = POLICY_PATH) {
 }
 
 export function canonicalOptionalValue(value, { present = value !== undefined } = {}) {
-  if (!present || value === undefined) return { state: 0 };
+  assertBoolean(present, 'optional value present');
+  if (!present) {
+    if (value !== undefined) fail('absent optional values must not carry a value');
+    return { state: 0 };
+  }
+  if (value === undefined) fail('present optional values must be JSON values or null');
   if (value === null) return { state: 1 };
   return { state: 2, value: clone(value) };
+}
+
+function decodeCanonicalOptionalValue(value, label) {
+  assertObject(value, label);
+  assertSafeInteger(value.state, `${label}.state`, 0);
+  if (value.state === 0) {
+    assertExactKeys(value, ['state'], label);
+    return { present: false };
+  }
+  if (value.state === 1) {
+    assertExactKeys(value, ['state'], label);
+    return { present: true, value: null };
+  }
+  if (value.state === 2) {
+    assertExactKeys(value, ['state', 'value'], label);
+    return { present: true, value: clone(value.value) };
+  }
+  fail(`${label}.state must be 0 (absent), 1 (null), or 2 (value)`);
 }
 
 function selectFingerprintFields(input, policy, label) {
@@ -581,10 +682,16 @@ function validateEnvironmentEvidence(value, label, buildVariant, cpuSamples, com
   }
 }
 
-function validateCpuSamples(value, label, processIdentity, compiledPolicy) {
+function validateCpuSamples(value, label, processIdentity, workloadWindow, compiledPolicy) {
   assertArray(value, label);
+  assertObject(workloadWindow, `${label} workload window`);
+  assertFiniteNumber(workloadWindow.start, `${label} workload window start`, 0);
+  assertFiniteNumber(workloadWindow.terminalClosureEnd, `${label} terminal closure end`, workloadWindow.start);
+  if (workloadWindow.terminalClosureEnd - workloadWindow.start < 30) {
+    fail(`${label} workload window must be at least 30 seconds`);
+  }
   const metricPolicy = compiledPolicy.policy.performanceMetricPolicy;
-  if (value.length < metricPolicy.minimumRawSamples) fail(`${label} does not meet the raw CPU sample floor`);
+  if (value.length < metricPolicy.minimumRawSamples + 1) fail(`${label} does not meet the raw CPU sample floor plus a terminal closure sample`);
   const samples = value.map((sample, index) => {
     assertExactKeys(sample, ['ordinal', 'readStart', 'readEnd', 'cumulativeCpuSeconds', 'counterQuantumSeconds', 'processIdentity', 'workingSetMiB'], `${label}[${index}]`);
     assertSafeInteger(sample.ordinal, `${label}[${index}].ordinal`, 1);
@@ -606,10 +713,27 @@ function validateCpuSamples(value, label, processIdentity, compiledPolicy) {
     }
     return clone(sample);
   });
+  const firstSample = samples[0];
+  const terminalSample = samples.at(-1);
+  const inWindowSamples = samples.slice(0, -1);
+  if (firstSample.readStart !== workloadWindow.start) {
+    fail(`${label} must begin with the immediate workload-start CPU sample`);
+  }
+  if (inWindowSamples.length < metricPolicy.minimumRawSamples) {
+    fail(`${label} does not meet the fully in-window raw CPU sample floor`);
+  }
+  if (inWindowSamples.some((sample) => sample.readEnd > workloadWindow.terminalClosureEnd)
+    || terminalSample.readStart < workloadWindow.terminalClosureEnd
+    || terminalSample.readEnd <= workloadWindow.terminalClosureEnd) {
+    fail(`${label} must retain exactly the first terminal CPU sample after workload closure`);
+  }
+  if (terminalSample.readEnd - firstSample.readStart < 30) {
+    fail(`${label} raw CPU cadence does not span the required 30-second workload window`);
+  }
   const windows = [];
-  for (let index = metricPolicy.cpuWindowLagSamples; index < samples.length; index += 1) {
-    const previous = samples[index - metricPolicy.cpuWindowLagSamples];
-    const current = samples[index];
+  for (let index = metricPolicy.cpuWindowLagSamples; index < inWindowSamples.length; index += 1) {
+    const previous = inWindowSamples[index - metricPolicy.cpuWindowLagSamples];
+    const current = inWindowSamples[index];
     const window = deriveCpuWindow(previous, current);
     const midpointSpan = ((current.readStart + current.readEnd) - (previous.readStart + previous.readEnd)) / 2;
     if (midpointSpan < 18 || midpointSpan > 22) fail(`${label} lag-40 midpoint span is outside the liveness interval`);
@@ -621,7 +745,7 @@ function validateCpuSamples(value, label, processIdentity, compiledPolicy) {
     windows,
     p95Lower: nearestRank(windows.map((window) => window.cpuLowerPp), 0.95),
     p95Upper: nearestRank(windows.map((window) => window.cpuUpperPp), 0.95),
-    workingSetP95MiB: nearestRank(samples.map((sample) => sample.workingSetMiB), 0.95)
+    workingSetP95MiB: nearestRank(inWindowSamples.map((sample) => sample.workingSetMiB), 0.95)
   };
 }
 
@@ -702,6 +826,10 @@ function validateCallbackAndTimingEvidence(value, label, launch, compiledPolicy,
   if (expectedSequence !== callbackCount + 1) fail(`${label}.timingSpans omit callback timing evidence`);
   return {
     callbackCount,
+    workloadWindow: {
+      start: cohort.windowStart,
+      terminalClosureEnd: cohort.windowEnd
+    },
     sourceThroughput: callbackCount / windowSeconds,
     backendThroughput: callbackCount / Math.max(value.timingSpans.reduce((total, span) => total + (span.endedAt - span.startedAt), 0), Number.EPSILON),
     timingP95Ms: nearestRank(perCallbackDurations, 0.95),
@@ -732,10 +860,6 @@ function validateRawPerformanceEvidence(rawEvidence, ledgerDetails, compiledPoli
     assertArray(rawRun.cpuSamples, `performance raw evidence.runs[${index}].cpuSamples`);
     assertObject(rawRun.process, `performance raw evidence.runs[${index}].process`);
     assertString(rawRun.process.identity, `performance raw evidence.runs[${index}].process.identity`);
-    const cpu = validateCpuSamples(rawRun.cpuSamples, `performance raw evidence.runs[${index}].cpuSamples`, rawRun.process.identity, compiledPolicy);
-    const process = validateProcessEvidence(rawRun.process, `performance raw evidence.runs[${index}].process`, cpu.samples, compiledPolicy);
-    if (cpu.samples.some((sample) => sample.counterQuantumSeconds !== process.adapter.counterQuantumSeconds)) fail('performance raw CPU samples do not bind the selected process adapter quantum');
-    validateEnvironmentEvidence(rawRun.environment, `performance raw evidence.runs[${index}].environment`, launch.buildVariant, cpu.samples, compiledPolicy);
     const callbackTiming = validateCallbackAndTimingEvidence(
       rawRun.callbackTiming,
       `performance raw evidence.runs[${index}].callbackTiming`,
@@ -743,6 +867,16 @@ function validateRawPerformanceEvidence(rawEvidence, ledgerDetails, compiledPoli
       compiledPolicy,
       evidenceProvenance.kind === compiledPolicy.policy.capacityFixturePolicy.provenanceKind
     );
+    const cpu = validateCpuSamples(
+      rawRun.cpuSamples,
+      `performance raw evidence.runs[${index}].cpuSamples`,
+      rawRun.process.identity,
+      callbackTiming.workloadWindow,
+      compiledPolicy
+    );
+    const process = validateProcessEvidence(rawRun.process, `performance raw evidence.runs[${index}].process`, cpu.samples, compiledPolicy);
+    if (cpu.samples.some((sample) => sample.counterQuantumSeconds !== process.adapter.counterQuantumSeconds)) fail('performance raw CPU samples do not bind the selected process adapter quantum');
+    validateEnvironmentEvidence(rawRun.environment, `performance raw evidence.runs[${index}].environment`, launch.buildVariant, cpu.samples, compiledPolicy);
     runs.set(rawRun.runId, { runId: rawRun.runId, cpu, callbackTiming, launch: clone(launch) });
   }
   const scores = [];
@@ -762,13 +896,31 @@ function validateRawPerformanceEvidence(rawEvidence, ledgerDetails, compiledPoli
       'drop-rate': [baseline.callbackTiming.dropRate, compared.callbackTiming.dropRate],
       'external-working-set-p95': [baseline.cpu.workingSetP95MiB, compared.cpu.workingSetP95MiB]
     };
+    let observedCpuBoundaryOverlap = false;
     for (const definition of RAW_SCORE_DEFINITIONS) {
       const cpuMetric = definition.direction === 'cpu-range';
       const score = cpuMetric
         ? deriveCpuScore({ p95Lower: baseline.cpu.p95Lower, p95Upper: baseline.cpu.p95Upper }, { p95Lower: compared.cpu.p95Lower, p95Upper: compared.cpu.p95Upper }, allowance)
         : { scoreLower: deriveScalarRegressionScore(...scalarValues[definition.id], allowance, definition.direction), scoreUpper: deriveScalarRegressionScore(...scalarValues[definition.id], allowance, definition.direction), verdict: 'pass' };
-      if (score.scoreUpper > 1) fail(`raw performance metric ${definition.id} exceeds the allowed score bound`);
-      scores.push({ metricId: definition.id, metricSessionId: session.metricSessionId, baselineRunId: baseline.runId, comparedRunId: compared.runId, ...score });
+      if (cpuMetric && score.verdict === 'cpu-boundary-overlap') {
+        if (session.retryReason !== 'cpu-boundary-overlap') {
+          fail('a complete CPU-boundary-overlap pair requires one declared whole-pair retry after its completed close');
+        }
+        observedCpuBoundaryOverlap = true;
+      } else if (score.scoreUpper > 1) {
+        fail(`raw performance metric ${definition.id} exceeds the allowed score bound`);
+      }
+      scores.push({
+        metricId: definition.id,
+        metricSessionId: session.metricSessionId,
+        baselineRunId: baseline.runId,
+        comparedRunId: compared.runId,
+        acceptedAttempt: !session.supersededByRetry,
+        ...score
+      });
+    }
+    if (session.retryReason === 'cpu-boundary-overlap' && !observedCpuBoundaryOverlap) {
+      fail('a declared cpu-boundary-overlap retry must be proven by the preceding complete pair CPU bounds');
     }
   }
   return { runCount: runs.size, scores };
@@ -836,6 +988,7 @@ const COMPARISON_BUILD_VARIANTS = Object.freeze({
   'harness-overhead': Object.freeze(['production', 'harness-control']),
   'instrumentation-overhead': Object.freeze(['harness-control', 'instrumented'])
 });
+const MAX_WHOLE_PAIR_RETRIES = 2;
 const ABORT_LAST_BOUNDARY = Object.freeze({
   open: 'open',
   'reset-a': 'open',
@@ -846,6 +999,126 @@ const ABORT_LAST_BOUNDARY = Object.freeze({
 
 function abortTupleKey(tuple) {
   return `${tuple.phase}\u0000${tuple.backend}\u0000${tuple.reason}`;
+}
+
+function validatePairAttempt(value, label, compiledPolicy) {
+  assertExactKeys(value, ['pairIndex', 'attemptIndex', 'retryReason'], label);
+  assertSafeInteger(value.pairIndex, `${label}.pairIndex`, 1);
+  assertSafeInteger(value.attemptIndex, `${label}.attemptIndex`, 1);
+  assertString(value.retryReason, `${label}.retryReason`, { nullable: true });
+  if (value.attemptIndex === 1) {
+    if (value.retryReason !== null) fail(`${label}.retryReason must be null for the original pair attempt`);
+  } else {
+    if (value.retryReason === null || !compiledPolicy.policy.performanceFailurePolicy.retryableReasons.includes(value.retryReason)) {
+      fail(`${label}.retryReason must be a policy-declared retryable reason`);
+    }
+  }
+  return clone(value);
+}
+
+function classifyRetryableAbortReason(session, compiledPolicy) {
+  if (!session.abortReason || !['side-a', 'side-b'].includes(session.abortReason.phase)) return null;
+  const disposition = classifyFailure({
+    phase: 'measurement',
+    backend: session.abortReason.backend,
+    reason: session.abortReason.reason
+  }, compiledPolicy);
+  return disposition === 'retryable-pair-invalid' ? session.abortReason.reason : null;
+}
+
+function validateWholePairRetryTopology(sessions, compiledPolicy) {
+  const usesAttempts = sessions.some((session) => session.attempt !== null);
+  if (!usesAttempts) {
+    if (sessions.length > 1) {
+      fail('legacy ledger representation permits exactly one terminal pair; retries require explicit attempt metadata');
+    }
+    return {
+      mode: 'legacy-single-attempt',
+      pairs: sessions.map((session) => ({
+        comparisonKind: session.comparisonKind,
+        backend: session.backend,
+        pairIndex: 1,
+        attempts: [{ metricSessionId: session.metricSessionId, attemptIndex: 1, outcome: session.outcome }]
+      })),
+      supersededMetricSessionIds: new Set(),
+      retryReasonByMetricSessionId: new Map(),
+      hasUnresolvedAbort: sessions.some((session) => session.outcome === 'aborted')
+    };
+  }
+  if (sessions.some((session) => session.attempt === null)) {
+    fail('ledger attempt metadata must be present for every metric session once retries are modeled');
+  }
+  const groups = [];
+  const groupByIdentity = new Map();
+  for (const session of sessions) {
+    if (!COMPARISON_BUILD_VARIANTS[session.comparisonKind] || !['canvas2d', 'webgpu'].includes(session.backend)) {
+      fail('whole-pair attempt metadata requires a comparison kind and backend');
+    }
+    const pairIndex = session.attempt.pairIndex;
+    const groupIdentity = stableStringify({ comparisonKind: session.comparisonKind, backend: session.backend, pairIndex });
+    let group = groupByIdentity.get(groupIdentity);
+    if (!group) {
+      group = { comparisonKind: session.comparisonKind, backend: session.backend, pairIndex, attempts: [] };
+      groupByIdentity.set(groupIdentity, group);
+      groups.push(group);
+    }
+    if (groups.at(-1) !== group) fail('whole-pair attempts for one pair must be contiguous in the ledger');
+    group.attempts.push(session);
+  }
+  const supersededMetricSessionIds = new Set();
+  const retryReasonByMetricSessionId = new Map();
+  let hasUnresolvedAbort = false;
+  const nextPairIndexByFamily = new Map();
+  groups.forEach((group) => {
+    const familyIdentity = stableStringify({ comparisonKind: group.comparisonKind, backend: group.backend });
+    const expectedPairIndex = nextPairIndexByFamily.get(familyIdentity) ?? 1;
+    if (group.pairIndex !== expectedPairIndex) fail('pair indices must be contiguous from one within each comparison kind and backend');
+    nextPairIndexByFamily.set(familyIdentity, expectedPairIndex + 1);
+    if (group.attempts.length > MAX_WHOLE_PAIR_RETRIES + 1) {
+      fail(`pair ${group.pairIndex} exceeds the ${MAX_WHOLE_PAIR_RETRIES}-retry limit`);
+    }
+    group.attempts.forEach((session, attemptOffset) => {
+      const expectedAttemptIndex = attemptOffset + 1;
+      if (session.attempt.attemptIndex !== expectedAttemptIndex) {
+        fail(`pair ${group.pairIndex} attempt indices must be contiguous from one`);
+      }
+      if (attemptOffset === 0) return;
+      const previous = group.attempts[attemptOffset - 1];
+      const retryReason = session.attempt.retryReason;
+      if (previous.outcome === 'aborted') {
+        const abortedReason = classifyRetryableAbortReason(previous, compiledPolicy);
+        if (abortedReason === null || abortedReason !== retryReason) {
+          fail('a retried aborted pair must carry the matching policy-declared retry reason after cleanup');
+        }
+      } else if (previous.outcome === 'completed') {
+        if (retryReason !== 'cpu-boundary-overlap') {
+          fail('only a completed cpu-boundary-overlap pair may be retried after a completed close');
+        }
+      } else {
+        fail('a retry must follow one terminal whole-pair attempt');
+      }
+      supersededMetricSessionIds.add(previous.metricSessionId);
+      retryReasonByMetricSessionId.set(previous.metricSessionId, retryReason);
+    });
+    if (group.attempts.at(-1).outcome === 'aborted') hasUnresolvedAbort = true;
+  });
+  return {
+    mode: 'explicit-attempts',
+    pairs: groups.map((group) => ({
+      comparisonKind: group.comparisonKind,
+      backend: group.backend,
+      pairIndex: group.pairIndex,
+      attempts: group.attempts.map((session) => ({
+        metricSessionId: session.metricSessionId,
+        attemptIndex: session.attempt.attemptIndex,
+        retryReason: session.attempt.retryReason,
+        outcome: session.outcome
+      }))
+    })),
+    supersededMetricSessionIds,
+    retryReasonByMetricSessionId,
+    hasUnresolvedAbort
+  };
 }
 
 function validateAbort(entry, label, compiledPolicy, expectedPhase, expectedBackend) {
@@ -944,8 +1217,8 @@ function validatePerformanceLedgerDetails(entries, compiledPolicy) {
   const runIds = new Set();
   const launchIds = new Set();
   const externalExecutionIds = new Set();
-  const acceptedInstrumentedRuns = [];
   const completedSessions = [];
+  const terminalSessions = [];
   let binding = null;
   let hasMetricSession = false;
   let terminalAbort = false;
@@ -970,10 +1243,13 @@ function validatePerformanceLedgerDetails(entries, compiledPolicy) {
       assertString(entry.metricSessionId, `${label}.metricSessionId`);
       if (metricSessionIds.has(entry.metricSessionId)) fail('metric session IDs must be unique');
       metricSessionIds.add(entry.metricSessionId);
+      const hasAttempt = Object.prototype.hasOwnProperty.call(entry, 'attempt');
+      const attempt = hasAttempt ? validatePairAttempt(entry.attempt, `${label}.attempt`, compiledPolicy) : null;
       if (entry.outcome === 'ready') {
-        assertExactKeys(entry, ['sequence', 'operationId', 'start', 'end', 'metricSessionId', 'outcome'], label);
+        assertExactKeys(entry, ['sequence', 'operationId', 'start', 'end', 'metricSessionId', 'outcome', ...(hasAttempt ? ['attempt'] : [])], label);
         activeSession = {
           id: entry.metricSessionId,
+          attempt,
           phase: 'reset-a',
           lastBoundary: 'open',
           comparisonKind: null,
@@ -985,7 +1261,7 @@ function validatePerformanceLedgerDetails(entries, compiledPolicy) {
         continue;
       }
       if (!['failed-no-resource', 'failed-resource-owned'].includes(entry.outcome)) fail('metric session open outcome is invalid');
-      assertExactKeys(entry, ['sequence', 'operationId', 'start', 'end', 'metricSessionId', 'outcome', 'abortReason', 'lastBoundary', ...(entry.outcome === 'failed-no-resource' ? ['zeroSpawned'] : [])], label);
+      assertExactKeys(entry, ['sequence', 'operationId', 'start', 'end', 'metricSessionId', 'outcome', 'abortReason', 'lastBoundary', ...(entry.outcome === 'failed-no-resource' ? ['zeroSpawned'] : []), ...(hasAttempt ? ['attempt'] : [])], label);
       const abortReason = validateAbort(entry, label, compiledPolicy, 'open', 'none');
       if (entry.outcome === 'failed-no-resource') {
         if (entry.zeroSpawned !== true) fail('failed-no-resource open must prove zero spawned resource');
@@ -994,6 +1270,7 @@ function validatePerformanceLedgerDetails(entries, compiledPolicy) {
       }
       activeSession = {
         id: entry.metricSessionId,
+        attempt,
         phase: 'resource-owned-abort-close',
         lastBoundary: entry.lastBoundary,
         abortReason,
@@ -1068,14 +1345,18 @@ function validatePerformanceLedgerDetails(entries, compiledPolicy) {
           fail('completed metric session does not contain the exact comparison build variants');
         }
         validateClosure(entry.closure, `${label}.closure`);
-        acceptedInstrumentedRuns.push(...activeSession.launches.filter((launch) => launch.comparisonKind === 'instrumentation-overhead' && launch.buildVariant === 'instrumented'));
-        completedSessions.push({
+        const completedSession = {
           metricSessionId: activeSession.id,
+          attempt: activeSession.attempt,
           comparisonKind: activeSession.comparisonKind,
           backend: activeSession.backend,
           experimentId: activeSession.experimentId,
-          launches: clone(activeSession.launches)
-        });
+          launches: clone(activeSession.launches),
+          outcome: 'completed',
+          abortReason: null
+        };
+        completedSessions.push(completedSession);
+        terminalSessions.push(completedSession);
         activeSession = null;
         continue;
       }
@@ -1090,19 +1371,41 @@ function validatePerformanceLedgerDetails(entries, compiledPolicy) {
       if (entry.lastBoundary !== activeSession.lastBoundary) fail('aborted metric-session close has the wrong last boundary');
       if (activeSession.abortReason && stableStringify(abortReason) !== stableStringify(activeSession.abortReason)) fail('resource-owned failure must close with its original abort reason');
       validateClosure(entry.closure, `${label}.closure`);
+      terminalSessions.push({
+        metricSessionId: activeSession.id,
+        attempt: activeSession.attempt,
+        comparisonKind: activeSession.comparisonKind,
+        backend: activeSession.backend ?? abortReason.backend,
+        experimentId: activeSession.experimentId,
+        launches: clone(activeSession.launches),
+        outcome: 'aborted',
+        abortReason
+      });
       activeSession = null;
-      terminalAbort = true;
       continue;
     }
     fail(`ledger operation ${entry.operationId} has no state-machine transition`);
   }
   if (activeSession) fail('ledger has an unclosed metric session');
+  const retryTopology = validateWholePairRetryTopology(terminalSessions, compiledPolicy);
+  for (const session of completedSessions) {
+    const retryReason = retryTopology.retryReasonByMetricSessionId.get(session.metricSessionId) ?? null;
+    session.retryReason = retryReason;
+    session.supersededByRetry = retryTopology.supersededMetricSessionIds.has(session.metricSessionId);
+  }
+  const acceptedInstrumentedRuns = completedSessions
+    .filter((session) => !session.supersededByRetry)
+    .flatMap((session) => session.launches.filter((launch) => launch.comparisonKind === 'instrumentation-overhead' && launch.buildVariant === 'instrumented'));
   return {
     ledger: clone(entries),
     binding: binding && clone(binding),
     acceptedInstrumentedRuns: clone(acceptedInstrumentedRuns),
     completedSessions: clone(completedSessions),
-    hasAbortedSession: terminalAbort
+    retryTopology: {
+      mode: retryTopology.mode,
+      pairs: retryTopology.pairs
+    },
+    hasAbortedSession: terminalAbort || retryTopology.hasUnresolvedAbort
   };
 }
 
@@ -1134,7 +1437,7 @@ function allocationKey(row) {
 }
 
 function compareAllocationTuple(left, right) {
-  return allocationKey(left).localeCompare(allocationKey(right));
+  return compareCodeUnitStrings(allocationKey(left), allocationKey(right));
 }
 
 export function deriveAllocationExpectedCoverage({ acceptedRunIds, frameCountByRun }, compiledPolicy = loadBaselinePolicy()) {
@@ -1306,10 +1609,20 @@ function validateAllocationRow(row, index, expected, joins) {
 function decodeAllocationEvidenceRows(encodedRows, compiledPolicy) {
   assertArray(encodedRows, 'allocation evidence.encodedRows');
   if (encodedRows.length === 0) fail('allocation evidence.encodedRows must not be empty');
+  const allocationRawKinds = sortCodeUnitStrings(Object.entries(compiledPolicy.policy.performanceEvidenceChunkPolicy.rawKinds)
+    .filter(([, definition]) => definition.literalValues.carrier !== undefined)
+    .map(([rawKind]) => rawKind));
+  const seenRawKinds = new Set();
+  let previousRawKindIndex = -1;
   const rows = [];
   for (const [index, entry] of encodedRows.entries()) {
     assertExactKeys(entry, ['rawKind', 'encoded'], `allocation evidence.encodedRows[${index}]`);
-    if (!['frame-request', 'lifecycle-request'].includes(entry.rawKind)) fail(`allocation evidence.encodedRows[${index}].rawKind is invalid`);
+    const rawKindIndex = allocationRawKinds.indexOf(entry.rawKind);
+    if (rawKindIndex === -1) fail(`allocation evidence.encodedRows[${index}].rawKind is invalid`);
+    if (seenRawKinds.has(entry.rawKind)) fail(`allocation evidence.encodedRows must contain exactly one canonical manifest for ${entry.rawKind}`);
+    if (rawKindIndex <= previousRawKindIndex) fail('allocation evidence.encodedRows must be ordered by canonical raw kind');
+    seenRawKinds.add(entry.rawKind);
+    previousRawKindIndex = rawKindIndex;
     const decoded = decodePerformanceEvidence(entry.encoded, compiledPolicy);
     if (entry.encoded.rawKind !== entry.rawKind) fail(`allocation evidence.encodedRows[${index}] raw kind does not bind its canonical encoding`);
     for (const [rowIndex, row] of decoded.entries()) {
@@ -1328,7 +1641,7 @@ function validateSyntheticCapacityCoverage(value, expected, frameCountByRun, com
   }
   assertArray(value.frameCohorts, 'allocation evidence.syntheticCoverage.frameCohorts');
   const expectedFrameCohorts = Object.entries(frameCountByRun)
-    .sort(([left], [right]) => left.localeCompare(right))
+    .sort(([left], [right]) => compareCodeUnitStrings(left, right))
     .map(([runId, callbackCount]) => ({ runId, callbackCount }));
   for (const [index, cohort] of value.frameCohorts.entries()) {
     assertExactKeys(cohort, ['runId', 'callbackCount'], `allocation evidence.syntheticCoverage.frameCohorts[${index}]`);
@@ -1480,7 +1793,34 @@ export function deriveAllocationEvidence(input, compiledPolicy = loadBaselinePol
 }
 
 function rowKey(row, sortKeys) {
-  return sortKeys.map((key) => stableStringify(row[key] === undefined ? { absent: true } : row[key])).join('\u0000');
+  return sortKeys.map((key) => stableStringify(canonicalOptionalValue(row[key], {
+    present: Object.prototype.hasOwnProperty.call(row, key)
+  }))).join('\u0000');
+}
+
+function validatePerformanceEvidenceRow(row, rawKind, definition, index) {
+  const label = `${rawKind} rows[${index}]`;
+  assertObject(row, label);
+  const allowedColumns = new Set(definition.columns);
+  for (const column of Object.keys(row)) {
+    if (!allowedColumns.has(column)) fail(`${label} has an unrecognized column ${column}`);
+  }
+  for (const column of definition.requiredColumns) {
+    if (!Object.prototype.hasOwnProperty.call(row, column)) fail(`${label} is missing required column ${column}`);
+  }
+  for (const column of definition.columns) {
+    if (Object.prototype.hasOwnProperty.call(row, column)) {
+      canonicalOptionalValue(row[column], { present: true });
+    }
+  }
+  for (const column of definition.referenceColumns) {
+    if (column === 'policyHash') assertSha(row[column], `${label}.${column}`);
+    else assertString(row[column], `${label}.${column}`);
+  }
+  for (const [column, literal] of Object.entries(definition.literalValues)) {
+    if (row[column] !== literal) fail(`${label}.${column} must equal the raw-kind literal`);
+  }
+  return clone(row);
 }
 
 export function encodePerformanceEvidence(rawKind, rows, compiledPolicy = loadBaselinePolicy()) {
@@ -1489,24 +1829,27 @@ export function encodePerformanceEvidence(rawKind, rows, compiledPolicy = loadBa
   const definition = compiledPolicy.policy.performanceEvidenceChunkPolicy.rawKinds[rawKind];
   if (!definition) fail(`unknown raw evidence kind ${rawKind}`);
   const maximumRows = compiledPolicy.policy.performanceEvidenceChunkPolicy.maximumRowsPerRunAndKind;
-  if (rows.length > maximumRows) fail(`${rawKind} exceeds ${maximumRows} rows`);
   const sortKeys = definition.sortKeys;
+  const rowsByRunId = new Map();
   const keyedRows = rows.map((row, index) => {
-    assertObject(row, `rows[${index}]`);
-    const normalized = clone(row);
+    const normalized = validatePerformanceEvidenceRow(row, rawKind, definition, index);
+    const rowCount = (rowsByRunId.get(normalized.runId) ?? 0) + 1;
+    if (rowCount > maximumRows) fail(`${rawKind} run ${normalized.runId} exceeds ${maximumRows} rows`);
+    rowsByRunId.set(normalized.runId, rowCount);
     return { row: normalized, key: rowKey(normalized, sortKeys) };
-  }).sort((left, right) => left.key.localeCompare(right.key));
+  }).sort((left, right) => compareCodeUnitStrings(left.key, right.key));
   const keys = keyedRows.map((entry) => entry.key);
   if (new Set(keys).size !== keys.length) fail(`${rawKind} has duplicate sort keys`);
-  const columns = [...new Set(keyedRows.flatMap(({ row }) => Object.keys(row)))].sort();
-  const absentValue = stableStringify({ absent: true });
+  const columns = [...definition.columns];
   const serializedRows = keyedRows.map(({ row, key }) => ({
     key,
-    values: columns.map((column) => stableStringify(row[column] === undefined ? { absent: true } : row[column]))
+    values: columns.map((column) => stableStringify(canonicalOptionalValue(row[column], {
+      present: Object.prototype.hasOwnProperty.call(row, column)
+    })))
   }));
   const dictionaryValueSet = new Set();
   for (const { values } of serializedRows) for (const value of values) dictionaryValueSet.add(value);
-  const dictionaryValues = [...dictionaryValueSet].sort();
+  const dictionaryValues = sortCodeUnitStrings(dictionaryValueSet);
   const dictionary = dictionaryValues.map((value) => JSON.parse(value));
   const dictionaryIndex = new Map(dictionaryValues.map((value, index) => [value, index]));
   const chunkRows = compiledPolicy.policy.performanceEvidenceChunkPolicy.chunkRows;
@@ -1517,7 +1860,11 @@ export function encodePerformanceEvidence(rawKind, rows, compiledPolicy = loadBa
       rowCount: rowsInChunk.length,
       firstKey: rowsInChunk[0].key,
       lastKey: rowsInChunk.at(-1).key,
-      columns: Object.fromEntries(columns.map((column, columnIndex) => [column, rowsInChunk.map((row) => dictionaryIndex.get(row.values[columnIndex] ?? absentValue))]))
+      columns: Object.fromEntries(columns.map((column, columnIndex) => [column, rowsInChunk.map((row) => {
+        const index = dictionaryIndex.get(row.values[columnIndex]);
+        if (index === undefined) fail(`canonical ${rawKind} dictionary is missing a serialized optional value`);
+        return index;
+      })]))
     });
   }
   const result = { version: 1, rawKind, sortKeys: [...sortKeys], columns, dictionary, chunks };
@@ -1528,17 +1875,31 @@ export function decodePerformanceEvidence(encoded, compiledPolicy = loadBaseline
   assertObject(encoded, 'encoded performance evidence');
   const { checksum, ...body } = encoded;
   assertSha(checksum, 'encoded performance evidence checksum');
+  assertExactKeys(body, ['version', 'rawKind', 'sortKeys', 'columns', 'dictionary', 'chunks'], 'encoded performance evidence');
+  if (body.version !== 1) fail('encoded performance evidence version is invalid');
   if (canonicalSha256(body) !== checksum) fail('encoded performance evidence checksum mismatch');
   const definition = compiledPolicy.policy.performanceEvidenceChunkPolicy.rawKinds[body.rawKind];
   if (!definition || stableStringify(body.sortKeys) !== stableStringify(definition.sortKeys)) fail('encoded raw kind is invalid');
   assertArray(body.columns, 'encoded columns');
   assertArray(body.dictionary, 'encoded dictionary');
   assertArray(body.chunks, 'encoded chunks');
+  if (stableStringify(body.columns) !== stableStringify(definition.columns)) {
+    fail('encoded columns must match the raw-kind policy definition');
+  }
+  body.columns.forEach((column, index) => assertString(column, `encoded columns[${index}]`));
+  const dictionaryKeys = body.dictionary.map((entry, index) => stableStringify(entry));
+  if (new Set(dictionaryKeys).size !== dictionaryKeys.length || stableStringify(dictionaryKeys) !== stableStringify(sortCodeUnitStrings(dictionaryKeys))) {
+    fail('encoded optional-value dictionary must be unique and lexically sorted');
+  }
+  body.dictionary.forEach((entry, index) => decodeCanonicalOptionalValue(entry, `encoded dictionary[${index}]`));
   const rows = [];
   for (const [chunkIndex, chunk] of body.chunks.entries()) {
-    assertObject(chunk, `encoded chunk ${chunkIndex}`);
+    assertExactKeys(chunk, ['rowCount', 'firstKey', 'lastKey', 'columns'], `encoded chunk ${chunkIndex}`);
     assertSafeInteger(chunk.rowCount, `encoded chunk ${chunkIndex}.rowCount`, 1);
+    assertString(chunk.firstKey, `encoded chunk ${chunkIndex}.firstKey`);
+    assertString(chunk.lastKey, `encoded chunk ${chunkIndex}.lastKey`);
     assertObject(chunk.columns, `encoded chunk ${chunkIndex}.columns`);
+    if (stableStringify(sortCodeUnitStrings(Object.keys(chunk.columns))) !== stableStringify(body.columns)) fail(`encoded chunk ${chunkIndex} columns are incompatible with the body columns`);
     for (const column of body.columns) {
       const indexes = chunk.columns[column];
       if (!Array.isArray(indexes) || indexes.length !== chunk.rowCount) fail(`encoded chunk ${chunkIndex}.${column} is malformed`);
@@ -1546,10 +1907,12 @@ export function decodePerformanceEvidence(encoded, compiledPolicy = loadBaseline
     for (let rowIndex = 0; rowIndex < chunk.rowCount; rowIndex += 1) {
       const row = {};
       for (const column of body.columns) {
-        const dictionaryEntry = body.dictionary[chunk.columns[column][rowIndex]];
+        const dictionaryIndex = chunk.columns[column][rowIndex];
+        assertSafeInteger(dictionaryIndex, `encoded chunk ${chunkIndex}.${column}[${rowIndex}]`, 0);
+        const dictionaryEntry = body.dictionary[dictionaryIndex];
         if (dictionaryEntry === undefined) fail(`encoded chunk ${chunkIndex} references an invalid dictionary row`);
-        if (isPlainObject(dictionaryEntry) && dictionaryEntry.absent === true && Object.keys(dictionaryEntry).length === 1) continue;
-        row[column] = clone(dictionaryEntry);
+        const optional = decodeCanonicalOptionalValue(dictionaryEntry, `encoded dictionary[${dictionaryIndex}]`);
+        if (optional.present) row[column] = optional.value;
       }
       rows.push(row);
     }
@@ -1658,6 +2021,7 @@ export function evaluatePerformanceExperiment(input, compiledPolicy = loadBaseli
   const publicationEligible = evidenceProvenance.kind === 'runtime-capture';
   return {
     ledger,
+    retryTopology: ledgerDetails.retryTopology,
     comparisonFingerprints,
     qualificationFingerprint: qualification.fingerprint,
     failureDisposition: qualification.failureDisposition,
@@ -1666,6 +2030,6 @@ export function evaluatePerformanceExperiment(input, compiledPolicy = loadBaseli
     rawEvidenceChecksum: canonicalSha256(input.rawEvidence),
     evidenceProvenance,
     publicationEligible,
-    checksum: canonicalSha256({ ledger, comparisonFingerprints, qualificationFingerprint: qualification.fingerprint, failureDisposition: qualification.failureDisposition, allocationEvidence, rawEvidence, rawEvidenceChecksum: canonicalSha256(input.rawEvidence), evidenceProvenance, publicationEligible })
+    checksum: canonicalSha256({ ledger, retryTopology: ledgerDetails.retryTopology, comparisonFingerprints, qualificationFingerprint: qualification.fingerprint, failureDisposition: qualification.failureDisposition, allocationEvidence, rawEvidence, rawEvidenceChecksum: canonicalSha256(input.rawEvidence), evidenceProvenance, publicationEligible })
   };
 }

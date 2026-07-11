@@ -4,7 +4,11 @@ import path from 'node:path';
 import { Transform } from 'node:stream';
 import zlib from 'node:zlib';
 import { canonicalSha256, stableStringify } from './baseline-report.js';
-import { validateRootProjection } from './baseline-evidence-contract.js';
+import {
+  assertCompressorIdentityMatches,
+  validateCompressorIdentity,
+  validateRootProjection
+} from './baseline-evidence-contract.js';
 
 /**
  * @typedef {object} EvidenceLimits
@@ -537,7 +541,7 @@ export async function computeCompressorProbeFingerprint({ corpus = deterministic
 }
 
 /**
- * @param {{ compressorProbePolicyHash: string, compressorProbeSha256?: string }} options
+ * @param {{ compressorProbePolicyHash: string }} options
  */
 let defaultCompressorProbePromise = null;
 
@@ -551,10 +555,11 @@ function defaultCompressorProbeFingerprint() {
   return defaultCompressorProbePromise;
 }
 
-export async function createCompressorIdentity({ compressorProbePolicyHash, compressorProbeSha256 = undefined } = /** @type {any} */ ({ })) {
+export async function createCompressorIdentity(options = /** @type {any} */ ({})) {
+  assertExactKeys(options, ['compressorProbePolicyHash'], 'compressor identity options');
+  const { compressorProbePolicyHash } = options;
   assertSha(compressorProbePolicyHash, 'compressorProbePolicyHash');
-  const probe = compressorProbeSha256 ?? await defaultCompressorProbeFingerprint();
-  assertSha(probe, 'compressorProbeSha256');
+  const compressorProbeSha256 = await defaultCompressorProbeFingerprint();
   return {
     codec: 'node:zlib.gzip',
     nodeVersion: process.version,
@@ -571,8 +576,25 @@ export async function createCompressorIdentity({ compressorProbePolicyHash, comp
     comment: null,
     osByte: 255,
     compressorProbePolicyHash,
-    compressorProbeSha256: probe
+    compressorProbeSha256
   };
+}
+
+function resolveArchiveCompressorIdentity(compressorProbePolicyHash, compressorIdentity) {
+  const expectedIdentity = compressorIdentity === undefined
+    ? undefined
+    : validateCompressorIdentity(compressorIdentity);
+  if (compressorProbePolicyHash !== undefined) {
+    assertSha(compressorProbePolicyHash, 'compressorProbePolicyHash');
+    if (expectedIdentity && expectedIdentity.compressorProbePolicyHash !== compressorProbePolicyHash) {
+      fail('compressorProbePolicyHash does not match compressorIdentity.compressorProbePolicyHash');
+    }
+  }
+  const policyHash = compressorProbePolicyHash ?? expectedIdentity?.compressorProbePolicyHash;
+  if (policyHash === undefined) {
+    fail('writeEvidenceArchive requires compressorProbePolicyHash or compressorIdentity');
+  }
+  return { expectedIdentity, compressorProbePolicyHash: policyHash };
 }
 
 function publicationThreshold(hardLimit, policy) {
@@ -635,7 +657,7 @@ export function measureEvidenceArchiveUtilization({ rootBytes, compressedBytes, 
   };
 }
 
-function ensureProjectionWithinHardLimits(projection, rootBytes) {
+function ensureProjectionWithinHardLimits(projection, rootBytes, limits = EVIDENCE_HARD_LIMITS) {
   const utilization = measureEvidenceArchiveUtilization({
     rootBytes,
     compressedBytes: 0,
@@ -643,7 +665,7 @@ function ensureProjectionWithinHardLimits(projection, rootBytes) {
     maximumRecordBytes: projection.maximumRecordBytes,
     objectCount: projection.objectCount,
     recordCount: projection.recordCount
-  });
+  }, { limits });
   if (!utilization.hardLimitPassed) fail(`evidence archive exceeds hard limits: ${utilization.hardFailures.join(', ')}`);
   return utilization;
 }
@@ -703,33 +725,113 @@ function atomicWrite(outputPath, bytes) {
   }
 }
 
+function createBeforeWriteMetadataSnapshot(archive) {
+  const metadata = {};
+  for (const [key, value] of Object.entries(archive)) {
+    if (key === 'gzip' || key === 'canonicalJsonl' || key === 'objects') continue;
+    metadata[key] = value;
+  }
+  return deepFreeze(clone(metadata));
+}
+
+function assertSealedArchiveGzip(gzip, archive) {
+  if (!Buffer.isBuffer(gzip)) fail('sealed archive gzip must be a buffer');
+  if (gzip.length !== archive.compressedBytes) fail('sealed archive gzip byte count does not match transport metadata');
+  const gzipSha256 = crypto.createHash('sha256').update(gzip).digest('hex');
+  if (gzipSha256 !== archive.compressedArchiveSha256) fail('sealed archive gzip hash does not match transport metadata');
+}
+
 /**
- * @param {{ outputPath?: string, objects: any, rootReferences: any, rootProjection: any, rootBytes: number, compressorProbePolicyHash?: string, compressorIdentity?: any }} input
+ * Encode canonical archive bytes through the closed production gzip transport. This is
+ * intentionally available to decoder-boundary fixtures: malformed canonical streams
+ * must still be encoded with the exact transport implementation production uses.
+ *
+ * `compressorIdentity`, when supplied, is an expected assertion only. The returned
+ * identity always comes from this codec's actual Node/zlib settings and probe bytes.
+ *
+ * @param {Buffer|string} canonicalJsonl
+ * @param {{ compressorProbePolicyHash?: string, compressorIdentity?: any }} options
  */
-export async function writeEvidenceArchive({ outputPath, objects, rootReferences, rootProjection, rootBytes, compressorProbePolicyHash = undefined, compressorIdentity = undefined }) {
-  const projection = projectEvidenceArchive(objects, rootReferences, rootProjection);
-  ensureProjectionWithinHardLimits(projection, rootBytes);
-  const identity = compressorIdentity ?? await createCompressorIdentity({ compressorProbePolicyHash });
-  const gzip = await gzipBytes(projection.canonicalJsonl);
-  const compressedArchiveSha256 = crypto.createHash('sha256').update(gzip).digest('hex');
+export async function encodeCanonicalEvidenceArchive(canonicalJsonl, { compressorProbePolicyHash = undefined, compressorIdentity = undefined } = {}) {
+  const input = Buffer.isBuffer(canonicalJsonl) ? canonicalJsonl : Buffer.from(canonicalJsonl);
+  const transport = resolveArchiveCompressorIdentity(compressorProbePolicyHash, compressorIdentity);
+  const identity = await createCompressorIdentity({ compressorProbePolicyHash: transport.compressorProbePolicyHash });
+  if (transport.expectedIdentity) assertCompressorIdentityMatches(identity, transport.expectedIdentity);
+  const gzip = await gzipBytes(input);
+  return {
+    gzip,
+    compressedBytes: gzip.length,
+    compressedArchiveSha256: crypto.createHash('sha256').update(gzip).digest('hex'),
+    canonicalArchiveSha256: crypto.createHash('sha256').update(input).digest('hex'),
+    compressorIdentity: identity
+  };
+}
+
+/**
+ * Encode a complete typed archive through the canonical production codec without
+ * publishing it. This is deliberately separate from `writeEvidenceArchive`: callers
+ * that need to exercise decoder rejection paths can create an over-limit byte stream,
+ * while the publication API below remains fail-closed before it writes anything.
+ */
+async function encodeProjectedEvidenceArchive(projection, { rootBytes, compressorProbePolicyHash = undefined, compressorIdentity = undefined, limits = EVIDENCE_HARD_LIMITS }) {
+  const encoded = await encodeCanonicalEvidenceArchive(projection.canonicalJsonl, {
+    compressorProbePolicyHash,
+    compressorIdentity
+  });
   const utilization = measureEvidenceArchiveUtilization({
     rootBytes,
-    compressedBytes: gzip.length,
+    compressedBytes: encoded.compressedBytes,
     expandedJsonlBytes: projection.expandedJsonlBytes,
     maximumRecordBytes: projection.maximumRecordBytes,
     objectCount: projection.objectCount,
     recordCount: projection.recordCount
-  });
-  if (!utilization.hardLimitPassed) fail(`evidence archive exceeds hard limits: ${utilization.hardFailures.join(', ')}`);
-  if (outputPath) atomicWrite(outputPath, gzip);
+  }, { limits });
   return {
     ...projection,
-    compressedBytes: gzip.length,
-    compressedArchiveSha256,
-    compressorIdentity: identity,
-    gzip,
+    ...encoded,
     utilization
   };
+}
+
+/**
+ * @param {{ objects: any, rootReferences: any, rootProjection: any, rootBytes: number, compressorProbePolicyHash?: string, compressorIdentity?: any, limits?: EvidenceLimits }} input
+ */
+export async function encodeEvidenceArchive({ objects, rootReferences, rootProjection, rootBytes, compressorProbePolicyHash = undefined, compressorIdentity = undefined, limits = EVIDENCE_HARD_LIMITS }) {
+  const projection = projectEvidenceArchive(objects, rootReferences, rootProjection);
+  return encodeProjectedEvidenceArchive(projection, {
+    rootBytes,
+    compressorProbePolicyHash,
+    compressorIdentity,
+    limits: normalizeReplayLimits(limits)
+  });
+}
+
+/**
+ * `beforeWrite` receives only a deeply frozen, detached metadata snapshot. It never
+ * receives archive bytes or the object graph that will be persisted.
+ *
+ * @param {{ outputPath?: string, objects: any, rootReferences: any, rootProjection: any, rootBytes: number, compressorProbePolicyHash?: string, compressorIdentity?: any, limits?: EvidenceLimits, beforeWrite?: (archiveMetadata: any) => void|Promise<void> }} input
+ */
+export async function writeEvidenceArchive({ outputPath, objects, rootReferences, rootProjection, rootBytes, compressorProbePolicyHash = undefined, compressorIdentity = undefined, limits = EVIDENCE_HARD_LIMITS, beforeWrite = undefined }) {
+  if (beforeWrite !== undefined && typeof beforeWrite !== 'function') fail('writeEvidenceArchive beforeWrite must be a function');
+  const normalizedLimits = normalizeReplayLimits(limits);
+  const projection = projectEvidenceArchive(objects, rootReferences, rootProjection);
+  ensureProjectionWithinHardLimits(projection, rootBytes, normalizedLimits);
+  const archive = await encodeProjectedEvidenceArchive(projection, {
+    rootBytes,
+    compressorProbePolicyHash,
+    compressorIdentity,
+    limits: normalizedLimits
+  });
+  if (!archive.utilization.hardLimitPassed) {
+    fail(`evidence archive exceeds hard limits: ${archive.utilization.hardFailures.join(', ')}`);
+  }
+  const sealedGzip = Buffer.from(archive.gzip);
+  assertSealedArchiveGzip(sealedGzip, archive);
+  if (beforeWrite) await beforeWrite(createBeforeWriteMetadataSnapshot(archive));
+  assertSealedArchiveGzip(sealedGzip, archive);
+  if (outputPath) atomicWrite(outputPath, sealedGzip);
+  return { ...archive, gzip: Buffer.from(sealedGzip) };
 }
 
 function parseCanonicalRecord(lineBuffer, index, limits) {
@@ -841,6 +943,7 @@ function readGzipJsonlWithCaps(inputPath, limits) {
     let expandedBytes = 0;
     let trailing = Buffer.alloc(0);
     const records = [];
+    let indexedObjectRecordCount = 0;
     let settled = false;
     let crc32 = 0xffffffff;
     const abort = (error) => {
@@ -887,16 +990,36 @@ function readGzipJsonlWithCaps(inputPath, limits) {
         }
         const line = trailing.length === 0 ? segment : Buffer.concat([trailing, segment]);
         trailing = Buffer.alloc(0);
-        if (records.length >= limits.maxTotalRecords) {
-          abort(new Error('archive exceeds the total-record hard limit'));
-          return;
-        }
+        let record;
         try {
-          records.push(parseCanonicalRecord(line, records.length, limits));
+          record = parseCanonicalRecord(line, records.length, limits);
         } catch (error) {
           abort(error);
           return;
         }
+        if (records.length === 0) {
+          if (record.recordType !== 'index') {
+            abort(new Error('archive must begin with an index record'));
+            return;
+          }
+          if (Array.isArray(record.indexedHashes) && record.indexedHashes.length > limits.maxIndexedObjects) {
+            abort(new Error('archive index exceeds the indexed-object hard limit'));
+            return;
+          }
+        } else if (record.recordType === 'object' && indexedObjectRecordCount >= limits.maxIndexedObjects) {
+          abort(new Error('archive exceeds the indexed-object hard limit'));
+          return;
+        }
+        if (records.length >= limits.maxTotalRecords) {
+          abort(new Error('archive exceeds the total-record hard limit'));
+          return;
+        }
+        if (records.length > 0 && record.recordType !== 'object') {
+          abort(new Error(`record ${records.length} must be an object record`));
+          return;
+        }
+        if (records.length > 0) indexedObjectRecordCount += 1;
+        records.push(record);
         offset = newline + 1;
       }
     });
@@ -967,6 +1090,9 @@ export async function readEvidenceArchive(inputPath, {
       objects.set(entry.hash, entry);
     }
     const projection = projectEvidenceArchive(objects, index.rootReferences, context);
+    if (projection.objectCount > normalizedLimits.maxIndexedObjects) {
+      fail('archive exceeds the indexed-object hard limit');
+    }
     if (stableStringify(projection.objectIndex) !== stableStringify(index)) fail('archive index does not match the graph projection');
     if (projection.canonicalArchiveSha256 !== streamed.canonicalArchiveSha256 || projection.expandedJsonlBytes !== streamed.expandedJsonlBytes) {
       fail('archive JSONL ordering or bytes are noncanonical');

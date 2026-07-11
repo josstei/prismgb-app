@@ -56,6 +56,39 @@ describe('baseline report canonicalization', () => {
     expect(() => deriveEvidenceId('performance-run', {})).toThrow(/missing experimentRole/);
   });
 
+  it('rejects delimiter-bearing evidence identity dimensions', () => {
+    expect(() => deriveEvidenceId('package', { targetId: 'linux:x64', buildMode: 'release' })).toThrow(/delimiter/);
+    expect(() => deriveEvidenceId('performance-experiment', { experimentId: 'experiment:one' })).toThrow(/delimiter/);
+    expect(() => deriveEvidenceId('performance-run', {
+      experimentRole: 'ci-integrity',
+      comparisonFingerprint: 'a'.repeat(64),
+      comparisonKind: 'harness-overhead',
+      backend: 'web:gpu',
+      pairIndex: 1,
+      buildVariant: 'production',
+      attemptIndex: 1
+    })).toThrow(/delimiter/);
+  });
+
+  it('rejects noncanonical input paths and extra or conflicting identity dimensions', () => {
+    expect(() => envelope({ inputs: { paths: ['./src/main.ts'], policyVersion: 1 } })).toThrow(/normalized repository-relative path/);
+    expect(() => envelope({ inputs: { paths: ['src//main.ts'], policyVersion: 1 } })).toThrow(/normalized repository-relative path/);
+    expect(() => deriveEvidenceId('source', { unexpected: true })).toThrow(/unknown key/);
+    expect(() => deriveEvidenceId('hardware-qualification', {
+      noHostSelected: true,
+      qualificationFingerprint: 'a'.repeat(64)
+    })).toThrow(/unknown key/);
+    expect(() => deriveEvidenceId('performance-run', {
+      experimentRole: 'ci-integrity',
+      comparisonFingerprint: 'a'.repeat(64),
+      comparisonKind: 'harness-overhead',
+      backend: 'unsupported',
+      pairIndex: 1,
+      buildVariant: 'production',
+      attemptIndex: 1
+    })).toThrow(/backend is invalid/);
+  });
+
   it('accepts only the closed provider-discriminated provenance records', () => {
     expect(validateCaptureProvenance(localCapture())).toEqual(localCapture());
     expect(() => validateCaptureProvenance({ ...localCapture(), extra: true })).toThrow(/unknown key/);

@@ -10,8 +10,10 @@ import {
   createBaselineEnvelope,
   readBaselineReport,
   stableStringify,
+  validateCaptureProvenance,
   writeBaselineReport
 } from './lib/baseline-report.js';
+import { VITE_ELECTRON_RENDERER_PLACEHOLDER } from './clean-generated.js';
 import { loadBaselinePolicy } from './lib/performance-evidence.js';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -19,6 +21,11 @@ const ANALYSIS_FILE = 'CODEBASE_NORMALIZATION_AND_REDUCTION_ANALYSIS.md';
 
 function fail(message) {
   throw new Error(`Codebase baseline failed: ${message}`);
+}
+
+function compareCodeUnitStrings(left, right) {
+  if (left === right) return 0;
+  return left < right ? -1 : 1;
 }
 
 function normalizeRelativePath(value) {
@@ -137,8 +144,8 @@ export function collectSurface({ files, readFile, policy, packageBytes }) {
   const scriptLines = areas.scripts?.physicalLines ?? 0;
   return {
     totals,
-    areas: Object.fromEntries(Object.entries(areas).sort(([left], [right]) => left.localeCompare(right))),
-    extensions: Object.fromEntries(Object.entries(extensions).sort(([left], [right]) => left.localeCompare(right))),
+    areas: Object.fromEntries(Object.entries(areas).sort(([left], [right]) => compareCodeUnitStrings(left, right))),
+    extensions: Object.fromEntries(Object.entries(extensions).sort(([left], [right]) => compareCodeUnitStrings(left, right))),
     directDependencies: directDependencies(packageBytes, 'surface'),
     ratios: {
       testToSource: sourceLines === 0 ? null : testLines / sourceLines,
@@ -207,7 +214,7 @@ function originToWorkspaceDiff(programOriginSha, { cwd, spawn, originFileSet, tr
   const modifiedPaths = [...numstat.entries()]
     .filter(([file]) => originFileSet.has(file) && trackedFileSet.has(file))
     .map(([file, stat]) => ({ path: file, ...stat, hunkCount: hunks.get(file) ?? 0 }))
-    .sort((left, right) => left.path.localeCompare(right.path));
+    .sort((left, right) => compareCodeUnitStrings(left.path, right.path));
   return {
     modifiedPaths,
     modifiedHunkCount: modifiedPaths.reduce((total, entry) => total + entry.hunkCount, 0),
@@ -238,7 +245,7 @@ function statusEntries({ cwd, spawn }) {
     entries.push({ status, path: file });
     if (status.includes('R') || status.includes('C')) index += 1;
   }
-  return entries.sort((left, right) => left.path.localeCompare(right.path));
+  return entries.sort((left, right) => compareCodeUnitStrings(left.path, right.path));
 }
 
 function allowedGeneratedResidue(entry, { cwd, policy }) {
@@ -246,8 +253,8 @@ function allowedGeneratedResidue(entry, { cwd, policy }) {
   if (policy.sourcePolicy.buildOutputArtifactPaths.some((prefix) => entry.path === prefix || entry.path.startsWith(`${prefix}/`))) {
     if (entry.path !== 'index.html') return true;
     try {
-      const placeholder = fs.readFileSync(path.join(cwd, entry.path), 'utf8').trim();
-      return placeholder.includes('vite-plugin-electron') && placeholder.includes('An entry file for electron renderer process.');
+      const placeholder = fs.readFileSync(path.join(cwd, entry.path), 'utf8');
+      return placeholder === VITE_ELECTRON_RENDERER_PLACEHOLDER;
     } catch {
       return false;
     }
@@ -279,6 +286,17 @@ function createDefaultCaptureProvenance({ sourceSha, analysisSha256 }) {
       reportSetId: process.env.PRISMGB_BASELINE_REPORT_SET_ID ?? 'local-source'
     }
   };
+}
+
+function bindCaptureProvenanceToSource(captureProvenance, { sourceSha, analysisSha256 }) {
+  const provenance = validateCaptureProvenance(captureProvenance);
+  if (provenance.sourceSha !== sourceSha) {
+    fail(`capture provenance sourceSha must match repository HEAD: expected ${sourceSha}, received ${provenance.sourceSha}`);
+  }
+  if (provenance.analysisSha256 !== analysisSha256) {
+    fail(`capture provenance analysisSha256 must match the validated analysis digest: expected ${analysisSha256}, received ${provenance.analysisSha256}`);
+  }
+  return provenance;
 }
 
 export function validateAnalysisDigest({ cwd = PROJECT_ROOT, policy }) {
@@ -350,7 +368,10 @@ export function createSourceBaseline({
     fail(`repository has unexpected source state: ${repository.unexpectedPaths.join(', ')}`);
   }
   const warnings = repository.dirty ? [`unexpected-source-state:${repository.unexpectedPaths.join(',')}`] : [];
-  const provenance = captureProvenance ?? createDefaultCaptureProvenance({ sourceSha: repository.commitSha, analysisSha256 });
+  const provenance = bindCaptureProvenanceToSource(
+    captureProvenance ?? createDefaultCaptureProvenance({ sourceSha: repository.commitSha, analysisSha256 }),
+    { sourceSha: repository.commitSha, analysisSha256 }
+  );
   const report = createBaselineEnvelope({
     schemaVersion: BASELINE_SCHEMA_VERSION,
     kind: 'source',

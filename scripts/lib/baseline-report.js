@@ -8,6 +8,7 @@ const SINGLETON_KINDS = new Set(['source', 'events', 'lifecycle', 'behavior']);
 const PERFORMANCE_ROLES = new Set(['ci-integrity', 'reference-comparison']);
 const COMPARISON_KINDS = new Set(['harness-overhead', 'instrumentation-overhead']);
 const BUILD_VARIANTS = new Set(['production', 'harness-control', 'instrumented']);
+const BACKENDS = new Set(['canvas2d', 'webgpu']);
 const MAX_TEXT_BYTES = 1024;
 
 function fail(message) {
@@ -54,11 +55,14 @@ function assertSafePositiveInteger(value, label) {
 
 function normalizeRelativePath(value, label) {
   assertString(value, label, { maxBytes: 4096 });
-  const normalized = value.replaceAll('\\', '/');
-  if (normalized.startsWith('/') || normalized.split('/').includes('..') || normalized === '.') {
+  if (value.includes('\\')) {
     fail(`${label} must be a normalized repository-relative path`);
   }
-  return normalized;
+  const segments = value.split('/');
+  if (value.startsWith('/') || segments.some((segment) => segment.length === 0 || segment === '.' || segment === '..')) {
+    fail(`${label} must be a normalized repository-relative path`);
+  }
+  return value;
 }
 
 function assertJsonValue(value, label, stack = new Set()) {
@@ -165,23 +169,44 @@ function requireDimension(dimensions, key) {
   return dimensions[key];
 }
 
+function assertExactDimensions(dimensions, keys, kind) {
+  const expected = new Set(keys);
+  for (const key of Object.keys(dimensions)) {
+    if (!expected.has(key)) fail(`${kind} evidence dimensions have unknown key ${key}`);
+  }
+  for (const key of keys) {
+    if (!(key in dimensions)) fail(`${kind} evidence dimensions are missing ${key}`);
+  }
+}
+
+function assertEvidenceIdSegment(value, label) {
+  assertString(value, label);
+  if (value.includes(':')) fail(`${label} must not contain the evidence-ID delimiter`);
+}
+
 export function deriveEvidenceId(kind, dimensions = {}) {
   assertString(kind, 'kind');
   assertPlainObject(dimensions, 'evidence dimensions');
-  if (SINGLETON_KINDS.has(kind)) return kind;
+  if (SINGLETON_KINDS.has(kind)) {
+    assertExactDimensions(dimensions, [], kind);
+    return kind;
+  }
   if (kind === 'package') {
+    assertExactDimensions(dimensions, ['targetId', 'buildMode'], kind);
     const targetId = requireDimension(dimensions, 'targetId');
     const buildMode = requireDimension(dimensions, 'buildMode');
-    assertString(targetId, 'dimensions.targetId');
-    assertString(buildMode, 'dimensions.buildMode');
+    assertEvidenceIdSegment(targetId, 'dimensions.targetId');
+    assertEvidenceIdSegment(buildMode, 'dimensions.buildMode');
     return `package:${targetId}:${buildMode}`;
   }
   if (kind === 'performance-experiment') {
+    assertExactDimensions(dimensions, ['experimentId'], kind);
     const experimentId = requireDimension(dimensions, 'experimentId');
-    assertString(experimentId, 'dimensions.experimentId');
+    assertEvidenceIdSegment(experimentId, 'dimensions.experimentId');
     return `performance-experiment:${experimentId}`;
   }
   if (kind === 'performance-run') {
+    assertExactDimensions(dimensions, ['experimentRole', 'comparisonFingerprint', 'comparisonKind', 'backend', 'pairIndex', 'buildVariant', 'attemptIndex'], kind);
     const role = requireDimension(dimensions, 'experimentRole');
     const fingerprint = requireDimension(dimensions, 'comparisonFingerprint');
     const comparisonKind = requireDimension(dimensions, 'comparisonKind');
@@ -192,13 +217,15 @@ export function deriveEvidenceId(kind, dimensions = {}) {
     if (!PERFORMANCE_ROLES.has(role)) fail('dimensions.experimentRole is invalid');
     assertHex(fingerprint, 'dimensions.comparisonFingerprint', [64]);
     if (!COMPARISON_KINDS.has(comparisonKind)) fail('dimensions.comparisonKind is invalid');
-    assertString(backend, 'dimensions.backend');
+    assertEvidenceIdSegment(backend, 'dimensions.backend');
+    if (!BACKENDS.has(backend)) fail('dimensions.backend is invalid');
     assertSafePositiveInteger(pairIndex, 'dimensions.pairIndex');
     if (!BUILD_VARIANTS.has(buildVariant)) fail('dimensions.buildVariant is invalid');
     assertSafePositiveInteger(attemptIndex, 'dimensions.attemptIndex');
     return `performance-run:${role}:${fingerprint}:${comparisonKind}:${backend}:${pairIndex}:${buildVariant}:${attemptIndex}`;
   }
   if (kind === 'performance-aggregate') {
+    assertExactDimensions(dimensions, ['experimentRole', 'comparisonFingerprint', 'comparisonKind', 'backend', 'buildVariant'], kind);
     const role = requireDimension(dimensions, 'experimentRole');
     const fingerprint = requireDimension(dimensions, 'comparisonFingerprint');
     const comparisonKind = requireDimension(dimensions, 'comparisonKind');
@@ -207,11 +234,13 @@ export function deriveEvidenceId(kind, dimensions = {}) {
     if (!PERFORMANCE_ROLES.has(role)) fail('dimensions.experimentRole is invalid');
     assertHex(fingerprint, 'dimensions.comparisonFingerprint', [64]);
     if (!COMPARISON_KINDS.has(comparisonKind)) fail('dimensions.comparisonKind is invalid');
-    assertString(backend, 'dimensions.backend');
+    assertEvidenceIdSegment(backend, 'dimensions.backend');
+    if (!BACKENDS.has(backend)) fail('dimensions.backend is invalid');
     if (!BUILD_VARIANTS.has(buildVariant)) fail('dimensions.buildVariant is invalid');
     return `performance-aggregate:${role}:${fingerprint}:${comparisonKind}:${backend}:${buildVariant}`;
   }
   if (kind === 'performance-comparison') {
+    assertExactDimensions(dimensions, ['experimentRole', 'comparisonFingerprint', 'comparisonKind', 'backend'], kind);
     const role = requireDimension(dimensions, 'experimentRole');
     const fingerprint = requireDimension(dimensions, 'comparisonFingerprint');
     const comparisonKind = requireDimension(dimensions, 'comparisonKind');
@@ -219,11 +248,16 @@ export function deriveEvidenceId(kind, dimensions = {}) {
     if (!PERFORMANCE_ROLES.has(role)) fail('dimensions.experimentRole is invalid');
     assertHex(fingerprint, 'dimensions.comparisonFingerprint', [64]);
     if (!COMPARISON_KINDS.has(comparisonKind)) fail('dimensions.comparisonKind is invalid');
-    assertString(backend, 'dimensions.backend');
+    assertEvidenceIdSegment(backend, 'dimensions.backend');
+    if (!BACKENDS.has(backend)) fail('dimensions.backend is invalid');
     return `performance-comparison:${role}:${fingerprint}:${comparisonKind}:${backend}`;
   }
   if (kind === 'hardware-qualification') {
-    if (dimensions.noHostSelected === true) return 'hardware-qualification:no-host-selected';
+    if (dimensions.noHostSelected === true) {
+      assertExactDimensions(dimensions, ['noHostSelected'], kind);
+      return 'hardware-qualification:no-host-selected';
+    }
+    assertExactDimensions(dimensions, ['qualificationFingerprint'], kind);
     const fingerprint = requireDimension(dimensions, 'qualificationFingerprint');
     assertHex(fingerprint, 'dimensions.qualificationFingerprint', [64]);
     return `hardware-qualification:${fingerprint}`;

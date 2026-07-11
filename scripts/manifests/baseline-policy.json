@@ -240,10 +240,34 @@
     "chunkRows": 256,
     "maximumRowsPerRunAndKind": 16384,
     "rawKinds": {
-      "frame-request": { "sortKeys": ["runId", "measurementEpochId", "sourceSequence", "operationId", "sourceLocationId", "requestOrdinal"] },
-      "lifecycle-request": { "sortKeys": ["runId", "executionId", "lifecyclePhase", "phaseSequence", "operationId", "sourceLocationId", "requestOrdinal"] },
-      "timing-span": { "sortKeys": ["runId", "measurementEpochId", "sourceSequence", "metricId"] },
-      "cpu-sample": { "sortKeys": ["runId", "ordinal"] }
+      "frame-request": {
+        "sortKeys": ["runId", "measurementEpochId", "sourceSequence", "operationId", "sourceLocationId", "requestOrdinal"],
+        "columns": ["backend", "byteKind", "byteValue", "carrier", "descriptorSize", "experimentId", "measurementEpochId", "operationId", "outcome", "policyHash", "requestOrdinal", "requestedByteLength", "runId", "sourceHeight", "sourceLocationId", "sourceSequence", "sourceWidth", "textureDescriptor"],
+        "requiredColumns": ["backend", "byteKind", "byteValue", "carrier", "experimentId", "measurementEpochId", "operationId", "outcome", "policyHash", "requestOrdinal", "runId", "sourceLocationId", "sourceSequence"],
+        "referenceColumns": ["experimentId", "measurementEpochId", "policyHash", "runId"],
+        "literalValues": { "carrier": "frame-request" }
+      },
+      "lifecycle-request": {
+        "sortKeys": ["runId", "executionId", "lifecyclePhase", "phaseSequence", "operationId", "sourceLocationId", "requestOrdinal"],
+        "columns": ["backend", "byteKind", "byteValue", "carrier", "descriptorSize", "executionId", "experimentId", "lifecyclePhase", "operationId", "outcome", "phaseSequence", "policyHash", "requestOrdinal", "requestedByteLength", "runId", "sourceHeight", "sourceLocationId", "sourceWidth", "textureDescriptor"],
+        "requiredColumns": ["backend", "byteKind", "byteValue", "carrier", "executionId", "experimentId", "lifecyclePhase", "operationId", "outcome", "phaseSequence", "policyHash", "requestOrdinal", "runId", "sourceLocationId"],
+        "referenceColumns": ["executionId", "experimentId", "policyHash", "runId"],
+        "literalValues": { "carrier": "lifecycle-request" }
+      },
+      "timing-span": {
+        "sortKeys": ["runId", "measurementEpochId", "sourceSequence", "metricId"],
+        "columns": ["endedAt", "firstSourceSequence", "lastSourceSequence", "measurementEpochId", "metricId", "runId", "sourceSequence", "startedAt"],
+        "requiredColumns": ["endedAt", "firstSourceSequence", "lastSourceSequence", "measurementEpochId", "metricId", "runId", "sourceSequence", "startedAt"],
+        "referenceColumns": ["measurementEpochId", "runId"],
+        "literalValues": {}
+      },
+      "cpu-sample": {
+        "sortKeys": ["runId", "ordinal"],
+        "columns": ["counterQuantumSeconds", "cumulativeCpuSeconds", "ordinal", "processIdentity", "readEnd", "readStart", "runId", "workingSetMiB"],
+        "requiredColumns": ["ordinal", "runId"],
+        "referenceColumns": ["runId"],
+        "literalValues": {}
+      }
     }
   },
   "performanceLimits": {
@@ -267,11 +291,12 @@
   },
   "transcodeDecisionPolicy": {
     "version": 1,
+    "semanticIntegritySha256": "8c53e47b7ba7fe50368e779dc4e1c2028901acf4e546e02679f9a9a3f78e5bb3",
     "contracts": [
-      { "id": "transcode-start", "path": "src/platform/transcode/transcode.service.ts", "closureAssertion": "start remains behaviorally covered" },
-      { "id": "transcode-complete", "path": "src/platform/transcode/transcode.service.ts", "closureAssertion": "completion remains behaviorally covered" },
-      { "id": "transcode-error", "path": "src/platform/transcode/transcode.service.ts", "closureAssertion": "failure remains behaviorally covered" },
-      { "id": "transcode-cancel", "path": "src/platform/transcode/transcode.service.ts", "closureAssertion": "cancellation remains behaviorally covered" }
+      { "id": "transcode-start", "path": "src/platform/transcode/transcode.service.ts", "sourceSymbol": "TranscodeService.transcode", "closureTestIds": ["transcode-current-progress-semantics"] },
+      { "id": "transcode-complete", "path": "src/platform/transcode/transcode.service.ts", "sourceSymbol": "TranscodeService.transcode", "closureTestIds": ["transcode-current-progress-semantics"] },
+      { "id": "transcode-error", "path": "src/platform/transcode/transcode.service.ts", "sourceSymbol": "TranscodeService.transcode", "closureTestIds": ["transcode-current-progress-semantics"] },
+      { "id": "transcode-cancel", "path": "src/platform/transcode/transcode.service.ts", "sourceSymbol": "TranscodeService.cancel", "closureTestIds": ["transcode-current-progress-semantics"] }
     ],
     "rows": [
       { "option": "approved-option-a", "strategy": "indeterminate-no-ffprobe", "blocked": false, "impactedContractIds": ["transcode-cancel", "transcode-complete", "transcode-error", "transcode-start"], "impactedTestIds": ["transcode-current-progress-semantics"] },

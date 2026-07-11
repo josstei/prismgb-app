@@ -210,8 +210,11 @@ function validateArchiveProjection(value, label) {
   };
 }
 
-function validateWorkflowProvenance(workflowProvenance) {
+function validateWorkflowProvenance(workflowProvenance, sourceIdentity) {
   assertKnownKeys(workflowProvenance, ['captureIdentity', 'producers'], [], 'workflowProvenance');
+  assertKnownKeys(workflowProvenance.captureIdentity, [
+    'provider', 'sourceSha', 'analysisSha256', 'repository', 'workflowRef', 'workflowRunId', 'workflowRunAttempt', 'eventName'
+  ], [], 'workflowProvenance.captureIdentity');
   const captureIdentity = validateCaptureProvenance({
     ...workflowProvenance.captureIdentity,
     producer: {
@@ -221,6 +224,12 @@ function validateWorkflowProvenance(workflowProvenance) {
     }
   });
   if (captureIdentity.provider !== 'github-actions') fail('workflowProvenance.captureIdentity must be a GitHub Actions identity');
+  if (captureIdentity.sourceSha !== sourceIdentity.sourceSha) {
+    fail('workflowProvenance.captureIdentity.sourceSha must match coreEvidenceBody.sourceSha');
+  }
+  if (captureIdentity.analysisSha256 !== sourceIdentity.analysisSha256) {
+    fail('workflowProvenance.captureIdentity.analysisSha256 must match coreEvidenceBody.analysisSha256');
+  }
   const { producer: ignoredProducer, ...identity } = captureIdentity;
   if (!Array.isArray(workflowProvenance.producers) || workflowProvenance.producers.length === 0) {
     fail('workflowProvenance.producers must be a nonempty array');
@@ -273,7 +282,7 @@ export function createCoreEvidenceBody(input) {
     ...identity,
     rootReferences: validateRootProjection(input.rootReferences, 'core'),
     ...archive,
-    workflowProvenance: validateWorkflowProvenance(input.workflowProvenance)
+    workflowProvenance: validateWorkflowProvenance(input.workflowProvenance, identity)
   };
   for (const key of CORE_OPTIONAL) {
     if (key in input) result[key] = cloneCanonical(input[key]);
@@ -295,7 +304,7 @@ export function createCoreEvidenceRecord(input) {
   return { coreEvidenceBody, coreEvidenceChecksum };
 }
 
-function validateCompressorIdentity(identity) {
+export function validateCompressorIdentity(identity) {
   assertKnownKeys(identity, [
     'codec', 'nodeVersion', 'zlibVersion', 'level', 'strategy', 'windowBits', 'memLevel', 'inputChunkBytes',
     'intermediateFlush', 'finishFlush', 'mtime', 'filename', 'comment', 'osByte', 'compressorProbePolicyHash', 'compressorProbeSha256'
@@ -312,6 +321,20 @@ function validateCompressorIdentity(identity) {
   assertSha(identity.compressorProbePolicyHash, 'compressorIdentity.compressorProbePolicyHash');
   assertSha(identity.compressorProbeSha256, 'compressorIdentity.compressorProbeSha256');
   return { ...identity };
+}
+
+/**
+ * Transport constructors accept an already-recorded identity, while the archive codec
+ * independently derives one from its own encoder. Keep equality here so both paths use
+ * the same closed preimage and error semantics.
+ */
+export function assertCompressorIdentityMatches(actualIdentity, expectedIdentity) {
+  const actual = validateCompressorIdentity(actualIdentity);
+  const expected = validateCompressorIdentity(expectedIdentity);
+  if (stableStringify(actual) !== stableStringify(expected)) {
+    fail('compressorIdentity does not match the actual production encoder identity');
+  }
+  return actual;
 }
 
 export function createCoreCandidateBody(input) {
@@ -452,16 +475,26 @@ export function createAcceptedRootBody(input) {
   return { ...result, acceptedRootChecksum };
 }
 
-export const validateCoreEvidenceBody = createCoreEvidenceBody;
-export const validateCoreCandidateBody = createCoreCandidateBody;
-export const validateResolvedEvidenceBody = createResolvedEvidenceBody;
-export const validateResolvedCandidateBody = createResolvedCandidateBody;
-export const validateAcceptedEvidenceBody = createAcceptedEvidenceBody;
-export const validateAcceptedRootBody = createAcceptedRootBody;
+export function validateCoreEvidenceBody(input) {
+  return createCoreEvidenceBody(input);
+}
 
-export const coreEvidenceBody = createCoreEvidenceBody;
-export const coreCandidateBody = createCoreCandidateBody;
-export const resolvedEvidenceBody = createResolvedEvidenceBody;
-export const resolvedCandidateBody = createResolvedCandidateBody;
-export const acceptedEvidenceBody = createAcceptedEvidenceBody;
-export const acceptedRootBody = createAcceptedRootBody;
+export function validateCoreCandidateBody(input) {
+  return createCoreCandidateBody(input);
+}
+
+export function validateResolvedEvidenceBody(input) {
+  return createResolvedEvidenceBody(input);
+}
+
+export function validateResolvedCandidateBody(input) {
+  return createResolvedCandidateBody(input);
+}
+
+export function validateAcceptedEvidenceBody(input) {
+  return createAcceptedEvidenceBody(input);
+}
+
+export function validateAcceptedRootBody(input) {
+  return createAcceptedRootBody(input);
+}

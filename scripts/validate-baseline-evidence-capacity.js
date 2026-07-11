@@ -13,6 +13,8 @@ import {
 } from './lib/baseline-evidence-contract.js';
 import {
   EVIDENCE_HARD_LIMITS,
+  encodeCanonicalEvidenceArchive,
+  encodeEvidenceArchive,
   createCompressorIdentity,
   createEvidenceStore,
   measureEvidenceArchiveUtilization,
@@ -31,6 +33,20 @@ import {
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const CAPACITY_OUTPUT_ROOT = path.join(PROJECT_ROOT, 'artifacts', 'codebase-baseline', 'capacity');
+
+// The compact oracle has no encoded archive, so it may prove only projection
+// dimensions that do not depend on transport. Accepted-root bytes are measured
+// from each materialized production archive below.
+const COMPACT_SEMANTIC_COMPONENTS = Object.freeze([
+  'maximumRecordBytes',
+  'expandedJsonlBytes',
+  'objectCount',
+  'recordCount'
+]);
+const PRODUCTION_COMPONENTS = Object.freeze([
+  'rootBytes',
+  ...COMPACT_SEMANTIC_COMPONENTS
+]);
 
 function fail(message) {
   throw new Error(`Baseline evidence capacity validation failed: ${message}`);
@@ -100,7 +116,11 @@ function removeCapacityWorkspace(workspace) {
 }
 
 function sortedReferences(references) {
-  return [...references].sort((left, right) => `${left.kind}:${left.hash}`.localeCompare(`${right.kind}:${right.hash}`));
+  return [...references].sort((left, right) => {
+    const leftKey = `${left.kind}:${left.hash}`;
+    const rightKey = `${right.kind}:${right.hash}`;
+    return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
+  });
 }
 
 function coreProjection(rootReferences) {
@@ -223,7 +243,10 @@ function createInstrumentationLedger({ prefix, runIds, experimentId, backend, ca
       time += 1;
       return time;
     };
-    ledger.push({ sequence: sequence++, operationId: 'metric-adapter-session-open', start: start(), end: end(), metricSessionId: sessionId, outcome: 'ready' });
+    ledger.push({
+      sequence: sequence++, operationId: 'metric-adapter-session-open', start: start(), end: end(), metricSessionId: sessionId, outcome: 'ready',
+      attempt: { pairIndex, attemptIndex: 1, retryReason: null }
+    });
     ledger.push({ sequence: sequence++, operationId: 'internal-reset', start: start(), end: end(), metricSessionId: sessionId, resetId: `${prefix}-reset-a-${pairIndex}`, boundary: 'reset-before-a' });
     ledger.push({
       sequence: sequence++, operationId: 'electron-harness-spawn', start: start(), end: end(), metricSessionId: sessionId,
@@ -243,15 +266,60 @@ function createInstrumentationLedger({ prefix, runIds, experimentId, backend, ca
   return ledger;
 }
 
+function validateCapacityAttemptRepresentation(ledger, evaluation, expectedPairCount, label) {
+  const sessionAttempts = ledger
+    .filter((entry) => entry.operationId === 'metric-adapter-session-open')
+    .map((entry) => ({ metricSessionId: entry.metricSessionId, ...entry.attempt }));
+  if (sessionAttempts.length !== expectedPairCount) {
+    fail(`${label} does not represent every capacity pair attempt`);
+  }
+  sessionAttempts.forEach((attempt, index) => {
+    if (attempt.pairIndex !== index + 1 || attempt.attemptIndex !== 1 || attempt.retryReason !== null) {
+      fail(`${label} capacity pair attempts must carry the explicit original-attempt metadata`);
+    }
+  });
+  const retryTopology = evaluation.retryTopology;
+  if (retryTopology.mode !== 'explicit-attempts' || retryTopology.pairs.length !== expectedPairCount) {
+    fail(`${label} evaluator did not preserve explicit capacity pair attempts`);
+  }
+  retryTopology.pairs.forEach((pair, index) => {
+    const sessionAttempt = sessionAttempts[index];
+    if (pair.pairIndex !== index + 1 || pair.attempts.length < 1 || pair.attempts.length > 3) {
+      fail(`${label} capacity pair attempt representation is not bounded`);
+    }
+    if (pair.attempts.length !== 1) {
+      fail(`${label} capacity fixture must materialize one original attempt per pair`);
+    }
+    const attempt = pair.attempts[0];
+    if (attempt.metricSessionId !== sessionAttempt.metricSessionId
+      || attempt.attemptIndex !== sessionAttempt.attemptIndex
+      || attempt.retryReason !== sessionAttempt.retryReason
+      || attempt.outcome !== 'completed') {
+      fail(`${label} evaluator retry topology does not match the capacity ledger metadata`);
+    }
+  });
+  return {
+    sessions: sessionAttempts,
+    pairs: retryTopology.pairs
+  };
+}
+
 function createRawRunEvidence(launch, callbacksPerRun, policy) {
+  const callbackWindowStart = 0;
+  const callbackClosureAt = 30;
+  const callbackWindowEnd = callbackClosureAt;
+  const cpuSampleIntervalSeconds = 0.5;
+  const cpuReadDurationSeconds = 0.01;
   const callbackCount = launch.buildVariant === 'instrumented'
     ? launch.frameSourceSequences.length
     : callbacksPerRun;
   const identity = `${launch.runId}-renderer`;
   const counterQuantumSeconds = policy.adapters.get('linux-procfs-v1').counterQuantumSeconds;
-  const cpuSamples = Array.from({ length: policy.policy.performanceMetricPolicy.minimumRawSamples }, (_, index) => {
-    const readStart = index * 0.5;
-    const readEnd = readStart + 0.01;
+  const terminalSampleIndex = Math.ceil(callbackWindowEnd / cpuSampleIntervalSeconds);
+  const cpuSampleCount = Math.max(policy.policy.performanceMetricPolicy.minimumRawSamples, terminalSampleIndex + 1);
+  const cpuSamples = Array.from({ length: cpuSampleCount }, (_, index) => {
+    const readStart = index * cpuSampleIntervalSeconds;
+    const readEnd = readStart + cpuReadDurationSeconds;
     return {
       ordinal: index + 1,
       readStart,
@@ -262,7 +330,21 @@ function createRawRunEvidence(launch, callbacksPerRun, policy) {
       workingSetMiB: 128
     };
   });
-  const traces = ['external', 'controller'].flatMap((source) => Array.from({ length: 29 }, (_, index) => ({
+  const firstCpuSample = cpuSamples[0];
+  const terminalCpuSample = cpuSamples.at(-1);
+  const beforeTerminalCpuSample = cpuSamples.at(-2);
+  if (
+    firstCpuSample.readStart !== callbackWindowStart
+    || !beforeTerminalCpuSample
+    || beforeTerminalCpuSample.readEnd >= callbackClosureAt
+    || terminalCpuSample.readStart < callbackClosureAt
+    || terminalCpuSample.readEnd <= callbackClosureAt
+  ) {
+    fail('capacity CPU evidence must run from the immediate callback-window start through the first terminal sample after callback closure');
+  }
+  const terminalCpuMidpoint = (terminalCpuSample.readStart + terminalCpuSample.readEnd) / 2;
+  const traceCount = Math.ceil(terminalCpuMidpoint) + 2;
+  const traces = ['external', 'controller'].flatMap((source) => Array.from({ length: traceCount }, (_, index) => ({
     source,
     sourceSequence: index + 1,
     observedAt: index,
@@ -278,8 +360,8 @@ function createRawRunEvidence(launch, callbacksPerRun, policy) {
         sourceSequenceEncoding: policy.policy.capacityFixturePolicy.callbackCohortEncoding,
         firstSourceSequence: 1,
         callbackCount,
-        windowStart: 0,
-        windowEnd: 30,
+        windowStart: callbackWindowStart,
+        windowEnd: callbackWindowEnd,
         dropCount: 0,
         sealed: true,
         drained: true
@@ -288,7 +370,7 @@ function createRawRunEvidence(launch, callbacksPerRun, policy) {
         firstSourceSequence: 1,
         lastSourceSequence: callbackCount,
         startedAt: 0,
-        endedAt: callbackCount / 1000
+        endedAt: callbackClosureAt
       }]
     },
     cpuSamples,
@@ -464,6 +546,30 @@ function addPerformanceFixtureGraph(store, {
     ? undefined
     : { phase: 'qualification', backend: 'webgpu', reason: unavailabilityBranch };
   const rawEvidence = createRawPerformanceEvidence(ledger, callbacksPerRun, policy);
+  const cpuWindowCoverage = rawEvidence.runs.map((run) => {
+    const firstCpuSample = run.cpuSamples[0];
+    const terminalCpuSample = run.cpuSamples.at(-1);
+    const beforeTerminalCpuSample = run.cpuSamples.at(-2);
+    const { windowStart, windowEnd } = run.callbackTiming.callbackCohort;
+    if (
+      firstCpuSample.readStart !== windowStart
+      || !beforeTerminalCpuSample
+      || beforeTerminalCpuSample.readEnd >= windowEnd
+      || terminalCpuSample.readStart < windowEnd
+      || terminalCpuSample.readEnd <= windowEnd
+    ) {
+      fail('capacity CPU evidence does not cover the callback window through its first terminal sample');
+    }
+    return {
+      runId: run.runId,
+      windowStart,
+      windowEnd,
+      firstReadStart: firstCpuSample.readStart,
+      beforeTerminalReadEnd: beforeTerminalCpuSample.readEnd,
+      terminalReadStart: terminalCpuSample.readStart,
+      terminalReadEnd: terminalCpuSample.readEnd
+    };
+  });
   const logicalCallbackCohorts = rawEvidence.runs.map((run) => ({
     runId: run.runId,
     callbackCount: run.callbackTiming.callbackCohort.callbackCount
@@ -485,6 +591,12 @@ function addPerformanceFixtureGraph(store, {
   };
   const evaluation = evaluatePerformanceExperiment(evaluatorInput, policy);
   if (evaluation.publicationEligible !== false) fail('synthetic capacity fixture unexpectedly became publication eligible');
+  const attemptRepresentation = validateCapacityAttemptRepresentation(
+    ledger,
+    evaluation,
+    effectiveRunBodies / 2,
+    `${scenario} ${experimentRole} ${backend}`
+  );
   let publishableEvidenceRejected = false;
   try {
     requirePublishablePerformanceEvidence(evaluation);
@@ -548,6 +660,8 @@ function addPerformanceFixtureGraph(store, {
     instrumentedCallbackCohorts: acceptedInstrumentedRuns.map((run) => ({ runId: run.runId, callbackCount: run.frameSourceSequences.length })),
     logicalCallbackCohorts,
     logicalCallbackCount: logicalCallbackCohorts.reduce((total, cohort) => total + cohort.callbackCount, 0),
+    cpuWindowCoverage,
+    attemptRepresentation,
     allocationEvidenceClass: evaluation.allocationEvidence.evidenceClass,
     evaluation,
     evaluatorInput,
@@ -619,6 +733,62 @@ function createNoHostAdministrativeLedger(fixtureProvenance) {
   };
 }
 
+/**
+ * Apply the publication headroom rule to a selected-preview candidate. Keeping this
+ * check beside the capacity runner makes a nonrepresentative preview unable to borrow
+ * the green result of any representative fixture.
+ */
+export function assertSelectedPreviewHeadroom(values, { limits = EVIDENCE_HARD_LIMITS } = {}) {
+  const utilization = measureEvidenceArchiveUtilization(values, { limits });
+  if (!utilization.publicationHeadroomPassed) {
+    fail(`selected preview exceeded publication headroom: ${utilization.publicationFailures.join(', ')}`);
+  }
+  return utilization;
+}
+
+/**
+ * Evaluate the exact production archive before it is allowed to become an
+ * output artifact. The writer invokes this gate after closed-codec encoding
+ * but before its atomic publication step, so a nonrepresentative preview
+ * cannot leave an artifact when the shared headroom policy rejects it.
+ */
+export async function writeSelectedPreviewArchive({
+  outputPath = undefined,
+  objects,
+  rootReferences,
+  rootProjection,
+  archiveRootBytes,
+  createPreviewRoot,
+  compressorIdentity,
+  limits = EVIDENCE_HARD_LIMITS
+}) {
+  if (typeof createPreviewRoot !== 'function') fail('selected preview requires a root factory');
+  let previewRoot;
+  let utilization;
+  const archive = await writeEvidenceArchive({
+    outputPath,
+    objects,
+    rootReferences,
+    rootProjection,
+    rootBytes: archiveRootBytes,
+    compressorIdentity,
+    limits,
+    beforeWrite: (encodedArchive) => {
+      previewRoot = createPreviewRoot(encodedArchive);
+      utilization = assertSelectedPreviewHeadroom({
+        rootBytes: Buffer.byteLength(stableStringify(previewRoot), 'utf8'),
+        compressedBytes: encodedArchive.compressedBytes,
+        expandedJsonlBytes: encodedArchive.expandedJsonlBytes,
+        maximumRecordBytes: encodedArchive.maximumRecordBytes,
+        objectCount: encodedArchive.objectCount,
+        recordCount: encodedArchive.recordCount
+      }, { limits });
+    }
+  });
+  if (!previewRoot || !utilization) fail('selected preview was not evaluated before publication');
+  return { archive, previewRoot, utilization };
+}
+
 async function constructScenario(name, resolutionKind, {
   runBodies = 0,
   callbacksPerRun = 0,
@@ -639,6 +809,7 @@ async function constructScenario(name, resolutionKind, {
   let resolution;
   let resolutionRoot;
   let reference = null;
+  let allocationSummary = null;
   if (resolutionKind === 'no-host') {
     const fixtureProvenance = syntheticFixtureProvenance(name);
     const administrativeLedger = createNoHostAdministrativeLedger(fixtureProvenance);
@@ -665,6 +836,15 @@ async function constructScenario(name, resolutionKind, {
       policy
     });
     resolutionRoot = reference.rootReference;
+    if (resolutionKind === 'qualified' && allocationShape !== 'complete') {
+      allocationSummary = assertQualifiedIncompleteEnvelopeSemantics({
+        allocationShape,
+        allocationEvidence: reference.evaluation.allocationEvidence,
+        acceptedInstrumentedRunIds: reference.acceptedInstrumentedRunIds,
+        callbacksPerRun: effectiveCallbacksPerRun,
+        policy
+      });
+    }
     if (resolutionKind === 'hardware-unavailable') {
       resolution = { mode: 'selected-reference', qualificationState: 'hardware-capability-unavailable', unavailabilityBranch };
     } else {
@@ -719,33 +899,27 @@ async function constructScenario(name, resolutionKind, {
     rootReferences: acceptedRoots
   });
   const rootBytes = Buffer.byteLength(stableStringify(acceptedEvidence), 'utf8');
-  const acceptedArchive = await writeEvidenceArchive({
+  const selectedPreview = await writeSelectedPreviewArchive({
     outputPath: outputDirectory ? path.join(outputDirectory, `${archiveStem}.accepted.jsonl.gz`) : undefined,
     objects: core.store.objectMap(),
     rootReferences: acceptedRoots,
     rootProjection: acceptedRootProjection,
-    rootBytes,
-    compressorIdentity: core.compressorIdentity
+    archiveRootBytes: rootBytes,
+    compressorIdentity: core.compressorIdentity,
+    createPreviewRoot: (archive) => createAcceptedRootBody({
+      acceptedEvidenceBody: (() => {
+        const { acceptedEvidenceChecksum, ...body } = acceptedEvidence;
+        return body;
+      })(),
+      acceptedEvidenceChecksum: acceptedEvidence.acceptedEvidenceChecksum,
+      compressedArchiveSha256: archive.compressedArchiveSha256,
+      compressedBytes: archive.compressedBytes,
+      compressorIdentity: core.compressorIdentity
+    })
   });
-  const acceptedRoot = createAcceptedRootBody({
-    acceptedEvidenceBody: (() => {
-      const { acceptedEvidenceChecksum, ...body } = acceptedEvidence;
-      return body;
-    })(),
-    acceptedEvidenceChecksum: acceptedEvidence.acceptedEvidenceChecksum,
-    compressedArchiveSha256: acceptedArchive.compressedArchiveSha256,
-    compressedBytes: acceptedArchive.compressedBytes,
-    compressorIdentity: core.compressorIdentity
-  });
-  const utilization = measureEvidenceArchiveUtilization({
-    rootBytes: Buffer.byteLength(stableStringify(acceptedRoot), 'utf8'),
-    compressedBytes: acceptedArchive.compressedBytes,
-    expandedJsonlBytes: acceptedProjection.expandedJsonlBytes,
-    maximumRecordBytes: acceptedProjection.maximumRecordBytes,
-    objectCount: acceptedProjection.objectCount,
-    recordCount: acceptedProjection.recordCount
-  });
-  if (!utilization.publicationHeadroomPassed) fail(`${name} exceeded publication headroom: ${utilization.publicationFailures.join(', ')}`);
+  const acceptedArchive = selectedPreview.archive;
+  const acceptedRoot = selectedPreview.previewRoot;
+  const utilization = selectedPreview.utilization;
   let replayedArchive = false;
   let rawEvidenceReplayed = false;
   if (outputDirectory) {
@@ -785,6 +959,20 @@ async function constructScenario(name, resolutionKind, {
   if (logicalCallbackCohorts.length !== runBodyCount || logicalCallbackCohorts.some((cohort) => cohort.callbackCount !== effectiveCallbacksPerRun) || logicalCallbackCount !== runBodyCount * effectiveCallbacksPerRun) {
     fail(`${name} logical callback cohorts do not match the declared run/frame cardinalities`);
   }
+  const cpuWindowCoverage = [...core.ci.cpuWindowCoverage, ...(reference?.cpuWindowCoverage ?? [])]
+    .sort((left, right) => left.runId.localeCompare(right.runId));
+  if (cpuWindowCoverage.length !== runBodyCount || cpuWindowCoverage.some((coverage) => (
+    coverage.firstReadStart !== coverage.windowStart
+    || coverage.beforeTerminalReadEnd >= coverage.windowEnd
+    || coverage.terminalReadStart < coverage.windowEnd
+    || coverage.terminalReadEnd <= coverage.windowEnd
+  ))) {
+    fail(`${name} CPU evidence does not span every callback window through its first terminal sample`);
+  }
+  const attemptRepresentations = [core.ci.attemptRepresentation, ...(reference ? [reference.attemptRepresentation] : [])];
+  if (attemptRepresentations.some((representation) => representation.sessions.length !== representation.pairs.length)) {
+    fail(`${name} capacity attempt representations do not cover every pair`);
+  }
   return {
     name,
     resolutionKind,
@@ -805,10 +993,18 @@ async function constructScenario(name, resolutionKind, {
     acceptedInstrumentedRunIds: reference?.acceptedInstrumentedRunIds ?? core.ci.acceptedInstrumentedRunIds,
     instrumentedCallbackCohorts,
     logicalCallbackCohorts,
+    cpuWindowCoverage,
+    attemptRepresentations,
     acceptedRootChecksum: acceptedRoot.acceptedRootChecksum,
+    acceptedRootTransport: {
+      compressedArchiveSha256: acceptedRoot.compressedArchiveSha256,
+      compressedBytes: acceptedRoot.compressedBytes,
+      compressorIdentity: acceptedRoot.compressorIdentity
+    },
     rawEvidenceReplayed,
     archiveReplayed: replayedArchive,
-    allocationShape: reference ? allocationShape : null
+    allocationShape: reference ? allocationShape : null,
+    allocationSummary
   };
 }
 
@@ -833,16 +1029,6 @@ function enumerateCompactRunVectors(coverage) {
 
 function coverageVectorKey(vector) {
   return stableStringify(vector);
-}
-
-function symmetricCoverageVectorKey(vector) {
-  if (vector.length === 1) return stableStringify(vector);
-  // The compact oracle measures bytes/counts, not the run label's hash. For two
-  // equal-width run IDs, independently swapping the two run labels for one policy
-  // operation preserves every serialized field width, chunk row count, root count,
-  // and fixed-width object hash. Canonicalize that proven component symmetry before
-  // invoking the real constructor/store projection.
-  return stableStringify(vector[0].map((_, coverageIndex) => vector.map((runVector) => runVector[coverageIndex]).sort()));
 }
 
 export function enumerateQualifiedIncompleteCoverageVectors({ runCount = 2, policy = loadBaselinePolicy() } = {}) {
@@ -883,27 +1069,6 @@ function mergeObjectMaps(...maps) {
     }
   }
   return merged;
-}
-
-function compactOracleCompressorIdentity() {
-  return {
-    codec: 'node:zlib.gzip',
-    nodeVersion: process.version,
-    zlibVersion: process.versions.zlib,
-    level: 9,
-    strategy: 'Z_DEFAULT_STRATEGY',
-    windowBits: 15,
-    memLevel: 8,
-    inputChunkBytes: 65536,
-    intermediateFlush: 'Z_NO_FLUSH',
-    finishFlush: 'Z_FINISH',
-    mtime: 0,
-    filename: null,
-    comment: null,
-    osByte: 255,
-    compressorProbePolicyHash: 'a'.repeat(64),
-    compressorProbeSha256: 'b'.repeat(64)
-  };
 }
 
 function createCompactOracleBase(policy, runCount) {
@@ -1039,16 +1204,11 @@ function materializeCompactQualifiedIncompleteVector(vector, base, policy) {
     decisionChecksum: canonicalSha256(decision),
     rootReferences: acceptedRoots
   });
-  const { acceptedEvidenceChecksum, ...acceptedEvidenceBody } = acceptedEvidence;
-  const acceptedRoot = createAcceptedRootBody({
-    acceptedEvidenceBody,
-    acceptedEvidenceChecksum,
-    compressedArchiveSha256: 'c'.repeat(64),
-    compressedBytes: 0,
-    compressorIdentity: compactOracleCompressorIdentity()
-  });
+  // Preserve the semantic constructor check in the compact path without
+  // inventing an archive hash, byte count, or compressor identity. Transport
+  // root sizing is calculated only after a real production archive exists.
+  if (!acceptedEvidence.acceptedEvidenceChecksum) fail('compact oracle did not construct accepted semantic evidence');
   return {
-    rootBytes: Buffer.byteLength(stableStringify(acceptedRoot), 'utf8'),
     maximumRecordBytes: acceptedProjection.maximumRecordBytes,
     expandedJsonlBytes: acceptedProjection.expandedJsonlBytes,
     objectCount: acceptedProjection.objectCount,
@@ -1057,12 +1217,115 @@ function materializeCompactQualifiedIncompleteVector(vector, base, policy) {
   };
 }
 
-function expandCompactCoverageVector(vector, runCount) {
+/**
+ * @param {{ vector?: number[][], policy?: any }} [options]
+ */
+export function measureQualifiedIncompleteCompactVector({ vector, policy = loadBaselinePolicy() } = {}) {
+  const coverage = policy.policy.allocationEvidencePolicy.webgpu.coverage;
+  if (!Array.isArray(vector) || vector.length < 1 || vector.length > 2) {
+    fail('compact coverage measurement requires one or two run vectors');
+  }
+  const expected = expectedCoverageForCompactRun(coverage);
+  for (const runVector of vector) {
+    if (!Array.isArray(runVector) || runVector.length !== expected.length
+      || runVector.some((observed, index) => !Number.isSafeInteger(observed) || observed < 0 || observed > expected[index])) {
+      fail('compact coverage measurement has an invalid run vector');
+    }
+  }
+  const base = createCompactOracleBase(policy, vector.length);
+  return materializeCompactQualifiedIncompleteVector(vector, base, policy);
+}
+
+function compactExpectedCardinality(entry) {
+  return entry.cardinality === 'per-frame' ? 1 : entry.cardinality;
+}
+
+function completeCompactCoverageVector(coverage, runCount) {
+  return Array.from({ length: runCount }, () => expectedCoverageForCompactRun(coverage));
+}
+
+function maxObservedMinMissingCompactVector(coverage, runCount) {
+  const vector = completeCompactCoverageVector(coverage, runCount);
+  const lastFrameOperationIndex = coverage.map((entry, index) => ({ entry, index }))
+    .filter(({ entry }) => entry.carrier === 'frame-request')
+    .at(-1)?.index;
+  if (lastFrameOperationIndex === undefined) fail('qualified incomplete envelope requires a frame-request operation');
+  vector.at(-1)[lastFrameOperationIndex] -= 1;
+  return vector;
+}
+
+function maxMissingMinimalDeficitCompactVector(coverage, runCount) {
+  return Array.from({ length: runCount }, () => coverage.map((entry) => {
+    const expected = compactExpectedCardinality(entry);
+    const requiredFrameAnchor = entry.carrier === 'frame-request' && entry.operationId === 'video-frame-image-bitmap-request';
+    return requiredFrameAnchor ? expected : expected - 1;
+  }));
+}
+
+function liftCompactObservedCardinality(observed, entry, callbacksPerRun) {
+  const compactExpected = compactExpectedCardinality(entry);
+  const fullExpected = entry.cardinality === 'per-frame' ? callbacksPerRun : entry.cardinality;
+  if (!Number.isSafeInteger(observed) || observed < 0 || observed > compactExpected) fail('compact allocation coverage has an invalid observed cardinality');
+  if (observed === compactExpected) return fullExpected;
+  if (entry.cardinality === 'per-frame' && observed === compactExpected - 1) return fullExpected - 1;
+  return observed;
+}
+
+function expandCompactCoverageVector(vector, runCount, coverage, callbacksPerRun = 1) {
   if (!Number.isSafeInteger(runCount) || runCount < 1) fail('expanded coverage vector runCount is invalid');
   if (vector.length === 0) fail('compact coverage vector must not be empty');
+  if (!Array.isArray(coverage) || coverage.length === 0) fail('compact coverage expansion requires policy coverage');
+  if (!Number.isSafeInteger(callbacksPerRun) || callbacksPerRun < 1) fail('expanded callback cardinality is invalid');
+  vector.forEach((runVector, runIndex) => {
+    if (!Array.isArray(runVector) || runVector.length !== coverage.length) fail(`compact coverage vector run ${runIndex} is incompatible with policy coverage`);
+  });
   const leading = vector[0];
   const terminal = vector.at(-1);
-  return Array.from({ length: runCount }, (_, index) => [...(index === runCount - 1 ? terminal : leading)]);
+  return Array.from({ length: runCount }, (_, index) => (index === runCount - 1 ? terminal : leading)
+    .map((observed, coverageIndex) => liftCompactObservedCardinality(observed, coverage[coverageIndex], callbacksPerRun)));
+}
+
+function summarizeIncompleteAllocationEvidence(allocationEvidence) {
+  const deficits = allocationEvidence.missingCoverage
+    .map((entry) => entry.expectedCardinality - entry.observedCardinality)
+    .sort((left, right) => left - right);
+  return {
+    missingTupleCount: allocationEvidence.missingCoverage.length,
+    missingDeficits: [...new Set(deficits)],
+    missingCoverage: allocationEvidence.missingCoverage.map((entry) => ({
+      runId: entry.runId,
+      operationId: entry.operationId,
+      sourceLocationId: entry.sourceLocationId,
+      expectedCardinality: entry.expectedCardinality,
+      observedCardinality: entry.observedCardinality
+    }))
+  };
+}
+
+function assertQualifiedIncompleteEnvelopeSemantics({ allocationShape, allocationEvidence, acceptedInstrumentedRunIds, callbacksPerRun, policy }) {
+  if (allocationEvidence.state !== 'unavailable-incomplete-request-coverage') {
+    fail(`${allocationShape} did not produce qualified incomplete allocation evidence`);
+  }
+  const summary = summarizeIncompleteAllocationEvidence(allocationEvidence);
+  if (allocationShape === 'max-observed-min-missing') {
+    const terminalFrameOperation = policy.policy.allocationEvidencePolicy.webgpu.coverage
+      .filter((entry) => entry.carrier === 'frame-request')
+      .at(-1);
+    const [missing] = summary.missingCoverage;
+    if (summary.missingTupleCount !== 1 || summary.missingDeficits.length !== 1 || summary.missingDeficits[0] !== 1 || !missing || missing.operationId !== terminalFrameOperation.operationId || missing.expectedCardinality !== callbacksPerRun || missing.observedCardinality !== callbacksPerRun - 1) {
+      fail('max-observed-min-missing did not retain exactly one full-size per-frame deficit');
+    }
+  }
+  if (allocationShape === 'max-missing-minimal-deficit') {
+    const expectedMissingTupleCount = acceptedInstrumentedRunIds.length * (policy.policy.allocationEvidencePolicy.webgpu.coverage.length - 1);
+    const anchors = new Map(allocationEvidence.observedCoverage
+      .filter((entry) => entry.operationId === 'video-frame-image-bitmap-request')
+      .map((entry) => [entry.runId, entry.observedCardinality]));
+    if (summary.missingTupleCount !== expectedMissingTupleCount || summary.missingDeficits.length !== 1 || summary.missingDeficits[0] !== 1 || anchors.size !== acceptedInstrumentedRunIds.length || [...anchors.values()].some((observed) => observed !== callbacksPerRun)) {
+      fail('max-missing-minimal-deficit did not retain one full-size deficit per non-anchor tuple');
+    }
+  }
+  return summary;
 }
 
 export function calculateQualifiedIncompleteEnvelope({ runCount = 2, policy = loadBaselinePolicy() } = {}) {
@@ -1071,27 +1334,33 @@ export function calculateQualifiedIncompleteEnvelope({ runCount = 2, policy = lo
   if (cached) return cached;
   const enumeration = enumerateQualifiedIncompleteCoverageVectors({ runCount, policy });
   const base = createCompactOracleBase(policy, runCount);
-  const symmetricProjectionCache = new Map();
-  const evaluated = enumeration.vectors.map((vector) => {
-    const key = symmetricCoverageVectorKey(vector);
-    let components = symmetricProjectionCache.get(key);
-    if (!components) {
-      components = materializeCompactQualifiedIncompleteVector(vector, base, policy);
-      symmetricProjectionCache.set(key, components);
-    }
-    return { vector, components };
-  });
-  const componentNames = ['rootBytes', 'maximumRecordBytes', 'expandedJsonlBytes', 'objectCount', 'recordCount'];
-  const componentMaxima = Object.fromEntries(componentNames.map((component) => {
+  const evaluated = enumeration.vectors.map((vector) => ({
+    vector,
+    components: materializeCompactQualifiedIncompleteVector(vector, base, policy)
+  }));
+  const semanticComponentMaxima = Object.fromEntries(COMPACT_SEMANTIC_COMPONENTS.map((component) => {
     const maximum = Math.max(...evaluated.map((entry) => entry.components[component]));
     const representative = evaluated.filter((entry) => entry.components[component] === maximum)
       .sort((left, right) => coverageVectorKey(left.vector).localeCompare(coverageVectorKey(right.vector)))[0];
     return [component, { value: maximum, vector: representative.vector, vectorKey: coverageVectorKey(representative.vector) }];
   }));
   const shapesByVector = new Map();
-  for (const [component, maximum] of Object.entries(componentMaxima)) {
+  const requiredShapes = [
+    { name: 'max-observed-min-missing', compactVector: maxObservedMinMissingCompactVector(enumeration.coverage, runCount) },
+    { name: 'max-missing-minimal-deficit', compactVector: maxMissingMinimalDeficitCompactVector(enumeration.coverage, runCount) }
+  ];
+  for (const required of requiredShapes) {
+    const compactVectorKey = coverageVectorKey(required.compactVector);
+    shapesByVector.set(compactVectorKey, {
+      name: required.name,
+      compactVector: required.compactVector,
+      compactVectorKey,
+      maximumComponents: []
+    });
+  }
+  for (const [component, maximum] of Object.entries(semanticComponentMaxima)) {
     const shape = shapesByVector.get(maximum.vectorKey) ?? {
-      name: `qualified-incomplete-${shapesByVector.size + 1}`,
+      name: `additional-component-maximum-${shapesByVector.size + 1}`,
       compactVector: maximum.vector,
       compactVectorKey: maximum.vectorKey,
       maximumComponents: []
@@ -1099,9 +1368,10 @@ export function calculateQualifiedIncompleteEnvelope({ runCount = 2, policy = lo
     shape.maximumComponents.push(component);
     shapesByVector.set(maximum.vectorKey, shape);
   }
-  const materializedComponentMaxima = Object.fromEntries(componentNames.map((component) => [component, Math.max(...evaluated.map((entry) => entry.components[component]))]));
-  for (const component of componentNames) {
-    if (materializedComponentMaxima[component] !== componentMaxima[component].value) {
+  const materializedSemanticComponentMaxima = Object.fromEntries(COMPACT_SEMANTIC_COMPONENTS
+    .map((component) => [component, Math.max(...evaluated.map((entry) => entry.components[component]))]));
+  for (const component of COMPACT_SEMANTIC_COMPONENTS) {
+    if (materializedSemanticComponentMaxima[component] !== semanticComponentMaxima[component].value) {
       fail(`compact oracle ${component} maximum does not equal its materialized production projection`);
     }
   }
@@ -1113,11 +1383,12 @@ export function calculateQualifiedIncompleteEnvelope({ runCount = 2, policy = lo
     }, policy),
     compactVectorCount: enumeration.vectors.length,
     compactPerRunVectorCount: enumeration.perRunVectors.length,
-    componentMaxima,
-    materializedComponentMaxima,
+    evaluatedCompactVectorCount: evaluated.length,
+    semanticComponentMaxima,
+    materializedSemanticComponentMaxima,
     shapes: [...shapesByVector.values()].map((shape) => ({
       ...shape,
-      allocationVector: expandCompactCoverageVector(shape.compactVector, runCount)
+      allocationVector: expandCompactCoverageVector(shape.compactVector, runCount, enumeration.coverage)
     }))
   };
   qualifiedIncompleteEnvelopeCache.set(cacheKey, result);
@@ -1136,13 +1407,16 @@ export async function runHeadroomCapacity({
   }
   if (outputDirectory !== undefined) resolveCapacityOutputRoot(outputDirectory);
   const scenarios = [];
-  scenarios.push(await constructScenario('qualified-measured-request-proxy', 'qualified', {
+  const materializedProductionScenarios = [];
+  const qualifiedMeasured = await constructScenario('qualified-measured-request-proxy', 'qualified', {
     runBodies: qualifiedRunBodies,
     callbacksPerRun,
     allocationShape: 'complete',
     outputDirectory,
     policy
-  }));
+  });
+  scenarios.push(qualifiedMeasured);
+  materializedProductionScenarios.push(qualifiedMeasured);
   const evenRunBodies = (count) => Math.max(2, count + (count % 2));
   const coreRunBodies = evenRunBodies(Math.min(18, Math.max(2, qualifiedRunBodies - 2)));
   const referenceRunBodies = evenRunBodies(Math.max(2, qualifiedRunBodies - coreRunBodies));
@@ -1153,22 +1427,16 @@ export async function runHeadroomCapacity({
       runBodies: qualifiedRunBodies,
       callbacksPerRun,
       allocationShape: shape.name,
-      allocationVector: expandCompactCoverageVector(shape.compactVector, referenceRunBodies / 2),
+      allocationVector: expandCompactCoverageVector(shape.compactVector, referenceRunBodies / 2, envelope.coverage, callbacksPerRun),
       outputDirectory,
       archiveStem: `qualified-incomplete-request-coverage.${shape.name}`,
       policy
     }));
   }
-  const fullSizeComponentMaxima = Object.fromEntries([
-    ['rootBytes', 'rootBytes'],
-    ['maximumRecordBytes', 'maximumRecordBytes'],
-    ['expandedJsonlBytes', 'expandedJsonlBytes'],
-    ['objectCount', 'objectCount'],
-    ['recordCount', 'recordCount']
-  ].map(([name, rawKey]) => [name, Math.max(...incompleteCases.map((scenario) => scenario.utilization.raw[rawKey]))]));
-  const oracleProvenComponentMaxima = Object.fromEntries(Object.entries(envelope.componentMaxima)
+  materializedProductionScenarios.push(...incompleteCases);
+  const oracleProvenSemanticComponentMaxima = Object.fromEntries(Object.entries(envelope.semanticComponentMaxima)
     .map(([component, maximum]) => [component, maximum.value]));
-  if (stableStringify(oracleProvenComponentMaxima) !== stableStringify(envelope.materializedComponentMaxima)) {
+  if (stableStringify(oracleProvenSemanticComponentMaxima) !== stableStringify(envelope.materializedSemanticComponentMaxima)) {
     fail('qualified-incomplete materialized oracle maxima do not equal the exhaustive proven maxima');
   }
   scenarios.push({
@@ -1179,10 +1447,10 @@ export async function runHeadroomCapacity({
       acceptedRootChecksum: scenario.acceptedRootChecksum,
       rawEvidenceReplayed: scenario.rawEvidenceReplayed,
       components: scenario.utilization.raw,
-      utilization: scenario.utilization
+      utilization: scenario.utilization,
+      allocationSummary: scenario.allocationSummary
     })),
-    materializedComponentMaxima: oracleProvenComponentMaxima,
-    fullSizeComponentMaxima
+    materializedSemanticComponentMaxima: oracleProvenSemanticComponentMaxima
   });
   for (const [name, branch] of [
     ['hardware-unavailable-webgpu-api', 'webgpu-api-unavailable'],
@@ -1192,22 +1460,28 @@ export async function runHeadroomCapacity({
     ['hardware-unavailable-transfer-allowlisted', 'transfer-allowlisted-not-supported'],
     ['hardware-unavailable-worker-fallback', 'worker-fallback-adapter']
   ]) {
-    scenarios.push(await constructScenario(name, 'hardware-unavailable', {
+    const scenario = await constructScenario(name, 'hardware-unavailable', {
       runBodies: hardwareUnavailableRunBodies,
       callbacksPerRun,
       unavailabilityBranch: branch,
       outputDirectory,
       policy
-    }));
+    });
+    scenarios.push(scenario);
+    materializedProductionScenarios.push(scenario);
   }
-  scenarios.push(await constructScenario('no-host', 'no-host', {
+  const noHost = await constructScenario('no-host', 'no-host', {
     callbacksPerRun,
     outputDirectory,
     policy
-  }));
+  });
+  scenarios.push(noHost);
+  materializedProductionScenarios.push(noHost);
+  const observedProductionComponentMaxima = collectObservedProductionComponentMaxima(materializedProductionScenarios);
   return {
     scenarios,
     envelope,
+    observedProductionComponentMaxima,
     qualifiedMaximums: { runBodies: scenarios[0].runBodies, windowCallbacks: scenarios[0].windowCallbacks },
     compressionClaim: 'observed-per-scenario-not-universal'
   };
@@ -1217,8 +1491,405 @@ function makeRows(count) {
   return Array.from({ length: count }, (_, index) => ({ runId: 'run-1', ordinal: index }));
 }
 
-export function runCodecBoundaries({ objectCount = EVIDENCE_HARD_LIMITS.maxIndexedObjects, limits = EVIDENCE_HARD_LIMITS } = {}) {
+function assertCodecFixtureLimits(limits) {
+  if (!limits || typeof limits !== 'object' || Array.isArray(limits)) fail('codec fixture limits must be an object');
+  const expectedKeys = Object.keys(EVIDENCE_HARD_LIMITS);
+  if (Object.keys(limits).sort().join('\u0000') !== expectedKeys.sort().join('\u0000')) fail('codec fixture limits have missing or unknown fields');
+  for (const [key, hardLimit] of Object.entries(EVIDENCE_HARD_LIMITS)) {
+    if (!Number.isSafeInteger(limits[key]) || limits[key] < 1 || limits[key] > hardLimit) fail('codec fixture limit ' + key + ' is invalid');
+  }
+  if (limits.maxTotalRecords !== limits.maxIndexedObjects + 1) {
+    fail('codec fixture total-record and indexed-object limits must remain coupled');
+  }
+}
+
+function assertExactHardLimitBoundaries(limits) {
+  const atCap = {
+    rootBytes: limits.maxRootBytes,
+    compressedBytes: limits.maxCompressedBytes,
+    expandedJsonlBytes: limits.maxExpandedJsonlBytes,
+    maximumRecordBytes: limits.maxRecordBytes,
+    objectCount: limits.maxIndexedObjects,
+    recordCount: limits.maxTotalRecords
+  };
+  const accepted = measureEvidenceArchiveUtilization(atCap, { limits });
+  if (!accepted.hardLimitPassed) fail('exact hard-limit boundary was rejected: ' + accepted.hardFailures.join(', '));
+  const capPlusOneRejected = {};
+  for (const key of Object.keys(atCap)) {
+    const overflowValues = { ...atCap, [key]: atCap[key] + 1 };
+    if (key === 'objectCount') overflowValues.recordCount += 1;
+    if (key === 'recordCount') overflowValues.objectCount += 1;
+    const overflow = measureEvidenceArchiveUtilization(overflowValues, { limits });
+    if (overflow.hardLimitPassed || !overflow.hardFailures.includes(key)) fail(key + ' cap-plus-one was accepted');
+    capPlusOneRejected[key] = true;
+  }
+  return { atCap, capPlusOneRejected };
+}
+
+const CODEC_FIXTURE_ALPHABET = Buffer.from('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_', 'ascii');
+
+function codecFixturePayload(length, { entropy = false, ordinal = 0, salt = 0 } = {}) {
+  if (!Number.isSafeInteger(length) || length < 0) fail('codec fixture payload length is invalid');
+  if (!Number.isSafeInteger(salt) || salt < 0) fail('codec fixture payload salt is invalid');
+  if (!entropy) return 'x'.repeat(length);
+  const bytes = Buffer.allocUnsafe(length);
+  let state = (0x9e3779b9 ^ Math.imul(ordinal + 1, 0x85ebca6b) ^ Math.imul(salt + 1, 0xc2b2ae35)) >>> 0;
+  for (let index = 0; index < bytes.length; index += 1) {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    bytes[index] = CODEC_FIXTURE_ALPHABET[(state >>> 26) & 0x3f];
+  }
+  return bytes.toString('ascii');
+}
+
+/**
+ * Build fixture objects only through the production evidence store. The returned
+ * projection is therefore the exact graph, canonical JSONL, dedup accounting, and
+ * index construction that a publication would use.
+ */
+function createProductionCodecFixture({ payloadLengths = [], emptyManifestCount = 0, entropyPayloads = false, entropyTailSalt = 0 } = {}) {
+  if (!Array.isArray(payloadLengths) || !payloadLengths.every((length) => Number.isSafeInteger(length) && length >= 0)) {
+    fail('codec fixture payload lengths must be nonnegative safe integers');
+  }
+  if (!Number.isSafeInteger(emptyManifestCount) || emptyManifestCount < 0) {
+    fail('codec fixture empty manifest count is invalid');
+  }
+  const store = createEvidenceStore();
+  const chunks = payloadLengths.map((length, index) => {
+    const object = store.putObject('raw-chunk', {
+      fixture: 'codec-boundary',
+      ordinal: index + 1,
+      payload: codecFixturePayload(length, {
+        entropy: entropyPayloads,
+        ordinal: index,
+        salt: index === payloadLengths.length - 1 ? entropyTailSalt : 0
+      })
+    });
+    return { kind: object.kind, hash: object.hash };
+  });
+  const manifests = [];
+  if (chunks.length > 0) {
+    const object = store.putObject('raw-kind-manifest', { chunkReferences: sortedReferences(chunks) });
+    manifests.push({ kind: object.kind, hash: object.hash });
+  }
+  for (let index = 0; index < emptyManifestCount; index += 1) {
+    const object = store.putObject('raw-kind-manifest', { boundaryOrdinal: index + 1 });
+    manifests.push({ kind: object.kind, hash: object.hash });
+  }
+  const child = store.putObject('experiment-child-manifest', {
+    rawKindManifestReferences: sortedReferences(manifests)
+  });
+  const parent = store.putObject('ci-experiment-parent', {
+    childManifest: { kind: child.kind, hash: child.hash },
+    fixture: 'codec-boundary'
+  });
+  const singletonReferences = ['source', 'events', 'lifecycle', 'behavior'].map((evidenceId) => {
+    const object = store.putObject('singleton-report', { evidenceId, fixture: 'codec-boundary' });
+    return { kind: object.kind, hash: object.hash };
+  });
+  const packageReport = store.putObject('package-report', { evidenceId: 'package:codec-boundary:release' });
+  const rootReferences = sortedReferences([
+    ...singletonReferences,
+    { kind: packageReport.kind, hash: packageReport.hash },
+    { kind: parent.kind, hash: parent.hash }
+  ]);
+  const rootProjection = coreProjection(rootReferences);
+  return {
+    store,
+    rootReferences,
+    rootProjection,
+    projection: store.project(rootReferences, rootProjection)
+  };
+}
+
+function fixtureArchiveInput(graph, { rootBytes, compressorIdentity, limits }) {
+  return {
+    objects: graph.store.objectMap(),
+    rootReferences: graph.rootReferences,
+    rootProjection: graph.rootProjection,
+    rootBytes,
+    compressorIdentity,
+    limits
+  };
+}
+
+function createRootSerializationFixture(targetBytes) {
+  const base = { schemaVersion: 1, payload: '' };
+  const fixedBytes = Buffer.byteLength(stableStringify(base), 'utf8');
+  if (!Number.isSafeInteger(targetBytes) || targetBytes < fixedBytes) {
+    fail('root-byte fixture cannot materialize the requested boundary');
+  }
+  const root = { schemaVersion: 1, payload: 'r'.repeat(targetBytes - fixedBytes) };
+  if (Buffer.byteLength(stableStringify(root), 'utf8') !== targetBytes) {
+    fail('root-byte fixture did not serialize to the requested boundary');
+  }
+  return root;
+}
+
+function adjustPayloadLengths(payloadLengths, adjustment, maximumPayloadLength) {
+  const adjusted = [...payloadLengths];
+  let remaining = adjustment;
+  for (let index = adjusted.length - 1; index >= 0 && remaining !== 0; index -= 1) {
+    const available = remaining > 0 ? maximumPayloadLength - adjusted[index] : adjusted[index];
+    const applied = remaining > 0 ? Math.min(available, remaining) : -Math.min(available, -remaining);
+    adjusted[index] += applied;
+    remaining -= applied;
+  }
+  if (remaining !== 0 || adjusted.some((length) => !Number.isSafeInteger(length) || length < 0 || length > maximumPayloadLength)) {
+    fail('codec fixture payload cannot be adjusted to the requested boundary');
+  }
+  return adjusted;
+}
+
+function distributePayload(total, count, maximumPayloadLength) {
+  if (!Number.isSafeInteger(total) || total < 0 || !Number.isSafeInteger(count) || count < 1 || !Number.isSafeInteger(maximumPayloadLength) || maximumPayloadLength < 1) {
+    fail('codec fixture payload distribution is invalid');
+  }
+  const payloads = Array.from({ length: count }, () => 0);
+  let remaining = total;
+  for (let index = 0; index < payloads.length; index += 1) {
+    const length = Math.min(maximumPayloadLength, remaining);
+    payloads[index] = length;
+    remaining -= length;
+  }
+  if (remaining !== 0) fail('codec fixture payload distribution exceeds the per-record boundary');
+  return payloads;
+}
+
+function tuneFixtureProjection({ target, metric, payloadLengths, maximumPayloadLength }) {
+  let currentPayloadLengths = [...payloadLengths];
+  const seen = new Set();
+  for (let attempt = 0; attempt < 32; attempt += 1) {
+    const signature = currentPayloadLengths.join(',');
+    if (seen.has(signature)) break;
+    seen.add(signature);
+    const graph = createProductionCodecFixture({ payloadLengths: currentPayloadLengths });
+    const actual = graph.projection[metric];
+    if (actual === target) return graph;
+    currentPayloadLengths = adjustPayloadLengths(currentPayloadLengths, target - actual, maximumPayloadLength);
+  }
+  fail('codec fixture could not tune ' + metric + ' to its exact cap');
+}
+
+function createPerRecordBoundaryFixture(target) {
+  const baseline = createProductionCodecFixture({ payloadLengths: [0] });
+  if (target < baseline.projection.maximumRecordBytes) {
+    fail('per-record boundary target is below the smallest production fixture record');
+  }
+  return tuneFixtureProjection({
+    target,
+    metric: 'maximumRecordBytes',
+    payloadLengths: [Math.max(0, target - baseline.projection.maximumRecordBytes)],
+    maximumPayloadLength: target
+  });
+}
+
+function createExpandedBoundaryFixture(target, limits) {
+  const maximumPayloadLength = limits.maxRecordBytes - 2048;
+  if (maximumPayloadLength < 1) fail('codec fixture per-record cap is too small for expanded JSONL materialization');
+  let chunkCount = 1;
+  while (chunkCount <= limits.maxIndexedObjects - 8) {
+    const empty = createProductionCodecFixture({ payloadLengths: Array.from({ length: chunkCount }, () => 0) });
+    const payloadBytes = target - empty.projection.expandedJsonlBytes;
+    if (payloadBytes >= 0 && payloadBytes <= chunkCount * maximumPayloadLength) {
+      const graph = tuneFixtureProjection({
+        target,
+        metric: 'expandedJsonlBytes',
+        payloadLengths: distributePayload(payloadBytes, chunkCount, maximumPayloadLength),
+        maximumPayloadLength
+      });
+      if (graph.projection.maximumRecordBytes <= limits.maxRecordBytes) return graph;
+    }
+    chunkCount += 1;
+  }
+  fail('codec fixture expanded JSONL materialization exceeds the object boundary');
+}
+
+async function createCompressedBoundaryFixture({ target, limits, compressorIdentity }) {
+  const maximumPayloadLength = limits.maxRecordBytes - 2048;
+  if (maximumPayloadLength < 1) fail('codec fixture per-record cap is too small for compressed materialization');
+  const encodedCandidates = new Set();
+  let best = null;
+  let attemptedCandidates = 0;
+  const encodeCandidate = async (payloadLengths, entropyTailSalt = 0) => {
+    const signature = `${entropyTailSalt}:${payloadLengths.join(',')}`;
+    if (encodedCandidates.has(signature)) return null;
+    encodedCandidates.add(signature);
+    const graph = createProductionCodecFixture({ payloadLengths, entropyPayloads: true, entropyTailSalt });
+    if (graph.projection.maximumRecordBytes > limits.maxRecordBytes) {
+      fail('compressed fixture exceeded the per-record hard limit before encoding');
+    }
+    const archive = await encodeEvidenceArchive(fixtureArchiveInput(graph, {
+      rootBytes: 1,
+      compressorIdentity,
+      limits
+    }));
+    attemptedCandidates += 1;
+    const candidate = { graph, archive, payloadLengths: [...payloadLengths], entropyTailSalt };
+    if (!best || Math.abs(target - archive.compressedBytes) < Math.abs(target - best.archive.compressedBytes)) {
+      best = candidate;
+    }
+    return candidate;
+  };
+
+  const payloadTotal = Math.max(1, Math.ceil(target / 0.74));
+  const chunkCount = Math.max(1, Math.ceil(payloadTotal / maximumPayloadLength));
+  let payloadLengths = distributePayload(payloadTotal, chunkCount, maximumPayloadLength);
+  for (let attempt = 0; attempt < 16; attempt += 1) {
+    const candidate = await encodeCandidate(payloadLengths);
+    if (!candidate) break;
+    if (candidate.archive.compressedBytes === target) return candidate;
+    const ratio = candidate.archive.compressedBytes / Math.max(1, payloadLengths.reduce((total, length) => total + length, 0));
+    let adjustment = Math.round((target - candidate.archive.compressedBytes) / Math.max(ratio, 0.1));
+    if (adjustment === 0) adjustment = target > candidate.archive.compressedBytes ? 1 : -1;
+    try {
+      payloadLengths = adjustPayloadLengths(payloadLengths, adjustment, maximumPayloadLength);
+    } catch {
+      break;
+    }
+  }
+  if (!best) fail('compressed fixture did not produce an initial production candidate');
+
+  const neighborhood = best.payloadLengths;
+  for (let offset = 1; offset <= 192; offset += 1) {
+    for (const signedOffset of [offset, -offset]) {
+      let candidatePayloadLengths;
+      try {
+        candidatePayloadLengths = adjustPayloadLengths(neighborhood, signedOffset, maximumPayloadLength);
+      } catch {
+        continue;
+      }
+      const candidate = await encodeCandidate(candidatePayloadLengths);
+      if (candidate?.archive.compressedBytes === target) return candidate;
+    }
+  }
+
+  for (let entropyTailSalt = 1; entropyTailSalt <= 64; entropyTailSalt += 1) {
+    const candidate = await encodeCandidate(neighborhood, entropyTailSalt);
+    if (candidate?.archive.compressedBytes === target) return candidate;
+  }
+
+  const tailIndex = neighborhood.length - 1;
+  const donorIndex = neighborhood.findLastIndex((length, index) => index < tailIndex && length > 0);
+  if (donorIndex >= 0) {
+    for (let transfer = 1; transfer <= 96; transfer += 1) {
+      if (neighborhood[donorIndex] < transfer || neighborhood[tailIndex] + transfer > maximumPayloadLength) break;
+      const candidatePayloadLengths = [...neighborhood];
+      candidatePayloadLengths[donorIndex] -= transfer;
+      candidatePayloadLengths[tailIndex] += transfer;
+      for (let entropyTailSalt = 0; entropyTailSalt <= 8; entropyTailSalt += 1) {
+        const candidate = await encodeCandidate(candidatePayloadLengths, entropyTailSalt);
+        if (candidate?.archive.compressedBytes === target) return candidate;
+      }
+    }
+  }
+  fail('codec fixture could not tune compressed gzip bytes to its exact cap through the production encoder: ' + stableStringify({
+    target,
+    attemptedCandidates,
+    best: {
+      compressedBytes: best.archive.compressedBytes,
+      payloadLengths: best.payloadLengths,
+      entropyTailSalt: best.entropyTailSalt
+    }
+  }));
+}
+
+async function replayProductionFixture({ graph, archive, inputPath, limits }) {
+  const replayed = await readEvidenceArchive(inputPath, {
+    compressedArchiveSha256: archive.compressedArchiveSha256,
+    canonicalArchiveSha256: archive.canonicalArchiveSha256,
+    objectIndexSha256: archive.objectIndexSha256,
+    expectedExpandedJsonlBytes: graph.projection.expandedJsonlBytes,
+    expectedRecordCount: graph.projection.recordCount,
+    rootProjection: graph.rootProjection,
+    limits
+  });
+  if (replayed.compressedBytes !== archive.compressedBytes || replayed.objectCount !== graph.projection.objectCount || replayed.recordCount !== graph.projection.recordCount) {
+    fail('production codec fixture at-cap replay did not preserve canonical archive identity');
+  }
+  return replayed;
+}
+
+async function writeProductionFixture({ graph, rootBytes, compressorIdentity, limits, outputPath }) {
+  const archive = await writeEvidenceArchive({
+    outputPath,
+    ...fixtureArchiveInput(graph, { rootBytes, compressorIdentity, limits })
+  });
+  return { archive, outputPath };
+}
+
+async function assertProductionFixtureRejected({ label, graph, rootBytes, compressorIdentity, limits, outputPath, pattern }) {
+  let writerRejected = false;
+  try {
+    await writeEvidenceArchive({
+      outputPath,
+      ...fixtureArchiveInput(graph, { rootBytes, compressorIdentity, limits })
+    });
+  } catch {
+    writerRejected = true;
+  }
+  if (!writerRejected) fail(label + ' cap-plus-one fixture was accepted by the publication writer');
+  if (fs.existsSync(outputPath)) fail(label + ' cap-plus-one writer left a publication artifact behind');
+  const archive = await encodeEvidenceArchive(fixtureArchiveInput(graph, {
+    rootBytes,
+    compressorIdentity,
+    limits
+  }));
+  fs.writeFileSync(outputPath, archive.gzip, { flag: 'wx', mode: 0o600 });
+  try {
+    await readEvidenceArchive(outputPath, { rootProjection: graph.rootProjection, limits });
+  } catch (error) {
+    if (pattern.test(error.message)) return archive;
+    fail(label + ' cap-plus-one fixture failed for an unexpected replay reason: ' + error.message);
+  }
+  fail(label + ' cap-plus-one fixture was accepted by the decoder');
+}
+
+async function assertRootBoundary({ graph, targetBytes, compressorIdentity, limits, outputPath }) {
+  const root = createRootSerializationFixture(targetBytes);
+  const rootBytes = Buffer.byteLength(stableStringify(root), 'utf8');
+  const fixture = await writeProductionFixture({
+    graph,
+    rootBytes,
+    compressorIdentity,
+    limits,
+    outputPath
+  });
+  if (rootBytes !== targetBytes) fail('root-byte fixture did not materialize the exact cap');
+  return { rootBytes, archive: fixture.archive, outputPath };
+}
+
+async function assertRootOverflowRejected({ graph, targetBytes, compressorIdentity, limits, outputPath }) {
+  const root = createRootSerializationFixture(targetBytes);
+  let rejected = false;
+  try {
+    await writeEvidenceArchive({
+      outputPath,
+      ...fixtureArchiveInput(graph, {
+        rootBytes: Buffer.byteLength(stableStringify(root), 'utf8'),
+        compressorIdentity,
+        limits
+      })
+    });
+  } catch {
+    rejected = true;
+  }
+  if (!rejected) fail('root-byte cap-plus-one fixture was accepted');
+  if (fs.existsSync(outputPath)) fail('root-byte cap-plus-one writer left a publication artifact behind');
+  return true;
+}
+
+export async function runCodecBoundaries({
+  objectCount = EVIDENCE_HARD_LIMITS.maxIndexedObjects,
+  limits = EVIDENCE_HARD_LIMITS,
+  outputDirectory = undefined
+} = {}) {
+  assertCodecFixtureLimits(limits);
+  if (limits.maxIndexedObjects < 9) fail('codec fixture object limit must accommodate the smallest typed raw-kind graph');
+  const exactHardLimitBoundaries = assertExactHardLimitBoundaries(limits);
   const policy = loadBaselinePolicy();
+  const compressorIdentity = await createCompressorIdentity({
+    compressorProbePolicyHash: policy.sectionHashes.performanceEvidenceChunkPolicy
+  });
   encodePerformanceEvidence('cpu-sample', makeRows(policy.policy.performanceEvidenceChunkPolicy.maximumRowsPerRunAndKind), policy);
   let rawOverflowRejected = false;
   try {
@@ -1227,55 +1898,216 @@ export function runCodecBoundaries({ objectCount = EVIDENCE_HARD_LIMITS.maxIndex
     rawOverflowRejected = true;
   }
   if (!rawOverflowRejected) fail('raw-kind cap-plus-one was accepted');
-  if (!Number.isSafeInteger(objectCount) || objectCount < 7) fail('objectCount must be at least seven for a closed core projection');
-  const createBoundaryGraph = (count) => {
-    const store = createEvidenceStore();
-    const singletonReferences = ['source', 'events', 'lifecycle', 'behavior'].map((evidenceId) => {
-      const singleton = store.putObject('singleton-report', { evidenceId, boundary: true });
-      return { kind: singleton.kind, hash: singleton.hash };
-    });
-    const packageReport = store.putObject('package-report', { evidenceId: 'package:boundary:release' });
-    const rawManifestReferences = [];
-    for (let index = 0; index < count - 7; index += 1) {
-      const rawManifest = store.putObject('raw-kind-manifest', { boundaryIndex: index });
-      rawManifestReferences.push({ kind: rawManifest.kind, hash: rawManifest.hash });
-    }
-    const child = store.putObject('experiment-child-manifest', { rawKindManifestReferences: sortedReferences(rawManifestReferences) });
-    const parent = store.putObject('ci-experiment-parent', { childManifest: { kind: child.kind, hash: child.hash } });
-    const rootReferences = sortedReferences([...singletonReferences, { kind: packageReport.kind, hash: packageReport.hash }, { kind: parent.kind, hash: parent.hash }]);
-    return { store, rootReferences, rootProjection: coreProjection(rootReferences) };
-  };
-  const boundary = createBoundaryGraph(objectCount);
-  const projection = boundary.store.project(boundary.rootReferences, boundary.rootProjection);
-  if (projection.recordCount !== objectCount + 1) fail('boundary record count is inconsistent');
-  const rootBytes = 0;
-  const accepted = measureEvidenceArchiveUtilization({
-    rootBytes,
-    compressedBytes: 0,
-    expandedJsonlBytes: projection.expandedJsonlBytes,
-    maximumRecordBytes: projection.maximumRecordBytes,
-    objectCount: projection.objectCount,
-    recordCount: projection.recordCount
-  }, { limits });
-  if (!accepted.hardLimitPassed) fail(`hard codec boundary rejected at cap: ${accepted.hardFailures.join(', ')}`);
-  let overflowRejected = false;
-  try {
-    const overflow = createBoundaryGraph(objectCount + 1);
-    const overProjection = overflow.store.project(overflow.rootReferences, overflow.rootProjection);
-    const over = measureEvidenceArchiveUtilization({
-      rootBytes,
-      compressedBytes: 0,
-      expandedJsonlBytes: overProjection.expandedJsonlBytes,
-      maximumRecordBytes: overProjection.maximumRecordBytes,
-      objectCount: overProjection.objectCount,
-      recordCount: overProjection.recordCount
-    }, { limits });
-    overflowRejected = !over.hardLimitPassed;
-  } catch {
-    overflowRejected = true;
+  if (!Number.isSafeInteger(objectCount) || objectCount < 7 || objectCount > limits.maxIndexedObjects) {
+    fail('objectCount must fit the requested closed core projection limit');
   }
-  if (!overflowRejected) fail('hard codec cap-plus-one was accepted');
-  return { objectCount, recordCount: projection.recordCount, rawOverflowRejected, overflowRejected };
+  const ownsWorkspace = outputDirectory === undefined;
+  const workspace = ownsWorkspace
+    ? createCapacityWorkspace(CAPACITY_OUTPUT_ROOT)
+    : resolveCapacityOutputRoot(outputDirectory);
+  if (!fs.existsSync(workspace)) fs.mkdirSync(workspace, { recursive: true, mode: 0o700 });
+  try {
+    const rootGraph = createProductionCodecFixture();
+    const rootAtCap = await assertRootBoundary({
+      graph: rootGraph,
+      targetBytes: limits.maxRootBytes,
+      compressorIdentity,
+      limits,
+      outputPath: path.join(workspace, 'codec-root-at-cap.jsonl.gz')
+    });
+    await replayProductionFixture({
+      graph: rootGraph,
+      archive: rootAtCap.archive,
+      inputPath: rootAtCap.outputPath,
+      limits
+    });
+    const rootOverflowRejected = await assertRootOverflowRejected({
+      graph: rootGraph,
+      targetBytes: limits.maxRootBytes + 1,
+      compressorIdentity,
+      limits,
+      outputPath: path.join(workspace, 'codec-root-cap-plus-one.jsonl.gz')
+    });
+
+    const compressedAtCap = await createCompressedBoundaryFixture({
+      target: limits.maxCompressedBytes,
+      limits,
+      compressorIdentity
+    });
+    const compressedAtCapPath = path.join(workspace, 'codec-compressed-at-cap.jsonl.gz');
+    const compressedAtCapWritten = await writeProductionFixture({
+      graph: compressedAtCap.graph,
+      rootBytes: 1,
+      compressorIdentity,
+      limits,
+      outputPath: compressedAtCapPath
+    });
+    if (compressedAtCapWritten.archive.compressedBytes !== limits.maxCompressedBytes) {
+      fail('compressed fixture did not materialize the exact cap');
+    }
+    await replayProductionFixture({ graph: compressedAtCap.graph, archive: compressedAtCapWritten.archive, inputPath: compressedAtCapPath, limits });
+    const compressedCapPlusOne = await createCompressedBoundaryFixture({
+      target: limits.maxCompressedBytes + 1,
+      limits,
+      compressorIdentity
+    });
+    const compressedOverflowArchive = await assertProductionFixtureRejected({
+      label: 'compressed',
+      graph: compressedCapPlusOne.graph,
+      rootBytes: 1,
+      compressorIdentity,
+      limits,
+      outputPath: path.join(workspace, 'codec-compressed-cap-plus-one.jsonl.gz'),
+      pattern: /compressed archive exceeds its hard limit/
+    });
+
+    const expandedAtCapGraph = createExpandedBoundaryFixture(limits.maxExpandedJsonlBytes, limits);
+    const expandedAtCapPath = path.join(workspace, 'codec-expanded-at-cap.jsonl.gz');
+    const expandedAtCapWritten = await writeProductionFixture({
+      graph: expandedAtCapGraph,
+      rootBytes: 1,
+      compressorIdentity,
+      limits,
+      outputPath: expandedAtCapPath
+    });
+    if (expandedAtCapWritten.archive.expandedJsonlBytes !== limits.maxExpandedJsonlBytes) {
+      fail('expanded JSONL fixture did not materialize the exact cap');
+    }
+    await replayProductionFixture({ graph: expandedAtCapGraph, archive: expandedAtCapWritten.archive, inputPath: expandedAtCapPath, limits });
+    const expandedCapPlusOneGraph = createExpandedBoundaryFixture(limits.maxExpandedJsonlBytes + 1, limits);
+    const expandedOverflowArchive = await assertProductionFixtureRejected({
+      label: 'expanded JSONL',
+      graph: expandedCapPlusOneGraph,
+      rootBytes: 1,
+      compressorIdentity,
+      limits,
+      outputPath: path.join(workspace, 'codec-expanded-cap-plus-one.jsonl.gz'),
+      pattern: /expanded archive exceeds its hard limit/
+    });
+
+    const recordAtCapGraph = createPerRecordBoundaryFixture(limits.maxRecordBytes);
+    const recordAtCapPath = path.join(workspace, 'codec-record-at-cap.jsonl.gz');
+    const recordAtCapWritten = await writeProductionFixture({
+      graph: recordAtCapGraph,
+      rootBytes: 1,
+      compressorIdentity,
+      limits,
+      outputPath: recordAtCapPath
+    });
+    if (recordAtCapWritten.archive.maximumRecordBytes !== limits.maxRecordBytes) {
+      fail('per-record fixture did not materialize the exact cap');
+    }
+    await replayProductionFixture({ graph: recordAtCapGraph, archive: recordAtCapWritten.archive, inputPath: recordAtCapPath, limits });
+    const recordCapPlusOneGraph = createPerRecordBoundaryFixture(limits.maxRecordBytes + 1);
+    const recordOverflowArchive = await assertProductionFixtureRejected({
+      label: 'per-record',
+      graph: recordCapPlusOneGraph,
+      rootBytes: 1,
+      compressorIdentity,
+      limits,
+      outputPath: path.join(workspace, 'codec-record-cap-plus-one.jsonl.gz'),
+      pattern: /per-record hard limit/
+    });
+
+    const totalAtCapGraph = createProductionCodecFixture({ emptyManifestCount: objectCount - 7 });
+    if (totalAtCapGraph.projection.objectCount !== objectCount || totalAtCapGraph.projection.recordCount !== objectCount + 1) {
+      fail('total-record fixture did not materialize the requested indexed-object cap');
+    }
+    const totalAtCapPath = path.join(workspace, 'codec-total-at-cap.jsonl.gz');
+    const totalAtCapWritten = await writeProductionFixture({
+      graph: totalAtCapGraph,
+      rootBytes: 1,
+      compressorIdentity,
+      limits,
+      outputPath: totalAtCapPath
+    });
+    await replayProductionFixture({ graph: totalAtCapGraph, archive: totalAtCapWritten.archive, inputPath: totalAtCapPath, limits });
+
+    const objectCapPlusOneGraph = createProductionCodecFixture({ emptyManifestCount: objectCount - 6 });
+    if (objectCapPlusOneGraph.projection.objectCount !== objectCount + 1 || objectCapPlusOneGraph.projection.recordCount !== totalAtCapGraph.projection.recordCount + 1) {
+      fail('indexed-object fixture did not materialize the requested cap-plus-one graph');
+    }
+    const objectOverflowArchive = await assertProductionFixtureRejected({
+      label: 'indexed-object',
+      graph: objectCapPlusOneGraph,
+      rootBytes: 1,
+      compressorIdentity,
+      limits,
+      outputPath: path.join(workspace, 'codec-object-cap-plus-one.jsonl.gz'),
+      pattern: /indexed-object hard limit/
+    });
+
+    // The typed graph at maxIndexedObjects has maxTotalRecords records. A 65,537th
+    // typed object would first trip the independent indexed-object guard, so append
+    // one deliberately invalid canonical record and encode it through the same closed
+    // production transport to exercise the decoder's total-record guard itself.
+    const totalOverflowCanonicalJsonl = Buffer.concat([
+      totalAtCapWritten.archive.canonicalJsonl,
+      Buffer.from(stableStringify({ recordType: 'total-record-overflow-fixture' }) + '\n', 'utf8')
+    ]);
+    const totalOverflowArchive = await encodeCanonicalEvidenceArchive(totalOverflowCanonicalJsonl, { compressorIdentity });
+    const totalCapPlusOnePath = path.join(workspace, 'codec-total-cap-plus-one.jsonl.gz');
+    fs.writeFileSync(totalCapPlusOnePath, totalOverflowArchive.gzip, { flag: 'wx', mode: 0o600 });
+    let totalOverflowRejected = false;
+    try {
+      await readEvidenceArchive(totalCapPlusOnePath, { rootProjection: totalAtCapGraph.rootProjection, limits });
+    } catch (error) {
+      if (!/total-record hard limit/.test(error.message)) {
+        fail('total-record cap-plus-one fixture failed for an unexpected replay reason: ' + error.message);
+      }
+      totalOverflowRejected = true;
+    }
+    if (!totalOverflowRejected) fail('total-record cap-plus-one fixture was accepted by the decoder');
+
+    return {
+      objectCount,
+      recordCount: totalAtCapGraph.projection.recordCount,
+      rawOverflowRejected,
+      overflowRejected: true,
+      rootOverflowRejected,
+      rootArchiveReplayed: true,
+      compressedOverflowRejected: compressedOverflowArchive.compressedBytes === limits.maxCompressedBytes + 1,
+      expandedOverflowRejected: expandedOverflowArchive.expandedJsonlBytes === limits.maxExpandedJsonlBytes + 1,
+      recordOverflowRejected: recordOverflowArchive.maximumRecordBytes === limits.maxRecordBytes + 1,
+      totalOverflowRejected,
+      objectOverflowRejected: objectOverflowArchive.objectCount === limits.maxIndexedObjects + 1,
+      archiveReplayed: true,
+      exactHardLimitBoundaries,
+      streamedArchive: {
+        rootBytes: rootAtCap.rootBytes,
+        compressedBytes: compressedAtCapWritten.archive.compressedBytes,
+        expandedJsonlBytes: expandedAtCapWritten.archive.expandedJsonlBytes,
+        maximumRecordBytes: recordAtCapWritten.archive.maximumRecordBytes,
+        objectCount: totalAtCapGraph.projection.objectCount,
+        recordCount: totalAtCapGraph.projection.recordCount
+      },
+      physicalFixtures: {
+        codec: 'production-closed-node-zlib-gzip',
+        compressed: {
+          atCapBytes: compressedAtCapWritten.archive.compressedBytes,
+          capPlusOneBytes: compressedOverflowArchive.compressedBytes
+        },
+        expandedJsonl: {
+          atCapBytes: expandedAtCapWritten.archive.expandedJsonlBytes,
+          capPlusOneBytes: expandedOverflowArchive.expandedJsonlBytes
+        },
+        maximumRecord: {
+          atCapBytes: recordAtCapWritten.archive.maximumRecordBytes,
+          capPlusOneBytes: recordOverflowArchive.maximumRecordBytes
+        },
+        totalRecords: {
+          atCap: totalAtCapGraph.projection.recordCount,
+          capPlusOne: totalAtCapGraph.projection.recordCount + 1
+        },
+        indexedObjects: {
+          atCap: totalAtCapGraph.projection.objectCount,
+          capPlusOne: objectCapPlusOneGraph.projection.objectCount
+        }
+      }
+    };
+  } finally {
+    if (ownsWorkspace) removeCapacityWorkspace(workspace);
+  }
 }
 
 export async function runCapacityValidation({
@@ -1291,21 +2123,68 @@ export async function runCapacityValidation({
     if (mode === 'headroom' || mode === 'all') {
       result.headroom = await runHeadroomCapacity({ ...(headroomOptions ?? {}), outputDirectory: workspace });
     }
-    if (mode === 'codec-boundaries' || mode === 'all') result.codecBoundaries = runCodecBoundaries();
+    if (mode === 'codec-boundaries' || mode === 'all') result.codecBoundaries = await runCodecBoundaries({ outputDirectory: workspace });
     return result;
   } finally {
     removeCapacityWorkspace(workspace);
   }
 }
 
-export async function runCapacityCli(argv = process.argv.slice(2), { stdout = process.stdout } = {}) {
-  const options = parseArgs(argv);
-  const result = await runCapacityValidation(options);
-  const summary = {
+function observedCompressionSummary(utilization) {
+  return {
+    compressedBytes: utilization.raw.compressedBytes,
+    publicationThresholdBytes: utilization.publicationLimits.compressedBytes,
+    hardLimitBytes: utilization.hardLimits.compressedBytes,
+    fractionOfPublicationThreshold: utilization.utilization.compressedBytes,
+    fractionOfHardLimit: utilization.raw.compressedBytes / utilization.hardLimits.compressedBytes
+  };
+}
+
+function collectObservedProductionComponentMaxima(scenarios) {
+  if (!Array.isArray(scenarios) || scenarios.length === 0) {
+    fail('observed production component maxima require at least one scenario');
+  }
+  return Object.fromEntries(PRODUCTION_COMPONENTS.map((component) => {
+    const values = scenarios.map((scenario) => scenario.utilization?.raw?.[component]);
+    if (values.some((value) => !Number.isSafeInteger(value) || value < 0)) {
+      fail(`production scenario has an invalid ${component} measurement`);
+    }
+    const value = Math.max(...values);
+    const producers = scenarios
+      .filter((scenario) => scenario.utilization.raw[component] === value)
+      .map((scenario) => ({
+        scenario: scenario.name,
+        resolutionKind: scenario.resolutionKind,
+        resolution: scenario.resolution,
+        allocationShape: scenario.allocationShape,
+        componentValue: scenario.utilization.raw[component],
+        rootBytes: scenario.utilization.raw.rootBytes,
+        compressedBytes: scenario.acceptedRootTransport.compressedBytes,
+        compressorProbeSha256: scenario.acceptedRootTransport.compressorIdentity.compressorProbeSha256,
+        observedCompressedUtilization: observedCompressionSummary(scenario.utilization)
+      }));
+    return [component, { value, producers }];
+  }));
+}
+
+export function summarizeCapacityValidation(result) {
+  return {
     mode: result.mode,
     headroom: result.headroom && {
       qualifiedMaximums: result.headroom.qualifiedMaximums,
       compressionClaim: result.headroom.compressionClaim,
+      compressionClaimLabel: 'observed compressed utilization is per scenario and is not a universal compression ratio',
+      compactOracleSemanticComponentMaxima: result.headroom.envelope.semanticComponentMaxima,
+      semanticMaxima: result.headroom.observedProductionComponentMaxima,
+      semanticCaseMap: result.headroom.scenarios
+        .filter((scenario) => Array.isArray(scenario.semanticEnvelopeCases))
+        .flatMap((scenario) => scenario.semanticEnvelopeCases.map((entry) => ({
+          scenario: scenario.name,
+          shape: entry.shape,
+          maximumComponents: entry.maximumComponents,
+          components: entry.components,
+          observedCompressedUtilization: observedCompressionSummary(entry.utilization)
+        }))),
       scenarios: result.headroom.scenarios.map((scenario) => ({
         name: scenario.name,
         allocationState: scenario.allocationState,
@@ -1315,11 +2194,18 @@ export async function runCapacityCli(argv = process.argv.slice(2), { stdout = pr
         publicationEligible: scenario.publicationEligible,
         runBodies: scenario.runBodies,
         windowCallbacks: scenario.windowCallbacks,
-        publicationHeadroomPassed: scenario.utilization.publicationHeadroomPassed
+        publicationHeadroomPassed: scenario.utilization.publicationHeadroomPassed,
+        observedCompressedUtilization: observedCompressionSummary(scenario.utilization)
       }))
     },
     codecBoundaries: result.codecBoundaries
   };
+}
+
+export async function runCapacityCli(argv = process.argv.slice(2), { stdout = process.stdout } = {}) {
+  const options = parseArgs(argv);
+  const result = await runCapacityValidation(options);
+  const summary = summarizeCapacityValidation(result);
   stdout.write(`${stableStringify(summary)}\n`);
   return result;
 }
