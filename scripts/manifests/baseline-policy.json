@@ -1,0 +1,282 @@
+{
+  "schemaVersion": 1,
+  "programOriginSha": "9a7839ce47c61982f6eab836c496b8469f01a9ca",
+  "analysisSha256": "0c6a4ccbe48b9b12e4c58bd153ae6f5c04bed82fb489c5a2402d21934b4c8fba",
+  "outputRoot": "artifacts/codebase-baseline",
+  "sourcePolicy": {
+    "version": 1,
+    "countedExtensions": {
+      "source": [".ts", ".tsx", ".js", ".mjs", ".cjs", ".css", ".html", ".json", ".wgsl"],
+      "test": [".ts", ".tsx", ".js", ".mjs", ".cjs", ".css", ".html", ".json", ".wgsl"],
+      "script": [".js", ".mjs", ".cjs", ".ts", ".json", ".sh"],
+      "document": [".md", ".mdx"]
+    },
+    "generatedArtifactPaths": [
+      "artifacts",
+      ".vitest",
+      "playwright-report",
+      "tests/e2e/test-results",
+      "tests/e2e/screenshots",
+      "tests/e2e/.generated"
+    ],
+    "buildOutputArtifactPaths": ["dist", "release", "index.html"],
+    "generatedResidue": {
+      "index.html": "vite-electron-placeholder-only"
+    },
+    "vendoredDirectoryPrefixes": ["node_modules", "vendor", ".cache"],
+    "phase0OwnedPathPrefixes": [
+      "scripts/lib/baseline-",
+      "scripts/lib/performance-evidence.js",
+      "scripts/codebase-baseline.js",
+      "scripts/validate-baseline-evidence-capacity.js",
+      "scripts/manifests/baseline-policy.json",
+      "tests/unit/scripts/baseline-",
+      "tests/unit/scripts/performance-evidence.test.ts",
+      "tests/unit/scripts/codebase-baseline.test.ts",
+      "tests/unit/scripts/validate-baseline-evidence-capacity.test.ts",
+      "CODEBASE_NORMALIZATION_AND_REDUCTION_ANALYSIS.md"
+    ]
+  },
+  "reportPolicy": {
+    "version": 1,
+    "schemaVersion": 1,
+    "kinds": [
+      "source",
+      "events",
+      "lifecycle",
+      "behavior",
+      "package",
+      "performance-experiment",
+      "performance-run",
+      "performance-aggregate",
+      "performance-comparison",
+      "hardware-qualification"
+    ],
+    "experimentRoles": ["ci-integrity", "reference-comparison"],
+    "comparisonKinds": ["harness-overhead", "instrumentation-overhead"],
+    "buildVariants": ["production", "harness-control", "instrumented"],
+    "backends": ["canvas2d", "webgpu"]
+  },
+  "performanceOperationRegistry": {
+    "version": 1,
+    "operations": [
+      { "id": "build-spawn", "variant": "build-spawn" },
+      { "id": "generic-transport-spawn", "variant": "generic-transport-spawn" },
+      { "id": "metric-adapter-session-open", "variant": "metric-adapter-session-open" },
+      { "id": "metric-adapter-session-close", "variant": "metric-adapter-session-close" },
+      { "id": "electron-harness-spawn", "variant": "electron-harness-spawn" },
+      { "id": "production-sentinel-spawn", "variant": "production-sentinel-spawn" },
+      { "id": "internal-reset", "variant": "internal-reset" }
+    ]
+  },
+  "processAdapterRegistry": {
+    "version": 1,
+    "adapters": [
+      { "id": "linux-procfs-v1", "platform": "linux", "metricSource": "procfs", "counterQuantumSeconds": 0.01 },
+      { "id": "macos-ps-v1", "platform": "darwin", "metricSource": "ps", "counterQuantumSeconds": 0.01 },
+      { "id": "windows-powershell-v1", "platform": "win32", "metricSource": "powershell", "counterQuantumSeconds": 0.0000001 }
+    ],
+    "processClasses": ["Browser", "Tab", "Utility", "Zygote", "Sandbox helper", "GPU", "Pepper Plugin", "Pepper Plugin Broker", "Unknown"]
+  },
+  "performanceEnvironmentPolicy": {
+    "version": 1,
+    "pollCadenceMs": { "minimum": 900, "maximum": 1100 },
+    "staticIdentityFields": ["host", "runtime", "gpu", "switches"],
+    "dynamicStateFields": ["power", "display", "refreshRate", "devicePixelRatio", "thermal", "gpuSwitch"],
+    "electronEventNames": ["on-ac", "on-battery", "speed-limit-change", "thermal-state-change", "display-added", "display-removed", "display-metrics-changed", "gpu-info-update"]
+  },
+  "performanceFailurePolicy": {
+    "version": 1,
+    "qualificationUnavailableReasons": [
+      "webgpu-api-unavailable",
+      "webgpu-adapter-unavailable",
+      "transfer-api-unavailable",
+      "transfer-method-unavailable",
+      "transfer-allowlisted-not-supported",
+      "worker-fallback-adapter"
+    ],
+    "retryableReasons": ["sample-floor", "cadence-insufficient", "host-noise", "cpu-boundary-overlap"],
+    "measuredDrops": ["duplicateMediaTime", "noCurrentData", "backpressure"],
+    "metricSessionAbortTuples": [
+      { "phase": "open", "backend": "none", "reason": "metric-adapter-resource-owned" },
+      { "phase": "reset-a", "backend": "none", "reason": "reset-failure" },
+      { "phase": "reset-b", "backend": "none", "reason": "reset-failure" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "bitmapCreationFailed" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "cadence-insufficient" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "crash" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "drain-timeout" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "driverFailed" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "driverInactive" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "enqueueFailed" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "environment-drift" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "host-noise" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "membership-failure" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "metrics-broker-interference" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "pid-identity-change" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "sample-floor" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "sessionInactive" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "source-token-span-join-corruption" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "submission-seal-timeout" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "unclean-shutdown" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "bitmapCreationFailed" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "cadence-insufficient" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "crash" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "drain-timeout" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "driverFailed" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "driverInactive" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "enqueueFailed" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "environment-drift" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "host-noise" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "membership-failure" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "metrics-broker-interference" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "pid-identity-change" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "sample-floor" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "sessionInactive" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "source-token-span-join-corruption" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "submission-seal-timeout" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "unclean-shutdown" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "worker-error" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "workerNotReady" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "bitmapCreationFailed" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "cadence-insufficient" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "crash" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "drain-timeout" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "driverFailed" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "driverInactive" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "enqueueFailed" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "environment-drift" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "host-noise" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "membership-failure" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "metrics-broker-interference" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "pid-identity-change" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "sample-floor" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "sessionInactive" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "source-token-span-join-corruption" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "submission-seal-timeout" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "unclean-shutdown" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "bitmapCreationFailed" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "cadence-insufficient" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "crash" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "drain-timeout" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "driverFailed" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "driverInactive" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "enqueueFailed" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "environment-drift" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "host-noise" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "membership-failure" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "metrics-broker-interference" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "pid-identity-change" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "sample-floor" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "sessionInactive" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "source-token-span-join-corruption" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "submission-seal-timeout" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "unclean-shutdown" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "worker-error" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "workerNotReady" }
+    ]
+  },
+  "performanceDispositionPolicy": {
+    "version": 1,
+    "sourceDispositions": ["duplicateMediaTime", "noCurrentData", "backpressure", "sessionInactive", "workerNotReady", "bitmapCreationFailed", "enqueueFailed", "drawCompleted", "driverInactive", "driverFailed", "workerFrameSubmitted"],
+    "advisoryDispositionIsAuthority": false
+  },
+  "performanceMetricPolicy": {
+    "version": 1,
+    "workloadId": "phase0-animated-160x144-v1",
+    "cpuWindowLagSamples": 40,
+    "minimumRawSamples": 55,
+    "minimumCpuWindows": 15,
+    "maximumCounterQuantumSeconds": 0.01,
+    "maximumReadDurationMs": 50,
+    "sampleCadenceMs": { "minimum": 450, "maximum": 550 },
+    "sentinelCpuAllowance": 0.02,
+    "instrumentationCpuAllowance": 0.05,
+    "scoreCountByBackend": { "canvas2d": 6, "webgpu": 6 }
+  },
+  "allocationEvidencePolicy": {
+    "version": 1,
+    "canvas2d": { "state": "not-applicable-no-covered-allocation-request", "operations": [] },
+    "webgpu": {
+      "operations": [
+        "video-frame-image-bitmap-request",
+        "uniform-float32-array",
+        "gpu-buffer-request",
+        "gpu-texture-request",
+        "bind-group-create",
+        "render-pass-plan-materialization"
+      ],
+      "coverage": [
+        { "operationId": "video-frame-image-bitmap-request", "sourceLocationId": "video-session:create-image-bitmap", "carrier": "frame-request", "cardinality": "per-frame", "byteSemantics": "rgba-transfer-footprint" },
+        { "operationId": "uniform-float32-array", "sourceLocationId": "webgpu-driver:uniform-float32-array", "carrier": "frame-request", "cardinality": "per-frame", "byteSemantics": "requested-byte-length" },
+        { "operationId": "gpu-buffer-request", "sourceLocationId": "webgpu-driver:create-buffer", "carrier": "lifecycle-request", "lifecyclePhase": "startup", "cardinality": 1, "byteSemantics": "descriptor-size" },
+        { "operationId": "gpu-texture-request", "sourceLocationId": "webgpu-driver:create-texture", "carrier": "lifecycle-request", "lifecyclePhase": "startup", "cardinality": 3, "byteSemantics": "logical-texel-footprint" },
+        { "operationId": "bind-group-create", "sourceLocationId": "webgpu-driver:create-bind-group", "carrier": "frame-request", "cardinality": "per-frame", "byteSemantics": "count-only-unavailable" },
+        { "operationId": "render-pass-plan-materialization", "sourceLocationId": "webgpu-driver:materialize-render-plan", "carrier": "frame-request", "cardinality": "per-frame", "byteSemantics": "count-only-unavailable" }
+      ],
+      "states": ["measured-request-proxy", "unavailable-incomplete-request-coverage"]
+    }
+  },
+  "capacityFixturePolicy": {
+    "version": 1,
+    "encoding": "synthetic-allocation-coverage-v1",
+    "callbackCohortEncoding": "synthetic-callback-cohort-v1",
+    "provenanceKind": "synthetic-capacity-fixture",
+    "publicationEligible": false,
+    "runtimeMeasurement": false
+  },
+  "comparisonFingerprintPolicy": {
+    "version": 1,
+    "includedFields": ["schemaVersion", "policyHashes", "initialEnvironment", "workload", "reset", "processAdapter", "seed", "backend", "backendExecutionIdentity"],
+    "excludedFields": ["sourceSha", "experimentRole", "experimentId", "captureProvenance", "comparisonKind", "buildVariant", "bundleHash", "pairIndex", "attemptIndex", "executionId", "timestamps", "rawMeasurements"],
+    "canvasBackendExecutionIdentity": "not-applicable"
+  },
+  "qualificationFingerprintPolicy": {
+    "version": 1,
+    "includedFields": ["schemaVersion", "sourceSha", "controlBundle", "workload", "initialEnvironment", "requestedBackend", "selectedBackend", "observedBackend", "qualificationState", "unavailabilityBranch", "adapter", "backendExecutionIdentity", "resetVersion", "policyHashes", "processAdapter", "seedManifestHash"],
+    "excludedFields": ["experimentId", "ledgerSequence", "operationMarker", "launchId", "executionId", "timestamps", "pids", "paths"]
+  },
+  "performanceEvidenceChunkPolicy": {
+    "version": 1,
+    "chunkRows": 256,
+    "maximumRowsPerRunAndKind": 16384,
+    "rawKinds": {
+      "frame-request": { "sortKeys": ["runId", "measurementEpochId", "sourceSequence", "operationId", "sourceLocationId", "requestOrdinal"] },
+      "lifecycle-request": { "sortKeys": ["runId", "executionId", "lifecyclePhase", "phaseSequence", "operationId", "sourceLocationId", "requestOrdinal"] },
+      "timing-span": { "sortKeys": ["runId", "measurementEpochId", "sourceSequence", "metricId"] },
+      "cpu-sample": { "sortKeys": ["runId", "ordinal"] }
+    }
+  },
+  "performanceLimits": {
+    "version": 1,
+    "buildSeconds": 600,
+    "seedMaterializationSeconds": 30,
+    "cooldownAndIdleSeconds": 135,
+    "readinessSeconds": 30,
+    "sourceFlowSeconds": 15,
+    "warmup": { "minimumSeconds": 10, "minimumCallbacks": 600, "maximumSeconds": 30, "maximumCallbacks": 900 },
+    "window": { "maximumSeconds": 45, "maximumCallbacks": 2048 },
+    "oneLaunchSeconds": 300,
+    "ciExperimentSeconds": 10800,
+    "referenceExperimentSeconds": 28800,
+    "maximumEnvironmentPolls": 300,
+    "maximumSameStateEvents": 4096,
+    "maximumProcessObservations": 1024,
+    "maximumIdentities": 128,
+    "maximumIdentifierBytes": 1024,
+    "maximumPathBytes": 4096
+  },
+  "transcodeDecisionPolicy": {
+    "version": 1,
+    "contracts": [
+      { "id": "transcode-start", "path": "src/platform/transcode/transcode.service.ts", "closureAssertion": "start remains behaviorally covered" },
+      { "id": "transcode-complete", "path": "src/platform/transcode/transcode.service.ts", "closureAssertion": "completion remains behaviorally covered" },
+      { "id": "transcode-error", "path": "src/platform/transcode/transcode.service.ts", "closureAssertion": "failure remains behaviorally covered" },
+      { "id": "transcode-cancel", "path": "src/platform/transcode/transcode.service.ts", "closureAssertion": "cancellation remains behaviorally covered" }
+    ],
+    "rows": [
+      { "option": "approved-option-a", "strategy": "indeterminate-no-ffprobe", "blocked": false, "impactedContractIds": ["transcode-cancel", "transcode-complete", "transcode-error", "transcode-start"], "impactedTestIds": ["transcode-current-progress-semantics"] },
+      { "option": "approved-option-b", "strategy": "exact-duration-probe", "blocked": false, "impactedContractIds": ["transcode-cancel", "transcode-complete", "transcode-error", "transcode-start"], "impactedTestIds": ["transcode-current-progress-semantics"] },
+      { "option": "unresolved", "strategy": "unresolved", "blocked": true, "impactedContractIds": ["transcode-cancel", "transcode-complete", "transcode-error", "transcode-start"], "impactedTestIds": ["transcode-current-progress-semantics"] }
+    ]
+  }
+}
