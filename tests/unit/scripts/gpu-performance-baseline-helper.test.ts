@@ -1,15 +1,27 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { assertPerformanceController } from '../../e2e/helpers/gpu-performance-baseline.helper.js';
+import {
+  assertPerformanceController,
+  installPerformanceControlProbe,
+  readPerformanceControlProbe,
+  removePerformanceControlProbe
+} from '../../e2e/helpers/gpu-performance-baseline.helper.js';
 
 const controllerSymbol = Symbol.for('prismgb.performance.measurementController');
 const originalControllerDescriptor = Object.getOwnPropertyDescriptor(globalThis, controllerSymbol);
+const originalWindowDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
 
 afterEach(() => {
   if (originalControllerDescriptor) {
     Object.defineProperty(globalThis, controllerSymbol, originalControllerDescriptor);
-    return;
+  } else {
+    Reflect.deleteProperty(globalThis, controllerSymbol);
   }
-  Reflect.deleteProperty(globalThis, controllerSymbol);
+
+  if (originalWindowDescriptor) {
+    Object.defineProperty(globalThis, 'window', originalWindowDescriptor);
+  } else {
+    Reflect.deleteProperty(globalThis, 'window');
+  }
 });
 
 describe('GPU performance baseline helper', () => {
@@ -28,5 +40,24 @@ describe('GPU performance baseline helper', () => {
 
     await expect(assertPerformanceController(electronApp, 'launch-id')).resolves.toEqual({ mainPid: process.pid });
     expect(assertLaunchId).toHaveBeenCalledWith('launch-id');
+  });
+
+  it('passes the control-probe symbol into the renderer evaluation', async () => {
+    const windowTarget: Record<PropertyKey, unknown> = {
+      prismgbPerformanceLaunchMarker: { launchId: 'launch-id' }
+    };
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: windowTarget
+    });
+    const page = {
+      evaluate: async <T>(callback: (argument: T) => unknown, argument: T) => callback(argument)
+    };
+
+    await installPerformanceControlProbe(page, 'launch-id');
+    await expect(readPerformanceControlProbe(page)).resolves.toEqual([]);
+    await removePerformanceControlProbe(page);
+    expect(windowTarget['prismgbPerformanceControlProbe']).toBeUndefined();
+    expect(windowTarget[Symbol.for('prismgb.performance.controlProbe')]).toBeUndefined();
   });
 });

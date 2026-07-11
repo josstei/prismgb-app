@@ -116,7 +116,7 @@ export async function assertPerformanceController(electronApp, launchId) {
 }
 
 export async function installPerformanceControlProbe(page, launchId) {
-  await page.evaluate((expectedLaunchId) => {
+  await page.evaluate(({ launchId: expectedLaunchId, probeSymbol }) => {
     const writes = [];
     const sourceSequences = new Set();
     let lastSourceSequence = 0;
@@ -211,13 +211,13 @@ export async function installPerformanceControlProbe(page, launchId) {
       })
     });
 
-    Object.defineProperty(window, Symbol.for(PERFORMANCE_CONTROL_PROBE_SYMBOL), {
+    Object.defineProperty(window, Symbol.for(probeSymbol), {
       configurable: true,
       enumerable: false,
       writable: false,
       value: () => writes.map((write) => ({ ...write }))
     });
-  }, launchId);
+  }, { launchId, probeSymbol: PERFORMANCE_CONTROL_PROBE_SYMBOL });
 }
 
 export async function readPerformanceControlProbe(page) {
