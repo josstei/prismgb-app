@@ -1172,6 +1172,9 @@ describe('runPerformanceBaseline', () => {
       role: 'ci-integrity',
       selectedHost: false,
       experiment: { id: result.experimentId, backend: 'canvas2d' },
+      build: {
+        commandLedger: { relativePath: 'performance-command-ledger.json' }
+      },
       indexes: {
         sentinel: { captureCount: 6 },
         externalMetric: { captureCount: 18 },
@@ -1186,7 +1189,8 @@ describe('runPerformanceBaseline', () => {
     await expect(fs.readFile(result.externalMetricCapture.indexPath, 'utf8')).resolves.toContain('raw-external-metric-captures/');
     await expect(fs.readFile(result.metricSessionCapture.indexPath, 'utf8')).resolves.toContain('raw-metric-session-captures/');
     await expect(readPerformanceRawCaptureManifest({ outputDirectory: path.join(cwd, 'performance-output') })).resolves.toMatchObject({
-      manifest: result.rawCaptureManifest.manifest
+      manifest: result.rawCaptureManifest.manifest,
+      commandLedger: result.commandLedger
     });
     await fs.rm(path.join(
       cwd,

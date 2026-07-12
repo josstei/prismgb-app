@@ -1184,6 +1184,8 @@ export async function runPerformanceBaseline({
     buildManifestRelativePath: PERFORMANCE_BUILD_MANIFEST,
     productionBundleEvidence: build.productionBundleEvidence,
     productionBundleEvidenceRelativePath: PERFORMANCE_PRODUCTION_BUNDLE_EVIDENCE,
+    commandLedger: build.commandLedger,
+    commandLedgerRelativePath: PERFORMANCE_COMMAND_LEDGER,
     indexes: {
       sentinel: { relativePath: PERFORMANCE_SENTINEL_CAPTURE_INDEX, index: sentinelCapture.index },
       externalMetric: { relativePath: PERFORMANCE_EXTERNAL_METRIC_CAPTURE_INDEX, index: externalMetricCapture.index },

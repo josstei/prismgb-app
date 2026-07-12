@@ -61,6 +61,25 @@ function fixture() {
     sourceSha,
     checksum: 'f'.repeat(64)
   };
+  const commandLedger = {
+    schemaVersion: 1,
+    sourceSha,
+    entries: ['production', 'harness-control', 'instrumented'].map((buildId, index) => ({
+      sequence: index + 1,
+      operationId: 'build-spawn',
+      start: index * 2,
+      end: (index * 2) + 1,
+      buildId,
+      closure: {
+        closed: true,
+        stdoutDrained: true,
+        stderrDrained: true,
+        inputClosed: true,
+        exit: { code: 0, durationMs: 1000 },
+        zeroSurvivors: true
+      }
+    }))
+  };
   const indexes = {
     sentinel: { relativePath: 'performance-sentinel-captures.json', index: index(3, 6) },
     externalMetric: { relativePath: 'performance-external-metric-captures.json', index: index(3, 18) },
@@ -80,6 +99,8 @@ function fixture() {
     buildManifestRelativePath: 'performance-build-manifest.json',
     productionBundleEvidence,
     productionBundleEvidenceRelativePath: 'performance-production-bundle-evidence.json',
+    commandLedger,
+    commandLedgerRelativePath: 'performance-command-ledger.json',
     indexes
   };
 }
@@ -91,6 +112,7 @@ async function writeInputs(outputDirectory: string, input: ReturnType<typeof fix
     path.join(outputDirectory, input.productionBundleEvidenceRelativePath),
     `${stableStringify(input.productionBundleEvidence)}\n`
   );
+  await fs.writeFile(path.join(outputDirectory, input.commandLedgerRelativePath), `${stableStringify(input.commandLedger)}\n`);
   await Promise.all(Object.values(input.indexes).map(({ relativePath, index: captureIndex }) => (
     fs.writeFile(path.join(outputDirectory, relativePath), `${stableStringify(captureIndex)}\n`)
   )));
@@ -109,6 +131,9 @@ describe('performance raw capture manifests', () => {
       role: 'ci-integrity',
       selectedHost: false,
       experiment: { id: experimentId, backend: 'canvas2d' },
+      build: {
+        commandLedger: { relativePath: 'performance-command-ledger.json', checksum: expect.stringMatching(/^[a-f0-9]{64}$/) }
+      },
       indexes: {
         sentinel: { captureCount: 6 },
         externalMetric: { captureCount: 18 },
@@ -127,6 +152,10 @@ describe('performance raw capture manifests', () => {
     expect(() => createPerformanceRawCaptureManifest({ ...input, pairPlanRelativePath: 'C:\\outside.json' })).toThrow(/inside the capture output directory/);
     expect(() => createPerformanceRawCaptureManifest({
       ...input,
+      commandLedger: { ...input.commandLedger, sourceSha: 'b'.repeat(40) }
+    })).toThrow(/build command ledger source SHA/);
+    expect(() => createPerformanceRawCaptureManifest({
+      ...input,
       indexes: {
         ...input.indexes,
         workload: {
@@ -143,5 +172,12 @@ describe('performance raw capture manifests', () => {
     await writePerformanceRawCaptureManifest({ outputDirectory, ...input });
     await fs.writeFile(path.join(outputDirectory, input.indexes.externalMetric.relativePath), '{}\n');
     await expect(readPerformanceRawCaptureManifest({ outputDirectory })).rejects.toThrow(/externalMetric index/);
+
+    const commandLedgerOutputDirectory = await temporaryDirectory();
+    await writeInputs(commandLedgerOutputDirectory, input);
+    await writePerformanceRawCaptureManifest({ outputDirectory: commandLedgerOutputDirectory, ...input });
+    await fs.writeFile(path.join(commandLedgerOutputDirectory, input.commandLedgerRelativePath), '{}\n');
+    await expect(readPerformanceRawCaptureManifest({ outputDirectory: commandLedgerOutputDirectory }))
+      .rejects.toThrow(/build command ledger/);
   });
 });

@@ -20,6 +20,7 @@ const BUILD_VARIANTS = Object.freeze({
   'harness-control': Object.freeze({ harness: true, instrumentation: false }),
   instrumented: Object.freeze({ harness: true, instrumentation: true })
 });
+const BUILD_VARIANT_IDS = Object.freeze(Object.keys(BUILD_VARIANTS));
 const PAIR_COUNT = Object.values(PERFORMANCE_PAIR_CARDINALITIES)
   .reduce((total, count) => total + count, 0);
 const INDEX_SPECS = Object.freeze({
@@ -159,6 +160,32 @@ function validateProductionBundleEvidence(value, sourceSha) {
   return cloneJson(value, 'production bundle evidence');
 }
 
+function validateBuildCommandLedger(value, sourceSha) {
+  exact(value, ['schemaVersion', 'sourceSha', 'entries'], 'build command ledger');
+  if (value.schemaVersion !== 1) fail('build command ledger schema version is invalid');
+  gitSha(value.sourceSha, 'build command ledger sourceSha');
+  if (value.sourceSha !== sourceSha) fail('build command ledger source SHA does not match the raw capture set');
+  if (!Array.isArray(value.entries) || value.entries.length !== BUILD_VARIANT_IDS.length) {
+    fail('build command ledger must retain every build variant exactly once');
+  }
+  for (const [index, entry] of value.entries.entries()) {
+    exact(entry, ['sequence', 'operationId', 'start', 'end', 'buildId', 'closure'], `build command ledger entries[${index}]`);
+    if (entry.sequence !== index + 1 || entry.operationId !== 'build-spawn' || entry.buildId !== BUILD_VARIANT_IDS[index]) {
+      fail('build command ledger entry does not match the required build sequence');
+    }
+    finite(entry.start, `build command ledger entries[${index}].start`);
+    finite(entry.end, `build command ledger entries[${index}].end`, entry.start);
+    exact(entry.closure, ['closed', 'stdoutDrained', 'stderrDrained', 'inputClosed', 'exit', 'zeroSurvivors'], `build command ledger entries[${index}].closure`);
+    for (const key of ['closed', 'stdoutDrained', 'stderrDrained', 'inputClosed', 'zeroSurvivors']) {
+      if (entry.closure[key] !== true) fail('build command ledger entry must retain successful process closure evidence');
+    }
+    exact(entry.closure.exit, ['code', 'durationMs'], `build command ledger entries[${index}].closure.exit`);
+    if (entry.closure.exit.code !== 0) fail('build command ledger entry must retain a successful process exit');
+    finite(entry.closure.exit.durationMs, `build command ledger entries[${index}].closure.exit.durationMs`);
+  }
+  return cloneJson(value, 'build command ledger');
+}
+
 function validateCaptureIndex(value, spec, sourceSha, label) {
   exact(value, ['schemaVersion', 'sourceSha', 'captures', 'checksum'], label);
   if (value.schemaVersion !== spec.schemaVersion) fail(`${label} schema version is invalid`);
@@ -228,6 +255,7 @@ function validateUniqueArtifactPaths(manifest) {
     manifest.pairPlan.relativePath,
     manifest.build.manifest.relativePath,
     manifest.build.productionBundleEvidence.relativePath,
+    manifest.build.commandLedger.relativePath,
     ...Object.values(manifest.indexes).map((reference) => reference.relativePath)
   ];
   if (new Set(paths).size !== paths.length) fail('raw capture manifest references one artifact path more than once');
@@ -259,13 +287,14 @@ function manifestBody(value) {
   if (!BACKENDS.has(value.experiment.backend)) fail('raw capture manifest experiment backend is invalid');
   exact(value.pairPlan, ['relativePath', 'checksum'], 'raw capture manifest pairPlan');
   const pairPlan = validateArtifactReference(value.pairPlan, 'raw capture manifest pairPlan');
-  exact(value.build, ['manifest', 'productionBundleEvidence'], 'raw capture manifest build');
+  exact(value.build, ['manifest', 'productionBundleEvidence', 'commandLedger'], 'raw capture manifest build');
   const build = {
     manifest: validateArtifactReference(value.build.manifest, 'raw capture manifest build.manifest'),
     productionBundleEvidence: validateArtifactReference(
       value.build.productionBundleEvidence,
       'raw capture manifest build.productionBundleEvidence'
-    )
+    ),
+    commandLedger: validateArtifactReference(value.build.commandLedger, 'raw capture manifest build.commandLedger')
   };
   exact(value.indexes, Object.keys(INDEX_SPECS), 'raw capture manifest indexes');
   const indexes = Object.fromEntries(Object.entries(INDEX_SPECS).map(([key, spec]) => [
@@ -294,13 +323,14 @@ function manifestBody(value) {
 /**
  * Seals the completed raw-capture inputs for a later evaluator handoff. It is
  * intentionally not an experiment parent, verdict, or publication artifact.
+ * Its build command ledger proves only the pre-loop build sequence.
  */
 export function createPerformanceRawCaptureManifest(input) {
   exact(input, [
     'sourceSha', 'role', 'selectedHost', 'experimentId', 'experimentDeadlineSeconds',
     'experimentElapsedSeconds', 'pairPlan', 'pairPlanRelativePath', 'buildManifest',
     'buildManifestRelativePath', 'productionBundleEvidence',
-    'productionBundleEvidenceRelativePath', 'indexes'
+    'productionBundleEvidenceRelativePath', 'commandLedger', 'commandLedgerRelativePath', 'indexes'
   ], 'raw capture manifest input');
   gitSha(input.sourceSha, 'raw capture manifest input sourceSha');
   uuid(input.experimentId, 'raw capture manifest input experimentId');
@@ -310,6 +340,7 @@ export function createPerformanceRawCaptureManifest(input) {
   if (pairPlan.experimentId !== input.experimentId) fail('raw capture manifest pair plan does not bind the experiment ID');
   const buildManifest = validateBuildManifest(input.buildManifest, input.sourceSha);
   const productionBundleEvidence = validateProductionBundleEvidence(input.productionBundleEvidence, input.sourceSha);
+  const commandLedger = validateBuildCommandLedger(input.commandLedger, input.sourceSha);
   exact(input.indexes, Object.keys(INDEX_SPECS), 'raw capture manifest input indexes');
   const indexes = Object.fromEntries(Object.entries(INDEX_SPECS).map(([key, spec]) => [
     key,
@@ -341,6 +372,10 @@ export function createPerformanceRawCaptureManifest(input) {
           'raw capture manifest input productionBundleEvidenceRelativePath'
         ),
         checksum: canonicalSha256(productionBundleEvidence)
+      },
+      commandLedger: {
+        relativePath: relativePath(input.commandLedgerRelativePath, 'raw capture manifest input commandLedgerRelativePath'),
+        checksum: canonicalSha256(commandLedger)
       }
     },
     indexes
@@ -438,6 +473,13 @@ export async function readPerformanceRawCaptureManifest({ outputDirectory } = {}
   if (canonicalSha256(productionBundleEvidence) !== manifest.build.productionBundleEvidence.checksum) {
     fail('raw capture manifest production bundle evidence does not match its sealed reference');
   }
+  const commandLedger = validateBuildCommandLedger(
+    await readJsonArtifact(root, manifest.build.commandLedger, 'raw capture manifest build command ledger'),
+    manifest.sourceSha
+  );
+  if (canonicalSha256(commandLedger) !== manifest.build.commandLedger.checksum) {
+    fail('raw capture manifest build command ledger does not match its sealed reference');
+  }
   const indexes = {};
   for (const [key, spec] of Object.entries(INDEX_SPECS)) {
     const reference = manifest.indexes[key];
@@ -453,5 +495,5 @@ export async function readPerformanceRawCaptureManifest({ outputDirectory } = {}
   for (const [key, index] of Object.entries(indexes)) {
     await replayRawCaptureIndex(root, key, index);
   }
-  return freeze({ manifest, pairPlan, buildManifest, productionBundleEvidence, indexes });
+  return freeze({ manifest, pairPlan, buildManifest, productionBundleEvidence, commandLedger, indexes });
 }
