@@ -652,8 +652,8 @@ export async function collectPerformanceWorkloadCaptures({
   const plannedCaptures = collectPlannedCaptureSet({
     captures: rawCaptures,
     pairPlan,
-    label: 'instrumented workload',
-    predicate: ({ pair, launch }) => pair.comparisonKind === 'instrumentation-overhead' && launch.buildVariant === 'instrumented'
+    label: 'instrumentation workload',
+    predicate: ({ pair }) => pair.comparisonKind === 'instrumentation-overhead'
   });
   const externalMetricsByPairKey = new Map();
   for (const entry of externalMetricCaptures) {
@@ -667,24 +667,24 @@ export async function collectPerformanceWorkloadCaptures({
     } catch (error) {
       fail(`workload capture external metric does not bind one planned launch: ${error instanceof Error ? error.message : String(error)}`);
     }
-    if (planned.pair.comparisonKind !== 'instrumentation-overhead' || planned.launch.buildVariant !== 'instrumented') {
+    if (planned.pair.comparisonKind !== 'instrumentation-overhead') {
       continue;
     }
     const key = performancePairCaptureKey(externalMetric.pair);
     if (externalMetricsByPairKey.has(key)) {
-      fail('workload capture external metrics duplicate one instrumented planned launch side');
+      fail('workload capture external metrics duplicate one instrumentation planned launch side');
     }
     externalMetricsByPairKey.set(key, externalMetric);
   }
   if (externalMetricsByPairKey.size !== plannedCaptures.captures.length) {
-    fail('workload capture external metrics do not cover every instrumented planned launch side');
+    fail('workload capture external metrics do not cover every instrumentation planned launch side');
   }
   const entries = plannedCaptures.captures.map(({ capture, relativePath }) => {
     if (capture.sourceSha !== sourceSha) {
       fail('workload capture source SHA does not match the clean build');
     }
-    if (capture.build.id !== 'instrumented' || capture.build.harness !== true || capture.build.instrumentation !== true) {
-      fail('workload capture must come from the instrumented build');
+    if ((capture.build.id !== 'harness-control' && capture.build.id !== 'instrumented') || capture.build.harness !== true) {
+      fail('workload capture must come from a harness instrumentation build');
     }
     const variant = manifest.variants.find((entry) => entry.id === capture.build.id);
     if (!variant || variant.harness !== capture.build.harness || variant.instrumentation !== capture.build.instrumentation) {
@@ -721,7 +721,7 @@ export async function collectPerformanceWorkloadCaptures({
     };
   });
   const body = {
-    schemaVersion: 4,
+    schemaVersion: 5,
     sourceSha,
     captures: entries
   };

@@ -21,7 +21,7 @@ const PAIR_COUNT = Object.values(PERFORMANCE_PAIR_CARDINALITIES)
 const INDEX_SPECS = Object.freeze({
   sentinel: Object.freeze({ schemaVersion: 3, captureCount: PERFORMANCE_PAIR_CARDINALITIES['harness-overhead'] * 2 }),
   externalMetric: Object.freeze({ schemaVersion: 3, captureCount: PAIR_COUNT * 2 }),
-  workload: Object.freeze({ schemaVersion: 4, captureCount: PERFORMANCE_PAIR_CARDINALITIES['instrumentation-overhead'] }),
+  workload: Object.freeze({ schemaVersion: 5, captureCount: PERFORMANCE_PAIR_CARDINALITIES['instrumentation-overhead'] * 2 }),
   metricSession: Object.freeze({ schemaVersion: 1, captureCount: PAIR_COUNT })
 });
 

@@ -198,6 +198,10 @@ function captureBody(input) {
   const sourceSequences = validateSourceSequences(input.sourceSequences, window.deliveredCallbackCount);
   if (!Array.isArray(input.controlWrites)) fail('capture.controlWrites must be an array');
   assertObject(input.diagnostics, 'capture.diagnostics');
+  const diagnostics = cloneJson(input.diagnostics, 'capture.diagnostics');
+  if (build.id === 'harness-control' && Object.keys(diagnostics).length !== 0) {
+    fail('capture.diagnostics must be empty for the harness-control build');
+  }
 
   return {
     schemaVersion: PERFORMANCE_WORKLOAD_CAPTURE_SCHEMA_VERSION,
@@ -212,7 +216,7 @@ function captureBody(input) {
     window,
     sourceSequences,
     controlWrites: cloneJson(input.controlWrites, 'capture.controlWrites'),
-    diagnostics: cloneJson(input.diagnostics, 'capture.diagnostics')
+    diagnostics
   };
 }
 

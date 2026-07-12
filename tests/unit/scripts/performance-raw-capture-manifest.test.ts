@@ -63,7 +63,7 @@ function fixture() {
   const indexes = {
     sentinel: { relativePath: 'performance-sentinel-captures.json', index: index(3, 6) },
     externalMetric: { relativePath: 'performance-external-metric-captures.json', index: index(3, 18) },
-    workload: { relativePath: 'performance-workload-captures.json', index: index(4, 6) },
+    workload: { relativePath: 'performance-workload-captures.json', index: index(5, 12) },
     metricSession: { relativePath: 'performance-metric-session-captures.json', index: index(1, 9) }
   };
   return {
@@ -111,7 +111,7 @@ describe('performance raw capture manifests', () => {
       indexes: {
         sentinel: { captureCount: 6 },
         externalMetric: { captureCount: 18 },
-        workload: { captureCount: 6 },
+        workload: { captureCount: 12 },
         metricSession: { captureCount: 9 }
       }
     });

@@ -111,4 +111,34 @@ describe('performance workload capture', () => {
     ]);
     await expect(writePerformanceWorkloadCapture({ outputDirectory, ...captureInput() })).rejects.toMatchObject({ code: 'EEXIST' });
   });
+
+  it('permits a harness-control pair side with control-probe evidence but no instrumentation diagnostics', () => {
+    const input = captureInput();
+    const capture = createPerformanceWorkloadCapture({
+      ...input,
+      pair: { ...input.pair, comparisonSide: 'A' },
+      build: {
+        id: 'harness-control',
+        harness: true,
+        instrumentation: false,
+        bundleSha256: input.build.bundleSha256
+      },
+      diagnostics: {}
+    });
+
+    expect(capture).toMatchObject({
+      build: { id: 'harness-control', harness: true, instrumentation: false },
+      diagnostics: {}
+    });
+    expect(() => createPerformanceWorkloadCapture({
+      ...input,
+      pair: { ...input.pair, comparisonSide: 'A' },
+      build: {
+        id: 'harness-control',
+        harness: true,
+        instrumentation: false,
+        bundleSha256: input.build.bundleSha256
+      }
+    })).toThrow(/diagnostics must be empty/);
+  });
 });

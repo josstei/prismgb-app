@@ -226,20 +226,24 @@ function createCanvasExternalMetricCapture({
   });
 }
 
-function createInstrumentedWorkloadCapture({
+function createInstrumentationWorkloadCapture({
   sourceSha = 'a'.repeat(40),
   bundleSha256 = 'd'.repeat(64),
+  buildId = 'instrumented' as const,
   pair = DEFAULT_INSTRUMENTATION_PAIR,
   launchId = fixtureUuid(20),
   externalExecutionId = fixtureUuid(21),
-  observationBoundaryId = `external-sentinel-window:${externalExecutionId}`
+  observationBoundaryId = `external-sentinel-window:${externalExecutionId}`,
+  diagnostics = buildId === 'harness-control' ? {} : { source: { sourceOpportunities: 2 } }
 }: {
   sourceSha?: string;
   bundleSha256?: string;
+  buildId?: 'harness-control' | 'instrumented';
   pair?: Record<string, unknown>;
   launchId?: string;
   externalExecutionId?: string;
   observationBoundaryId?: string;
+  diagnostics?: Record<string, unknown>;
 } = {}) {
   return createPerformanceWorkloadCapture({
     sourceSha,
@@ -247,7 +251,7 @@ function createInstrumentedWorkloadCapture({
     externalExecutionId,
     observationBoundaryId,
     pair,
-    build: buildMetadata('instrumented', bundleSha256),
+    build: buildMetadata(buildId, bundleSha256),
     workload: { id: 'phase0-animated-160x144-v1', pattern: 'animated', width: 160, height: 144, frameRate: 60 },
     warmup: { sourceOpportunityCount: 600, elapsedMs: 10_000 },
     window: {
@@ -262,7 +266,7 @@ function createInstrumentedWorkloadCapture({
     },
     sourceSequences: [1, 2],
     controlWrites: [],
-    diagnostics: { source: { sourceOpportunities: 2 } }
+    diagnostics
   });
 }
 
@@ -344,10 +348,11 @@ function writePlannedCaptureFixturesSync({
         relativePath: writeRawCaptureSync(outputDirectory, 'raw-external-metric-captures', metric.externalExecutionId, metric)
       });
       pairMetrics.push(metrics.at(-1)!);
-      if (launch.buildVariant === 'instrumented') {
-        const workload = createInstrumentedWorkloadCapture({
+      if (pair.comparisonKind === 'instrumentation-overhead') {
+        const workload = createInstrumentationWorkloadCapture({
           sourceSha,
           bundleSha256: build.bundle.sha256,
+          buildId: launch.buildVariant as 'harness-control' | 'instrumented',
           pair: binding,
           launchId: fixtureUuid(200 + execution),
           externalExecutionId,
@@ -729,13 +734,16 @@ describe('planned raw capture collection', () => {
     expect(externalMetric.index).toMatchObject({ schemaVersion: 3, sourceSha });
     expect(externalMetric.index.captures).toHaveLength(18);
     expect(externalMetric.index.captures.filter((capture) => capture.buildId === 'instrumented')).toHaveLength(6);
-    expect(workload.index).toMatchObject({ schemaVersion: 4, sourceSha });
-    expect(workload.index.captures).toHaveLength(6);
-    expect(workload.index.captures[0]).toMatchObject({
-      buildId: 'instrumented',
-      externalExecutionId: expect.stringMatching(/^[0-9a-f-]{36}$/),
-      externalMetricChecksum: expect.stringMatching(/^[a-f0-9]{64}$/)
-    });
+    expect(workload.index).toMatchObject({ schemaVersion: 5, sourceSha });
+    expect(workload.index.captures).toHaveLength(12);
+    expect(workload.index.captures).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        buildId: 'harness-control',
+        externalExecutionId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+        externalMetricChecksum: expect.stringMatching(/^[a-f0-9]{64}$/)
+      }),
+      expect.objectContaining({ buildId: 'instrumented' })
+    ]));
     expect(metricSession.index).toMatchObject({ schemaVersion: 1, sourceSha });
     expect(metricSession.index.captures).toHaveLength(9);
     expect(metricSession.index.captures[0]).toMatchObject({
@@ -745,7 +753,11 @@ describe('planned raw capture collection', () => {
         { comparisonSide: 'B' }
       ]
     });
-    expect(fixtures.workloads).toHaveLength(6);
+    expect(fixtures.workloads).toHaveLength(12);
+    expect(fixtures.workloads.filter(({ capture }) => capture.build.id === 'harness-control')).toHaveLength(6);
+    expect(fixtures.workloads
+      .filter(({ capture }) => capture.build.id === 'harness-control')
+      .every(({ capture }) => Object.keys(capture.diagnostics).length === 0)).toBe(true);
     expect(fixtures.metricSessions).toHaveLength(9);
     await expect(fs.readFile(sentinel.indexPath, 'utf8')).resolves.toContain(fixtures.sentinels[0].relativePath);
   });
@@ -794,7 +806,7 @@ describe('planned raw capture collection', () => {
     expect(fixtures.metrics).toHaveLength(18);
   });
 
-  it('rejects an instrumented workload that does not bind its external metric execution', async () => {
+  it('rejects an instrumentation workload that does not bind its external metric execution', async () => {
     const outputDirectory = await createTemporaryWorkspace();
     const pairPlan = createFixturePairPlan();
     const manifest = createFixtureManifest();
@@ -1127,9 +1139,12 @@ describe('runPerformanceBaseline', () => {
     expect(result.workloadCapture.index).toMatchObject({
       sourceSha: 'a'.repeat(40)
     });
-    expect(result.workloadCapture.index.captures).toHaveLength(6);
+    expect(result.workloadCapture.index.captures).toHaveLength(12);
     expect(result.workloadCapture.index.captures).toEqual(
-      expect.arrayContaining([expect.objectContaining({ buildId: 'instrumented', sourceOpportunityCount: 2 })])
+      expect.arrayContaining([
+        expect.objectContaining({ buildId: 'harness-control', sourceOpportunityCount: 2 }),
+        expect.objectContaining({ buildId: 'instrumented', sourceOpportunityCount: 2 })
+      ])
     );
     expect(result.sentinelCapture.index).toMatchObject({
       sourceSha: 'a'.repeat(40)
@@ -1160,7 +1175,7 @@ describe('runPerformanceBaseline', () => {
       indexes: {
         sentinel: { captureCount: 6 },
         externalMetric: { captureCount: 18 },
-        workload: { captureCount: 6 },
+        workload: { captureCount: 12 },
         metricSession: { captureCount: 9 }
       }
     });
@@ -1216,7 +1231,7 @@ describe('runPerformanceBaseline', () => {
       baseEnvironment: { PATH: '/bin', DISPLAY: ':99' },
       spawn: spawn as unknown as typeof spawnSync,
       platform: 'linux'
-    })).rejects.toThrow(/expected exactly 6 instrumented workload captures, found 0/);
+    })).rejects.toThrow(/expected exactly 12 instrumentation workload captures, found 0/);
   });
 
   it('rejects a dirty source tree before building any variant', async () => {

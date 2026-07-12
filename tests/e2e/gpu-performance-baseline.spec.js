@@ -300,6 +300,62 @@ async function persistExternalMetricCapture({ performanceLaunch, transcript, pai
   });
 }
 
+async function persistPerformanceWorkloadCapture({
+  performanceLaunch,
+  performanceChromaticDevice,
+  warmup,
+  gate,
+  writes,
+  sourceSequences,
+  diagnostics,
+  pair
+}) {
+  if (!process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT) return;
+  if (!pair) throw new Error('harness workload capture requires its planned pair binding');
+  const measurementWindow = gate.measurementWindow;
+  if (!measurementWindow || measurementWindow.status !== 'closed') {
+    throw new Error('harness workload capture requires a closed measurement window');
+  }
+  await writePerformanceWorkloadCapture({
+    outputDirectory: process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT,
+    sourceSha: performanceLaunch.sourceSha,
+    launchId: performanceLaunch.launchId,
+    externalExecutionId: performanceLaunch.externalExecutionId,
+    observationBoundaryId: `external-sentinel-window:${performanceLaunch.externalExecutionId}`,
+    pair,
+    build: {
+      id: performanceLaunch.build.id,
+      harness: performanceLaunch.build.harness,
+      instrumentation: performanceLaunch.build.instrumentation,
+      bundleSha256: performanceLaunch.build.bundle.sha256
+    },
+    workload: {
+      id: performancePolicy.performanceMetricPolicy.workloadId,
+      pattern: 'animated',
+      width: performanceChromaticDevice.fixture.display.nativeWidth,
+      height: performanceChromaticDevice.fixture.display.nativeHeight,
+      frameRate: performanceChromaticDevice.fixture.stream.defaultFrameRate
+    },
+    warmup: {
+      sourceOpportunityCount: warmup.sourceWrites.length,
+      elapsedMs: warmup.elapsedMs
+    },
+    window: {
+      minimumCallbacks: measurementWindow.minimumCallbacks,
+      minimumDurationMs: measurementWindow.minimumDurationMs,
+      maximumCallbacks: measurementWindow.maximumCallbacks,
+      maximumDurationMs: measurementWindow.maximumDurationMs,
+      deliveredCallbackCount: measurementWindow.deliveredCallbackCount,
+      startedAt: measurementWindow.startedAt,
+      closedAt: measurementWindow.closedAt,
+      closureReason: measurementWindow.closureReason
+    },
+    sourceSequences,
+    controlWrites: writes,
+    diagnostics
+  });
+}
+
 function performanceLaunchMetricAdapterId(transcript) {
   if (transcript && typeof transcript === 'object' && typeof transcript.adapterId === 'string') {
     return transcript.adapterId;
@@ -367,9 +423,16 @@ async function executeExternalSentinelMeasurement({ performanceLaunch, performan
   }
 }
 
-async function executeInstrumentedMeasurement({ performanceLaunch, performanceChromaticDevice, metricCapture, pair }) {
-  if (!performanceLaunch.build.instrumentation) {
-    throw new Error('instrumented workload execution requires an instrumented performance build');
+async function executeHarnessWorkloadMeasurement({
+  performanceLaunch,
+  performanceChromaticDevice,
+  metricCapture,
+  pair,
+  instrumentation
+}) {
+  if (!performanceLaunch.build.harness || performanceLaunch.build.instrumentation !== instrumentation) {
+    const expectedBuild = instrumentation ? 'instrumented' : 'harness-control';
+    throw new Error(`${expectedBuild} workload execution requires its matching harness performance build`);
   }
   const streamPage = new StreamPage(performanceLaunch.window);
   let streamStopped = false;
@@ -391,7 +454,9 @@ async function executeInstrumentedMeasurement({ performanceLaunch, performanceCh
       { timeout: 5000 }
     ).toMatchObject({ paused: true, heldCallbackCount: 1 });
     await expect(performanceLaunch.resetPerformanceControlProbe()).resolves.toEqual({ reset: true });
-    await expect(performanceLaunch.resetPerformanceDiagnostics()).resolves.toEqual({ reset: true });
+    if (instrumentation) {
+      await expect(performanceLaunch.resetPerformanceDiagnostics()).resolves.toEqual({ reset: true });
+    }
     await expect(performanceLaunch.resetPerformanceCallbacks()).resolves.toMatchObject({
       paused: true,
       heldCallbackCount: 1,
@@ -435,7 +500,7 @@ async function executeInstrumentedMeasurement({ performanceLaunch, performanceCh
     streamStopped = true;
     const writes = await performanceLaunch.readPerformanceControlProbe();
     const cohortSourceWrites = sourceOpportunityWrites(writes);
-    const diagnostics = await performanceLaunch.readPerformanceDiagnostics();
+    const diagnostics = instrumentation ? await performanceLaunch.readPerformanceDiagnostics() : {};
     const measurementWindow = sealedGate.measurementWindow;
     const sourceSequences = cohortSourceWrites.map((write) => write.sourceSequence);
     expect(cohortSourceWrites.length).toBeGreaterThanOrEqual(measurementWindowLimits.minimumCallbacks);
@@ -450,64 +515,42 @@ async function executeInstrumentedMeasurement({ performanceLaunch, performanceCh
     expect(sourceSequences).toEqual(
       cohortSourceWrites.map((write, index) => cohortSourceWrites[0].sourceSequence + index)
     );
-    expect(diagnostics).toMatchObject({
-      source: {
-        sourceOpportunities: cohortSourceWrites.length,
-        fatalDispositions: { total: 0 },
-        reconciliation: { accountedOpportunities: cohortSourceWrites.length, isConserved: true }
-      },
-      shutdown: {
-        beforeRelease: { availability: 'observed', launchId: performanceLaunch.launchId },
-        releaseDispatched: { availability: 'observed', launchId: performanceLaunch.launchId }
-      }
-    });
-    expect(diagnostics.timingSamples['source-callback']).toHaveLength(cohortSourceWrites.length);
-
-    if (process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT) {
-      if (!pair) throw new Error('instrumented workload capture requires its planned pair binding');
-      await writePerformanceWorkloadCapture({
-        outputDirectory: process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT,
-        sourceSha: performanceLaunch.sourceSha,
-        launchId: performanceLaunch.launchId,
-        externalExecutionId: performanceLaunch.externalExecutionId,
-        observationBoundaryId: `external-sentinel-window:${performanceLaunch.externalExecutionId}`,
-        pair,
-        build: {
-          id: performanceLaunch.build.id,
-          harness: performanceLaunch.build.harness,
-          instrumentation: performanceLaunch.build.instrumentation,
-          bundleSha256: performanceLaunch.build.bundle.sha256
+    if (instrumentation) {
+      expect(diagnostics).toMatchObject({
+        source: {
+          sourceOpportunities: cohortSourceWrites.length,
+          fatalDispositions: { total: 0 },
+          reconciliation: { accountedOpportunities: cohortSourceWrites.length, isConserved: true }
         },
-        workload: {
-          id: performancePolicy.performanceMetricPolicy.workloadId,
-          pattern: 'animated',
-          width: performanceChromaticDevice.fixture.display.nativeWidth,
-          height: performanceChromaticDevice.fixture.display.nativeHeight,
-          frameRate: performanceChromaticDevice.fixture.stream.defaultFrameRate
-        },
-        warmup: {
-          sourceOpportunityCount: warmup.sourceWrites.length,
-          elapsedMs: warmup.elapsedMs
-        },
-        window: {
-          minimumCallbacks: measurementWindow.minimumCallbacks,
-          minimumDurationMs: measurementWindow.minimumDurationMs,
-          maximumCallbacks: measurementWindow.maximumCallbacks,
-          maximumDurationMs: measurementWindow.maximumDurationMs,
-          deliveredCallbackCount: measurementWindow.deliveredCallbackCount,
-          startedAt: measurementWindow.startedAt,
-          closedAt: measurementWindow.closedAt,
-          closureReason: measurementWindow.closureReason
-        },
-        sourceSequences,
-        controlWrites: writes,
-        diagnostics
+        shutdown: {
+          beforeRelease: { availability: 'observed', launchId: performanceLaunch.launchId },
+          releaseDispatched: { availability: 'observed', launchId: performanceLaunch.launchId }
+        }
       });
+      expect(diagnostics.timingSamples['source-callback']).toHaveLength(cohortSourceWrites.length);
     }
+    await persistPerformanceWorkloadCapture({
+      performanceLaunch,
+      performanceChromaticDevice,
+      warmup,
+      gate: sealedGate,
+      writes,
+      sourceSequences,
+      diagnostics,
+      pair
+    });
     return Object.freeze({ warmup, gate: sealedGate, transcript: measured.transcript });
   } finally {
     if (!streamStopped) await streamPage.stop().catch(() => {});
   }
+}
+
+async function executeInstrumentedMeasurement(options) {
+  return executeHarnessWorkloadMeasurement({ ...options, instrumentation: true });
+}
+
+async function executeHarnessControlMeasurement(options) {
+  return executeHarnessWorkloadMeasurement({ ...options, instrumentation: false });
 }
 
 async function executePlannedLaunch({ manifest, plan, pair, launch, metricSession }) {
@@ -554,8 +597,16 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
         return persistPlannedMetricCapture(measured.transcript);
       }
 
-      if (launch.buildVariant === 'instrumented') {
-        const measured = await executeInstrumentedMeasurement({
+      if (pair.comparisonKind === 'instrumentation-overhead') {
+        const executeMeasurement = launch.buildVariant === 'instrumented'
+          ? executeInstrumentedMeasurement
+          : launch.buildVariant === 'harness-control'
+            ? executeHarnessControlMeasurement
+            : null;
+        if (!executeMeasurement) {
+          throw new Error(`instrumentation pair launch uses an unsupported build variant: ${launch.buildVariant}`);
+        }
+        const measured = await executeMeasurement({
           performanceLaunch,
           performanceChromaticDevice,
           metricCapture,
@@ -564,12 +615,7 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
         return persistPlannedMetricCapture(measured.transcript);
       }
 
-      const measured = await executeExternalSentinelMeasurement({
-        performanceLaunch,
-        performanceChromaticDevice,
-        metricCapture
-      });
-      return persistPlannedMetricCapture(measured.transcript);
+      throw new Error(`unsupported planned performance comparison kind: ${pair.comparisonKind}`);
     } finally {
       await performanceChromaticDevice.cleanup();
     }
