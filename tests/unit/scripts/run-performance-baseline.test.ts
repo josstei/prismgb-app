@@ -12,6 +12,7 @@ import {
   createPerformanceBuildEnvironment,
   createProductionBundleEvidence,
   parsePerformanceBaselineArgs,
+  resolvePerformancePlaywrightCommand,
   runPerformanceBaseline
 } from '../../../scripts/run-performance-baseline.js';
 import { createPerformanceWorkloadCapture } from '../../../scripts/lib/performance-workload-capture.js';
@@ -64,6 +65,49 @@ describe('createPerformanceBuildEnvironment', () => {
       PRISMGB_PERF_HARNESS_BUILD: '1',
       PRISMGB_PERF_INSTRUMENTATION_BUILD: '1'
     });
+  });
+});
+
+describe('resolvePerformancePlaywrightCommand', () => {
+  it('uses the direct Playwright invocation outside of displayless Linux', () => {
+    expect(resolvePerformancePlaywrightCommand({
+      cwd: '/workspace',
+      platform: 'darwin',
+      environment: { PATH: '/bin' },
+      isExecutable: vi.fn()
+    })).toEqual({
+      command: 'npx',
+      args: ['playwright', 'test', '--config', 'playwright.performance.config.js']
+    });
+    expect(resolvePerformancePlaywrightCommand({
+      cwd: '/workspace',
+      platform: 'linux',
+      environment: { DISPLAY: ':99', PATH: '/bin' },
+      isExecutable: vi.fn()
+    })).toEqual({
+      command: 'npx',
+      args: ['playwright', 'test', '--config', 'playwright.performance.config.js']
+    });
+  });
+
+  it('requires and resolves xvfb-run for Linux runs without a display', () => {
+    const isExecutable = vi.fn((candidate: string) => candidate === '/fixture/bin/xvfb-run');
+    expect(resolvePerformancePlaywrightCommand({
+      cwd: '/workspace',
+      platform: 'linux',
+      environment: { PATH: '/missing:/fixture/bin' },
+      isExecutable
+    })).toEqual({
+      command: '/fixture/bin/xvfb-run',
+      args: ['-a', 'npx', 'playwright', 'test', '--config', 'playwright.performance.config.js']
+    });
+    expect(isExecutable).toHaveBeenCalledWith('/missing/xvfb-run');
+    expect(() => resolvePerformancePlaywrightCommand({
+      cwd: '/workspace',
+      platform: 'linux',
+      environment: { PATH: '/missing' },
+      isExecutable: () => false
+    })).toThrow(/requires xvfb-run -a when DISPLAY is unavailable/);
   });
 });
 
@@ -203,7 +247,7 @@ describe('runPerformanceBaseline', () => {
     const result = await runPerformanceBaseline({
       cwd,
       argv: ['--output', 'performance-output', '--role', 'ci-integrity', '--build-only'],
-      baseEnvironment: { PATH: '/bin' },
+      baseEnvironment: { PATH: '/bin', DISPLAY: ':99' },
       spawn: spawn as unknown as typeof spawnSync,
       platform: 'linux'
     });
@@ -271,7 +315,7 @@ describe('runPerformanceBaseline', () => {
     await expect(runPerformanceBaseline({
       cwd,
       argv: ['--output', 'performance-output', '--role', 'ci-integrity'],
-      baseEnvironment: { PATH: '/bin' },
+      baseEnvironment: { PATH: '/bin', DISPLAY: ':99' },
       spawn: spawn as unknown as typeof spawnSync,
       platform: 'linux'
     })).rejects.toThrow(/playwright assertion detail[\s\S]*playwright warning/);
@@ -337,7 +381,7 @@ describe('runPerformanceBaseline', () => {
     const result = await runPerformanceBaseline({
       cwd,
       argv: ['--output', 'performance-output', '--role', 'ci-integrity'],
-      baseEnvironment: { PATH: '/bin' },
+      baseEnvironment: { PATH: '/bin', DISPLAY: ':99' },
       spawn: spawn as unknown as typeof spawnSync,
       platform: 'linux'
     });
@@ -375,7 +419,7 @@ describe('runPerformanceBaseline', () => {
     await expect(runPerformanceBaseline({
       cwd,
       argv: ['--output', 'performance-output', '--role', 'ci-integrity'],
-      baseEnvironment: { PATH: '/bin' },
+      baseEnvironment: { PATH: '/bin', DISPLAY: ':99' },
       spawn: spawn as unknown as typeof spawnSync,
       platform: 'linux'
     })).rejects.toThrow(/expected exactly one instrumented workload capture/);

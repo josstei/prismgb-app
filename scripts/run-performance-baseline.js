@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import { performance } from 'node:perf_hooks';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -13,6 +14,7 @@ const PERFORMANCE_COMMAND_LEDGER = 'performance-command-ledger.json';
 const PERFORMANCE_WORKLOAD_CAPTURE_INDEX = 'performance-workload-captures.json';
 const PERFORMANCE_PRODUCTION_BUNDLE_EVIDENCE = 'performance-production-bundle-evidence.json';
 const PRODUCTION_CODE_ROOTS = Object.freeze(['main', 'preload', 'renderer', 'worker']);
+const PERFORMANCE_PLAYWRIGHT_ARGS = Object.freeze(['playwright', 'test', '--config', 'playwright.performance.config.js']);
 
 export const PERFORMANCE_BUILD_VARIANTS = Object.freeze([
   Object.freeze({ id: 'production', harness: false, instrumentation: false }),
@@ -39,6 +41,50 @@ function normalizeRelativePath(value) {
 
 function npmCommand(platform = process.platform) {
   return platform === 'win32' ? 'npm.cmd' : 'npm';
+}
+
+function isExecutableFile(candidate) {
+  try {
+    fsSync.accessSync(candidate, fsSync.constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolves the closed Playwright invocation for the performance runner. Linux
+ * measurements without a display must run under a fresh Xvfb display so the
+ * renderer does not silently fall back to a different launch environment.
+ *
+ * @param {{ cwd?: string, platform?: NodeJS.Platform, environment?: NodeJS.ProcessEnv, isExecutable?: (candidate: string) => boolean }} options
+ */
+export function resolvePerformancePlaywrightCommand({
+  cwd = PROJECT_ROOT,
+  platform = process.platform,
+  environment = process.env,
+  isExecutable = isExecutableFile
+} = {}) {
+  if (typeof cwd !== 'string' || cwd.length === 0) fail('Playwright command cwd must be nonempty');
+  if (typeof platform !== 'string' || platform.length === 0) fail('Playwright command platform must be nonempty');
+  if (!environment || typeof environment !== 'object') fail('Playwright command environment must be an object');
+  if (typeof isExecutable !== 'function') fail('Playwright command executable resolver must be a function');
+  const hasDisplay = typeof environment.DISPLAY === 'string' && environment.DISPLAY.trim().length > 0;
+  if (platform !== 'linux' || hasDisplay) {
+    return Object.freeze({ command: 'npx', args: PERFORMANCE_PLAYWRIGHT_ARGS });
+  }
+
+  const pathValue = environment.PATH;
+  if (typeof pathValue !== 'string' || pathValue.length === 0) {
+    fail('Linux performance runner requires xvfb-run -a when DISPLAY is unavailable, but PATH is empty');
+  }
+  const xvfbRun = pathValue.split(path.delimiter)
+    .map((directory) => path.resolve(directory.length === 0 ? cwd : directory, 'xvfb-run'))
+    .find((candidate) => isExecutable(candidate));
+  if (!xvfbRun) {
+    fail('Linux performance runner requires xvfb-run -a when DISPLAY is unavailable');
+  }
+  return Object.freeze({ command: xvfbRun, args: Object.freeze(['-a', 'npx', ...PERFORMANCE_PLAYWRIGHT_ARGS]) });
 }
 
 function commandOutput(value) {
@@ -522,7 +568,12 @@ export async function runPerformanceBaseline({
     });
   }
 
-  runCommand('npx', ['playwright', 'test', '--config', 'playwright.performance.config.js'], {
+  const playwright = resolvePerformancePlaywrightCommand({
+    cwd,
+    platform,
+    environment: baseEnvironment
+  });
+  runCommand(playwright.command, playwright.args, {
     cwd,
     env: {
       ...baseEnvironment,
