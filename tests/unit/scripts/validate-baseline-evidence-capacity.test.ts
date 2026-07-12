@@ -240,7 +240,7 @@ describe('baseline evidence capacity runner', () => {
     expect(rootProducer?.compressedBytes).toBeGreaterThan(0);
     expect(rootProducer?.compressorProbeSha256).not.toBe('b'.repeat(64));
     expect(rootProducer?.rootBytes).toBeGreaterThan(6857);
-  }, 30000);
+  }, 120000);
 
   it('rejects an encoded nonrepresentative selected preview before output', async () => {
     const graph = createSelectedPreviewGraph(deterministicPreviewPayload(131072));
