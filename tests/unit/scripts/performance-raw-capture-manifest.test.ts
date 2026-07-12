@@ -33,6 +33,7 @@ function index(schemaVersion: number, count: number) {
     schemaVersion,
     sourceSha,
     captures: Array.from({ length: count }, (_, entry) => ({
+      relativePath: `raw-capture-v${schemaVersion}/${entry.toString(16).padStart(2, '0')}.json`,
       checksum: `${entry.toString(16).padStart(2, '0')}${'b'.repeat(62)}`
     }))
   };
@@ -117,11 +118,7 @@ describe('performance raw capture manifests', () => {
     });
     expect(validatePerformanceRawCaptureManifest(JSON.parse(JSON.stringify(written.manifest)))).toEqual(written.manifest);
     await expect(writePerformanceRawCaptureManifest({ outputDirectory, ...input })).rejects.toMatchObject({ code: 'EEXIST' });
-    await expect(readPerformanceRawCaptureManifest({ outputDirectory })).resolves.toMatchObject({
-      manifest: written.manifest,
-      pairPlan: input.pairPlan,
-      buildManifest: input.buildManifest
-    });
+    await expect(readPerformanceRawCaptureManifest({ outputDirectory })).rejects.toThrow(/sentinel raw captures do not match the sealed index/);
   });
 
   it('rejects incompatible host state, stale index data, and tampered replay inputs', async () => {

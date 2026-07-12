@@ -5,6 +5,10 @@ import {
   PERFORMANCE_PAIR_CARDINALITIES,
   validatePerformancePairPlan
 } from './performance-pair-plan.js';
+import { readPerformanceExternalMetricCaptures } from './performance-external-metric-capture.js';
+import { readPerformanceMetricSessionCaptures } from './performance-metric-session-capture.js';
+import { readPerformanceSentinelCaptures } from './performance-sentinel-capture.js';
+import { readPerformanceWorkloadCaptures } from './performance-workload-capture.js';
 
 export const PERFORMANCE_RAW_CAPTURE_MANIFEST_SCHEMA_VERSION = 1;
 export const PERFORMANCE_RAW_CAPTURE_MANIFEST_FILE = 'performance-raw-capture-manifest.json';
@@ -23,6 +27,12 @@ const INDEX_SPECS = Object.freeze({
   externalMetric: Object.freeze({ schemaVersion: 3, captureCount: PAIR_COUNT * 2 }),
   workload: Object.freeze({ schemaVersion: 5, captureCount: PERFORMANCE_PAIR_CARDINALITIES['instrumentation-overhead'] * 2 }),
   metricSession: Object.freeze({ schemaVersion: 1, captureCount: PAIR_COUNT })
+});
+const RAW_CAPTURE_READERS = Object.freeze({
+  sentinel: readPerformanceSentinelCaptures,
+  externalMetric: readPerformanceExternalMetricCaptures,
+  workload: readPerformanceWorkloadCaptures,
+  metricSession: readPerformanceMetricSessionCaptures
 });
 
 function fail(message) {
@@ -160,11 +170,15 @@ function validateCaptureIndex(value, spec, sourceSha, label) {
   sha(value.checksum, `${label} checksum`);
   const captures = cloneJson(value.captures, `${label} captures`);
   const captureChecksums = new Set();
+  const capturePaths = new Set();
   for (const [index, capture] of captures.entries()) {
     if (!isObject(capture)) fail(`${label} captures[${index}] must be an object`);
+    const captureRelativePath = relativePath(capture.relativePath, `${label} captures[${index}].relativePath`);
     sha(capture.checksum, `${label} captures[${index}].checksum`);
     if (captureChecksums.has(capture.checksum)) fail(`${label} contains a duplicate capture checksum`);
+    if (capturePaths.has(captureRelativePath)) fail(`${label} contains a duplicate capture path`);
     captureChecksums.add(capture.checksum);
+    capturePaths.add(captureRelativePath);
   }
   const body = { schemaVersion: value.schemaVersion, sourceSha: value.sourceSha, captures };
   if (canonicalSha256(body) !== value.checksum) fail(`${label} checksum does not match its body`);
@@ -376,6 +390,25 @@ async function readJsonArtifact(outputDirectory, reference, label) {
   return parsed;
 }
 
+async function replayRawCaptureIndex(outputDirectory, key, index) {
+  const reader = RAW_CAPTURE_READERS[key];
+  if (typeof reader !== 'function') fail(`raw capture manifest does not have a reader for ${key}`);
+  const expectedByPath = new Map(index.captures.map((capture) => [
+    relativePath(capture.relativePath, `raw capture manifest ${key} capture path`),
+    capture.checksum
+  ]));
+  const captures = await reader({ outputDirectory });
+  if (captures.length !== expectedByPath.size) {
+    fail(`raw capture manifest ${key} raw captures do not match the sealed index`);
+  }
+  for (const entry of captures) {
+    const expectedChecksum = expectedByPath.get(entry.relativePath);
+    if (expectedChecksum !== entry.capture.checksum) {
+      fail(`raw capture manifest ${key} raw captures do not match the sealed index`);
+    }
+  }
+}
+
 export async function readPerformanceRawCaptureManifest({ outputDirectory } = {}) {
   text(outputDirectory, 'raw capture manifest outputDirectory');
   const root = path.resolve(outputDirectory);
@@ -416,6 +449,9 @@ export async function readPerformanceRawCaptureManifest({ outputDirectory } = {}
       fail(`raw capture manifest ${key} index does not match its sealed reference`);
     }
     indexes[key] = cloneJson(index, `raw capture manifest ${key} index`);
+  }
+  for (const [key, index] of Object.entries(indexes)) {
+    await replayRawCaptureIndex(root, key, index);
   }
   return freeze({ manifest, pairPlan, buildManifest, productionBundleEvidence, indexes });
 }

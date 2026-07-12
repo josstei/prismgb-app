@@ -1188,6 +1188,13 @@ describe('runPerformanceBaseline', () => {
     await expect(readPerformanceRawCaptureManifest({ outputDirectory: path.join(cwd, 'performance-output') })).resolves.toMatchObject({
       manifest: result.rawCaptureManifest.manifest
     });
+    await fs.rm(path.join(
+      cwd,
+      'performance-output',
+      result.workloadCapture.index.captures[0].relativePath
+    ));
+    await expect(readPerformanceRawCaptureManifest({ outputDirectory: path.join(cwd, 'performance-output') }))
+      .rejects.toThrow(/workload raw captures do not match the sealed index/);
   });
 
   it('rejects a passing Playwright lane that does not persist its workload capture', async () => {
