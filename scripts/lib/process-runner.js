@@ -1193,6 +1193,208 @@ function metricSampleMidpoint(read, label) {
   return (readStart + readEnd) / 2;
 }
 
+function settleOperation(source, operation) {
+  return Promise.resolve().then(operation).then(
+    (value) => Object.freeze({ source, status: 'fulfilled', value }),
+    (error) => Object.freeze({ source, status: 'rejected', error })
+  );
+}
+
+/**
+ * Applies a hard observation deadline to a cooperatively cancellable
+ * operation. If the deadline wins, the abort signal drives the operation's
+ * teardown and the operation is still awaited so cleanup cannot be stranded.
+ *
+ * @param {{
+ *   label: string,
+ *   operation: (signal: AbortSignal) => Promise<unknown> | unknown,
+ *   timeoutMilliseconds: number,
+ *   setTimer?: (callback: () => void, milliseconds: number) => unknown,
+ *   clearTimer?: (timer: unknown) => void
+ * }} options
+ */
+export async function runOperationWithinDeadline({
+  label,
+  operation,
+  timeoutMilliseconds,
+  setTimer = setTimeout,
+  clearTimer = clearTimeout
+} = {}) {
+  assertNonemptyString(label, 'bounded operation label');
+  if (typeof operation !== 'function') failExternalMetric('bounded operation must be a function');
+  if (!Number.isFinite(timeoutMilliseconds) || timeoutMilliseconds <= 0) {
+    failExternalMetric('bounded operation timeout must be finite and positive');
+  }
+  if (typeof setTimer !== 'function' || typeof clearTimer !== 'function') {
+    failExternalMetric('bounded operation timer functions are invalid');
+  }
+
+  let timer;
+  const cancellation = new AbortController();
+  const operationOutcome = settleOperation('operation', () => operation(cancellation.signal));
+  const deadlineOutcome = new Promise((resolve) => {
+    timer = setTimer(() => resolve(Object.freeze({
+      source: 'deadline',
+      status: 'rejected',
+      error: new Error(`${label} exceeded its ${timeoutMilliseconds}-millisecond deadline`)
+    })), timeoutMilliseconds);
+  });
+
+  try {
+    const firstOutcome = await Promise.race([operationOutcome, deadlineOutcome]);
+    if (firstOutcome.source === 'operation') {
+      if (firstOutcome.status === 'rejected') throw firstOutcome.error;
+      return firstOutcome.value;
+    }
+
+    cancellation.abort(firstOutcome.error);
+    const settledOperation = await operationOutcome;
+    if (settledOperation.status === 'rejected' && settledOperation.error !== firstOutcome.error) {
+      throw new AggregateError(
+        [firstOutcome.error, settledOperation.error],
+        `${label} exceeded its deadline and then failed`
+      );
+    }
+    throw firstOutcome.error;
+  } finally {
+    if (timer !== undefined) clearTimer(timer);
+  }
+}
+
+function combineMetricOperationFailures(outcomes) {
+  const errors = outcomes
+    .filter((outcome) => outcome.status === 'rejected')
+    .map((outcome) => outcome.error);
+  if (errors.length === 1) return errors[0];
+  if (errors.length > 1) return new AggregateError(errors, 'External metric sampling and workload execution both failed');
+  return null;
+}
+
+/**
+ * Runs a workload beside its continuous external metric sampler. Both
+ * operations receive rejection handlers when they start, and teardown waits
+ * for both bounded operations so no workload continues against an aborted
+ * metric session. Finalization is the terminal ownership transfer: a
+ * rejecting finalizer must complete metric cleanup and surface any cleanup
+ * failure in its rejection.
+ *
+ * @param {{
+ *   metricCapture: Readonly<{
+ *     adapterId: string,
+ *     beginWindow: () => Promise<unknown> | unknown,
+ *     sampleInWindow: () => Promise<unknown> | unknown,
+ *     markTerminalClosure: (terminalClosureEnd: number) => unknown,
+ *     sampleTerminalClosure: () => Promise<unknown> | unknown,
+ *     getNextSampleTargetAt: () => number,
+ *     finalize: () => Promise<object> | object,
+ *     abort: () => Promise<unknown> | unknown
+ *   }>,
+ *   executeWindow: () => Promise<unknown> | unknown,
+ *   clock?: () => number,
+ *   waitForNextSample?: () => Promise<unknown> | unknown,
+ *   onOwnershipAccepted?: () => void
+ * }} options
+ */
+export async function collectExternalMetricTranscript({
+  metricCapture,
+  executeWindow,
+  clock = () => performance.now() / 1000,
+  waitForNextSample,
+  onOwnershipAccepted
+} = {}) {
+  if (!metricCapture || typeof metricCapture !== 'object') {
+    failExternalMetric('metric transcript collection requires a metric capture');
+  }
+  for (const operation of [
+    'beginWindow',
+    'sampleInWindow',
+    'markTerminalClosure',
+    'sampleTerminalClosure',
+    'getNextSampleTargetAt',
+    'finalize',
+    'abort'
+  ]) {
+    if (typeof metricCapture[operation] !== 'function') {
+      failExternalMetric(`metric transcript collection requires ${operation}`);
+    }
+  }
+  assertNonemptyString(metricCapture.adapterId, 'metric transcript adapter ID');
+  if (typeof executeWindow !== 'function') failExternalMetric('metric transcript workload must be a function');
+  if (typeof clock !== 'function') failExternalMetric('metric transcript clock must be a function');
+  if (waitForNextSample !== undefined && typeof waitForNextSample !== 'function') {
+    failExternalMetric('metric transcript sample wait must be a function');
+  }
+  if (onOwnershipAccepted !== undefined && typeof onOwnershipAccepted !== 'function') {
+    failExternalMetric('metric transcript ownership callback must be a function');
+  }
+
+  const waitForTarget = waitForNextSample ?? (async () => {
+    const now = clock();
+    assertFiniteNonnegativeNumber(now, 'metric transcript clock');
+    const target = metricCapture.getNextSampleTargetAt();
+    assertFiniteNonnegativeNumber(target, 'metric transcript next sample target');
+    const remainingMilliseconds = Math.max(0, (target - now) * 1000);
+    if (remainingMilliseconds > 0) {
+      await new Promise((resolve) => setTimeout(resolve, remainingMilliseconds));
+    }
+  });
+
+  let stopSampling = false;
+  let abortRequired = true;
+  let samplingOutcome = null;
+  let windowOutcome = null;
+  try {
+    onOwnershipAccepted?.();
+    await metricCapture.beginWindow();
+    samplingOutcome = settleOperation('sampling', async () => {
+      while (!stopSampling) {
+        await waitForTarget();
+        if (stopSampling) return;
+        await metricCapture.sampleInWindow();
+      }
+    });
+    windowOutcome = settleOperation('workload', executeWindow);
+
+    const firstOutcome = await Promise.race([samplingOutcome, windowOutcome]);
+    stopSampling = true;
+    const [sampling, workload] = await Promise.all([samplingOutcome, windowOutcome]);
+    if (firstOutcome.source === 'sampling' && firstOutcome.status === 'fulfilled') {
+      failExternalMetric('metric sampling stopped before workload execution settled');
+    }
+    const operationFailure = combineMetricOperationFailures([workload, sampling]);
+    if (operationFailure !== null) throw operationFailure;
+
+    const terminalClosureEnd = clock();
+    assertFiniteNonnegativeNumber(terminalClosureEnd, 'metric transcript terminal closure');
+    metricCapture.markTerminalClosure(terminalClosureEnd);
+    await waitForTarget();
+    await metricCapture.sampleTerminalClosure();
+    abortRequired = false;
+    const transcript = await metricCapture.finalize();
+    return Object.freeze({
+      result: workload.value,
+      transcript: Object.freeze({ ...transcript, adapterId: metricCapture.adapterId })
+    });
+  } catch (error) {
+    stopSampling = true;
+    await Promise.all([
+      samplingOutcome ?? Promise.resolve(),
+      windowOutcome ?? Promise.resolve()
+    ]);
+    if (!abortRequired) throw error;
+    try {
+      await metricCapture.abort();
+    } catch (cleanupError) {
+      const primaryErrors = error instanceof AggregateError ? error.errors : [error];
+      throw new AggregateError(
+        [...primaryErrors, cleanupError],
+        'External metric transcript collection and cleanup both failed'
+      );
+    }
+    throw error;
+  }
+}
+
 /**
  * Binds one external metric-run capture to the policy's continuous cadence
  * grammar. The caller remains responsible for the platform timer and callback

@@ -12,6 +12,10 @@ import {
   readPerformanceDiagnostics
 } from './helpers/gpu-performance-baseline.helper.js';
 import { StreamPage } from './pages/stream.page.js';
+import {
+  collectExternalMetricTranscript,
+  runOperationWithinDeadline
+} from '../../scripts/lib/process-runner.js';
 import { loadBaselinePolicy } from '../../scripts/lib/performance-evidence.js';
 import { writePerformanceExternalMetricCapture } from '../../scripts/lib/performance-external-metric-capture.js';
 import { writePerformanceMetricSessionCapture } from '../../scripts/lib/performance-metric-session-capture.js';
@@ -70,17 +74,24 @@ function createPairBinding(plan, pair, launch) {
 }
 
 async function runWithinPerformanceLaunchDeadline(label, operation) {
-  let timeout;
-  try {
-    return await Promise.race([
-      operation(),
-      new Promise((_, reject) => {
-        timeout = setTimeout(() => reject(new Error(`${label} exceeded the 300-second performance launch deadline`)), PERFORMANCE_LAUNCH_DEADLINE_MS);
-      })
-    ]);
-  } finally {
-    clearTimeout(timeout);
+  return runOperationWithinDeadline({
+    label: `${label} performance launch`,
+    operation,
+    timeoutMilliseconds: PERFORMANCE_LAUNCH_DEADLINE_MS
+  });
+}
+
+async function rethrowAfterCleanup(primaryError, cleanupOperations, label) {
+  const errors = primaryError instanceof AggregateError ? [...primaryError.errors] : [primaryError];
+  for (const cleanup of cleanupOperations) {
+    try {
+      await cleanup();
+    } catch (cleanupError) {
+      errors.push(cleanupError);
+    }
   }
+  if (errors.length === 1) throw primaryError;
+  throw new AggregateError(errors, `${label} and cleanup both failed`);
 }
 
 function sourceOpportunityWrites(writes) {
@@ -126,54 +137,6 @@ async function recordPostReleaseSettle(performanceLaunch, measurement, writes) {
   const sampledFixtureAt = performance.now();
   await measurement.samplePostReleaseSettle(sampledFixtureAt);
   return Object.freeze({ releaseDispatchedReceiptAt, notBeforeFixtureAt, sampledFixtureAt });
-}
-
-function monotonicSeconds() {
-  return performance.now() / 1000;
-}
-
-async function waitForMetricCaptureTarget(metricCapture) {
-  const remainingMilliseconds = Math.max(0, (metricCapture.getNextSampleTargetAt() - monotonicSeconds()) * 1000);
-  if (remainingMilliseconds > 0) await waitFor(remainingMilliseconds);
-}
-
-/**
- * Keeps raw OS metrics on their own external runner clock while a callback
- * gate owns the workload. The terminal closure is deliberately recorded only
- * after the sampler stops, so no in-window endpoint can be serialized after
- * the external closure boundary.
- */
-async function collectExternalMetricTranscript({ metricCapture, executeWindow }) {
-  let stopSampling = false;
-  let samplingLoop;
-  try {
-    await metricCapture.beginWindow();
-    samplingLoop = (async () => {
-      while (!stopSampling) {
-        await waitForMetricCaptureTarget(metricCapture);
-        if (stopSampling) return;
-        await metricCapture.sampleInWindow();
-      }
-    })();
-    const result = await executeWindow();
-    stopSampling = true;
-    await samplingLoop;
-    metricCapture.markTerminalClosure(monotonicSeconds());
-    await waitForMetricCaptureTarget(metricCapture);
-    await metricCapture.sampleTerminalClosure();
-    return Object.freeze({
-      result,
-      transcript: Object.freeze({
-        ...(await metricCapture.finalize()),
-        adapterId: metricCapture.adapterId
-      })
-    });
-  } catch (error) {
-    stopSampling = true;
-    await samplingLoop?.catch(() => {});
-    await metricCapture.abort().catch(() => {});
-    throw error;
-  }
 }
 
 async function waitForWarmupEligibility(performanceLaunch) {
@@ -457,7 +420,8 @@ function prepareHarnessPerformanceRootExit(performanceLaunch) {
 async function executeExternalSentinelMeasurement({
   performanceLaunch,
   performanceChromaticDevice,
-  openMetricCapture
+  openMetricCapture,
+  collectMetricTranscript = collectExternalMetricTranscript
 }) {
   const streamPage = new StreamPage(performanceLaunch.window);
   const measurement = await beginPerformanceWarmup(performanceLaunch);
@@ -486,7 +450,7 @@ async function executeExternalSentinelMeasurement({
       if (measurement !== null) await measurement.advance('drain');
       return performanceLaunch.sealPerformanceCallbacks();
     };
-    const measured = await collectExternalMetricTranscript({ metricCapture, executeWindow });
+    const measured = await collectMetricTranscript({ metricCapture, executeWindow });
     const sealedGate = measured.result;
     expect(sealedGate).toMatchObject({
       paused: true,
@@ -521,6 +485,7 @@ async function executeHarnessWorkloadMeasurement({
   performanceLaunch,
   performanceChromaticDevice,
   openMetricCapture,
+  collectMetricTranscript = collectExternalMetricTranscript,
   instrumentation
 }) {
   if (!performanceLaunch.build.harness || performanceLaunch.build.instrumentation !== instrumentation) {
@@ -582,7 +547,7 @@ async function executeHarnessWorkloadMeasurement({
       await measurement.advance('drain');
       return performanceLaunch.sealPerformanceCallbacks();
     };
-    const measured = await collectExternalMetricTranscript({ metricCapture, executeWindow });
+    const measured = await collectMetricTranscript({ metricCapture, executeWindow });
     const sealedGate = measured.result;
     expect(sealedGate).toMatchObject({
       paused: true,
@@ -652,7 +617,13 @@ async function executeHarnessControlMeasurement(options) {
   return executeHarnessWorkloadMeasurement({ ...options, instrumentation: false });
 }
 
-async function executePlannedLaunch({ manifest, plan, pair, launch, metricSession }) {
+async function executePlannedLaunch({ manifest, plan, pair, launch, metricSession, deadlineSignal }) {
+  if (!deadlineSignal || typeof deadlineSignal !== 'object'
+    || typeof deadlineSignal.addEventListener !== 'function'
+    || typeof deadlineSignal.removeEventListener !== 'function'
+    || typeof deadlineSignal.aborted !== 'boolean') {
+    throw new Error('planned performance launch requires a deadline cancellation signal');
+  }
   const binding = createPairBinding(plan, pair, launch);
   const performanceLaunch = await openPerformanceLaunch({
     loadedManifest: manifest,
@@ -660,15 +631,58 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
     performanceDiagnostics: launch.buildVariant === 'instrumented'
   });
   let metricCapture = null;
+  let metricCaptureOwnedByLaunch = false;
   let performanceLaunchClosed = false;
+  let performanceLaunchCloseOutcome = null;
+  const requestPerformanceLaunchClose = () => {
+    performanceLaunchCloseOutcome ??= Promise.resolve()
+      .then(() => performanceLaunch.close())
+      .then(
+        (value) => {
+          performanceLaunchClosed = true;
+          return Object.freeze({ status: 'fulfilled', value });
+        },
+        (error) => Object.freeze({ status: 'rejected', error })
+      );
+    return performanceLaunchCloseOutcome;
+  };
+  const closePerformanceLaunch = async () => {
+    const outcome = await requestPerformanceLaunchClose();
+    if (outcome.status === 'rejected') throw outcome.error;
+    return outcome.value;
+  };
+  const throwIfDeadlineCancelled = () => {
+    if (!deadlineSignal.aborted) return;
+    throw deadlineSignal.reason instanceof Error
+      ? deadlineSignal.reason
+      : new Error('planned performance launch was cancelled at its deadline');
+  };
+  const closeAtDeadline = () => {
+    requestPerformanceLaunchClose();
+  };
+  deadlineSignal.addEventListener('abort', closeAtDeadline, { once: true });
   try {
+    if (deadlineSignal.aborted) {
+      await closePerformanceLaunch();
+      throwIfDeadlineCancelled();
+    }
     const openMetricCapture = async () => {
       if (metricCapture !== null) throw new Error('planned performance launch opened its metric capture more than once');
       metricCapture = await metricSession.openSide({
         rendererPid: performanceLaunch.rendererPid,
         externalExecutionId: performanceLaunch.externalExecutionId
       });
+      metricCaptureOwnedByLaunch = true;
       return metricCapture;
+    };
+    const collectMetricTranscript = (options) => {
+      if (!metricCaptureOwnedByLaunch || options.metricCapture !== metricCapture) {
+        throw new Error('planned performance launch cannot transfer an unowned metric capture');
+      }
+      return collectExternalMetricTranscript({
+        ...options,
+        onOwnershipAccepted: () => { metricCaptureOwnedByLaunch = false; }
+      });
     };
     const persistPlannedMetricCapture = async (transcript) => {
       const written = await persistExternalMetricCapture({ performanceLaunch, transcript, pair: binding });
@@ -691,7 +705,8 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
         measured = await executeExternalSentinelMeasurement({
           performanceLaunch,
           performanceChromaticDevice,
-          openMetricCapture
+          openMetricCapture,
+          collectMetricTranscript
         });
         measurementKind = 'harness-overhead';
       } else if (pair.comparisonKind === 'instrumentation-overhead') {
@@ -706,7 +721,8 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
         measured = await executeMeasurement({
           performanceLaunch,
           performanceChromaticDevice,
-          openMetricCapture
+          openMetricCapture,
+          collectMetricTranscript
         });
         measurementKind = 'instrumentation-overhead';
       } else {
@@ -715,9 +731,10 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
     } finally {
       await performanceChromaticDevice.cleanup();
     }
+    throwIfDeadlineCancelled();
     prepareHarnessPerformanceRootExit(performanceLaunch);
-    const rootExitEvidence = await performanceLaunch.close();
-    performanceLaunchClosed = true;
+    const rootExitEvidence = await closePerformanceLaunch();
+    throwIfDeadlineCancelled();
     if (performanceLaunch.build.harness && rootExitEvidence === null) {
       throw new Error('planned harness launch did not retain root-exit closure evidence');
     }
@@ -747,12 +764,19 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
         rootExit
       });
     }
+    throwIfDeadlineCancelled();
     return persistPlannedMetricCapture(measured.transcript);
   } catch (error) {
-    if (metricCapture) await metricCapture.abort().catch(() => {});
-    throw error;
+    const cleanupOperations = [];
+    if (metricCaptureOwnedByLaunch && metricCapture !== null) {
+      cleanupOperations.push(() => metricCapture.abort());
+    }
+    if (!performanceLaunchClosed) {
+      cleanupOperations.push(() => closePerformanceLaunch());
+    }
+    await rethrowAfterCleanup(error, cleanupOperations, 'planned performance launch');
   } finally {
-    if (!performanceLaunchClosed) await performanceLaunch.close();
+    deadlineSignal.removeEventListener('abort', closeAtDeadline);
   }
 }
 
@@ -762,13 +786,19 @@ async function executePlannedPair({ manifest, plan, pair }) {
     throw new Error('planned performance pair execution requires PRISMGB_PERFORMANCE_CAPTURE_OUTPUT');
   }
   const metricSession = await openPerformanceRendererMetricPairSession();
-  let completed = false;
   try {
     const completedLaunches = [];
     for (const launch of pair.launches) {
       completedLaunches.push(await runWithinPerformanceLaunchDeadline(
         `${pair.comparisonKind} pair ${pair.pairIndex} side ${launch.comparisonSide}`,
-        () => executePlannedLaunch({ manifest, plan, pair, launch, metricSession })
+        (deadlineSignal) => executePlannedLaunch({
+          manifest,
+          plan,
+          pair,
+          launch,
+          metricSession,
+          deadlineSignal
+        })
       ));
     }
     const closure = await metricSession.close();
@@ -805,9 +835,10 @@ async function executePlannedPair({ manifest, plan, pair }) {
         transitions: closure.transitions
       }
     });
-    completed = true;
-  } finally {
-    if (!completed) await metricSession.abort().catch(() => {});
+  } catch (error) {
+    await rethrowAfterCleanup(error, [async () => {
+      if (metricSession.getState() === 'open') await metricSession.abort();
+    }], 'planned performance pair');
   }
 }
 

@@ -2,6 +2,7 @@ import { exec } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  collectExternalMetricTranscript,
   createExternalMetricAdapterSession,
   createExternalMetricCadenceCapture,
   createExternalMetricRunCapture,
@@ -27,9 +28,20 @@ import {
   parseWindowsPowerShellMetricSnapshot,
   readLinuxProcfsMetricConfiguration,
   resolvePlatformExternalMetricTarget,
+  runOperationWithinDeadline,
   terminateProcessTree,
   waitForProcessClose
 } from '../../../scripts/lib/process-runner.js';
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
 
 class FakeChildProcess extends EventEmitter {
   pid = 4242;
@@ -759,6 +771,292 @@ describe('createExternalMetricRunCapture', () => {
     terminal.markTerminalClosure(10.75);
     await expect(terminal.sampleTerminalClosure()).rejects.toThrow(/first sample after workload closure/);
     await expect(terminal.abort()).resolves.toEqual({ aborted: true });
+  });
+});
+
+describe('runOperationWithinDeadline', () => {
+  function createTimerHarness() {
+    let fire = () => {};
+    const token = Symbol('timer');
+    return {
+      token,
+      setTimer: vi.fn((callback: () => void) => {
+        fire = callback;
+        return token;
+      }),
+      clearTimer: vi.fn(),
+      fire: () => fire()
+    };
+  }
+
+  it('returns a bounded operation result and clears its deadline', async () => {
+    const timer = createTimerHarness();
+    await expect(runOperationWithinDeadline({
+      label: 'fixture operation',
+      operation: async () => 42,
+      timeoutMilliseconds: 300,
+      setTimer: timer.setTimer,
+      clearTimer: timer.clearTimer
+    })).resolves.toBe(42);
+    expect(timer.clearTimer).toHaveBeenCalledWith(timer.token);
+  });
+
+  it('waits for a late operation to settle before surfacing its deadline', async () => {
+    const timer = createTimerHarness();
+    const operation = createDeferred<string>();
+    const bounded = runOperationWithinDeadline({
+      label: 'fixture operation',
+      operation: () => operation.promise,
+      timeoutMilliseconds: 300,
+      setTimer: timer.setTimer,
+      clearTimer: timer.clearTimer
+    });
+    let settled = false;
+    void bounded.then(
+      () => { settled = true; },
+      () => { settled = true; }
+    );
+
+    timer.fire();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    operation.resolve('late result');
+
+    await expect(bounded).rejects.toThrow(/exceeded its 300-millisecond deadline/);
+    expect(timer.clearTimer).toHaveBeenCalledWith(timer.token);
+  });
+
+  it('signals cooperative teardown and awaits it before surfacing the deadline', async () => {
+    const timer = createTimerHarness();
+    const teardown = createDeferred<void>();
+    const observedSignals: AbortSignal[] = [];
+    const bounded = runOperationWithinDeadline({
+      label: 'fixture operation',
+      operation: (signal) => new Promise((_, reject) => {
+        observedSignals.push(signal);
+        signal.addEventListener('abort', async () => {
+          await teardown.promise;
+          reject(signal.reason);
+        }, { once: true });
+      }),
+      timeoutMilliseconds: 300,
+      setTimer: timer.setTimer,
+      clearTimer: timer.clearTimer
+    });
+    let settled = false;
+    void bounded.then(
+      () => { settled = true; },
+      () => { settled = true; }
+    );
+
+    await vi.waitFor(() => expect(observedSignals).toHaveLength(1));
+    timer.fire();
+    await vi.waitFor(() => expect(observedSignals[0].aborted).toBe(true));
+    expect(settled).toBe(false);
+    teardown.resolve();
+
+    await expect(bounded).rejects.toThrow(/exceeded its 300-millisecond deadline/);
+    expect(timer.clearTimer).toHaveBeenCalledWith(timer.token);
+  });
+
+  it('preserves a late operation failure alongside the deadline', async () => {
+    const timer = createTimerHarness();
+    const operationError = new Error('late failure');
+    const operation = createDeferred<never>();
+    const bounded = runOperationWithinDeadline({
+      label: 'fixture operation',
+      operation: () => operation.promise,
+      timeoutMilliseconds: 300,
+      setTimer: timer.setTimer,
+      clearTimer: timer.clearTimer
+    });
+
+    timer.fire();
+    operation.reject(operationError);
+
+    let failure: unknown;
+    try {
+      await bounded;
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(AggregateError);
+    expect((failure as AggregateError).errors[0]).toMatchObject({
+      message: 'fixture operation exceeded its 300-millisecond deadline'
+    });
+    expect((failure as AggregateError).errors[1]).toBe(operationError);
+  });
+});
+
+describe('collectExternalMetricTranscript', () => {
+  function createMetricCapture(overrides: Record<string, unknown> = {}) {
+    return {
+      adapterId: 'macos-ps-v1',
+      beginWindow: vi.fn(async () => ({ started: true })),
+      sampleInWindow: vi.fn(async () => ({ sampled: true })),
+      markTerminalClosure: vi.fn(() => ({ marked: true })),
+      sampleTerminalClosure: vi.fn(async () => ({ terminal: true })),
+      getNextSampleTargetAt: vi.fn(() => 1),
+      finalize: vi.fn(async () => ({ window: { start: 0, terminalClosureEnd: 1 } })),
+      abort: vi.fn(async () => ({ aborted: true })),
+      ...overrides
+    };
+  }
+
+  it('drains sampling before terminal capture and finalization after a successful workload', async () => {
+    const samplingWait = createDeferred<void>();
+    const workload = createDeferred<{ sealed: true }>();
+    const capture = createMetricCapture();
+    const onOwnershipAccepted = vi.fn();
+    const waitForNextSample = vi.fn()
+      .mockImplementationOnce(() => samplingWait.promise)
+      .mockResolvedValueOnce(undefined);
+    const collection = collectExternalMetricTranscript({
+      metricCapture: capture,
+      executeWindow: () => workload.promise,
+      clock: () => 12,
+      waitForNextSample,
+      onOwnershipAccepted
+    });
+
+    await vi.waitFor(() => expect(waitForNextSample).toHaveBeenCalledTimes(1));
+    workload.resolve({ sealed: true });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    samplingWait.resolve();
+
+    await expect(collection).resolves.toEqual({
+      result: { sealed: true },
+      transcript: {
+        window: { start: 0, terminalClosureEnd: 1 },
+        adapterId: 'macos-ps-v1'
+      }
+    });
+    expect(capture.sampleInWindow).not.toHaveBeenCalled();
+    expect(capture.markTerminalClosure).toHaveBeenCalledWith(12);
+    expect(capture.sampleTerminalClosure).toHaveBeenCalledTimes(1);
+    expect(capture.finalize).toHaveBeenCalledTimes(1);
+    expect(capture.abort).not.toHaveBeenCalled();
+    expect(onOwnershipAccepted).toHaveBeenCalledTimes(1);
+    expect(capture.markTerminalClosure.mock.invocationCallOrder[0]).toBeLessThan(
+      capture.sampleTerminalClosure.mock.invocationCallOrder[0]
+    );
+    expect(capture.sampleTerminalClosure.mock.invocationCallOrder[0]).toBeLessThan(
+      capture.finalize.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('handles sampler rejection immediately but waits for the bounded workload before aborting', async () => {
+    const samplingError = new Error('sample failed');
+    const workload = createDeferred<{ sealed: true }>();
+    const capture = createMetricCapture({
+      sampleInWindow: vi.fn(async () => { throw samplingError; })
+    });
+    const collection = collectExternalMetricTranscript({
+      metricCapture: capture,
+      executeWindow: () => workload.promise,
+      clock: () => 12,
+      waitForNextSample: async () => {}
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(capture.abort).not.toHaveBeenCalled();
+    workload.resolve({ sealed: true });
+
+    await expect(collection).rejects.toBe(samplingError);
+    expect(capture.abort).toHaveBeenCalledTimes(1);
+    expect(capture.markTerminalClosure).not.toHaveBeenCalled();
+    expect(capture.finalize).not.toHaveBeenCalled();
+  });
+
+  it('stops a waiting sampler when workload execution fails', async () => {
+    const samplingWait = createDeferred<void>();
+    const workloadError = new Error('workload failed');
+    const workload = createDeferred<never>();
+    const capture = createMetricCapture();
+    const collection = collectExternalMetricTranscript({
+      metricCapture: capture,
+      executeWindow: () => workload.promise,
+      clock: () => 12,
+      waitForNextSample: () => samplingWait.promise
+    });
+
+    await vi.waitFor(() => expect(capture.beginWindow).toHaveBeenCalledTimes(1));
+    workload.reject(workloadError);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    samplingWait.resolve();
+
+    await expect(collection).rejects.toBe(workloadError);
+    expect(capture.sampleInWindow).not.toHaveBeenCalled();
+    expect(capture.abort).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves independent workload and sampling failures', async () => {
+    const samplingError = new Error('sample failed');
+    const workloadError = new Error('workload failed');
+    const workload = createDeferred<never>();
+    const capture = createMetricCapture({
+      sampleInWindow: vi.fn(async () => { throw samplingError; })
+    });
+    const collection = collectExternalMetricTranscript({
+      metricCapture: capture,
+      executeWindow: () => workload.promise,
+      clock: () => 12,
+      waitForNextSample: async () => {}
+    });
+
+    await Promise.resolve();
+    workload.reject(workloadError);
+
+    let failure: unknown;
+    try {
+      await collection;
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(AggregateError);
+    expect((failure as AggregateError).errors).toEqual([workloadError, samplingError]);
+    expect(capture.abort).toHaveBeenCalledTimes(1);
+  });
+
+  it('surfaces cleanup failure with the primary error', async () => {
+    const samplingError = new Error('sample failed');
+    const cleanupError = new Error('abort failed');
+    const capture = createMetricCapture({
+      sampleInWindow: vi.fn(async () => { throw samplingError; }),
+      abort: vi.fn(async () => { throw cleanupError; })
+    });
+    const collection = collectExternalMetricTranscript({
+      metricCapture: capture,
+      executeWindow: async () => ({ sealed: true }),
+      clock: () => 12,
+      waitForNextSample: async () => {}
+    });
+
+    let failure: unknown;
+    try {
+      await collection;
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(AggregateError);
+    expect((failure as AggregateError).errors).toEqual([samplingError, cleanupError]);
+  });
+
+  it('aborts when the initial workload-window sample fails', async () => {
+    const beginError = new Error('begin failed');
+    const capture = createMetricCapture({
+      beginWindow: vi.fn(async () => { throw beginError; })
+    });
+
+    await expect(collectExternalMetricTranscript({
+      metricCapture: capture,
+      executeWindow: async () => ({ sealed: true }),
+      clock: () => 12,
+      waitForNextSample: async () => {}
+    })).rejects.toBe(beginError);
+    expect(capture.abort).toHaveBeenCalledTimes(1);
   });
 });
 

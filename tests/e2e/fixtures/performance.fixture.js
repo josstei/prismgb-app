@@ -41,6 +41,16 @@ import {
   validatePerformanceRootExitObservation
 } from '../../../scripts/lib/performance-controller-audit.js';
 
+async function rethrowAfterMetricCleanup(primaryError, cleanup, label) {
+  try {
+    await cleanup();
+  } catch (cleanupError) {
+    const errors = primaryError instanceof AggregateError ? [...primaryError.errors] : [primaryError];
+    throw new AggregateError([...errors, cleanupError], `${label} and metric cleanup both failed`);
+  }
+  throw primaryError;
+}
+
 /**
  * @param {{
  *   build: { directory: string, harness: boolean, instrumentation: boolean },
@@ -328,8 +338,12 @@ export async function openPerformanceRendererMetricPairSession({
     await adapter.session.open();
     state = 'open';
   } catch (error) {
-    await adapter.session.abort().catch(() => {});
-    throw error;
+    state = 'failed';
+    await rethrowAfterMetricCleanup(
+      error,
+      () => adapter.session.abort(),
+      'performance metric pair session initialization'
+    );
   }
 
   const requireOpen = (operation) => {
@@ -360,6 +374,9 @@ export async function openPerformanceRendererMetricPairSession({
 
   return Object.freeze({
     adapterId: adapter.adapterId,
+    getState() {
+      return state;
+    },
     async openSide(input) {
       requireOpen('open a metric pair side');
       if (activeSide !== null) {
@@ -377,8 +394,11 @@ export async function openPerformanceRendererMetricPairSession({
         side.state = 'failed';
         activeSide = null;
         state = 'failed';
-        await adapter.session.abort().catch(() => {});
-        throw error;
+        await rethrowAfterMetricCleanup(
+          error,
+          () => adapter.session.abort(),
+          'performance metric pair side attachment'
+        );
       }
 
       const requireActiveSide = (operation) => {
@@ -426,8 +446,11 @@ export async function openPerformanceRendererMetricPairSession({
             side.state = 'failed';
             activeSide = null;
             state = 'failed';
-            await adapter.session.abort().catch(() => {});
-            throw error;
+            await rethrowAfterMetricCleanup(
+              error,
+              () => adapter.session.abort(),
+              'performance metric pair side finalization'
+            );
           }
         },
         async abort() {
@@ -460,8 +483,11 @@ export async function openPerformanceRendererMetricPairSession({
         return closure;
       } catch (error) {
         state = 'failed';
-        await adapter.session.abort().catch(() => {});
-        throw error;
+        await rethrowAfterMetricCleanup(
+          error,
+          () => adapter.session.abort(),
+          'performance metric pair session close'
+        );
       }
     },
     async abort() {
@@ -549,8 +575,12 @@ export async function openPerformanceRendererMetricCapture({
     await cadenceCapture.attachAndPrime();
     state = 'active';
   } catch (error) {
-    await adapter.session.abort().catch(() => {});
-    throw error;
+    state = 'failed';
+    await rethrowAfterMetricCleanup(
+      error,
+      () => adapter.session.abort(),
+      'performance renderer metric capture initialization'
+    );
   }
 
   const requireActive = (operation) => {
@@ -595,8 +625,11 @@ export async function openPerformanceRendererMetricCapture({
         return Object.freeze({ ...transcript, sessionClosure });
       } catch (error) {
         state = 'failed';
-        await adapter.session.abort().catch(() => {});
-        throw error;
+        await rethrowAfterMetricCleanup(
+          error,
+          () => adapter.session.abort(),
+          'performance renderer metric capture finalization'
+        );
       }
     },
     async abort() {
