@@ -77,7 +77,7 @@ const EXPECTED_RAW_KIND_SORT_KEYS = Object.freeze({
 const EXPECTED_ALLOCATION_COVERAGE = [
   { operationId: 'video-frame-image-bitmap-request', sourceLocationId: 'video-session:create-image-bitmap', carrier: 'frame-request', cardinality: 'per-frame', byteSemantics: 'rgba-transfer-footprint' },
   { operationId: 'uniform-float32-array', sourceLocationId: 'webgpu-driver:uniform-float32-array', carrier: 'frame-request', cardinality: 'per-frame', byteSemantics: 'requested-byte-length' },
-  { operationId: 'gpu-buffer-request', sourceLocationId: 'webgpu-driver:create-buffer', carrier: 'lifecycle-request', lifecyclePhase: 'startup', cardinality: 1, byteSemantics: 'descriptor-size' },
+  { operationId: 'gpu-buffer-request', sourceLocationId: 'webgpu-driver:create-buffer', carrier: 'lifecycle-request', lifecyclePhase: 'startup', cardinality: 4, byteSemantics: 'descriptor-size' },
   { operationId: 'gpu-texture-request', sourceLocationId: 'webgpu-driver:create-texture', carrier: 'lifecycle-request', lifecyclePhase: 'startup', cardinality: 3, byteSemantics: 'logical-texel-footprint' },
   { operationId: 'bind-group-create', sourceLocationId: 'webgpu-driver:create-bind-group', carrier: 'frame-request', cardinality: 'per-frame', byteSemantics: 'count-only-unavailable' },
   { operationId: 'render-pass-plan-materialization', sourceLocationId: 'webgpu-driver:materialize-render-plan', carrier: 'frame-request', cardinality: 'per-frame', byteSemantics: 'count-only-unavailable' }

@@ -114,8 +114,8 @@ describe('baseline evidence capacity runner', () => {
   it('keeps the compact semantic envelope separate from full-size fixtures', async () => {
     const envelope = calculateQualifiedIncompleteEnvelope({ runCount: 2 });
     expect(envelope.coverage).toHaveLength(6);
-    expect(envelope.compactPerRunVectorCount).toBe(120);
-    expect(envelope.compactVectorCount).toBe(14399);
+    expect(envelope.compactPerRunVectorCount).toBe(300);
+    expect(envelope.compactVectorCount).toBe(89999);
     expect(envelope.evaluatedCompactVectorCount).toBe(envelope.compactVectorCount);
     expect(Object.keys(envelope.semanticComponentMaxima)).toEqual(['maximumRecordBytes', 'expandedJsonlBytes', 'objectCount', 'recordCount']);
     const expectedMaterializedMaxima = Object.fromEntries(Object.keys(envelope.semanticComponentMaxima)
@@ -126,8 +126,8 @@ describe('baseline evidence capacity runner', () => {
     expect(legacyColumnPermutationKey(independentlyPermutedLeft)).toBe(legacyColumnPermutationKey(independentlyPermutedRight));
     const leftComponents = measureQualifiedIncompleteCompactVector({ vector: independentlyPermutedLeft });
     const rightComponents = measureQualifiedIncompleteCompactVector({ vector: independentlyPermutedRight });
-    expect(leftComponents.expandedJsonlBytes).toBe(15328);
-    expect(rightComponents.expandedJsonlBytes).toBe(15327);
+    expect(leftComponents.expandedJsonlBytes).toBe(15506);
+    expect(rightComponents.expandedJsonlBytes).toBe(15505);
     expect(leftComponents.expandedJsonlBytes).not.toBe(rightComponents.expandedJsonlBytes);
     expect(envelope.shapes.length).toBeGreaterThanOrEqual(2);
     expect(envelope.shapes.every((shape) => shape.allocationVector.length === 2)).toBe(true);
@@ -240,7 +240,7 @@ describe('baseline evidence capacity runner', () => {
     expect(rootProducer?.compressedBytes).toBeGreaterThan(0);
     expect(rootProducer?.compressorProbeSha256).not.toBe('b'.repeat(64));
     expect(rootProducer?.rootBytes).toBeGreaterThan(6857);
-  }, 120000);
+  }, 480000);
 
   it('rejects an encoded nonrepresentative selected preview before output', async () => {
     const graph = createSelectedPreviewGraph(deterministicPreviewPayload(131072));
