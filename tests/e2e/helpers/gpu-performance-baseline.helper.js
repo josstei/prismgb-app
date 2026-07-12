@@ -25,6 +25,7 @@ const PRODUCTION_FORBIDDEN_SENTINELS = Object.freeze([
 
 const PERFORMANCE_CONTROL_PROBE_SYMBOL = 'prismgb.performance.controlProbe';
 const PERFORMANCE_CALLBACK_GATE_SYMBOL = 'prismgb.performance.callbackGate';
+const PERFORMANCE_EXTERNAL_SENTINEL_GATE_SYMBOL = 'prismgb.performance.externalSentinelGate';
 const PERFORMANCE_RENDERER_DIAGNOSTICS_SYMBOL = 'prismgb.performance.rendererDiagnostics';
 
 function fail(message) {
@@ -70,6 +71,10 @@ function validateManifest(manifest) {
 }
 
 export function createPerformanceLaunchId() {
+  return crypto.randomUUID();
+}
+
+export function createExternalPerformanceExecutionId() {
   return crypto.randomUUID();
 }
 
@@ -234,13 +239,36 @@ export async function installPerformanceControlProbe(page, launchId) {
   }, { launchId, probeSymbol: PERFORMANCE_CONTROL_PROBE_SYMBOL });
 }
 
-export async function installPerformanceCallbackGate(page, launchId) {
-  await page.evaluate(({ launchId: expectedLaunchId, gateSymbol }) => {
-    const marker = window.prismgbPerformanceLaunchMarker;
-    if (marker?.launchId !== expectedLaunchId) {
-      throw new Error('cannot install a callback gate without the validated renderer marker');
+async function installManagedPerformanceCallbackGate(page, {
+  authorityId,
+  expectedMarkerLaunchId = null,
+  gateSymbol,
+  requireObservationReset = false
+} = {}) {
+  if (typeof authorityId !== 'string' || authorityId.length === 0) {
+    fail('performance callback gate authority ID is required');
+  }
+  if (!(expectedMarkerLaunchId === null || (typeof expectedMarkerLaunchId === 'string' && expectedMarkerLaunchId.length > 0))) {
+    fail('performance callback gate marker authority is invalid');
+  }
+  if (typeof gateSymbol !== 'string' || gateSymbol.length === 0) {
+    fail('performance callback gate symbol is required');
+  }
+
+  await page.evaluate(({
+    authorityId: expectedAuthorityId,
+    expectedMarkerLaunchId: expectedMarker,
+    gateSymbol: expectedGateSymbol,
+    requireObservationReset: requireReset
+  }) => {
+    if (expectedMarker !== null) {
+      const marker = window.prismgbPerformanceLaunchMarker;
+      if (marker?.launchId !== expectedMarker) {
+        throw new Error('cannot install a callback gate without the validated renderer marker');
+      }
     }
-    const gateKey = Symbol.for(gateSymbol);
+
+    const gateKey = Symbol.for(expectedGateSymbol);
     if (window[gateKey] !== undefined) {
       throw new Error('performance callback gate is already installed');
     }
@@ -253,24 +281,84 @@ export async function installPerformanceCallbackGate(page, launchId) {
     const cancelDescriptor = Object.getOwnPropertyDescriptor(videoPrototype, 'cancelVideoFrameCallback');
     const originalRequest = requestDescriptor.value;
     const originalCancel = cancelDescriptor?.value;
+
+    const canvasPrototype = CanvasRenderingContext2D.prototype;
+    const drawImageDescriptor = Object.getOwnPropertyDescriptor(canvasPrototype, 'drawImage');
+    if (!drawImageDescriptor || typeof drawImageDescriptor.value !== 'function') {
+      throw new Error('performance callback gate requires CanvasRenderingContext2D.drawImage');
+    }
+    const originalDrawImage = drawImageDescriptor.value;
+
+    const originalWorker = window.Worker;
+    const workerOwnDescriptor = Object.getOwnPropertyDescriptor(window, 'Worker');
+    if (typeof originalWorker !== 'function' || (workerOwnDescriptor && !workerOwnDescriptor.configurable)) {
+      throw new Error('performance callback gate requires a replaceable Worker constructor');
+    }
+
     const heldCallbacks = new Map();
+    const workerPatches = new Map();
+    const callbackObservations = [];
+    const canvasDrawObservations = [];
+    const workerFramePostObservations = [];
+    const acknowledgementObservations = [];
+    const errorObservations = [];
     let paused = false;
     let pauseAtCallbackCount = null;
     let interceptedCallbackCount = 0;
     let measurementWindow = null;
+    let observationsReset = !requireReset;
+    let observationSequence = 0;
+    let postPauseCanvasDrawCount = 0;
+    let videoPatched = false;
+    let cancelPatched = false;
+    let canvasPatched = false;
+    let workerPatched = false;
 
-    const assertLaunchId = (requestedLaunchId) => {
-      if (requestedLaunchId !== expectedLaunchId) {
-        throw new Error('performance callback gate launch ID does not match the preload marker');
+    const isRecord = (value) => value !== null && typeof value === 'object';
+    const isWindowRunning = () => measurementWindow?.status === 'running';
+    const isWindowOpenOrClosed = () => measurementWindow?.status === 'running' || measurementWindow?.status === 'closed';
+    const nextObservation = (kind, details = {}) => ({
+      sequence: ++observationSequence,
+      kind,
+      observedAt: performance.now(),
+      ...details
+    });
+    const cloneRows = (rows) => rows.map((row) => ({ ...row }));
+    const resetObservations = () => {
+      callbackObservations.length = 0;
+      canvasDrawObservations.length = 0;
+      workerFramePostObservations.length = 0;
+      acknowledgementObservations.length = 0;
+      errorObservations.length = 0;
+      observationSequence = 0;
+      postPauseCanvasDrawCount = 0;
+      observationsReset = true;
+    };
+    const snapshot = () => {
+      const acknowledgementCount = acknowledgementObservations.length;
+      const outstandingWorkerFrames = workerFramePostObservations.length - acknowledgementCount - errorObservations.length;
+      return {
+        paused,
+        heldCallbackCount: heldCallbacks.size,
+        interceptedCallbackCount,
+        pauseAtCallbackCount,
+        measurementWindow: measurementWindow === null ? null : { ...measurementWindow },
+        observations: {
+          callbacks: cloneRows(callbackObservations),
+          canvasDraws: cloneRows(canvasDrawObservations),
+          workerFramePosts: cloneRows(workerFramePostObservations),
+          acknowledgements: cloneRows(acknowledgementObservations),
+          errors: cloneRows(errorObservations),
+          postPauseCanvasDrawCount,
+          outstandingWorkerFrames
+        }
+      };
+    };
+    const assertAuthorityId = (requestedAuthorityId) => {
+      if (requestedAuthorityId !== expectedAuthorityId) {
+        throw new Error('performance callback gate authority ID does not match the installed gate');
       }
     };
-    const snapshot = () => ({
-      paused,
-      heldCallbackCount: heldCallbacks.size,
-      interceptedCallbackCount,
-      pauseAtCallbackCount,
-      measurementWindow: measurementWindow === null ? null : { ...measurementWindow }
-    });
     const holdCallback = (frameCallbackHandle, video, callback, now, metadata) => {
       heldCallbacks.set(frameCallbackHandle, { video, callback, now, metadata });
     };
@@ -305,47 +393,188 @@ export async function installPerformanceCallbackGate(page, launchId) {
       return false;
     };
     const invokeCallback = ({ video, callback, now, metadata }) => {
-      if (measurementWindow?.status === 'running') {
+      if (isWindowRunning()) {
         measurementWindow.deliveredCallbackCount += 1;
+        callbackObservations.push(nextObservation('renderer-callback', {
+          callbackOrdinal: measurementWindow.deliveredCallbackCount,
+          mediaTime: Number.isFinite(metadata?.mediaTime) ? metadata.mediaTime : null
+        }));
       }
       return callback.call(video, now, metadata);
     };
+    const observeWorkerMessage = (data) => {
+      if (!isWindowOpenOrClosed() || !isRecord(data)) return;
+      if (data.type === 'frameRendered') {
+        const payload = data.payload;
+        const tagged = isRecord(payload) && Number.isSafeInteger(payload.frameToken) && payload.frameToken > 0;
+        acknowledgementObservations.push(nextObservation('worker-frame-acknowledged', { tagged }));
+      } else if (data.type === 'error') {
+        errorObservations.push(nextObservation('worker-message-error'));
+      }
+    };
+    const observeWorkerError = () => {
+      if (isWindowOpenOrClosed()) {
+        errorObservations.push(nextObservation('worker-error-event'));
+      }
+    };
+    const instrumentWorker = (worker) => {
+      if (workerPatches.has(worker)) return;
+      const originalPostMessage = worker.postMessage;
+      if (typeof originalPostMessage !== 'function') {
+        throw new Error('performance callback gate requires Worker.postMessage');
+      }
+      const ownPostMessageDescriptor = Object.getOwnPropertyDescriptor(worker, 'postMessage');
+      const messageListener = (event) => observeWorkerMessage(event.data);
+      const errorListener = () => observeWorkerError();
+      worker.addEventListener('message', messageListener);
+      worker.addEventListener('error', errorListener);
+      try {
+        Object.defineProperty(worker, 'postMessage', {
+          configurable: true,
+          enumerable: ownPostMessageDescriptor?.enumerable ?? false,
+          writable: true,
+          value: function patchedWorkerPostMessage(message, ...args) {
+            if (isWindowRunning() && isRecord(message) && message.type === 'frame') {
+              workerFramePostObservations.push(nextObservation('worker-frame-posted'));
+            }
+            return Reflect.apply(originalPostMessage, this, [message, ...args]);
+          }
+        });
+      } catch (error) {
+        worker.removeEventListener('message', messageListener);
+        worker.removeEventListener('error', errorListener);
+        throw error;
+      }
+      workerPatches.set(worker, { ownPostMessageDescriptor, messageListener, errorListener });
+    };
 
-    Object.defineProperty(videoPrototype, 'requestVideoFrameCallback', {
-      ...requestDescriptor,
-      value: function patchedRequestVideoFrameCallback(callback) {
-        const video = this;
-        let frameCallbackHandle;
-        const wrappedCallback = (now, metadata) => {
-          interceptedCallbackCount++;
-          const observedAt = performance.now();
-          if (closeMeasurementWindowIfReady(observedAt)) {
-            paused = true;
-            pauseAtCallbackCount = null;
-            holdCallback(frameCallbackHandle, video, callback, now, metadata);
-            return;
-          }
-          if (paused || (pauseAtCallbackCount !== null && interceptedCallbackCount >= pauseAtCallbackCount)) {
-            paused = true;
-            pauseAtCallbackCount = null;
-            holdCallback(frameCallbackHandle, video, callback, now, metadata);
-            return;
-          }
-          return invokeCallback({ video, callback, now, metadata });
-        };
-        frameCallbackHandle = Reflect.apply(originalRequest, video, [wrappedCallback]);
-        return frameCallbackHandle;
+    let observedWorker;
+    observedWorker = new Proxy(originalWorker, {
+      construct(target, args, newTarget) {
+        const worker = Reflect.construct(target, args, newTarget === observedWorker ? target : newTarget);
+        instrumentWorker(worker);
+        return worker;
       }
     });
 
-    if (cancelDescriptor && typeof originalCancel === 'function') {
-      Object.defineProperty(videoPrototype, 'cancelVideoFrameCallback', {
-        ...cancelDescriptor,
-        value: function patchedCancelVideoFrameCallback(frameCallbackHandle) {
-          heldCallbacks.delete(frameCallbackHandle);
-          return Reflect.apply(originalCancel, this, [frameCallbackHandle]);
+    const restorePatches = () => {
+      const restorationErrors = [];
+      const attemptRestore = (restore) => {
+        try {
+          restore();
+        } catch (error) {
+          restorationErrors.push(error instanceof Error ? error.message : String(error));
+        }
+      };
+      for (const [worker, patch] of workerPatches) {
+        attemptRestore(() => worker.removeEventListener('message', patch.messageListener));
+        attemptRestore(() => worker.removeEventListener('error', patch.errorListener));
+        attemptRestore(() => {
+          if (patch.ownPostMessageDescriptor) {
+            Object.defineProperty(worker, 'postMessage', patch.ownPostMessageDescriptor);
+          } else {
+            delete worker.postMessage;
+          }
+        });
+      }
+      workerPatches.clear();
+      if (workerPatched) {
+        attemptRestore(() => {
+          if (workerOwnDescriptor) {
+            Object.defineProperty(window, 'Worker', workerOwnDescriptor);
+          } else {
+            delete window.Worker;
+          }
+        });
+        workerPatched = false;
+      }
+      if (canvasPatched) {
+        attemptRestore(() => Object.defineProperty(canvasPrototype, 'drawImage', drawImageDescriptor));
+        canvasPatched = false;
+      }
+      if (cancelPatched && cancelDescriptor) {
+        attemptRestore(() => Object.defineProperty(videoPrototype, 'cancelVideoFrameCallback', cancelDescriptor));
+        cancelPatched = false;
+      }
+      if (videoPatched) {
+        attemptRestore(() => Object.defineProperty(videoPrototype, 'requestVideoFrameCallback', requestDescriptor));
+        videoPatched = false;
+      }
+      if (restorationErrors.length > 0) {
+        throw new Error('performance callback gate could not restore every external patch: ' + restorationErrors.join('; '));
+      }
+    };
+
+    try {
+      Object.defineProperty(videoPrototype, 'requestVideoFrameCallback', {
+        ...requestDescriptor,
+        value: function patchedRequestVideoFrameCallback(callback) {
+          const video = this;
+          let frameCallbackHandle;
+          const wrappedCallback = (now, metadata) => {
+            interceptedCallbackCount++;
+            const observedAt = performance.now();
+            if (closeMeasurementWindowIfReady(observedAt)) {
+              paused = true;
+              pauseAtCallbackCount = null;
+              holdCallback(frameCallbackHandle, video, callback, now, metadata);
+              return;
+            }
+            if (paused || (pauseAtCallbackCount !== null && interceptedCallbackCount >= pauseAtCallbackCount)) {
+              paused = true;
+              pauseAtCallbackCount = null;
+              holdCallback(frameCallbackHandle, video, callback, now, metadata);
+              return;
+            }
+            return invokeCallback({ video, callback, now, metadata });
+          };
+          frameCallbackHandle = Reflect.apply(originalRequest, video, [wrappedCallback]);
+          return frameCallbackHandle;
         }
       });
+      videoPatched = true;
+
+      if (cancelDescriptor && typeof originalCancel === 'function') {
+        Object.defineProperty(videoPrototype, 'cancelVideoFrameCallback', {
+          ...cancelDescriptor,
+          value: function patchedCancelVideoFrameCallback(frameCallbackHandle) {
+            heldCallbacks.delete(frameCallbackHandle);
+            return Reflect.apply(originalCancel, this, [frameCallbackHandle]);
+          }
+        });
+        cancelPatched = true;
+      }
+
+      Object.defineProperty(canvasPrototype, 'drawImage', {
+        ...drawImageDescriptor,
+        value: function patchedCanvasDrawImage(...args) {
+          const result = Reflect.apply(originalDrawImage, this, args);
+          if (this.canvas?.id === 'streamCanvas') {
+            if (isWindowRunning()) {
+              canvasDrawObservations.push(nextObservation('canvas-draw-completed'));
+            } else if (paused && measurementWindow?.status === 'closed') {
+              postPauseCanvasDrawCount += 1;
+            }
+          }
+          return result;
+        }
+      });
+      canvasPatched = true;
+
+      Object.defineProperty(window, 'Worker', {
+        configurable: true,
+        enumerable: workerOwnDescriptor?.enumerable ?? true,
+        writable: true,
+        value: observedWorker
+      });
+      workerPatched = true;
+    } catch (error) {
+      try {
+        restorePatches();
+      } catch {
+        // The original installation failure is the actionable error.
+      }
+      throw error;
     }
 
     Object.defineProperty(window, gateKey, {
@@ -353,8 +582,8 @@ export async function installPerformanceCallbackGate(page, launchId) {
       enumerable: false,
       writable: false,
       value: Object.freeze({
-        pause(requestedLaunchId) {
-          assertLaunchId(requestedLaunchId);
+        pause(requestedAuthorityId) {
+          assertAuthorityId(requestedAuthorityId);
           if (measurementWindow?.status === 'running') {
             throw new Error('performance callback gate cannot pause an active measurement window');
           }
@@ -362,8 +591,8 @@ export async function installPerformanceCallbackGate(page, launchId) {
           pauseAtCallbackCount = null;
           return snapshot();
         },
-        pauseAt(requestedLaunchId, requestedCallbackCount) {
-          assertLaunchId(requestedLaunchId);
+        pauseAt(requestedAuthorityId, requestedCallbackCount) {
+          assertAuthorityId(requestedAuthorityId);
           if (measurementWindow?.status === 'running') {
             throw new Error('performance callback gate cannot set a pause target during an active measurement window');
           }
@@ -373,13 +602,24 @@ export async function installPerformanceCallbackGate(page, launchId) {
           pauseAtCallbackCount = requestedCallbackCount;
           return snapshot();
         },
-        armWindow(requestedLaunchId, limits) {
-          assertLaunchId(requestedLaunchId);
+        reset(requestedAuthorityId) {
+          assertAuthorityId(requestedAuthorityId);
+          if (!paused || heldCallbacks.size !== 1 || measurementWindow !== null) {
+            throw new Error('performance callback gate requires one held callback before resetting external observations');
+          }
+          resetObservations();
+          return snapshot();
+        },
+        armWindow(requestedAuthorityId, limits) {
+          assertAuthorityId(requestedAuthorityId);
           if (!paused || heldCallbacks.size !== 1) {
             throw new Error('performance callback gate requires exactly one held callback before arming a measurement window');
           }
           if (measurementWindow !== null) {
             throw new Error('performance callback gate measurement window is already armed');
+          }
+          if (requireReset && !observationsReset) {
+            throw new Error('external performance sentinel requires a reset before arming its measurement window');
           }
           if (!limits || typeof limits !== 'object') {
             throw new Error('performance callback gate measurement window limits are required');
@@ -411,8 +651,8 @@ export async function installPerformanceCallbackGate(page, launchId) {
           };
           return snapshot();
         },
-        resume(requestedLaunchId) {
-          assertLaunchId(requestedLaunchId);
+        resume(requestedAuthorityId) {
+          assertAuthorityId(requestedAuthorityId);
           const callbacks = [...heldCallbacks.values()];
           if (measurementWindow?.status === 'armed') {
             if (callbacks.length !== 1) {
@@ -426,35 +666,89 @@ export async function installPerformanceCallbackGate(page, launchId) {
           callbacks.forEach(invokeCallback);
           return snapshot();
         },
-        snapshot(requestedLaunchId) {
-          assertLaunchId(requestedLaunchId);
+        snapshot(requestedAuthorityId) {
+          assertAuthorityId(requestedAuthorityId);
           return snapshot();
         },
-        dispose(requestedLaunchId) {
-          assertLaunchId(requestedLaunchId);
-          heldCallbacks.clear();
-          pauseAtCallbackCount = null;
-          measurementWindow = null;
-          Object.defineProperty(videoPrototype, 'requestVideoFrameCallback', requestDescriptor);
-          if (cancelDescriptor) {
-            Object.defineProperty(videoPrototype, 'cancelVideoFrameCallback', cancelDescriptor);
+        dispose(requestedAuthorityId) {
+          assertAuthorityId(requestedAuthorityId);
+          let restoreError;
+          try {
+            restorePatches();
+          } catch (error) {
+            restoreError = error;
+          } finally {
+            heldCallbacks.clear();
+            pauseAtCallbackCount = null;
+            measurementWindow = null;
+            paused = false;
+            delete window[gateKey];
           }
-          delete window[gateKey];
+          if (restoreError) throw restoreError;
           return snapshot();
         }
       })
     });
-  }, { launchId, gateSymbol: PERFORMANCE_CALLBACK_GATE_SYMBOL });
+  }, {
+    authorityId,
+    expectedMarkerLaunchId,
+    gateSymbol,
+    requireObservationReset
+  });
 }
 
-async function usePerformanceCallbackGate(page, launchId, method, args = []) {
-  return page.evaluate(({ launchId: expectedLaunchId, gateSymbol, method: requestedMethod, args: requestedArgs }) => {
-    const gate = window[Symbol.for(gateSymbol)];
+async function useManagedPerformanceCallbackGate(page, {
+  authorityId,
+  gateSymbol,
+  method,
+  args = []
+} = {}) {
+  return page.evaluate(({
+    authorityId: expectedAuthorityId,
+    gateSymbol: expectedGateSymbol,
+    method: requestedMethod,
+    args: requestedArgs
+  }) => {
+    const gate = window[Symbol.for(expectedGateSymbol)];
     if (!gate || typeof gate[requestedMethod] !== 'function') {
       throw new Error('performance callback gate is unavailable');
     }
-    return gate[requestedMethod](expectedLaunchId, ...requestedArgs);
-  }, { launchId, gateSymbol: PERFORMANCE_CALLBACK_GATE_SYMBOL, method, args });
+    return gate[requestedMethod](expectedAuthorityId, ...requestedArgs);
+  }, { authorityId, gateSymbol, method, args });
+}
+
+export async function installPerformanceCallbackGate(page, launchId) {
+  await installManagedPerformanceCallbackGate(page, {
+    authorityId: launchId,
+    expectedMarkerLaunchId: launchId,
+    gateSymbol: PERFORMANCE_CALLBACK_GATE_SYMBOL
+  });
+}
+
+export async function installExternalPerformanceSentinelGate(page, externalExecutionId) {
+  await installManagedPerformanceCallbackGate(page, {
+    authorityId: externalExecutionId,
+    gateSymbol: PERFORMANCE_EXTERNAL_SENTINEL_GATE_SYMBOL,
+    requireObservationReset: true
+  });
+}
+
+async function usePerformanceCallbackGate(page, launchId, method, args = []) {
+  return useManagedPerformanceCallbackGate(page, {
+    authorityId: launchId,
+    gateSymbol: PERFORMANCE_CALLBACK_GATE_SYMBOL,
+    method,
+    args
+  });
+}
+
+async function useExternalPerformanceSentinelGate(page, externalExecutionId, method, args = []) {
+  return useManagedPerformanceCallbackGate(page, {
+    authorityId: externalExecutionId,
+    gateSymbol: PERFORMANCE_EXTERNAL_SENTINEL_GATE_SYMBOL,
+    method,
+    args
+  });
 }
 
 export async function pausePerformanceCallbacks(page, launchId) {
@@ -479,6 +773,34 @@ export async function readPerformanceCallbackGate(page, launchId) {
 
 export async function removePerformanceCallbackGate(page, launchId) {
   await usePerformanceCallbackGate(page, launchId, 'dispose');
+}
+
+export async function pauseExternalPerformanceSentinelCallbacks(page, externalExecutionId) {
+  return useExternalPerformanceSentinelGate(page, externalExecutionId, 'pause');
+}
+
+export async function pauseExternalPerformanceSentinelCallbacksAt(page, externalExecutionId, callbackCount) {
+  return useExternalPerformanceSentinelGate(page, externalExecutionId, 'pauseAt', [callbackCount]);
+}
+
+export async function resetExternalPerformanceSentinelGate(page, externalExecutionId) {
+  return useExternalPerformanceSentinelGate(page, externalExecutionId, 'reset');
+}
+
+export async function armExternalPerformanceSentinelWindow(page, externalExecutionId, limits) {
+  return useExternalPerformanceSentinelGate(page, externalExecutionId, 'armWindow', [limits]);
+}
+
+export async function resumeExternalPerformanceSentinelCallbacks(page, externalExecutionId) {
+  return useExternalPerformanceSentinelGate(page, externalExecutionId, 'resume');
+}
+
+export async function readExternalPerformanceSentinelGate(page, externalExecutionId) {
+  return useExternalPerformanceSentinelGate(page, externalExecutionId, 'snapshot');
+}
+
+export async function removeExternalPerformanceSentinelGate(page, externalExecutionId) {
+  await useExternalPerformanceSentinelGate(page, externalExecutionId, 'dispose');
 }
 
 export async function readPerformanceControlProbe(page) {

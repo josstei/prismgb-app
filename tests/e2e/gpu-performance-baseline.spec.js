@@ -77,6 +77,7 @@ test.describe('production sentinel fixture', () => {
       harness: false,
       instrumentation: false
     });
+    expect(performanceLaunch.externalExecutionId).toMatch(/^[0-9a-f-]{36}$/);
     await expect(performanceLaunch.window.evaluate(() => ({
       hasMarker: window.prismgbPerformanceLaunchMarker !== undefined,
       hasControlProbe: window.prismgbPerformanceControlProbe !== undefined,
@@ -85,6 +86,16 @@ test.describe('production sentinel fixture', () => {
       hasMarker: false,
       hasControlProbe: false,
       hasDiagnostics: false
+    });
+    await expect(performanceLaunch.readPerformanceCallbackGate()).resolves.toMatchObject({
+      paused: false,
+      observations: {
+        callbacks: [],
+        canvasDraws: [],
+        workerFramePosts: [],
+        acknowledgements: [],
+        errors: []
+      }
     });
   });
 });
@@ -207,6 +218,19 @@ test('the instrumented harness delimits the policy-bound renderer cohort after w
 
   await expect(performanceLaunch.resetPerformanceControlProbe()).resolves.toEqual({ reset: true });
   await expect(performanceLaunch.resetPerformanceDiagnostics()).resolves.toEqual({ reset: true });
+  await expect(performanceLaunch.resetPerformanceCallbacks()).resolves.toMatchObject({
+    paused: true,
+    heldCallbackCount: 1,
+    observations: {
+      callbacks: [],
+      canvasDraws: [],
+      workerFramePosts: [],
+      acknowledgements: [],
+      errors: [],
+      postPauseCanvasDrawCount: 0,
+      outstandingWorkerFrames: 0
+    }
+  });
   await expect(performanceLaunch.armPerformanceCallbackWindow({
     ...measurementWindowLimits
   })).resolves.toMatchObject({

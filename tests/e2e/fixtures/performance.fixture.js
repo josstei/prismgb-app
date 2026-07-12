@@ -5,25 +5,36 @@ import path from 'node:path';
 import { ChromaticDeviceFixture } from './chromatic-device.fixture.js';
 import { AppShellPage } from '../pages/app-shell.page.js';
 import {
-  armPerformanceCallbackWindow,
+  armExternalPerformanceSentinelWindow,
   assertPerformanceController,
+  createExternalPerformanceExecutionId,
   createPerformanceLaunchId,
   getPerformanceBuild,
-  installPerformanceCallbackGate,
+  installExternalPerformanceSentinelGate,
   installPerformanceControlProbe,
   loadPerformanceBuildManifest,
-  pausePerformanceCallbacks,
-  pausePerformanceCallbacksAt,
-  readPerformanceCallbackGate,
+  pauseExternalPerformanceSentinelCallbacks,
+  pauseExternalPerformanceSentinelCallbacksAt,
+  readExternalPerformanceSentinelGate,
+  removeExternalPerformanceSentinelGate,
   removePerformanceControlProbe,
-  removePerformanceCallbackGate,
   readPerformanceControlProbe,
   readPerformanceDiagnostics,
+  resetExternalPerformanceSentinelGate,
   resetPerformanceControlProbe,
-  resumePerformanceCallbacks,
+  resumeExternalPerformanceSentinelCallbacks,
   resetPerformanceDiagnostics
 } from '../helpers/gpu-performance-baseline.helper.js';
 
+/**
+ * @param {{
+ *   build: { directory: string, harness: boolean, instrumentation: boolean },
+ *   launchId: string | null,
+ *   userDataDirectory: string,
+ *   baseEnvironment?: NodeJS.ProcessEnv,
+ *   performanceDiagnostics: boolean
+ * }} options
+ */
 export function createPerformanceElectronLaunchOptions({
   build,
   launchId,
@@ -92,6 +103,7 @@ export const test = base.extend({
     const loadedManifest = await loadPerformanceBuildManifest();
     const build = getPerformanceBuild(loadedManifest, performanceVariant);
     const launchId = build.harness ? createPerformanceLaunchId() : null;
+    const externalExecutionId = createExternalPerformanceExecutionId();
     const userDataDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'prismgb-performance-'));
     const launch = createPerformanceElectronLaunchOptions({
       build,
@@ -108,11 +120,27 @@ export const test = base.extend({
     try {
       window = await app.firstWindow();
       await new AppShellPage(window).waitForReady();
+      await installExternalPerformanceSentinelGate(window, externalExecutionId);
       const commonLaunch = {
         app,
         window,
         sourceSha: loadedManifest.manifest.sourceSha,
-        build
+        build,
+        externalExecutionId,
+        pausePerformanceCallbacks: () => pauseExternalPerformanceSentinelCallbacks(window, externalExecutionId),
+        pausePerformanceCallbacksAt: (callbackCount) => pauseExternalPerformanceSentinelCallbacksAt(
+          window,
+          externalExecutionId,
+          callbackCount
+        ),
+        resetPerformanceCallbacks: () => resetExternalPerformanceSentinelGate(window, externalExecutionId),
+        armPerformanceCallbackWindow: (limits) => armExternalPerformanceSentinelWindow(
+          window,
+          externalExecutionId,
+          limits
+        ),
+        resumePerformanceCallbacks: () => resumeExternalPerformanceSentinelCallbacks(window, externalExecutionId),
+        readPerformanceCallbackGate: () => readExternalPerformanceSentinelGate(window, externalExecutionId)
       };
       if (!build.harness) {
         await use(commonLaunch);
@@ -122,16 +150,10 @@ export const test = base.extend({
       if (marker?.launchId !== launchId) throw new Error('renderer marker does not match the launch controller identity');
       await assertPerformanceController(app, launchId);
       await installPerformanceControlProbe(window, launchId);
-      await installPerformanceCallbackGate(window, launchId);
       await use({
         ...commonLaunch,
         launchId,
         readPerformanceControlProbe: () => readPerformanceControlProbe(window),
-        pausePerformanceCallbacks: () => pausePerformanceCallbacks(window, launchId),
-        pausePerformanceCallbacksAt: (callbackCount) => pausePerformanceCallbacksAt(window, launchId, callbackCount),
-        armPerformanceCallbackWindow: (limits) => armPerformanceCallbackWindow(window, launchId, limits),
-        resumePerformanceCallbacks: () => resumePerformanceCallbacks(window, launchId),
-        readPerformanceCallbackGate: () => readPerformanceCallbackGate(window, launchId),
         resetPerformanceControlProbe: () => resetPerformanceControlProbe(window),
         readPerformanceDiagnostics: () => {
           if (!build.instrumentation) {
@@ -147,8 +169,10 @@ export const test = base.extend({
         }
       });
     } finally {
+      if (window) {
+        await removeExternalPerformanceSentinelGate(window, externalExecutionId).catch(() => {});
+      }
       if (window && build.harness && launchId !== null) {
-        await removePerformanceCallbackGate(window, launchId).catch(() => {});
         await removePerformanceControlProbe(window).catch(() => {});
       }
       await app.close().catch(() => {});
