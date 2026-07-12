@@ -309,6 +309,8 @@ async function installManagedPerformanceCallbackGate(page, {
     let observationsReset = !requireReset;
     let observationSequence = 0;
     let postPauseCanvasDrawCount = 0;
+    let activeCallbackOrdinal = null;
+    let callbackOverlapCount = 0;
     let videoPatched = false;
     let cancelPatched = false;
     let canvasPatched = false;
@@ -332,6 +334,8 @@ async function installManagedPerformanceCallbackGate(page, {
       errorObservations.length = 0;
       observationSequence = 0;
       postPauseCanvasDrawCount = 0;
+      activeCallbackOrdinal = null;
+      callbackOverlapCount = 0;
       observationsReset = true;
     };
     const snapshot = () => {
@@ -350,6 +354,7 @@ async function installManagedPerformanceCallbackGate(page, {
           acknowledgements: cloneRows(acknowledgementObservations),
           errors: cloneRows(errorObservations),
           postPauseCanvasDrawCount,
+          callbackOverlapCount,
           outstandingWorkerFrames
         }
       };
@@ -393,14 +398,33 @@ async function installManagedPerformanceCallbackGate(page, {
       return false;
     };
     const invokeCallback = ({ video, callback, now, metadata }) => {
-      if (isWindowRunning()) {
-        measurementWindow.deliveredCallbackCount += 1;
-        callbackObservations.push(nextObservation('renderer-callback', {
-          callbackOrdinal: measurementWindow.deliveredCallbackCount,
-          mediaTime: Number.isFinite(metadata?.mediaTime) ? metadata.mediaTime : null
-        }));
+      if (!isWindowRunning()) return callback.call(video, now, metadata);
+
+      if (activeCallbackOrdinal !== null) {
+        callbackOverlapCount += 1;
       }
-      return callback.call(video, now, metadata);
+      measurementWindow.deliveredCallbackCount += 1;
+      const callbackOrdinal = measurementWindow.deliveredCallbackCount;
+      activeCallbackOrdinal = callbackOrdinal;
+      callbackObservations.push(nextObservation('renderer-callback', {
+        callbackOrdinal,
+        mediaTime: Number.isFinite(metadata?.mediaTime) ? metadata.mediaTime : null
+      }));
+      const finishCallback = () => {
+        if (activeCallbackOrdinal === callbackOrdinal) activeCallbackOrdinal = null;
+      };
+      try {
+        const result = callback.call(video, now, metadata);
+        if (result && typeof result.then === 'function') {
+          void Promise.resolve(result).then(finishCallback, finishCallback);
+        } else {
+          finishCallback();
+        }
+        return result;
+      } catch (error) {
+        finishCallback();
+        throw error;
+      }
     };
     const observeWorkerMessage = (data) => {
       if (!isWindowOpenOrClosed() || !isRecord(data)) return;
@@ -434,10 +458,17 @@ async function installManagedPerformanceCallbackGate(page, {
           enumerable: ownPostMessageDescriptor?.enumerable ?? false,
           writable: true,
           value: function patchedWorkerPostMessage(message, ...args) {
-            if (isWindowRunning() && isRecord(message) && message.type === 'frame') {
-              workerFramePostObservations.push(nextObservation('worker-frame-posted'));
+            const isFramePost = isWindowRunning() && isRecord(message) && message.type === 'frame';
+            const startedAt = isFramePost ? performance.now() : null;
+            const result = Reflect.apply(originalPostMessage, this, [message, ...args]);
+            if (isFramePost) {
+              workerFramePostObservations.push(nextObservation('worker-frame-posted', {
+                callbackOrdinal: activeCallbackOrdinal,
+                startedAt,
+                endedAt: performance.now()
+              }));
             }
-            return Reflect.apply(originalPostMessage, this, [message, ...args]);
+            return result;
           }
         });
       } catch (error) {
@@ -548,10 +579,17 @@ async function installManagedPerformanceCallbackGate(page, {
       Object.defineProperty(canvasPrototype, 'drawImage', {
         ...drawImageDescriptor,
         value: function patchedCanvasDrawImage(...args) {
+          const isStreamDraw = this.canvas?.id === 'streamCanvas';
+          const shouldObserve = isStreamDraw && isWindowRunning();
+          const startedAt = shouldObserve ? performance.now() : null;
           const result = Reflect.apply(originalDrawImage, this, args);
-          if (this.canvas?.id === 'streamCanvas') {
-            if (isWindowRunning()) {
-              canvasDrawObservations.push(nextObservation('canvas-draw-completed'));
+          if (isStreamDraw) {
+            if (shouldObserve) {
+              canvasDrawObservations.push(nextObservation('canvas-draw-completed', {
+                callbackOrdinal: activeCallbackOrdinal,
+                startedAt,
+                endedAt: performance.now()
+              }));
             } else if (paused && measurementWindow?.status === 'closed') {
               postPauseCanvasDrawCount += 1;
             }
@@ -647,8 +685,30 @@ async function installManagedPerformanceCallbackGate(page, {
             deliveredCallbackCount: 0,
             startedAt: null,
             closedAt: null,
+            terminalClosureEnd: null,
             closureReason: null
           };
+          return snapshot();
+        },
+        seal(requestedAuthorityId) {
+          assertAuthorityId(requestedAuthorityId);
+          const outstandingWorkerFrames = workerFramePostObservations.length
+            - acknowledgementObservations.length
+            - errorObservations.length;
+          if (
+            measurementWindow?.status !== 'closed'
+            || !paused
+            || heldCallbacks.size !== 1
+            || outstandingWorkerFrames !== 0
+            || postPauseCanvasDrawCount !== 0
+            || callbackOverlapCount !== 0
+          ) {
+            throw new Error('external performance sentinel cannot seal before its callback and backend work are closed');
+          }
+          if (measurementWindow.terminalClosureEnd !== null) {
+            throw new Error('external performance sentinel closure is already sealed');
+          }
+          measurementWindow.terminalClosureEnd = performance.now();
           return snapshot();
         },
         resume(requestedAuthorityId) {
@@ -789,6 +849,10 @@ export async function resetExternalPerformanceSentinelGate(page, externalExecuti
 
 export async function armExternalPerformanceSentinelWindow(page, externalExecutionId, limits) {
   return useExternalPerformanceSentinelGate(page, externalExecutionId, 'armWindow', [limits]);
+}
+
+export async function sealExternalPerformanceSentinelGate(page, externalExecutionId) {
+  return useExternalPerformanceSentinelGate(page, externalExecutionId, 'seal');
 }
 
 export async function resumeExternalPerformanceSentinelCallbacks(page, externalExecutionId) {

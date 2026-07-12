@@ -20,6 +20,7 @@ import {
   resetPerformanceDiagnostics,
   resumeExternalPerformanceSentinelCallbacks,
   resumePerformanceCallbacks,
+  sealExternalPerformanceSentinelGate,
   removePerformanceControlProbe
 } from '../../e2e/helpers/gpu-performance-baseline.helper.js';
 
@@ -178,6 +179,7 @@ describe('GPU performance baseline helper', () => {
         heldCallbackCount: 1,
         measurementWindow: { status: 'armed', ...limits }
       })),
+      seal: vi.fn(() => ({ paused: true, heldCallbackCount: 1 })),
       resume: vi.fn(() => ({ paused: false, heldCallbackCount: 0 })),
       snapshot: vi.fn(() => ({ paused: false, observations: { callbacks: [] } })),
       dispose: vi.fn(() => ({ paused: false, heldCallbackCount: 0 }))
@@ -204,6 +206,9 @@ describe('GPU performance baseline helper', () => {
     await expect(armExternalPerformanceSentinelWindow(page, externalExecutionId, limits)).resolves.toMatchObject({
       measurementWindow: { status: 'armed', ...limits }
     });
+    await expect(sealExternalPerformanceSentinelGate(page, externalExecutionId)).resolves.toMatchObject({
+      paused: true
+    });
     await expect(resumeExternalPerformanceSentinelCallbacks(page, externalExecutionId)).resolves.toMatchObject({
       paused: false
     });
@@ -214,6 +219,7 @@ describe('GPU performance baseline helper', () => {
     expect(gate.pause).toHaveBeenCalledWith(externalExecutionId);
     expect(gate.reset).toHaveBeenCalledWith(externalExecutionId);
     expect(gate.armWindow).toHaveBeenCalledWith(externalExecutionId, limits);
+    expect(gate.seal).toHaveBeenCalledWith(externalExecutionId);
     expect(gate.resume).toHaveBeenCalledWith(externalExecutionId);
     expect(gate.snapshot).toHaveBeenCalledWith(externalExecutionId);
     expect(gate.dispose).toHaveBeenCalledWith(externalExecutionId);
@@ -325,6 +331,7 @@ describe('GPU performance baseline helper', () => {
     worker.emitMessage({ type: 'frameRendered', payload: {} });
     await new Promise((resolve) => setTimeout(resolve, 2));
     video.flushNext(3);
+    await sealExternalPerformanceSentinelGate(page, externalExecutionId);
 
     await expect(readExternalPerformanceSentinelGate(page, externalExecutionId)).resolves.toMatchObject({
       paused: true,
@@ -332,15 +339,27 @@ describe('GPU performance baseline helper', () => {
       measurementWindow: {
         status: 'closed',
         closureReason: 'minimum-reached',
-        deliveredCallbackCount: 1
+        deliveredCallbackCount: 1,
+        terminalClosureEnd: expect.any(Number)
       },
       observations: {
         callbacks: [{ kind: 'renderer-callback', callbackOrdinal: 1, mediaTime: 2 }],
-        canvasDraws: [{ kind: 'canvas-draw-completed' }],
-        workerFramePosts: [{ kind: 'worker-frame-posted' }],
+        canvasDraws: [{
+          kind: 'canvas-draw-completed',
+          callbackOrdinal: 1,
+          startedAt: expect.any(Number),
+          endedAt: expect.any(Number)
+        }],
+        workerFramePosts: [{
+          kind: 'worker-frame-posted',
+          callbackOrdinal: 1,
+          startedAt: expect.any(Number),
+          endedAt: expect.any(Number)
+        }],
         acknowledgements: [{ kind: 'worker-frame-acknowledged', tagged: false }],
         errors: [],
         postPauseCanvasDrawCount: 0,
+        callbackOverlapCount: 0,
         outstandingWorkerFrames: 0
       }
     });
