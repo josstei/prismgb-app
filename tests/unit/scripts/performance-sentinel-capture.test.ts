@@ -68,6 +68,15 @@ function baseCapture(backend: 'canvas2d' | 'webgpu' = 'canvas2d') {
       ? '123e4567-e89b-42d3-a456-426614174000'
       : '123e4567-e89b-42d3-a456-426614174001',
     observationBoundaryId: backend + '-boundary',
+    pair: {
+      experimentId: '123e4567-e89b-42d3-a456-426614174002',
+      metricSessionId: backend + '-harness-pair-1-attempt-1',
+      comparisonKind: 'harness-overhead',
+      backend,
+      pairIndex: 1,
+      attemptIndex: 1,
+      comparisonSide: backend === 'canvas2d' ? 'A' : 'B'
+    },
     build: {
       id: backend === 'canvas2d' ? 'production' : 'harness-control',
       harness: backend === 'webgpu',
@@ -115,7 +124,7 @@ describe('performance sentinel capture', () => {
     const capture = createPerformanceSentinelCapture(baseCapture());
 
     expect(capture).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 2,
       build: { id: 'production', harness: false, instrumentation: false },
       backend: 'canvas2d',
       observations: {

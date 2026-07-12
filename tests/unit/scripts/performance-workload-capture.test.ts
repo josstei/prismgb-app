@@ -16,6 +16,15 @@ function captureInput() {
   return {
     sourceSha: 'a'.repeat(40),
     launchId: '123e4567-e89b-42d3-a456-426614174000',
+    pair: {
+      experimentId: '123e4567-e89b-42d3-a456-426614174001',
+      metricSessionId: 'instrumentation-pair-1-attempt-1',
+      comparisonKind: 'instrumentation-overhead',
+      backend: 'canvas2d',
+      pairIndex: 1,
+      attemptIndex: 1,
+      comparisonSide: 'B'
+    },
     build: {
       id: 'instrumented',
       harness: true,
@@ -64,7 +73,7 @@ describe('performance workload capture', () => {
     const capture = createPerformanceWorkloadCapture(captureInput());
 
     expect(capture).toMatchObject({
-      schemaVersion: 1,
+      schemaVersion: 2,
       checksum: expect.stringMatching(/^[a-f0-9]{64}$/),
       window: { closureReason: 'minimum-reached', deliveredCallbackCount: 2 },
       sourceSequences: [41, 42]

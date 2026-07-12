@@ -8,7 +8,7 @@ const performanceOutput = process.env.PRISMGB_PERFORMANCE_OUTPUT
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: 'gpu-performance-baseline.spec.js',
-  timeout: 120000,
+  timeout: 10_800_000,
   expect: {
     timeout: 15000
   },
@@ -21,8 +21,9 @@ export default defineConfig({
   preserveOutput: 'failures-only',
   globalSetup: './tests/e2e/global-setup.js',
   use: {
-    screenshot: 'only-on-failure',
-    trace: 'retain-on-failure'
+    screenshot: 'off',
+    trace: 'off',
+    video: 'off'
   },
   projects: [
     {

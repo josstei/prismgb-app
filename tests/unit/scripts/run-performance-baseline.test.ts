@@ -18,8 +18,8 @@ import {
   resolvePerformancePlaywrightCommand,
   runPerformanceBaseline
 } from '../../../scripts/run-performance-baseline.js';
-import { createPerformanceSentinelCapture, writePerformanceSentinelCapture } from '../../../scripts/lib/performance-sentinel-capture.js';
-import { createPerformanceExternalMetricCapture, writePerformanceExternalMetricCapture } from '../../../scripts/lib/performance-external-metric-capture.js';
+import { createPerformanceSentinelCapture } from '../../../scripts/lib/performance-sentinel-capture.js';
+import { createPerformanceExternalMetricCapture } from '../../../scripts/lib/performance-external-metric-capture.js';
 import { createPerformanceWorkloadCapture } from '../../../scripts/lib/performance-workload-capture.js';
 
 const tempDirectories: string[] = [];
@@ -34,24 +34,83 @@ afterEach(async () => {
   await Promise.all(tempDirectories.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })));
 });
 
+const BUILD_VARIANT_FLAGS = Object.freeze({
+  production: Object.freeze({ harness: false, instrumentation: false }),
+  'harness-control': Object.freeze({ harness: true, instrumentation: false }),
+  instrumented: Object.freeze({ harness: true, instrumentation: true })
+});
+const DEFAULT_HARNESS_PAIR = Object.freeze({
+  experimentId: '123e4567-e89b-42d3-a456-426614174001',
+  metricSessionId: 'harness-pair-1-attempt-1',
+  comparisonKind: 'harness-overhead',
+  backend: 'canvas2d',
+  pairIndex: 1,
+  attemptIndex: 1,
+  comparisonSide: 'B'
+});
+const DEFAULT_INSTRUMENTATION_PAIR = Object.freeze({
+  experimentId: '123e4567-e89b-42d3-a456-426614174002',
+  metricSessionId: 'instrumentation-pair-1-attempt-1',
+  comparisonKind: 'instrumentation-overhead',
+  backend: 'canvas2d',
+  pairIndex: 1,
+  attemptIndex: 1,
+  comparisonSide: 'B'
+});
+
+function fixtureUuid(sequence: number) {
+  return `123e4567-e89b-42d3-a456-${sequence.toString(16).padStart(12, '0')}`;
+}
+
+function createFixturePairPlan() {
+  let session = 0;
+  return createPerformancePairPlan({
+    experimentId: fixtureUuid(1),
+    backend: 'canvas2d',
+    createSessionId: () => `fixture-session-${++session}`
+  });
+}
+
+function buildMetadata(id: keyof typeof BUILD_VARIANT_FLAGS, bundleSha256: string) {
+  return { id, ...BUILD_VARIANT_FLAGS[id], bundleSha256 };
+}
+
+function createPairBinding(plan: ReturnType<typeof createPerformancePairPlan>, pair: any, launch: any) {
+  return {
+    experimentId: plan.experimentId,
+    metricSessionId: pair.metricSessionId,
+    comparisonKind: pair.comparisonKind,
+    backend: pair.backend,
+    pairIndex: pair.pairIndex,
+    attemptIndex: pair.attemptIndex,
+    comparisonSide: launch.comparisonSide
+  };
+}
+
 function createCanvasSentinelCapture({
   sourceSha = 'a'.repeat(40),
-  bundleSha256 = 'b'.repeat(64)
+  bundleSha256 = 'b'.repeat(64),
+  buildId = 'harness-control' as const,
+  pair = DEFAULT_HARNESS_PAIR,
+  externalExecutionId = fixtureUuid(10),
+  runId = `external-sentinel:${externalExecutionId}`,
+  observationBoundaryId = `external-sentinel-window:${externalExecutionId}`
 }: {
   sourceSha?: string;
   bundleSha256?: string;
+  buildId?: 'production' | 'harness-control';
+  pair?: Record<string, unknown>;
+  externalExecutionId?: string;
+  runId?: string;
+  observationBoundaryId?: string;
 } = {}) {
   return createPerformanceSentinelCapture({
     sourceSha,
-    runId: 'external-sentinel-run',
-    externalExecutionId: '123e4567-e89b-42d3-a456-426614174000',
-    observationBoundaryId: 'external-sentinel-window',
-    build: {
-      id: 'harness-control',
-      harness: true,
-      instrumentation: false,
-      bundleSha256
-    },
+    runId,
+    externalExecutionId,
+    observationBoundaryId,
+    pair,
+    build: buildMetadata(buildId, bundleSha256),
     backend: 'canvas2d',
     workload: {
       id: 'phase0-animated-160x144-v1',
@@ -100,13 +159,24 @@ function createCanvasSentinelCapture({
 
 function createCanvasExternalMetricCapture({
   sourceSha = 'a'.repeat(40),
-  bundleSha256 = 'b'.repeat(64)
+  bundleSha256 = 'b'.repeat(64),
+  buildId = 'harness-control' as const,
+  pair = DEFAULT_HARNESS_PAIR,
+  externalExecutionId = fixtureUuid(10),
+  runId = `external-sentinel:${externalExecutionId}`,
+  observationBoundaryId = `external-sentinel-window:${externalExecutionId}`,
+  pid = 42
 }: {
   sourceSha?: string;
   bundleSha256?: string;
+  buildId?: 'production' | 'harness-control' | 'instrumented';
+  pair?: Record<string, unknown>;
+  externalExecutionId?: string;
+  runId?: string;
+  observationBoundaryId?: string;
+  pid?: number;
 } = {}) {
-  const externalExecutionId = '123e4567-e89b-42d3-a456-426614174000';
-  const processIdentity = `renderer:${externalExecutionId}:42`;
+  const processIdentity = `renderer:${externalExecutionId}:${pid}`;
   const metricRead = (ordinal: number, readStart: number, cumulativeCpuSeconds: number) => ({
     sample: {
       ordinal,
@@ -118,7 +188,7 @@ function createCanvasExternalMetricCapture({
       workingSetMiB: 128
     },
     raw: {
-      pid: 42,
+      pid,
       userTicks: cumulativeCpuSeconds * 100,
       systemTicks: 0,
       startTicks: 30,
@@ -129,18 +199,14 @@ function createCanvasExternalMetricCapture({
   });
   return createPerformanceExternalMetricCapture({
     sourceSha,
-    runId: 'external-sentinel-run',
+    runId,
     externalExecutionId,
-    observationBoundaryId: 'external-sentinel-window',
-    build: {
-      id: 'harness-control',
-      harness: true,
-      instrumentation: false,
-      bundleSha256
-    },
+    observationBoundaryId,
+    pair,
+    build: buildMetadata(buildId, bundleSha256),
     adapterId: 'linux-procfs-v1',
     target: {
-      pid: 42,
+      pid,
       creationIdentity: '30',
       processIdentity,
       counterQuantumSeconds: 0.01
@@ -152,12 +218,130 @@ function createCanvasExternalMetricCapture({
   });
 }
 
-async function writeCanvasSentinelCapture(
-  outputDirectory: string,
-  options: { sourceSha?: string; bundleSha256?: string } = {}
-) {
-  const { schemaVersion: _schemaVersion, checksum: _checksum, ...input } = createCanvasSentinelCapture(options);
-  return writePerformanceSentinelCapture({ outputDirectory, ...input });
+function createInstrumentedWorkloadCapture({
+  sourceSha = 'a'.repeat(40),
+  bundleSha256 = 'd'.repeat(64),
+  pair = DEFAULT_INSTRUMENTATION_PAIR,
+  launchId = fixtureUuid(20)
+}: {
+  sourceSha?: string;
+  bundleSha256?: string;
+  pair?: Record<string, unknown>;
+  launchId?: string;
+} = {}) {
+  return createPerformanceWorkloadCapture({
+    sourceSha,
+    launchId,
+    pair,
+    build: buildMetadata('instrumented', bundleSha256),
+    workload: { id: 'phase0-animated-160x144-v1', pattern: 'animated', width: 160, height: 144, frameRate: 60 },
+    warmup: { sourceOpportunityCount: 600, elapsedMs: 10_000 },
+    window: {
+      minimumCallbacks: 2,
+      minimumDurationMs: 30_000,
+      maximumCallbacks: 4,
+      maximumDurationMs: 45_000,
+      deliveredCallbackCount: 2,
+      startedAt: 100,
+      closedAt: 30_100,
+      closureReason: 'minimum-reached'
+    },
+    sourceSequences: [1, 2],
+    controlWrites: [],
+    diagnostics: { source: { sourceOpportunities: 2 } }
+  });
+}
+
+function writeRawCaptureSync(outputDirectory: string, directory: string, identity: string, capture: { checksum: string }) {
+  const target = path.join(outputDirectory, directory);
+  fsSync.mkdirSync(target, { recursive: true });
+  const relativePath = `${directory}/${identity}-${capture.checksum}.json`;
+  fsSync.writeFileSync(path.join(outputDirectory, relativePath), JSON.stringify(capture));
+  return relativePath;
+}
+
+function createFixtureManifest(bundles = {
+  production: 'c'.repeat(64),
+  'harness-control': 'b'.repeat(64),
+  instrumented: 'd'.repeat(64)
+}) {
+  return {
+    variants: Object.entries(BUILD_VARIANT_FLAGS).map(([id, flags]) => ({
+      id,
+      ...flags,
+      bundle: { sha256: bundles[id as keyof typeof bundles] }
+    }))
+  };
+}
+
+function writePlannedCaptureFixturesSync({
+  outputDirectory,
+  pairPlan,
+  manifest,
+  sourceSha = 'a'.repeat(40)
+}: {
+  outputDirectory: string;
+  pairPlan: ReturnType<typeof createPerformancePairPlan>;
+  manifest: ReturnType<typeof createFixtureManifest>;
+  sourceSha?: string;
+}) {
+  const sentinels: Array<{ capture: any; relativePath: string }> = [];
+  const metrics: Array<{ capture: any; relativePath: string }> = [];
+  const workloads: Array<{ capture: any; relativePath: string }> = [];
+  let execution = 0;
+  for (const pair of pairPlan.pairs) {
+    for (const launch of pair.launches) {
+      execution += 1;
+      const externalExecutionId = fixtureUuid(100 + execution);
+      const binding = createPairBinding(pairPlan, pair, launch);
+      const build = manifest.variants.find((variant) => variant.id === launch.buildVariant);
+      if (!build) throw new Error(`missing fixture build ${launch.buildVariant}`);
+      const runId = `external-sentinel:${externalExecutionId}`;
+      const observationBoundaryId = `external-sentinel-window:${externalExecutionId}`;
+      if (pair.comparisonKind === 'harness-overhead') {
+        const sentinel = createCanvasSentinelCapture({
+          sourceSha,
+          bundleSha256: build.bundle.sha256,
+          buildId: launch.buildVariant as 'production' | 'harness-control',
+          pair: binding,
+          externalExecutionId,
+          runId,
+          observationBoundaryId
+        });
+        sentinels.push({
+          capture: sentinel,
+          relativePath: writeRawCaptureSync(outputDirectory, 'raw-sentinel-captures', sentinel.externalExecutionId, sentinel)
+        });
+      }
+      const metric = createCanvasExternalMetricCapture({
+        sourceSha,
+        bundleSha256: build.bundle.sha256,
+        buildId: launch.buildVariant,
+        pair: binding,
+        externalExecutionId,
+        runId,
+        observationBoundaryId,
+        pid: 1000 + execution
+      });
+      metrics.push({
+        capture: metric,
+        relativePath: writeRawCaptureSync(outputDirectory, 'raw-external-metric-captures', metric.externalExecutionId, metric)
+      });
+      if (launch.buildVariant === 'instrumented') {
+        const workload = createInstrumentedWorkloadCapture({
+          sourceSha,
+          bundleSha256: build.bundle.sha256,
+          pair: binding,
+          launchId: fixtureUuid(200 + execution)
+        });
+        workloads.push({
+          capture: workload,
+          relativePath: writeRawCaptureSync(outputDirectory, 'raw-workload-captures', workload.launchId, workload)
+        });
+      }
+    }
+  }
+  return { sentinels, metrics, workloads };
 }
 
 describe('parsePerformanceBaselineArgs', () => {
@@ -431,106 +615,80 @@ describe('createPerformanceCommandLedger', () => {
   });
 });
 
-describe('collectPerformanceSentinelCaptures', () => {
-  it('indexes checksum-bound external captures only when their variant provenance matches the clean build', async () => {
+describe('planned raw capture collection', () => {
+  it('indexes the exact six sentinel, six workload, and eighteen external metric sides', async () => {
     const outputDirectory = await createTemporaryWorkspace();
     const sourceSha = 'a'.repeat(40);
-    const bundleSha256 = 'b'.repeat(64);
-    const written = await writeCanvasSentinelCapture(outputDirectory, { sourceSha, bundleSha256 });
-    const manifest = {
-      variants: [
-        { id: 'production', harness: false, instrumentation: false, bundle: { sha256: 'c'.repeat(64) } },
-        { id: 'harness-control', harness: true, instrumentation: false, bundle: { sha256: bundleSha256 } },
-        { id: 'instrumented', harness: true, instrumentation: true, bundle: { sha256: 'd'.repeat(64) } }
-      ]
-    };
+    const pairPlan = createFixturePairPlan();
+    const manifest = createFixtureManifest();
+    const fixtures = writePlannedCaptureFixturesSync({ outputDirectory, pairPlan, manifest, sourceSha });
 
-    const result = await collectPerformanceSentinelCaptures({ outputDirectory, sourceSha, manifest });
-
-    expect(result.index).toMatchObject({
-      schemaVersion: 1,
-      sourceSha,
-      captures: [{
-        relativePath: written.relativePath,
-        buildId: 'harness-control',
-        backend: 'canvas2d',
-        callbackCount: 1,
-        backendOperationCount: 1,
-        acknowledgementCount: 0,
-        eventCount: 2
-      }],
-      checksum: expect.stringMatching(/^[a-f0-9]{64}$/)
-    });
-    await expect(fs.readFile(result.indexPath, 'utf8')).resolves.toContain(written.relativePath);
-  });
-
-  it('rejects an externally valid capture whose bundle does not belong to the manifest', async () => {
-    const outputDirectory = await createTemporaryWorkspace();
-    await writeCanvasSentinelCapture(outputDirectory, { bundleSha256: 'c'.repeat(64) });
-    await expect(collectPerformanceSentinelCaptures({
-      outputDirectory,
-      sourceSha: 'a'.repeat(40),
-      manifest: {
-        variants: [
-          { id: 'harness-control', harness: true, instrumentation: false, bundle: { sha256: 'b'.repeat(64) } }
-        ]
-      }
-    })).rejects.toThrow(/bundle hash does not match the build manifest/);
-  });
-});
-
-describe('collectPerformanceExternalMetricCaptures', () => {
-  it('indexes one raw metric transcript for each matching external sentinel', async () => {
-    const outputDirectory = await createTemporaryWorkspace();
-    const sourceSha = 'a'.repeat(40);
-    const bundleSha256 = 'b'.repeat(64);
-    const sentinelWritten = await writeCanvasSentinelCapture(outputDirectory, { sourceSha, bundleSha256 });
-    const { schemaVersion: _schemaVersion, checksum: _checksum, ...metricInput } = createCanvasExternalMetricCapture({
-      sourceSha,
-      bundleSha256
-    });
-    const metricWritten = await writePerformanceExternalMetricCapture({ outputDirectory, ...metricInput });
-    const manifest = {
-      variants: [{ id: 'harness-control', harness: true, instrumentation: false, bundle: { sha256: bundleSha256 } }]
-    };
-
-    const result = await collectPerformanceExternalMetricCaptures({
+    const sentinel = await collectPerformanceSentinelCaptures({ outputDirectory, sourceSha, manifest, pairPlan });
+    const externalMetric = await collectPerformanceExternalMetricCaptures({
       outputDirectory,
       sourceSha,
       manifest,
-      sentinelCaptures: [{ capture: sentinelWritten.capture }]
+      sentinelCaptures: sentinel.captures,
+      pairPlan
     });
 
-    expect(result.index).toMatchObject({
+    expect(sentinel.index).toMatchObject({
+      schemaVersion: 2,
       sourceSha,
-      captures: [{
-        relativePath: metricWritten.relativePath,
-        buildId: 'harness-control',
-        adapterId: 'linux-procfs-v1',
-        inWindowSampleCount: 61,
-        terminalSampleOrdinal: 62
-      }]
+      captures: expect.arrayContaining([
+        expect.objectContaining({ buildId: 'production', backend: 'canvas2d', pair: expect.objectContaining({ comparisonSide: 'A' }) })
+      ])
     });
+    expect(sentinel.index.captures).toHaveLength(6);
+    expect(externalMetric.index).toMatchObject({ schemaVersion: 2, sourceSha });
+    expect(externalMetric.index.captures).toHaveLength(18);
+    expect(externalMetric.index.captures.filter((capture) => capture.buildId === 'instrumented')).toHaveLength(6);
+    expect(fixtures.workloads).toHaveLength(6);
+    await expect(fs.readFile(sentinel.indexPath, 'utf8')).resolves.toContain(fixtures.sentinels[0].relativePath);
   });
 
-  it('rejects a metric transcript that does not bind its sentinel boundary', async () => {
+  it('rejects a planned capture whose bundle does not belong to the manifest', async () => {
     const outputDirectory = await createTemporaryWorkspace();
-    const sentinelWritten = await writeCanvasSentinelCapture(outputDirectory);
-    const { schemaVersion: _schemaVersion, checksum: _checksum, ...metricInput } = createCanvasExternalMetricCapture();
-    await writePerformanceExternalMetricCapture({
-      outputDirectory,
-      ...metricInput,
-      observationBoundaryId: 'different-boundary'
+    const pairPlan = createFixturePairPlan();
+    const manifest = createFixtureManifest();
+    writePlannedCaptureFixturesSync({ outputDirectory, pairPlan, manifest });
+    const mismatchedManifest = createFixtureManifest({
+      production: 'c'.repeat(64),
+      'harness-control': 'e'.repeat(64),
+      instrumented: 'd'.repeat(64)
     });
+
+    await expect(collectPerformanceSentinelCaptures({
+      outputDirectory,
+      sourceSha: 'a'.repeat(40),
+      manifest: mismatchedManifest,
+      pairPlan
+    })).rejects.toThrow(/bundle hash does not match the build manifest/);
+  });
+
+  it('rejects a harness metric transcript whose pair side does not bind the sentinel boundary', async () => {
+    const outputDirectory = await createTemporaryWorkspace();
+    const pairPlan = createFixturePairPlan();
+    const manifest = createFixtureManifest();
+    const fixtures = writePlannedCaptureFixturesSync({ outputDirectory, pairPlan, manifest });
+    const sentinel = await collectPerformanceSentinelCaptures({
+      outputDirectory,
+      sourceSha: 'a'.repeat(40),
+      manifest,
+      pairPlan
+    });
+    const malformedSentinels = sentinel.captures.map((entry, index) => index === 0
+      ? { capture: { ...entry.capture, observationBoundaryId: 'different-boundary' } }
+      : entry);
 
     await expect(collectPerformanceExternalMetricCaptures({
       outputDirectory,
       sourceSha: 'a'.repeat(40),
-      manifest: {
-        variants: [{ id: 'harness-control', harness: true, instrumentation: false, bundle: { sha256: 'b'.repeat(64) } }]
-      },
-      sentinelCaptures: [{ capture: sentinelWritten.capture }]
+      manifest,
+      sentinelCaptures: malformedSentinels,
+      pairPlan
     })).rejects.toThrow(/sentinel run and observation boundary/);
+    expect(fixtures.metrics).toHaveLength(18);
   });
 });
 
@@ -643,7 +801,7 @@ describe('runPerformanceBaseline', () => {
     })).rejects.toThrow(/playwright assertion detail[\s\S]*playwright warning/);
   });
 
-  it('indexes the checksum-bound instrumented workload capture produced by the Playwright lane', async () => {
+  it('indexes the exact planned raw capture set produced by the Playwright lane', async () => {
     const cwd = await createTemporaryWorkspace();
     const spawn = vi.fn((command: string, args: readonly string[], options: { cwd: string; env: NodeJS.ProcessEnv }) => {
       if (command === 'git' && args[0] === 'status') return { status: 0, stdout: '', stderr: '' };
@@ -669,54 +827,12 @@ describe('runPerformanceBaseline', () => {
         const manifest = JSON.parse(fsSync.readFileSync(manifestPath, 'utf8'));
         const pairPlan = JSON.parse(fsSync.readFileSync(pairPlanPath, 'utf8'));
         if (pairPlan.pairs.length !== 9) throw new Error('expected the exact performance pair plan');
-        const instrumented = manifest.variants.find((variant: { id: string }) => variant.id === 'instrumented');
-        const harnessControl = manifest.variants.find((variant: { id: string }) => variant.id === 'harness-control');
-        const capture = createPerformanceWorkloadCapture({
-          sourceSha: 'a'.repeat(40),
-          launchId: '123e4567-e89b-42d3-a456-426614174000',
-          build: {
-            id: instrumented.id,
-            harness: instrumented.harness,
-            instrumentation: instrumented.instrumentation,
-            bundleSha256: instrumented.bundle.sha256
-          },
-          workload: { id: 'phase0-animated-160x144-v1', pattern: 'animated', width: 160, height: 144, frameRate: 60 },
-          warmup: { sourceOpportunityCount: 600, elapsedMs: 10_000 },
-          window: {
-            minimumCallbacks: 2,
-            minimumDurationMs: 30_000,
-            maximumCallbacks: 4,
-            maximumDurationMs: 45_000,
-            deliveredCallbackCount: 2,
-            startedAt: 100,
-            closedAt: 30_100,
-            closureReason: 'minimum-reached'
-          },
-          sourceSequences: [1, 2],
-          controlWrites: [],
-          diagnostics: { source: { sourceOpportunities: 2 } }
+        writePlannedCaptureFixturesSync({
+          outputDirectory,
+          pairPlan,
+          manifest,
+          sourceSha: 'a'.repeat(40)
         });
-        const directory = path.join(outputDirectory, 'raw-workload-captures');
-        fsSync.mkdirSync(directory, { recursive: true });
-        fsSync.writeFileSync(path.join(directory, `${capture.launchId}-${capture.checksum}.json`), JSON.stringify(capture));
-        const sentinelCapture = createCanvasSentinelCapture({
-          bundleSha256: harnessControl.bundle.sha256
-        });
-        const sentinelDirectory = path.join(outputDirectory, 'raw-sentinel-captures');
-        fsSync.mkdirSync(sentinelDirectory, { recursive: true });
-        fsSync.writeFileSync(
-          path.join(sentinelDirectory, `${sentinelCapture.externalExecutionId}-${sentinelCapture.checksum}.json`),
-          JSON.stringify(sentinelCapture)
-        );
-        const metricCapture = createCanvasExternalMetricCapture({
-          bundleSha256: harnessControl.bundle.sha256
-        });
-        const metricDirectory = path.join(outputDirectory, 'raw-external-metric-captures');
-        fsSync.mkdirSync(metricDirectory, { recursive: true });
-        fsSync.writeFileSync(
-          path.join(metricDirectory, `${metricCapture.externalExecutionId}-${metricCapture.checksum}.json`),
-          JSON.stringify(metricCapture)
-        );
         return { status: 0, stdout: '', stderr: '' };
       }
       throw new Error(`unexpected command ${command}`);
@@ -732,17 +848,26 @@ describe('runPerformanceBaseline', () => {
 
     if (result.playwrightExecuted !== true) throw new Error('expected the Playwright lane to execute');
     expect(result.workloadCapture.index).toMatchObject({
-      sourceSha: 'a'.repeat(40),
-      captures: [expect.objectContaining({ buildId: 'instrumented', sourceOpportunityCount: 2 })]
+      sourceSha: 'a'.repeat(40)
     });
+    expect(result.workloadCapture.index.captures).toHaveLength(6);
+    expect(result.workloadCapture.index.captures).toEqual(
+      expect.arrayContaining([expect.objectContaining({ buildId: 'instrumented', sourceOpportunityCount: 2 })])
+    );
     expect(result.sentinelCapture.index).toMatchObject({
-      sourceSha: 'a'.repeat(40),
-      captures: [expect.objectContaining({ buildId: 'harness-control', backend: 'canvas2d' })]
+      sourceSha: 'a'.repeat(40)
     });
+    expect(result.sentinelCapture.index.captures).toHaveLength(6);
+    expect(result.sentinelCapture.index.captures).toEqual(
+      expect.arrayContaining([expect.objectContaining({ buildId: 'harness-control', backend: 'canvas2d' })])
+    );
     expect(result.externalMetricCapture.index).toMatchObject({
-      sourceSha: 'a'.repeat(40),
-      captures: [expect.objectContaining({ buildId: 'harness-control', adapterId: 'linux-procfs-v1' })]
+      sourceSha: 'a'.repeat(40)
     });
+    expect(result.externalMetricCapture.index.captures).toHaveLength(18);
+    expect(result.externalMetricCapture.index.captures).toEqual(
+      expect.arrayContaining([expect.objectContaining({ buildId: 'harness-control', adapterId: 'linux-procfs-v1' })])
+    );
     expect(result.pairPlan).toMatchObject({ backend: 'canvas2d', pairs: expect.any(Array) });
     await expect(fs.readFile(result.pairPlanPath, 'utf8')).resolves.toContain('instrumentation-overhead');
     await expect(fs.readFile(result.workloadCapture.indexPath, 'utf8')).resolves.toContain('raw-workload-captures/');
@@ -778,7 +903,7 @@ describe('runPerformanceBaseline', () => {
       baseEnvironment: { PATH: '/bin', DISPLAY: ':99' },
       spawn: spawn as unknown as typeof spawnSync,
       platform: 'linux'
-    })).rejects.toThrow(/expected exactly one instrumented workload capture/);
+    })).rejects.toThrow(/expected exactly 6 instrumented workload captures, found 0/);
   });
 
   it('rejects a dirty source tree before building any variant', async () => {

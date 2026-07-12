@@ -2,8 +2,9 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { stableStringify } from './baseline-report.js';
+import { validatePerformancePairBinding } from './performance-pair-plan.js';
 
-export const PERFORMANCE_WORKLOAD_CAPTURE_SCHEMA_VERSION = 1;
+export const PERFORMANCE_WORKLOAD_CAPTURE_SCHEMA_VERSION = 2;
 export const PERFORMANCE_WORKLOAD_CAPTURE_DIRECTORY = 'raw-workload-captures';
 
 const BUILD_VARIANTS = Object.freeze({
@@ -171,6 +172,7 @@ function captureBody(input) {
   assertExactKeys(input, [
     'sourceSha',
     'launchId',
+    'pair',
     'build',
     'workload',
     'warmup',
@@ -182,6 +184,10 @@ function captureBody(input) {
   assertSha(input.sourceSha, 'capture.sourceSha', 40);
   assertUuid(input.launchId, 'capture.launchId');
   const build = validateBuild(input.build);
+  const pair = validatePerformancePairBinding(input.pair, {
+    label: 'capture.pair',
+    buildVariant: build.id
+  });
   const workload = validateWorkload(input.workload);
   const warmup = validateWarmup(input.warmup);
   const window = validateWindow(input.window);
@@ -193,6 +199,7 @@ function captureBody(input) {
     schemaVersion: PERFORMANCE_WORKLOAD_CAPTURE_SCHEMA_VERSION,
     sourceSha: input.sourceSha,
     launchId: input.launchId,
+    pair,
     build,
     workload,
     warmup,
@@ -213,6 +220,7 @@ export function validatePerformanceWorkloadCapture(value) {
     'schemaVersion',
     'sourceSha',
     'launchId',
+    'pair',
     'build',
     'workload',
     'warmup',
@@ -229,6 +237,7 @@ export function validatePerformanceWorkloadCapture(value) {
   const body = captureBody({
     sourceSha: value.sourceSha,
     launchId: value.launchId,
+    pair: value.pair,
     build: value.build,
     workload: value.workload,
     warmup: value.warmup,

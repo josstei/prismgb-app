@@ -7,13 +7,15 @@ import {
   parseMacosPsMetricIdentitySnapshot,
   parseWindowsPowerShellMetricSnapshot
 } from './process-runner.js';
+import { validatePerformancePairBinding } from './performance-pair-plan.js';
 
-export const PERFORMANCE_EXTERNAL_METRIC_CAPTURE_SCHEMA_VERSION = 1;
+export const PERFORMANCE_EXTERNAL_METRIC_CAPTURE_SCHEMA_VERSION = 2;
 export const PERFORMANCE_EXTERNAL_METRIC_CAPTURE_DIRECTORY = 'raw-external-metric-captures';
 
 const BUILD_VARIANTS = Object.freeze({
   production: Object.freeze({ harness: false, instrumentation: false }),
-  'harness-control': Object.freeze({ harness: true, instrumentation: false })
+  'harness-control': Object.freeze({ harness: true, instrumentation: false }),
+  instrumented: Object.freeze({ harness: true, instrumentation: true })
 });
 const ADAPTER_QUANTA = new Map([
   ['linux-procfs-v1', 0.01],
@@ -275,7 +277,7 @@ function validateTranscript({ prime, inWindowSamples, terminalSample, target, wi
 
 function body(input) {
   exact(input, [
-    'sourceSha', 'runId', 'externalExecutionId', 'observationBoundaryId', 'build',
+    'sourceSha', 'runId', 'externalExecutionId', 'observationBoundaryId', 'pair', 'build',
     'adapterId', 'target', 'window', 'prime', 'inWindowSamples', 'terminalSample'
   ], 'capture input');
   sha(input.sourceSha, 'capture.sourceSha', 40);
@@ -284,6 +286,11 @@ function body(input) {
   text(input.observationBoundaryId, 'capture.observationBoundaryId');
   text(input.adapterId, 'capture.adapterId');
   if (!ADAPTER_QUANTA.has(input.adapterId)) fail('capture.adapterId is not registered');
+  const build = validateBuild(input.build);
+  const pair = validatePerformancePairBinding(input.pair, {
+    label: 'capture.pair',
+    buildVariant: build.id
+  });
   const target = validateTarget(input.target, input.adapterId);
   const window = validateWindow(input.window);
   const transcript = validateTranscript({
@@ -300,7 +307,8 @@ function body(input) {
     runId: input.runId,
     externalExecutionId: input.externalExecutionId,
     observationBoundaryId: input.observationBoundaryId,
-    build: validateBuild(input.build),
+    pair,
+    build,
     adapterId: input.adapterId,
     target,
     window,
@@ -319,7 +327,7 @@ export function createPerformanceExternalMetricCapture(input) {
 
 export function validatePerformanceExternalMetricCapture(value) {
   exact(value, [
-    'schemaVersion', 'sourceSha', 'runId', 'externalExecutionId', 'observationBoundaryId',
+    'schemaVersion', 'sourceSha', 'runId', 'externalExecutionId', 'observationBoundaryId', 'pair',
     'build', 'adapterId', 'target', 'window', 'prime', 'inWindowSamples', 'terminalSample', 'checksum'
   ], 'capture');
   if (value.schemaVersion !== PERFORMANCE_EXTERNAL_METRIC_CAPTURE_SCHEMA_VERSION) fail('capture schema version is invalid');
@@ -329,6 +337,7 @@ export function validatePerformanceExternalMetricCapture(value) {
     runId: value.runId,
     externalExecutionId: value.externalExecutionId,
     observationBoundaryId: value.observationBoundaryId,
+    pair: value.pair,
     build: value.build,
     adapterId: value.adapterId,
     target: value.target,

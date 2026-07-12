@@ -8,8 +8,19 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { stableStringify } from './lib/baseline-report.js';
 import { loadBaselinePolicy } from './lib/performance-evidence.js';
 import { readPerformanceExternalMetricCaptures } from './lib/performance-external-metric-capture.js';
+import {
+  createPerformancePairPlan,
+  PERFORMANCE_PAIR_CARDINALITIES,
+  resolvePerformancePairPlanLaunch,
+  validatePerformancePairPlan
+} from './lib/performance-pair-plan.js';
 import { readPerformanceSentinelCaptures } from './lib/performance-sentinel-capture.js';
 import { readPerformanceWorkloadCaptures } from './lib/performance-workload-capture.js';
+
+export {
+  createPerformancePairPlan,
+  PERFORMANCE_PAIR_CARDINALITIES
+};
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PERFORMANCE_BUILD_MANIFEST = 'performance-build-manifest.json';
@@ -28,11 +39,6 @@ export const PERFORMANCE_BUILD_VARIANTS = Object.freeze([
   Object.freeze({ id: 'harness-control', harness: true, instrumentation: false }),
   Object.freeze({ id: 'instrumented', harness: true, instrumentation: true })
 ]);
-
-export const PERFORMANCE_PAIR_CARDINALITIES = Object.freeze({
-  'harness-overhead': 3,
-  'instrumentation-overhead': 6
-});
 
 function fail(message) {
   throw new Error(`Performance baseline runner failed: ${message}`);
@@ -210,93 +216,6 @@ function parseRole(value) {
     return value;
   }
   fail(`unsupported experiment role ${value}`);
-}
-
-function assertUuid(value, label) {
-  if (typeof value !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value)) {
-    fail(`${label} must be a UUID`);
-  }
-}
-
-function assertNonemptyString(value, label) {
-  if (typeof value !== 'string' || value.length === 0) {
-    fail(`${label} must be a nonempty string`);
-  }
-}
-
-function freezePairPlan(value) {
-  return Object.freeze({
-    ...value,
-    pairs: Object.freeze(value.pairs.map((pair) => Object.freeze({
-      ...pair,
-      launches: Object.freeze(pair.launches.map((launch) => Object.freeze({ ...launch })))
-    })))
-  });
-}
-
-/**
- * Creates the closed, balanced launch order for one backend family. The
- * immutable plan separates order from pair identity: every side remains
- * ledger-addressable even when the cold-launch order alternates.
- *
- * @param {{
- *   experimentId: string,
- *   backend: 'canvas2d' | 'webgpu',
- *   createSessionId?: () => string
- * }} options
- */
-export function createPerformancePairPlan({
-  experimentId,
-  backend,
-  createSessionId = () => crypto.randomUUID()
-} = {}) {
-  assertUuid(experimentId, 'performance pair plan experimentId');
-  if (!['canvas2d', 'webgpu'].includes(backend)) {
-    fail('performance pair plan backend is invalid');
-  }
-  if (typeof createSessionId !== 'function') {
-    fail('performance pair plan session ID factory must be a function');
-  }
-
-  const variantsByComparisonKind = {
-    'harness-overhead': ['production', 'harness-control'],
-    'instrumentation-overhead': ['harness-control', 'instrumented']
-  };
-  const metricSessionIds = new Set();
-  const pairs = [];
-  for (const comparisonKind of Object.keys(PERFORMANCE_PAIR_CARDINALITIES)) {
-    const pairCount = PERFORMANCE_PAIR_CARDINALITIES[comparisonKind];
-    const canonicalVariants = variantsByComparisonKind[comparisonKind];
-    for (let pairIndex = 1; pairIndex <= pairCount; pairIndex += 1) {
-      const generatedId = createSessionId();
-      assertNonemptyString(generatedId, 'performance pair plan metric session ID');
-      const metricSessionId = `${experimentId}:${comparisonKind}:${backend}:pair-${pairIndex}:attempt-1:${generatedId}`;
-      if (metricSessionIds.has(metricSessionId)) {
-        fail('performance pair plan session IDs must be unique');
-      }
-      metricSessionIds.add(metricSessionId);
-      const buildVariants = pairIndex % 2 === 1
-        ? canonicalVariants
-        : [...canonicalVariants].reverse();
-      pairs.push({
-        comparisonKind,
-        backend,
-        pairIndex,
-        attemptIndex: 1,
-        metricSessionId,
-        launches: buildVariants.map((buildVariant, index) => ({
-          comparisonSide: index === 0 ? 'A' : 'B',
-          buildVariant
-        }))
-      });
-    }
-  }
-  return freezePairPlan({
-    schemaVersion: 1,
-    experimentId,
-    backend,
-    pairs
-  });
 }
 
 export function parsePerformanceBaselineArgs(argv, { cwd = PROJECT_ROOT } = {}) {
@@ -588,7 +507,85 @@ export async function buildPerformanceVariants({
   });
 }
 
-export async function collectPerformanceWorkloadCaptures({ outputDirectory, sourceSha, manifest } = {}) {
+function performancePairCaptureKey(pair) {
+  return `${pair.metricSessionId}\u0000${pair.comparisonSide}`;
+}
+
+function expectedPerformancePairLaunches(pairPlan, predicate) {
+  const expected = [];
+  for (const pair of pairPlan.pairs) {
+    for (const launch of pair.launches) {
+      if (!predicate({ pair, launch })) continue;
+      expected.push(Object.freeze({
+        pair: Object.freeze({
+          experimentId: pairPlan.experimentId,
+          metricSessionId: pair.metricSessionId,
+          comparisonKind: pair.comparisonKind,
+          backend: pair.backend,
+          pairIndex: pair.pairIndex,
+          attemptIndex: pair.attemptIndex,
+          comparisonSide: launch.comparisonSide
+        }),
+        launch: Object.freeze({ ...launch })
+      }));
+    }
+  }
+  return Object.freeze(expected);
+}
+
+/**
+ * Binds raw launch captures to the runner-authored immutable pair plan. File
+ * discovery order is intentionally discarded: every accepted set is returned
+ * in the plan's canonical pair/side order.
+ */
+function collectPlannedCaptureSet({ captures, pairPlan: pairPlanInput, label, predicate }) {
+  let pairPlan;
+  try {
+    pairPlan = validatePerformancePairPlan(pairPlanInput);
+  } catch (error) {
+    fail(`${label} pair plan is invalid: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  if (!Array.isArray(captures)) fail(`${label} captures must be an array`);
+  if (typeof predicate !== 'function') fail(`${label} predicate must be a function`);
+  const expected = expectedPerformancePairLaunches(pairPlan, predicate);
+  if (captures.length !== expected.length) {
+    fail(`expected exactly ${expected.length} ${label} captures, found ${captures.length}`);
+  }
+  const expectedByKey = new Map(expected.map((entry) => [performancePairCaptureKey(entry.pair), entry]));
+  const capturesByKey = new Map();
+  for (const entry of captures) {
+    if (!entry || typeof entry !== 'object' || !entry.capture || typeof entry.capture !== 'object') {
+      fail(`${label} capture entry is invalid`);
+    }
+    const capture = entry.capture;
+    let planned;
+    try {
+      planned = resolvePerformancePairPlanLaunch(pairPlan, capture.pair);
+    } catch (error) {
+      fail(`${label} capture does not bind one planned launch: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    const key = performancePairCaptureKey(capture.pair);
+    const expectedEntry = expectedByKey.get(key);
+    if (!expectedEntry || !predicate(planned)) {
+      fail(`${label} capture is not expected for this performance experiment`);
+    }
+    if (capture.build.id !== planned.launch.buildVariant) {
+      fail(`${label} capture build does not match its planned launch side`);
+    }
+    if (capturesByKey.has(key)) fail(`${label} captures duplicate one planned launch side`);
+    capturesByKey.set(key, Object.freeze({ ...entry, planned }));
+  }
+  if (capturesByKey.size !== expectedByKey.size) {
+    fail(`${label} captures do not cover every planned launch side`);
+  }
+  return Object.freeze({
+    pairPlan,
+    expected,
+    captures: Object.freeze(expected.map((entry) => capturesByKey.get(performancePairCaptureKey(entry.pair))))
+  });
+}
+
+export async function collectPerformanceWorkloadCaptures({ outputDirectory, sourceSha, manifest, pairPlan } = {}) {
   if (typeof outputDirectory !== 'string' || outputDirectory.length === 0) {
     fail('workload capture outputDirectory is required');
   }
@@ -599,37 +596,42 @@ export async function collectPerformanceWorkloadCaptures({ outputDirectory, sour
     fail('workload capture build manifest is invalid');
   }
 
-  const captures = await readPerformanceWorkloadCaptures({ outputDirectory });
-  if (captures.length !== 1) {
-    fail(`expected exactly one instrumented workload capture, found ${captures.length}`);
-  }
-  const [{ capture, relativePath }] = captures;
-  if (capture.sourceSha !== sourceSha) {
-    fail('workload capture source SHA does not match the clean build');
-  }
-  if (capture.build.id !== 'instrumented' || capture.build.harness !== true || capture.build.instrumentation !== true) {
-    fail('workload capture must come from the instrumented build');
-  }
-  const variant = manifest.variants.find((entry) => entry.id === capture.build.id);
-  if (!variant || variant.harness !== capture.build.harness || variant.instrumentation !== capture.build.instrumentation) {
-    fail('workload capture build variant does not match the build manifest');
-  }
-  if (variant.bundle?.sha256 !== capture.build.bundleSha256) {
-    fail('workload capture bundle hash does not match the build manifest');
-  }
-
-  const body = {
-    schemaVersion: 1,
-    sourceSha,
-    captures: [{
+  const rawCaptures = await readPerformanceWorkloadCaptures({ outputDirectory });
+  const plannedCaptures = collectPlannedCaptureSet({
+    captures: rawCaptures,
+    pairPlan,
+    label: 'instrumented workload',
+    predicate: ({ pair, launch }) => pair.comparisonKind === 'instrumentation-overhead' && launch.buildVariant === 'instrumented'
+  });
+  const entries = plannedCaptures.captures.map(({ capture, relativePath }) => {
+    if (capture.sourceSha !== sourceSha) {
+      fail('workload capture source SHA does not match the clean build');
+    }
+    if (capture.build.id !== 'instrumented' || capture.build.harness !== true || capture.build.instrumentation !== true) {
+      fail('workload capture must come from the instrumented build');
+    }
+    const variant = manifest.variants.find((entry) => entry.id === capture.build.id);
+    if (!variant || variant.harness !== capture.build.harness || variant.instrumentation !== capture.build.instrumentation) {
+      fail('workload capture build variant does not match the build manifest');
+    }
+    if (variant.bundle?.sha256 !== capture.build.bundleSha256) {
+      fail('workload capture bundle hash does not match the build manifest');
+    }
+    return {
       relativePath,
       checksum: capture.checksum,
       launchId: capture.launchId,
+      pair: capture.pair,
       buildId: capture.build.id,
       sourceOpportunityCount: capture.window.deliveredCallbackCount,
       firstSourceSequence: capture.sourceSequences[0],
       lastSourceSequence: capture.sourceSequences.at(-1)
-    }]
+    };
+  });
+  const body = {
+    schemaVersion: 2,
+    sourceSha,
+    captures: entries
   };
   const index = Object.freeze({
     ...body,
@@ -637,10 +639,10 @@ export async function collectPerformanceWorkloadCaptures({ outputDirectory, sour
   });
   const indexPath = path.join(outputDirectory, PERFORMANCE_WORKLOAD_CAPTURE_INDEX);
   await fs.writeFile(indexPath, `${stableStringify(index)}\n`, { encoding: 'utf8', flag: 'wx' });
-  return Object.freeze({ index, indexPath, captures });
+  return Object.freeze({ index, indexPath, captures: plannedCaptures.captures });
 }
 
-export async function collectPerformanceSentinelCaptures({ outputDirectory, sourceSha, manifest } = {}) {
+export async function collectPerformanceSentinelCaptures({ outputDirectory, sourceSha, manifest, pairPlan } = {}) {
   if (typeof outputDirectory !== 'string' || outputDirectory.length === 0) {
     fail('sentinel capture outputDirectory is required');
   }
@@ -651,11 +653,14 @@ export async function collectPerformanceSentinelCaptures({ outputDirectory, sour
     fail('sentinel capture build manifest is invalid');
   }
 
-  const captures = await readPerformanceSentinelCaptures({ outputDirectory });
-  if (captures.length === 0) {
-    fail('expected at least one external sentinel capture, found none');
-  }
-  const entries = captures.map(({ capture, relativePath }) => {
+  const rawCaptures = await readPerformanceSentinelCaptures({ outputDirectory });
+  const plannedCaptures = collectPlannedCaptureSet({
+    captures: rawCaptures,
+    pairPlan,
+    label: 'external sentinel',
+    predicate: ({ pair }) => pair.comparisonKind === 'harness-overhead'
+  });
+  const entries = plannedCaptures.captures.map(({ capture, relativePath }) => {
     if (capture.sourceSha !== sourceSha) {
       fail('sentinel capture source SHA does not match the clean build');
     }
@@ -665,6 +670,9 @@ export async function collectPerformanceSentinelCaptures({ outputDirectory, sour
     }
     if (variant.bundle?.sha256 !== capture.build.bundleSha256) {
       fail('sentinel capture bundle hash does not match the build manifest');
+    }
+    if (capture.backend !== capture.pair.backend) {
+      fail('sentinel capture backend does not match its planned pair backend');
     }
     const backendOperationCount = capture.backend === 'canvas2d'
       ? capture.observations.canvasDraws.length
@@ -680,6 +688,7 @@ export async function collectPerformanceSentinelCaptures({ outputDirectory, sour
       runId: capture.runId,
       externalExecutionId: capture.externalExecutionId,
       observationBoundaryId: capture.observationBoundaryId,
+      pair: capture.pair,
       buildId: capture.build.id,
       backend: capture.backend,
       callbackCount: capture.window.deliveredCallbackCount,
@@ -689,7 +698,7 @@ export async function collectPerformanceSentinelCaptures({ outputDirectory, sour
     };
   });
   const body = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     sourceSha,
     captures: entries
   };
@@ -699,27 +708,28 @@ export async function collectPerformanceSentinelCaptures({ outputDirectory, sour
   });
   const indexPath = path.join(outputDirectory, PERFORMANCE_SENTINEL_CAPTURE_INDEX);
   await fs.writeFile(indexPath, `${stableStringify(index)}\n`, { encoding: 'utf8', flag: 'wx' });
-  return Object.freeze({ index, indexPath, captures });
+  return Object.freeze({ index, indexPath, captures: plannedCaptures.captures });
 }
 
 /**
- * Indexes the raw OS metric transcript that belongs to each external sentinel
- * capture. The sentinel and metric files intentionally remain separate so an
- * evaluator can replay their individual clock domains; this join only binds
- * their immutable launch/build identities.
+ * Indexes raw OS metric transcripts for every planned side. Sentinel sides
+ * additionally bind the external transcript to their external callback
+ * evidence; instrumentation pairs retain their independent pair binding.
  *
  * @param {{
  *   outputDirectory: string,
  *   sourceSha: string,
  *   manifest: { variants: Array<object> },
- *   sentinelCaptures: ReadonlyArray<{ capture: object }>
+ *   sentinelCaptures: ReadonlyArray<{ capture: object }>,
+ *   pairPlan: object
  * }} options
  */
 export async function collectPerformanceExternalMetricCaptures({
   outputDirectory,
   sourceSha,
   manifest,
-  sentinelCaptures
+  sentinelCaptures,
+  pairPlan
 } = {}) {
   if (typeof outputDirectory !== 'string' || outputDirectory.length === 0) {
     fail('external metric capture outputDirectory is required');
@@ -734,23 +744,27 @@ export async function collectPerformanceExternalMetricCaptures({
     fail('external metric capture requires the completed sentinel captures');
   }
 
-  const sentinelsByExecutionId = new Map();
+  const sentinelsByPairKey = new Map();
   for (const entry of sentinelCaptures) {
     if (!entry || typeof entry !== 'object' || !entry.capture || typeof entry.capture !== 'object') {
       fail('external metric capture sentinel entry is invalid');
     }
     const sentinel = entry.capture;
-    if (sentinelsByExecutionId.has(sentinel.externalExecutionId)) {
-      fail('external metric capture sentinel execution IDs must be unique');
+    const key = performancePairCaptureKey(sentinel.pair);
+    if (sentinelsByPairKey.has(key)) {
+      fail('external metric capture sentinel pair sides must be unique');
     }
-    sentinelsByExecutionId.set(sentinel.externalExecutionId, sentinel);
+    sentinelsByPairKey.set(key, sentinel);
   }
 
-  const captures = await readPerformanceExternalMetricCaptures({ outputDirectory });
-  if (captures.length !== sentinelCaptures.length) {
-    fail(`expected exactly ${sentinelCaptures.length} external metric captures, found ${captures.length}`);
-  }
-  const entries = captures.map(({ capture, relativePath }) => {
+  const rawCaptures = await readPerformanceExternalMetricCaptures({ outputDirectory });
+  const plannedCaptures = collectPlannedCaptureSet({
+    captures: rawCaptures,
+    pairPlan,
+    label: 'external metric',
+    predicate: () => true
+  });
+  const entries = plannedCaptures.captures.map(({ capture, relativePath }) => {
     if (capture.sourceSha !== sourceSha) {
       fail('external metric capture source SHA does not match the clean build');
     }
@@ -761,15 +775,20 @@ export async function collectPerformanceExternalMetricCaptures({
     if (variant.bundle?.sha256 !== capture.build.bundleSha256) {
       fail('external metric capture bundle hash does not match the build manifest');
     }
-    const sentinel = sentinelsByExecutionId.get(capture.externalExecutionId);
-    if (!sentinel) {
-      fail('external metric capture does not bind a sentinel execution');
-    }
-    if (capture.runId !== sentinel.runId || capture.observationBoundaryId !== sentinel.observationBoundaryId) {
-      fail('external metric capture does not bind the sentinel run and observation boundary');
-    }
-    if (stableStringify(capture.build) !== stableStringify(sentinel.build)) {
-      fail('external metric capture does not bind the sentinel build identity');
+    if (capture.pair.comparisonKind === 'harness-overhead') {
+      const sentinel = sentinelsByPairKey.get(performancePairCaptureKey(capture.pair));
+      if (!sentinel) {
+        fail('external metric capture does not bind a sentinel pair side');
+      }
+      if (capture.externalExecutionId !== sentinel.externalExecutionId
+        || capture.runId !== sentinel.runId
+        || capture.observationBoundaryId !== sentinel.observationBoundaryId) {
+        fail('external metric capture does not bind the sentinel run and observation boundary');
+      }
+      if (stableStringify(capture.build) !== stableStringify(sentinel.build)
+        || stableStringify(capture.pair) !== stableStringify(sentinel.pair)) {
+        fail('external metric capture does not bind the sentinel build and pair identity');
+      }
     }
     if (capture.inWindowSamples.length < PERFORMANCE_METRIC_POLICY.minimumRawSamples) {
       fail('external metric capture does not meet the policy raw sample floor');
@@ -786,6 +805,7 @@ export async function collectPerformanceExternalMetricCaptures({
       runId: capture.runId,
       externalExecutionId: capture.externalExecutionId,
       observationBoundaryId: capture.observationBoundaryId,
+      pair: capture.pair,
       buildId: capture.build.id,
       adapterId: capture.adapterId,
       rendererPid: capture.target.pid,
@@ -795,7 +815,7 @@ export async function collectPerformanceExternalMetricCaptures({
     };
   });
   const body = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     sourceSha,
     captures: entries
   };
@@ -805,7 +825,7 @@ export async function collectPerformanceExternalMetricCaptures({
   });
   const indexPath = path.join(outputDirectory, PERFORMANCE_EXTERNAL_METRIC_CAPTURE_INDEX);
   await fs.writeFile(indexPath, `${stableStringify(index)}\n`, { encoding: 'utf8', flag: 'wx' });
-  return Object.freeze({ index, indexPath, captures });
+  return Object.freeze({ index, indexPath, captures: plannedCaptures.captures });
 }
 
 export async function runPerformanceBaseline({
@@ -864,18 +884,21 @@ export async function runPerformanceBaseline({
   const workloadCapture = await collectPerformanceWorkloadCaptures({
     outputDirectory: options.outputDirectory,
     sourceSha: build.manifest.sourceSha,
-    manifest: build.manifest
+    manifest: build.manifest,
+    pairPlan
   });
   const sentinelCapture = await collectPerformanceSentinelCaptures({
     outputDirectory: options.outputDirectory,
     sourceSha: build.manifest.sourceSha,
-    manifest: build.manifest
+    manifest: build.manifest,
+    pairPlan
   });
   const externalMetricCapture = await collectPerformanceExternalMetricCaptures({
     outputDirectory: options.outputDirectory,
     sourceSha: build.manifest.sourceSha,
     manifest: build.manifest,
-    sentinelCaptures: sentinelCapture.captures
+    sentinelCaptures: sentinelCapture.captures,
+    pairPlan
   });
 
   return Object.freeze({

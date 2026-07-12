@@ -2,8 +2,9 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { stableStringify } from './baseline-report.js';
+import { validatePerformancePairBinding } from './performance-pair-plan.js';
 
-export const PERFORMANCE_SENTINEL_CAPTURE_SCHEMA_VERSION = 1;
+export const PERFORMANCE_SENTINEL_CAPTURE_SCHEMA_VERSION = 2;
 export const PERFORMANCE_SENTINEL_CAPTURE_DIRECTORY = 'raw-sentinel-captures';
 
 const BUILD_VARIANTS = Object.freeze({
@@ -203,7 +204,7 @@ function validateObservations(value, window, backend) {
 
 function body(input) {
   exact(input, [
-    'sourceSha', 'runId', 'externalExecutionId', 'observationBoundaryId', 'build',
+    'sourceSha', 'runId', 'externalExecutionId', 'observationBoundaryId', 'pair', 'build',
     'backend', 'workload', 'warmup', 'window', 'observations'
   ], 'capture input');
   sha(input.sourceSha, 'capture.sourceSha', 40);
@@ -216,13 +217,19 @@ function body(input) {
   integer(input.warmup.callbackCount, 'capture.warmup.callbackCount', 1);
   finite(input.warmup.elapsedMs, 'capture.warmup.elapsedMs', Number.EPSILON);
   const window = validateWindow(input.window);
+  const build = validateBuild(input.build);
+  const pair = validatePerformancePairBinding(input.pair, {
+    label: 'capture.pair',
+    buildVariant: build.id
+  });
   return {
     schemaVersion: PERFORMANCE_SENTINEL_CAPTURE_SCHEMA_VERSION,
     sourceSha: input.sourceSha,
     runId: input.runId,
     externalExecutionId: input.externalExecutionId,
     observationBoundaryId: input.observationBoundaryId,
-    build: validateBuild(input.build),
+    pair,
+    build,
     backend: input.backend,
     workload: validateWorkload(input.workload),
     warmup: { ...input.warmup },
@@ -242,7 +249,7 @@ export function createPerformanceSentinelCapture(input) {
 
 export function validatePerformanceSentinelCapture(value) {
   exact(value, [
-    'schemaVersion', 'sourceSha', 'runId', 'externalExecutionId', 'observationBoundaryId',
+    'schemaVersion', 'sourceSha', 'runId', 'externalExecutionId', 'observationBoundaryId', 'pair',
     'build', 'backend', 'workload', 'warmup', 'window', 'observations', 'checksum'
   ], 'capture');
   if (value.schemaVersion !== PERFORMANCE_SENTINEL_CAPTURE_SCHEMA_VERSION) fail('capture schema version is invalid');
@@ -252,6 +259,7 @@ export function validatePerformanceSentinelCapture(value) {
     runId: value.runId,
     externalExecutionId: value.externalExecutionId,
     observationBoundaryId: value.observationBoundaryId,
+    pair: value.pair,
     build: value.build,
     backend: value.backend,
     workload: value.workload,

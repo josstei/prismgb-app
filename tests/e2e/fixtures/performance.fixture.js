@@ -489,99 +489,135 @@ export async function openPerformanceRendererMetricCapture({
   });
 }
 
+/**
+ * Opens one disposable performance application. Pair execution uses this
+ * directly so two cold launches can share one external metric session; the
+ * Playwright fixture below remains the single-launch convenience surface.
+ *
+ * @param {{
+ *   performanceVariant?: 'production' | 'harness-control' | 'instrumented',
+ *   performanceDiagnostics?: boolean,
+ *   loadedManifest?: Awaited<ReturnType<typeof loadPerformanceBuildManifest>>,
+ *   launchElectron?: typeof electron.launch
+ * }} options
+ */
+export async function openPerformanceLaunch({
+  performanceVariant = 'instrumented',
+  performanceDiagnostics = true,
+  loadedManifest = undefined,
+  launchElectron = electron.launch
+} = {}) {
+  if (!['production', 'harness-control', 'instrumented'].includes(performanceVariant)) {
+    throw new Error('performance launch variant is invalid');
+  }
+  if (typeof performanceDiagnostics !== 'boolean' || typeof launchElectron !== 'function') {
+    throw new Error('performance launch options are invalid');
+  }
+  const manifest = loadedManifest ?? await loadPerformanceBuildManifest();
+  const build = getPerformanceBuild(manifest, performanceVariant);
+  const launchId = build.harness ? createPerformanceLaunchId() : null;
+  const externalExecutionId = createExternalPerformanceExecutionId();
+  const userDataDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'prismgb-performance-'));
+  const launch = createPerformanceElectronLaunchOptions({
+    build,
+    launchId,
+    userDataDirectory,
+    performanceDiagnostics
+  });
+  let app = null;
+  let window = null;
+  let closed = false;
+  const close = async () => {
+    if (closed) return;
+    closed = true;
+    if (window) {
+      await removeExternalPerformanceSentinelGate(window, externalExecutionId).catch(() => {});
+    }
+    if (window && build.harness && launchId !== null) {
+      await removePerformanceControlProbe(window).catch(() => {});
+    }
+    if (app) await app.close().catch(() => {});
+    await fs.rm(userDataDirectory, { recursive: true, force: true });
+  };
+
+  try {
+    app = await launchElectron({ ...launch, timeout: 60000 });
+    window = await app.firstWindow();
+    await new AppShellPage(window).waitForReady();
+    await installExternalPerformanceSentinelGate(window, externalExecutionId);
+    const rendererPid = await readElectronRendererProcessId(app);
+    const commonLaunch = {
+      app,
+      window,
+      sourceSha: manifest.manifest.sourceSha,
+      build,
+      externalExecutionId,
+      rendererPid,
+      close,
+      resolveRendererMetricTarget: () => resolvePerformanceRendererMetricTarget({
+        rendererPid,
+        externalExecutionId
+      }),
+      openRendererMetricCapture: () => openPerformanceRendererMetricCapture({
+        rendererPid,
+        externalExecutionId
+      }),
+      pausePerformanceCallbacks: () => pauseExternalPerformanceSentinelCallbacks(window, externalExecutionId),
+      pausePerformanceCallbacksAt: (callbackCount) => pauseExternalPerformanceSentinelCallbacksAt(
+        window,
+        externalExecutionId,
+        callbackCount
+      ),
+      resetPerformanceCallbacks: () => resetExternalPerformanceSentinelGate(window, externalExecutionId),
+      armPerformanceCallbackWindow: (limits) => armExternalPerformanceSentinelWindow(
+        window,
+        externalExecutionId,
+        limits
+      ),
+      resumePerformanceCallbacks: () => resumeExternalPerformanceSentinelCallbacks(window, externalExecutionId),
+      sealPerformanceCallbacks: () => sealExternalPerformanceSentinelGate(window, externalExecutionId),
+      readPerformanceCallbackGate: () => readExternalPerformanceSentinelGate(window, externalExecutionId)
+    };
+    if (!build.harness) return Object.freeze(commonLaunch);
+
+    const marker = await window.evaluate(() => window.prismgbPerformanceLaunchMarker);
+    if (marker?.launchId !== launchId) throw new Error('renderer marker does not match the launch controller identity');
+    await assertPerformanceController(app, launchId);
+    await installPerformanceControlProbe(window, launchId);
+    return Object.freeze({
+      ...commonLaunch,
+      launchId,
+      readPerformanceControlProbe: () => readPerformanceControlProbe(window),
+      resetPerformanceControlProbe: () => resetPerformanceControlProbe(window),
+      readPerformanceDiagnostics: () => {
+        if (!build.instrumentation) {
+          throw new Error('renderer diagnostics require an instrumented performance build');
+        }
+        return readPerformanceDiagnostics(window, launchId);
+      },
+      resetPerformanceDiagnostics: () => {
+        if (!build.instrumentation) {
+          throw new Error('renderer diagnostics require an instrumented performance build');
+        }
+        return resetPerformanceDiagnostics(window, launchId);
+      }
+    });
+  } catch (error) {
+    await close();
+    throw error;
+  }
+}
+
 export const test = base.extend({
   performanceVariant: ['instrumented', { option: true }],
   performanceDiagnostics: [true, { option: true }],
 
   performanceLaunch: async ({ performanceVariant, performanceDiagnostics }, use) => {
-    const loadedManifest = await loadPerformanceBuildManifest();
-    const build = getPerformanceBuild(loadedManifest, performanceVariant);
-    const launchId = build.harness ? createPerformanceLaunchId() : null;
-    const externalExecutionId = createExternalPerformanceExecutionId();
-    const userDataDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'prismgb-performance-'));
-    const launch = createPerformanceElectronLaunchOptions({
-      build,
-      launchId,
-      userDataDirectory,
-      performanceDiagnostics
-    });
-    const app = await electron.launch({
-      ...launch,
-      timeout: 60000
-    });
-
-    let window;
+    const performanceLaunch = await openPerformanceLaunch({ performanceVariant, performanceDiagnostics });
     try {
-      window = await app.firstWindow();
-      await new AppShellPage(window).waitForReady();
-      await installExternalPerformanceSentinelGate(window, externalExecutionId);
-      const rendererPid = await readElectronRendererProcessId(app);
-      const commonLaunch = {
-        app,
-        window,
-        sourceSha: loadedManifest.manifest.sourceSha,
-        build,
-        externalExecutionId,
-        rendererPid,
-        resolveRendererMetricTarget: () => resolvePerformanceRendererMetricTarget({
-          rendererPid,
-          externalExecutionId
-        }),
-        openRendererMetricCapture: () => openPerformanceRendererMetricCapture({
-          rendererPid,
-          externalExecutionId
-        }),
-        pausePerformanceCallbacks: () => pauseExternalPerformanceSentinelCallbacks(window, externalExecutionId),
-        pausePerformanceCallbacksAt: (callbackCount) => pauseExternalPerformanceSentinelCallbacksAt(
-          window,
-          externalExecutionId,
-          callbackCount
-        ),
-        resetPerformanceCallbacks: () => resetExternalPerformanceSentinelGate(window, externalExecutionId),
-        armPerformanceCallbackWindow: (limits) => armExternalPerformanceSentinelWindow(
-          window,
-          externalExecutionId,
-          limits
-        ),
-        resumePerformanceCallbacks: () => resumeExternalPerformanceSentinelCallbacks(window, externalExecutionId),
-        sealPerformanceCallbacks: () => sealExternalPerformanceSentinelGate(window, externalExecutionId),
-        readPerformanceCallbackGate: () => readExternalPerformanceSentinelGate(window, externalExecutionId)
-      };
-      if (!build.harness) {
-        await use(commonLaunch);
-        return;
-      }
-      const marker = await window.evaluate(() => window.prismgbPerformanceLaunchMarker);
-      if (marker?.launchId !== launchId) throw new Error('renderer marker does not match the launch controller identity');
-      await assertPerformanceController(app, launchId);
-      await installPerformanceControlProbe(window, launchId);
-      await use({
-        ...commonLaunch,
-        launchId,
-        readPerformanceControlProbe: () => readPerformanceControlProbe(window),
-        resetPerformanceControlProbe: () => resetPerformanceControlProbe(window),
-        readPerformanceDiagnostics: () => {
-          if (!build.instrumentation) {
-            throw new Error('renderer diagnostics require an instrumented performance build');
-          }
-          return readPerformanceDiagnostics(window, launchId);
-        },
-        resetPerformanceDiagnostics: () => {
-          if (!build.instrumentation) {
-            throw new Error('renderer diagnostics require an instrumented performance build');
-          }
-          return resetPerformanceDiagnostics(window, launchId);
-        }
-      });
+      await use(performanceLaunch);
     } finally {
-      if (window) {
-        await removeExternalPerformanceSentinelGate(window, externalExecutionId).catch(() => {});
-      }
-      if (window && build.harness && launchId !== null) {
-        await removePerformanceControlProbe(window).catch(() => {});
-      }
-      await app.close().catch(() => {});
-      await fs.rm(userDataDirectory, { recursive: true, force: true });
+      await performanceLaunch.close();
     }
   },
 
