@@ -6,7 +6,7 @@ import type {
   RenderPipeline,
   RenderPreset,
   RenderStats,
-  WebGpuQueueSubmitTimingObserver
+  WebGpuFrameInstrumentationObserver
 } from '../domain/types';
 import { buildUniforms } from '../application/uniform-builder';
 
@@ -44,7 +44,7 @@ export interface RenderDriver {
   renderFrame(
     source: TexImageSource,
     state: PipelineState,
-    timingObserver?: WebGpuQueueSubmitTimingObserver
+    instrumentationObserver?: WebGpuFrameInstrumentationObserver
   ): FrameRenderResult;
   resize(state: PipelineState): void;
   clearFrame(state: PipelineState): void;
@@ -119,8 +119,8 @@ export class PipelineController implements RenderPipeline, PipelineState {
     this._isActive = true;
   }
 
-  renderFrame(source: TexImageSource, timingObserver?: WebGpuQueueSubmitTimingObserver): FrameRenderResult {
-    return this.driver.renderFrame(source, this, timingObserver);
+  renderFrame(source: TexImageSource, instrumentationObserver?: WebGpuFrameInstrumentationObserver): FrameRenderResult {
+    return this.driver.renderFrame(source, this, instrumentationObserver);
   }
 
   setPreset(preset: RenderPreset): void {

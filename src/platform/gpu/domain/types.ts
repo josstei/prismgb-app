@@ -134,12 +134,30 @@ export interface FrameDisposition {
   readonly outcome: FrameDispositionOutcome;
 }
 
+export type WebGpuFrameRequestProxy =
+  | Readonly<{
+    readonly operationId: 'bind-group-create';
+    readonly sourceLocationId: 'webgpu-driver:create-bind-group';
+    readonly outcome: 'success' | 'failed';
+    readonly byteKind: 'count-only-unavailable';
+    readonly byteValue: null;
+  }>
+  | Readonly<{
+    readonly operationId: 'render-pass-plan-materialization';
+    readonly sourceLocationId: 'webgpu-driver:materialize-render-plan';
+    readonly outcome: 'success' | 'failed';
+    readonly byteKind: 'count-only-unavailable';
+    readonly byteValue: null;
+  }>;
+
 /**
- * Optional in-process hook for the instrumented worker build. It observes the
- * CPU boundary around WebGPU queue submission without claiming GPU completion.
+ * Optional in-process hook for the instrumented worker build. It observes CPU
+ * boundaries and request-proxy invocations without claiming GPU allocation or
+ * completion.
  */
-export interface WebGpuQueueSubmitTimingObserver {
+export interface WebGpuFrameInstrumentationObserver {
   recordWebGpuQueueSubmitTiming(startedAt: number, endedAt: number): void;
+  recordWebGpuFrameRequestProxy(request: WebGpuFrameRequestProxy): void;
 }
 
 export type FrameRenderResult = FrameDisposition | undefined;
@@ -150,7 +168,7 @@ export interface RenderPipeline {
   readonly isActive: boolean;
 
   initialize(): Promise<void>;
-  renderFrame(source: TexImageSource, timingObserver?: WebGpuQueueSubmitTimingObserver): FrameRenderResult;
+  renderFrame(source: TexImageSource, instrumentationObserver?: WebGpuFrameInstrumentationObserver): FrameRenderResult;
   resize(width: number, height: number): void;
 
   setPreset(preset: RenderPreset): void;

@@ -101,7 +101,23 @@ describe('harness worker frame-token acknowledgement', () => {
         diagnosticFrameId: 1,
         outcome: 'webgpu-queue-submit-completed',
         workerRender: { startedAt: expect.any(Number), endedAt: expect.any(Number) },
-        queueSubmit: { startedAt: expect.any(Number), endedAt: expect.any(Number) }
+        queueSubmit: { startedAt: expect.any(Number), endedAt: expect.any(Number) },
+        frameRequestProxies: [
+          {
+            operationId: 'render-pass-plan-materialization',
+            sourceLocationId: 'webgpu-driver:materialize-render-plan',
+            outcome: 'success',
+            byteKind: 'count-only-unavailable',
+            byteValue: null
+          },
+          {
+            operationId: 'bind-group-create',
+            sourceLocationId: 'webgpu-driver:create-bind-group',
+            outcome: 'success',
+            byteKind: 'count-only-unavailable',
+            byteValue: null
+          }
+        ]
       },
       timestamp: expect.any(Number)
     });
@@ -153,7 +169,51 @@ describe('harness worker frame-token acknowledgement', () => {
         diagnosticFrameId: 1,
         outcome: 'webgpu-queue-submit-completed',
         workerRender: { startedAt: 2, endedAt: 3 },
-        queueSubmit: { startedAt: 1, endedAt: 1.5 }
+        queueSubmit: { startedAt: 1, endedAt: 1.5 },
+        frameRequestProxies: [
+          {
+            operationId: 'render-pass-plan-materialization',
+            sourceLocationId: 'webgpu-driver:materialize-render-plan',
+            outcome: 'success',
+            byteKind: 'count-only-unavailable',
+            byteValue: null
+          },
+          {
+            operationId: 'bind-group-create',
+            sourceLocationId: 'webgpu-driver:create-bind-group',
+            outcome: 'success',
+            byteKind: 'count-only-unavailable',
+            byteValue: null
+          }
+        ]
+      },
+      timestamp: 3
+    })).toBe(false);
+
+    expect(isWorkerPerformanceFrameTimingResponse({
+      type: 'performance-frame-timing',
+      payload: {
+        frameToken: 1,
+        diagnosticFrameId: 1,
+        outcome: 'webgpu-queue-submit-completed',
+        workerRender: { startedAt: 1, endedAt: 3 },
+        queueSubmit: { startedAt: 1.5, endedAt: 2 },
+        frameRequestProxies: [
+          {
+            operationId: 'bind-group-create',
+            sourceLocationId: 'webgpu-driver:create-bind-group',
+            outcome: 'success',
+            byteKind: 'count-only-unavailable',
+            byteValue: null
+          },
+          {
+            operationId: 'render-pass-plan-materialization',
+            sourceLocationId: 'webgpu-driver:materialize-render-plan',
+            outcome: 'success',
+            byteKind: 'count-only-unavailable',
+            byteValue: null
+          }
+        ]
       },
       timestamp: 3
     })).toBe(false);
@@ -220,7 +280,23 @@ describe('harness worker frame-token acknowledgement', () => {
       diagnosticFrameId: 1,
       outcome: 'webgpu-queue-submit-completed',
       workerRender: { startedAt: 1, endedAt: 3 },
-      queueSubmit: { startedAt: 1.5, endedAt: 2 }
+      queueSubmit: { startedAt: 1.5, endedAt: 2 },
+      frameRequestProxies: [
+        {
+          operationId: 'render-pass-plan-materialization',
+          sourceLocationId: 'webgpu-driver:materialize-render-plan',
+          outcome: 'success',
+          byteKind: 'count-only-unavailable',
+          byteValue: null
+        },
+        {
+          operationId: 'bind-group-create',
+          sourceLocationId: 'webgpu-driver:create-bind-group',
+          outcome: 'success',
+          byteKind: 'count-only-unavailable',
+          byteValue: null
+        }
+      ]
     });
     worker.onmessage?.({ data: timing } as MessageEvent);
     worker.onmessage?.({ data: timing } as MessageEvent);

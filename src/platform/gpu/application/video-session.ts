@@ -9,7 +9,8 @@ import type {
   RenderPipeline,
   RenderCapabilities,
   FrameDispositionOutcome,
-  FrameRenderResult
+  FrameRenderResult,
+  WebGpuFrameRequestProxy
 } from '../domain/types';
 
 export type GpuVideoFrameMeasurementContext = Readonly<{
@@ -38,6 +39,7 @@ export type GpuVideoPerformanceObservation =
     readonly outcome: 'webgpu-queue-submit-completed';
     readonly workerRender: Readonly<{ readonly startedAt: number; readonly endedAt: number }>;
     readonly queueSubmit: Readonly<{ readonly startedAt: number; readonly endedAt: number }>;
+    readonly frameRequestProxies: readonly WebGpuFrameRequestProxy[];
   }>
   | Readonly<{
     readonly kind: 'worker-frame-acknowledged';
@@ -421,7 +423,8 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
           diagnosticFrameId: payload.diagnosticFrameId,
           outcome: payload.outcome,
           workerRender: { ...payload.workerRender },
-          queueSubmit: { ...payload.queueSubmit }
+          queueSubmit: { ...payload.queueSubmit },
+          frameRequestProxies: payload.frameRequestProxies.map((request) => ({ ...request }))
         });
       }));
     }

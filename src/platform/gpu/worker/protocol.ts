@@ -1,4 +1,9 @@
-import type { FrameDispositionOutcome, RenderBackend, RenderPreset } from '../domain/types';
+import type {
+  FrameDispositionOutcome,
+  RenderBackend,
+  RenderPreset,
+  WebGpuFrameRequestProxy
+} from '../domain/types';
 
 /**
  * Traffic routes by plane, not payload type: frame plane (canvas handoff, FRAME,
@@ -79,6 +84,7 @@ export type WorkerPerformanceFrameTimingPayload = Readonly<{
   readonly outcome: 'webgpu-queue-submit-completed';
   readonly workerRender: Readonly<{ readonly startedAt: number; readonly endedAt: number }>;
   readonly queueSubmit: Readonly<{ readonly startedAt: number; readonly endedAt: number }>;
+  readonly frameRequestProxies: readonly WebGpuFrameRequestProxy[];
 }>;
 
 export type WorkerPerformanceFrameTimingResponse = Readonly<{
@@ -271,7 +277,8 @@ function isWorkerPerformanceFrameTimingPayload(value: unknown): value is WorkerP
     'diagnosticFrameId',
     'outcome',
     'workerRender',
-    'queueSubmit'
+    'queueSubmit',
+    'frameRequestProxies'
   ])) {
     return false;
   }
@@ -284,6 +291,40 @@ function isWorkerPerformanceFrameTimingPayload(value: unknown): value is WorkerP
   );
 
   if (!isTimingSpan(value.workerRender) || !isTimingSpan(value.queueSubmit)) {
+    return false;
+  }
+
+  if (!Array.isArray(value.frameRequestProxies) || value.frameRequestProxies.length !== 2) {
+    return false;
+  }
+
+  const [renderPassPlanRequest, bindGroupRequest] = value.frameRequestProxies;
+  const isExpectedFrameRequestProxy = (
+    request: unknown,
+    operationId: WebGpuFrameRequestProxy['operationId'],
+    sourceLocationId: WebGpuFrameRequestProxy['sourceLocationId']
+  ): request is WebGpuFrameRequestProxy => (
+    isRecord(request) &&
+    hasExactKeys(request, ['operationId', 'sourceLocationId', 'outcome', 'byteKind', 'byteValue']) &&
+    request.operationId === operationId &&
+    request.sourceLocationId === sourceLocationId &&
+    request.outcome === 'success' &&
+    request.byteKind === 'count-only-unavailable' &&
+    request.byteValue === null
+  );
+
+  if (
+    !isExpectedFrameRequestProxy(
+      renderPassPlanRequest,
+      'render-pass-plan-materialization',
+      'webgpu-driver:materialize-render-plan'
+    ) ||
+    !isExpectedFrameRequestProxy(
+      bindGroupRequest,
+      'bind-group-create',
+      'webgpu-driver:create-bind-group'
+    )
+  ) {
     return false;
   }
 
@@ -307,7 +348,8 @@ export function createWorkerPerformanceFrameTimingResponse(
       diagnosticFrameId: payload.diagnosticFrameId,
       outcome: payload.outcome,
       workerRender: { ...payload.workerRender },
-      queueSubmit: { ...payload.queueSubmit }
+      queueSubmit: { ...payload.queueSubmit },
+      frameRequestProxies: payload.frameRequestProxies.map((request) => ({ ...request }))
     },
     timestamp: performance.now()
   };

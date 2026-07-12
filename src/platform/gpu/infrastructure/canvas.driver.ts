@@ -1,4 +1,4 @@
-import type { FrameRenderResult, WebGpuQueueSubmitTimingObserver } from '../domain/types';
+import type { FrameRenderResult, WebGpuFrameInstrumentationObserver } from '../domain/types';
 import type { PipelineState, RenderDriver } from './pipeline-controller';
 
 export class CanvasDriver implements RenderDriver {
@@ -22,7 +22,7 @@ export class CanvasDriver implements RenderDriver {
   renderFrame(
     source: TexImageSource,
     state: PipelineState,
-    _timingObserver?: WebGpuQueueSubmitTimingObserver
+    _instrumentationObserver?: WebGpuFrameInstrumentationObserver
   ): FrameRenderResult {
     if (!state.isActive || !this.ctx) {
       if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {

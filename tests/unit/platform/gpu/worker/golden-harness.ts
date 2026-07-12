@@ -6,6 +6,7 @@ import {
   type WorkerControlApi,
   type WorkerReadyPayload
 } from '../../../../../src/platform/gpu/worker/protocol';
+import type { WebGpuFrameRequestProxy } from '../../../../../src/platform/gpu/domain/types';
 
 /**
  * Transport-agnostic golden-test harness. Touches ONLY the WorkerRendererClient
@@ -27,11 +28,28 @@ export function createRecordingDriver(mockCreateGpuRenderer: ReturnType<typeof v
       backend: 'webgpu',
       renderFrame: (
         src: unknown,
-        timingObserver?: { recordWebGpuQueueSubmitTiming(startedAt: number, endedAt: number): void }
+        instrumentationObserver?: {
+          recordWebGpuQueueSubmitTiming(startedAt: number, endedAt: number): void;
+          recordWebGpuFrameRequestProxy(request: WebGpuFrameRequestProxy): void;
+        }
       ) => {
         record.push(`render:${(src as { sig?: string }).sig ?? '?'}`);
+        instrumentationObserver?.recordWebGpuFrameRequestProxy({
+          operationId: 'render-pass-plan-materialization',
+          sourceLocationId: 'webgpu-driver:materialize-render-plan',
+          outcome: 'success',
+          byteKind: 'count-only-unavailable',
+          byteValue: null
+        });
+        instrumentationObserver?.recordWebGpuFrameRequestProxy({
+          operationId: 'bind-group-create',
+          sourceLocationId: 'webgpu-driver:create-bind-group',
+          outcome: 'success',
+          byteKind: 'count-only-unavailable',
+          byteValue: null
+        });
         const queueSubmitStartedAt = performance.now();
-        timingObserver?.recordWebGpuQueueSubmitTiming(queueSubmitStartedAt, performance.now());
+        instrumentationObserver?.recordWebGpuQueueSubmitTiming(queueSubmitStartedAt, performance.now());
         return { outcome: 'webgpu-queue-submit-completed' as const };
       },
       resize: (w: number, h: number) => {

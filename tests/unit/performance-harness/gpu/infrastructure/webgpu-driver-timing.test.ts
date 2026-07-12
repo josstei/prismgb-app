@@ -67,7 +67,7 @@ function createRuntime() {
   };
 }
 
-describe('instrumented WebGpuDriver queue-submit timing', () => {
+describe('instrumented WebGpuDriver frame instrumentation', () => {
   beforeEach(() => {
     let now = 0;
     vi.stubGlobal('GPUTextureUsage', {
@@ -88,7 +88,7 @@ describe('instrumented WebGpuDriver queue-submit timing', () => {
     vi.unstubAllGlobals();
   });
 
-  it('reports the CPU queue-submit span only after the real queue submit returns', async () => {
+  it('reports the CPU queue-submit span and real request invocations', async () => {
     const runtime = createRuntime();
     vi.stubGlobal('navigator', { gpu: runtime.gpu });
     const renderer = new PipelineController({
@@ -101,18 +101,33 @@ describe('instrumented WebGpuDriver queue-submit timing', () => {
       nativeHeight: 144,
       preset: getPreset('vibrant')!
     }, new WebGpuDriver());
-    const timingObserver = {
-      recordWebGpuQueueSubmitTiming: vi.fn()
+    const instrumentationObserver = {
+      recordWebGpuQueueSubmitTiming: vi.fn(),
+      recordWebGpuFrameRequestProxy: vi.fn()
     };
 
     await renderer.initialize();
-    expect(renderer.renderFrame({} as TexImageSource, timingObserver)).toEqual({
+    expect(renderer.renderFrame({} as TexImageSource, instrumentationObserver)).toEqual({
       outcome: 'webgpu-queue-submit-completed'
     });
 
     expect(runtime.device.queue.submit).toHaveBeenCalledOnce();
-    expect(timingObserver.recordWebGpuQueueSubmitTiming).toHaveBeenCalledOnce();
-    const [startedAt, endedAt] = timingObserver.recordWebGpuQueueSubmitTiming.mock.calls[0];
+    expect(instrumentationObserver.recordWebGpuQueueSubmitTiming).toHaveBeenCalledOnce();
+    const [startedAt, endedAt] = instrumentationObserver.recordWebGpuQueueSubmitTiming.mock.calls[0];
     expect(startedAt).toBeLessThanOrEqual(endedAt);
+    expect(instrumentationObserver.recordWebGpuFrameRequestProxy).toHaveBeenNthCalledWith(1, {
+      operationId: 'render-pass-plan-materialization',
+      sourceLocationId: 'webgpu-driver:materialize-render-plan',
+      outcome: 'success',
+      byteKind: 'count-only-unavailable',
+      byteValue: null
+    });
+    expect(instrumentationObserver.recordWebGpuFrameRequestProxy).toHaveBeenNthCalledWith(2, {
+      operationId: 'bind-group-create',
+      sourceLocationId: 'webgpu-driver:create-bind-group',
+      outcome: 'success',
+      byteKind: 'count-only-unavailable',
+      byteValue: null
+    });
   });
 });

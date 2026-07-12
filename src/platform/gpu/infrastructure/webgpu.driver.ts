@@ -1,7 +1,7 @@
 import type { PipelineState, RenderDriver } from './pipeline-controller';
 import { loadWebGpuShaders } from './shaders';
 import { RecoverableBackendInitializationError } from '../domain/errors';
-import type { FrameRenderResult, WebGpuQueueSubmitTimingObserver } from '../domain/types';
+import type { FrameRenderResult, WebGpuFrameInstrumentationObserver } from '../domain/types';
 import type { PipelineUniforms } from '../domain/uniforms';
 import {
   compileRenderPasses,
@@ -365,7 +365,7 @@ export class WebGpuDriver implements RenderDriver {
   renderFrame(
     source: TexImageSource,
     state: PipelineState,
-    timingObserver?: WebGpuQueueSubmitTimingObserver
+    instrumentationObserver?: WebGpuFrameInstrumentationObserver
   ): FrameRenderResult {
     if (!state.isActive || !this.device || !this.context) {
       if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
@@ -402,6 +402,20 @@ export class WebGpuDriver implements RenderDriver {
         getEnabledRenderPasses(WEBGPU_RENDER_PASSES, state.uniforms, state.preset),
         this.intermediateTextures.length
       );
+      if (
+        typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+        __PRISMGB_PERF_HARNESS__ &&
+        typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+        __PRISMGB_PERF_INSTRUMENTATION__
+      ) {
+        instrumentationObserver?.recordWebGpuFrameRequestProxy({
+          operationId: 'render-pass-plan-materialization',
+          sourceLocationId: 'webgpu-driver:materialize-render-plan',
+          outcome: 'success',
+          byteKind: 'count-only-unavailable',
+          byteValue: null
+        });
+      }
 
       for (const step of plan.steps) {
         const { pass } = step;
@@ -429,7 +443,8 @@ export class WebGpuDriver implements RenderDriver {
       this.present(
         commandEncoder,
         this.resolvePlanTexture(plan.presentSource),
-        this.context.getCurrentTexture()
+        this.context.getCurrentTexture(),
+        instrumentationObserver
       );
 
       const queueSubmitStartedAt = performance.now();
@@ -440,7 +455,7 @@ export class WebGpuDriver implements RenderDriver {
         typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
         __PRISMGB_PERF_INSTRUMENTATION__
       ) {
-        timingObserver?.recordWebGpuQueueSubmitTiming(queueSubmitStartedAt, performance.now());
+        instrumentationObserver?.recordWebGpuQueueSubmitTiming(queueSubmitStartedAt, performance.now());
       }
       state.recordFrame(performance.now() - startTime);
       if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
@@ -509,7 +524,8 @@ export class WebGpuDriver implements RenderDriver {
   private present(
     commandEncoder: GPUCommandEncoder,
     inputTexture: GPUTexture,
-    canvasTexture: GPUTexture
+    canvasTexture: GPUTexture,
+    instrumentationObserver?: WebGpuFrameInstrumentationObserver
   ): void {
     const bindGroup = this.device!.createBindGroup({
       label: 'Present BindGroup',
@@ -519,6 +535,20 @@ export class WebGpuDriver implements RenderDriver {
         { binding: 1, resource: this.linearSampler! }
       ]
     });
+    if (
+      typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+      __PRISMGB_PERF_HARNESS__ &&
+      typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+      __PRISMGB_PERF_INSTRUMENTATION__
+    ) {
+      instrumentationObserver?.recordWebGpuFrameRequestProxy({
+        operationId: 'bind-group-create',
+        sourceLocationId: 'webgpu-driver:create-bind-group',
+        outcome: 'success',
+        byteKind: 'count-only-unavailable',
+        byteValue: null
+      });
+    }
 
     const passEncoder = commandEncoder.beginRenderPass({
       colorAttachments: [{

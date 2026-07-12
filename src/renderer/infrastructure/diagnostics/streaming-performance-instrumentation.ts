@@ -199,6 +199,23 @@ class RendererPerformanceInstrumentation implements StreamingPerformanceInstrume
           observation.frameToken,
           'worker-performance-now-v1'
         );
+        for (const request of observation.frameRequestProxies) {
+          const result = this.diagnostics.recordWebGpuAllocationRequestProxy({
+            backend: 'webgpu',
+            carrier: 'frame-request',
+            measurementEpochId: observation.context.measurementEpochId,
+            sourceSequence: observation.context.sourceSequence,
+            operationId: request.operationId,
+            sourceLocationId: request.sourceLocationId,
+            requestOrdinal: observation.context.sourceSequence,
+            outcome: request.outcome,
+            byteKind: request.byteKind,
+            byteValue: request.byteValue
+          });
+          if (result.accepted === false) {
+            this.logger.error(`Performance allocation observation rejected: ${result.reason}`);
+          }
+        }
         return;
       case 'worker-frame-acknowledged': {
         const outcome = observation.outcome === 'webgpu-queue-submit-completed'

@@ -8,7 +8,8 @@ import type {
   RenderPipeline,
   RenderPreset,
   RenderStats,
-  WebGpuQueueSubmitTimingObserver
+  WebGpuFrameInstrumentationObserver,
+  WebGpuFrameRequestProxy
 } from '../domain/types';
 import {
   CONTROL_PORT_MESSAGE,
@@ -41,7 +42,7 @@ export type WorkerRendererServiceScope = {
 
 type WorkerRendererPipeline = {
   backend: WorkerRenderBackend;
-  render: (source: TexImageSource, timingObserver?: WebGpuQueueSubmitTimingObserver) => FrameRenderResult;
+  render: (source: TexImageSource, instrumentationObserver?: WebGpuFrameInstrumentationObserver) => FrameRenderResult;
   resize: (width: number, height: number) => void;
   captureFrame: () => Promise<ImageBitmap>;
   getStats: () => RenderStats & { uploadTime?: number };
@@ -83,9 +84,9 @@ async function createWorkerRendererPipeline(options: {
 
   return {
     backend: renderer.backend,
-    render: (source, timingObserver) => timingObserver === undefined
+    render: (source, instrumentationObserver) => instrumentationObserver === undefined
       ? renderer.renderFrame(source)
-      : renderer.renderFrame(source, timingObserver),
+      : renderer.renderFrame(source, instrumentationObserver),
     resize: (width, height) => renderer.resize(width, height),
     captureFrame: () => renderer.captureFrame(),
     getStats: () => renderer.getStats(),
@@ -223,6 +224,7 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
       let hasDiagnosticFrame = false;
       let diagnosticFrameId: number | null = null;
       let queueSubmitTiming: { startedAt: number; endedAt: number } | null = null;
+      const frameRequestProxies: WebGpuFrameRequestProxy[] = [];
       let workerRenderStartedAt = 0;
       let workerRenderEndedAt = 0;
       let renderResult: FrameRenderResult;
@@ -242,6 +244,15 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
               throw new Error('Instrumented worker frame emitted more than one queue-submit span');
             }
             queueSubmitTiming = { startedAt, endedAt };
+          },
+          recordWebGpuFrameRequestProxy(request): void {
+            if (frameRequestProxies.some((existing) => (
+              existing.operationId === request.operationId &&
+              existing.sourceLocationId === request.sourceLocationId
+            ))) {
+              throw new Error('Instrumented worker frame emitted a duplicate request proxy');
+            }
+            frameRequestProxies.push({ ...request });
           }
         });
         workerRenderEndedAt = performance.now();
@@ -283,7 +294,8 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
               startedAt: workerRenderStartedAt,
               endedAt: workerRenderEndedAt
             },
-            queueSubmit: queueSubmitTiming
+            queueSubmit: queueSubmitTiming,
+            frameRequestProxies
           }));
         }
         workerScope.postMessage(createWorkerResponse(WorkerResponseType.FRAME_RENDERED, { frameToken, outcome }));
