@@ -26,6 +26,7 @@ export type StreamingPerformanceInstrumentation = {
     selectionReason: PerformanceBackendSelectionReason
   ): void;
   observe(observation: GpuVideoPerformanceObservation): void;
+  reset(): void;
   getSnapshot(): PerformanceDiagnosticsSnapshot;
   dispose(): void;
 };
@@ -253,6 +254,10 @@ class RendererPerformanceInstrumentation implements StreamingPerformanceInstrume
         this.recordSource(observation.context, disposition);
       }
     }
+  }
+
+  reset(): void {
+    this.diagnostics.reset({ lastSourceSequence: this.sourceSequence });
   }
 
   getSnapshot(): PerformanceDiagnosticsSnapshot {

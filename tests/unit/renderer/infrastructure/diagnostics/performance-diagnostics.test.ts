@@ -268,6 +268,20 @@ describe('PerformanceDiagnostics', () => {
     });
   });
 
+  it('retains a source sequence boundary across a cohort reset', () => {
+    const diagnostics = createPerformanceDiagnostics();
+    diagnostics.reset({ lastSourceSequence: 4 });
+
+    expect(diagnostics.recordSourceOpportunity({
+      sourceSequence: 5,
+      disposition: 'drawCompleted'
+    })).toEqual({ accepted: true });
+    expect(diagnostics.getSnapshot().source).toMatchObject({
+      sourceOpportunities: 1,
+      reconciliation: { accountedOpportunities: 1, isConserved: true }
+    });
+  });
+
   it('returns deeply immutable snapshots that cannot mutate retained raw data', () => {
     const diagnostics = createPerformanceDiagnostics();
     expect(diagnostics.recordSourceOpportunity({ sourceSequence: 1, disposition: 'drawCompleted' })).toEqual({ accepted: true });

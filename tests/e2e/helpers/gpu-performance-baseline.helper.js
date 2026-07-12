@@ -243,6 +243,16 @@ export async function readPerformanceDiagnostics(page, launchId) {
   }, { launchId, diagnosticsSymbol: PERFORMANCE_RENDERER_DIAGNOSTICS_SYMBOL });
 }
 
+export async function resetPerformanceDiagnostics(page, launchId) {
+  return page.evaluate(({ launchId: expectedLaunchId, diagnosticsSymbol }) => {
+    const reader = window[Symbol.for(diagnosticsSymbol)];
+    if (typeof reader !== 'function') {
+      throw new Error('performance renderer diagnostics reader is unavailable');
+    }
+    return reader(expectedLaunchId, 'reset');
+  }, { launchId, diagnosticsSymbol: PERFORMANCE_RENDERER_DIAGNOSTICS_SYMBOL });
+}
+
 export async function removePerformanceControlProbe(page) {
   await page.evaluate((symbolName) => {
     delete window.prismgbPerformanceControlProbe;

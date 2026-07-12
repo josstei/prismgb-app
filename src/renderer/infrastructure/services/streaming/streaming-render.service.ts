@@ -712,6 +712,14 @@ export class StreamingRenderService extends BaseService {
     return this._performanceInstrumentation?.getSnapshot() ?? null;
   }
 
+  resetPerformanceDiagnostics(): boolean {
+    if (this._performanceInstrumentation === undefined) {
+      return false;
+    }
+    this._performanceInstrumentation.reset();
+    return true;
+  }
+
   resize(width: number, height: number): void {
     if (this._session) {
       this._session.resize(width, height);

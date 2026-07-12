@@ -4,6 +4,7 @@ import {
   installPerformanceControlProbe,
   readPerformanceControlProbe,
   readPerformanceDiagnostics,
+  resetPerformanceDiagnostics,
   removePerformanceControlProbe
 } from '../../e2e/helpers/gpu-performance-baseline.helper.js';
 
@@ -62,9 +63,9 @@ describe('GPU performance baseline helper', () => {
     expect(windowTarget[Symbol.for('prismgb.performance.controlProbe')]).toBeUndefined();
   });
 
-  it('passes the marker-bound launch ID into the renderer diagnostics reader', async () => {
+  it('passes the marker-bound launch ID into the renderer diagnostics commands', async () => {
     const diagnostics = { source: { sourceOpportunities: 1 } };
-    const reader = vi.fn(() => diagnostics);
+    const reader = vi.fn((_launchId: string, command = 'snapshot') => command === 'snapshot' ? diagnostics : { reset: true });
     const windowTarget: Record<PropertyKey, unknown> = {
       [Symbol.for('prismgb.performance.rendererDiagnostics')]: reader
     };
@@ -77,6 +78,8 @@ describe('GPU performance baseline helper', () => {
     };
 
     await expect(readPerformanceDiagnostics(page, 'launch-id')).resolves.toEqual(diagnostics);
+    await expect(resetPerformanceDiagnostics(page, 'launch-id')).resolves.toEqual({ reset: true });
     expect(reader).toHaveBeenCalledWith('launch-id');
+    expect(reader).toHaveBeenLastCalledWith('launch-id', 'reset');
   });
 });

@@ -125,6 +125,10 @@ export interface PerformanceDiagnosticsOptions {
   readonly maxSamplesPerKind?: number;
 }
 
+export interface PerformanceDiagnosticsResetOptions {
+  readonly lastSourceSequence?: number;
+}
+
 export interface PerformanceBackendObservationInput {
   readonly requestedBackend: PerformanceDiagnosticBackend;
   readonly selectedBackend: PerformanceDiagnosticBackend;
@@ -907,7 +911,10 @@ export class PerformanceDiagnostics {
     this.maxSamplesPerKind = requestedCapacity;
   }
 
-  reset(): void {
+  reset({ lastSourceSequence = 0 }: PerformanceDiagnosticsResetOptions = {}): void {
+    if (!isSafeIntegerAtLeast(lastSourceSequence, 0)) {
+      throw new RangeError('lastSourceSequence must be a nonnegative safe integer');
+    }
     this.backendObservation = null;
     this.boundaries = {};
     this.nextBoundaryIndex = 0;
@@ -916,7 +923,7 @@ export class PerformanceDiagnostics {
     this.pipelineReadyBackends = [];
     this.pipelineErrors = [];
     this.renderStats = [];
-    this.lastSourceSequence = 0;
+    this.lastSourceSequence = lastSourceSequence;
     this.sourceCounters = createSourceCounters();
     this.workerCounters = createWorkerCounters();
     this.pendingStart = null;

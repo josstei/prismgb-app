@@ -89,4 +89,17 @@ test('the instrumented harness records raw branch evidence for the animated Chro
     }
   });
   expect(diagnostics.timingSamples['source-callback']).not.toHaveLength(0);
+
+  await expect(performanceLaunch.resetPerformanceDiagnostics()).resolves.toEqual({ reset: true });
+  const resetDiagnostics = await performanceLaunch.readPerformanceDiagnostics();
+  expect(resetDiagnostics).toMatchObject({
+    source: {
+      sourceOpportunities: 0,
+      reconciliation: {
+        accountedOpportunities: 0,
+        isConserved: true
+      }
+    }
+  });
+  expect(resetDiagnostics.timingSamples['source-callback']).toEqual([]);
 });

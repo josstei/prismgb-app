@@ -165,6 +165,28 @@ describe('instrumented StreamingRenderService', () => {
       outcome: 'canvas-draw-completed',
       frameToken: null
     });
+
+    expect(service.resetPerformanceDiagnostics()).toBe(true);
+    expect(service.getPerformanceDiagnosticsSnapshot()).toMatchObject({
+      source: {
+        sourceOpportunities: 0,
+        reconciliation: { accountedOpportunities: 0, isConserved: true }
+      }
+    });
+    expect(service.getPerformanceDiagnosticsSnapshot()?.timingSamples['source-callback']).toEqual([]);
+
+    const nextCallback = requestVideoFrameCallback.mock.calls[1][0] as (now: number, metadata: { mediaTime: number }) => Promise<void>;
+    await nextCallback(2, { mediaTime: 2 });
+
+    expect(service.getPerformanceDiagnosticsSnapshot()).toMatchObject({
+      source: {
+        sourceOpportunities: 1,
+        reconciliation: { accountedOpportunities: 1, isConserved: true }
+      }
+    });
+    expect(service.getPerformanceDiagnosticsSnapshot()?.timingSamples['source-callback']).toMatchObject([
+      { sourceSequence: 2 }
+    ]);
   });
 
   it('does not create diagnostics without the explicit runtime marker', async () => {

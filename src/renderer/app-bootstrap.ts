@@ -153,11 +153,17 @@ class RendererBootstrap extends PlatformBootstrap<RendererServiceContainer, AppO
       configurable: true,
       enumerable: false,
       writable: false,
-      value: (requestedLaunchId: string) => {
+      value: (requestedLaunchId: string, command: unknown = 'snapshot') => {
         if (requestedLaunchId !== launchId) {
           throw new Error('Performance renderer diagnostics launch ID does not match the preload marker');
         }
-        return streamingRenderService.getPerformanceDiagnosticsSnapshot();
+        if (command === 'snapshot') {
+          return streamingRenderService.getPerformanceDiagnosticsSnapshot();
+        }
+        if (command === 'reset') {
+          return Object.freeze({ reset: streamingRenderService.resetPerformanceDiagnostics() });
+        }
+        throw new Error('Performance renderer diagnostics command is unsupported');
       }
     });
   }
