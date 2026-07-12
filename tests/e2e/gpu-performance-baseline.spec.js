@@ -6,6 +6,8 @@ import {
 } from './helpers/gpu-performance-baseline.helper.js';
 import { StreamPage } from './pages/stream.page.js';
 import { loadBaselinePolicy } from '../../scripts/lib/performance-evidence.js';
+import { writePerformanceExternalMetricCapture } from '../../scripts/lib/performance-external-metric-capture.js';
+import { writePerformanceSentinelCapture } from '../../scripts/lib/performance-sentinel-capture.js';
 import { writePerformanceWorkloadCapture } from '../../scripts/lib/performance-workload-capture.js';
 
 const performancePolicy = loadBaselinePolicy().policy;
@@ -23,6 +25,48 @@ function sourceOpportunityWrites(writes) {
 
 function waitFor(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function monotonicSeconds() {
+  return performance.now() / 1000;
+}
+
+async function waitForMetricCaptureTarget(metricCapture) {
+  const remainingMilliseconds = Math.max(0, (metricCapture.getNextSampleTargetAt() - monotonicSeconds()) * 1000);
+  if (remainingMilliseconds > 0) await waitFor(remainingMilliseconds);
+}
+
+/**
+ * Keeps raw OS metrics on their own external runner clock while a callback
+ * gate owns the workload. The terminal closure is deliberately recorded only
+ * after the sampler stops, so no in-window endpoint can be serialized after
+ * the external closure boundary.
+ */
+async function collectExternalMetricTranscript({ metricCapture, executeWindow }) {
+  let stopSampling = false;
+  let samplingLoop;
+  try {
+    await metricCapture.beginWindow();
+    samplingLoop = (async () => {
+      while (!stopSampling) {
+        await waitForMetricCaptureTarget(metricCapture);
+        if (stopSampling) return;
+        await metricCapture.sampleInWindow();
+      }
+    })();
+    const result = await executeWindow();
+    stopSampling = true;
+    await samplingLoop;
+    metricCapture.markTerminalClosure(monotonicSeconds());
+    await waitForMetricCaptureTarget(metricCapture);
+    await metricCapture.sampleTerminalClosure();
+    return Object.freeze({ result, transcript: await metricCapture.finalize() });
+  } catch (error) {
+    stopSampling = true;
+    await samplingLoop?.catch(() => {});
+    await metricCapture.abort().catch(() => {});
+    throw error;
+  }
 }
 
 async function waitForWarmupEligibility(performanceLaunch) {
@@ -48,6 +92,29 @@ async function waitForWarmupEligibility(performanceLaunch) {
   }
 }
 
+async function waitForExternalWarmupEligibility(performanceLaunch) {
+  const startedAt = performance.now();
+  while (true) {
+    const gate = await performanceLaunch.readPerformanceCallbackGate();
+    const elapsedMs = performance.now() - startedAt;
+    if (
+      gate.interceptedCallbackCount >= warmupLimits.minimumCallbacks
+      && elapsedMs >= warmupLimits.minimumSeconds * 1000
+    ) {
+      return { callbackCount: gate.interceptedCallbackCount, elapsedMs };
+    }
+    if (
+      gate.interceptedCallbackCount >= warmupLimits.maximumCallbacks
+      || elapsedMs >= warmupLimits.maximumSeconds * 1000
+    ) {
+      throw new Error(
+        `external sentinel warm-up did not become eligible before the ${warmupLimits.maximumSeconds}s/${warmupLimits.maximumCallbacks}-callback cap`
+      );
+    }
+    await waitFor(100);
+  }
+}
+
 async function waitForMeasurementWindowClosure(performanceLaunch) {
   const deadline = performance.now() + measurementWindowLimits.maximumDurationMs + 5000;
   while (true) {
@@ -64,6 +131,119 @@ async function waitForMeasurementWindowClosure(performanceLaunch) {
   }
 }
 
+async function waitForExternalSentinelDrain(performanceLaunch) {
+  const deadline = performance.now() + 5000;
+  while (true) {
+    const gate = await performanceLaunch.readPerformanceCallbackGate();
+    if (gate.observations.outstandingWorkerFrames === 0) return gate;
+    if (performance.now() >= deadline) {
+      throw new Error('external sentinel backend work did not drain before the closure deadline');
+    }
+    await waitFor(25);
+  }
+}
+
+function externalSentinelBackend(observations) {
+  if (
+    observations.canvasDraws.length > 0
+    && observations.workerFramePosts.length === 0
+    && observations.acknowledgements.length === 0
+    && observations.errors.length === 0
+  ) {
+    return 'canvas2d';
+  }
+  if (
+    observations.canvasDraws.length === 0
+    && observations.workerFramePosts.length > 0
+    && observations.errors.length === 0
+  ) {
+    return 'webgpu';
+  }
+  throw new Error('external sentinel observations do not identify one supported backend');
+}
+
+async function persistExternalSentinelCapture({ performanceLaunch, performanceChromaticDevice, warmup, gate }) {
+  if (!process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT) return;
+  const measurementWindow = gate.measurementWindow;
+  if (!measurementWindow || measurementWindow.terminalClosureEnd === null) {
+    throw new Error('external sentinel capture requires a sealed measurement window');
+  }
+  const backend = externalSentinelBackend(gate.observations);
+  await writePerformanceSentinelCapture({
+    outputDirectory: process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT,
+    sourceSha: performanceLaunch.sourceSha,
+    runId: `external-sentinel:${performanceLaunch.externalExecutionId}`,
+    externalExecutionId: performanceLaunch.externalExecutionId,
+    observationBoundaryId: `external-sentinel-window:${performanceLaunch.externalExecutionId}`,
+    build: {
+      id: performanceLaunch.build.id,
+      harness: performanceLaunch.build.harness,
+      instrumentation: performanceLaunch.build.instrumentation,
+      bundleSha256: performanceLaunch.build.bundle.sha256
+    },
+    backend,
+    workload: {
+      id: performancePolicy.performanceMetricPolicy.workloadId,
+      pattern: 'animated',
+      width: performanceChromaticDevice.fixture.display.nativeWidth,
+      height: performanceChromaticDevice.fixture.display.nativeHeight,
+      frameRate: performanceChromaticDevice.fixture.stream.defaultFrameRate
+    },
+    warmup,
+    window: {
+      minimumCallbacks: measurementWindow.minimumCallbacks,
+      minimumDurationMs: measurementWindow.minimumDurationMs,
+      maximumCallbacks: measurementWindow.maximumCallbacks,
+      maximumDurationMs: measurementWindow.maximumDurationMs,
+      deliveredCallbackCount: measurementWindow.deliveredCallbackCount,
+      startedAt: measurementWindow.startedAt,
+      closedAt: measurementWindow.closedAt,
+      terminalClosureEnd: measurementWindow.terminalClosureEnd,
+      closureReason: measurementWindow.closureReason
+    },
+    observations: gate.observations
+  });
+}
+
+async function persistExternalMetricCapture({ performanceLaunch, transcript }) {
+  if (!process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT) return;
+  await writePerformanceExternalMetricCapture({
+    outputDirectory: process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT,
+    sourceSha: performanceLaunch.sourceSha,
+    runId: `external-sentinel:${performanceLaunch.externalExecutionId}`,
+    externalExecutionId: performanceLaunch.externalExecutionId,
+    observationBoundaryId: `external-sentinel-window:${performanceLaunch.externalExecutionId}`,
+    build: {
+      id: performanceLaunch.build.id,
+      harness: performanceLaunch.build.harness,
+      instrumentation: performanceLaunch.build.instrumentation,
+      bundleSha256: performanceLaunch.build.bundle.sha256
+    },
+    adapterId: performanceLaunchMetricAdapterId(transcript),
+    target: performanceLaunchMetricTarget(transcript),
+    window: transcript.window,
+    prime: transcript.prime,
+    inWindowSamples: transcript.inWindowSamples,
+    terminalSample: transcript.terminalSample
+  });
+}
+
+function performanceLaunchMetricAdapterId(transcript) {
+  if (!transcript || typeof transcript !== 'object' || !transcript.sessionClosure
+    || typeof transcript.sessionClosure !== 'object' || typeof transcript.sessionClosure.adapterId !== 'string') {
+    throw new Error('external metric transcript does not retain its adapter identity');
+  }
+  return transcript.sessionClosure.adapterId;
+}
+
+function performanceLaunchMetricTarget(transcript) {
+  if (!transcript || typeof transcript !== 'object' || !transcript.transcript
+    || typeof transcript.transcript !== 'object' || !transcript.transcript.target) {
+    throw new Error('external metric transcript does not retain its attached target');
+  }
+  return transcript.transcript.target;
+}
+
 test('the production build excludes the harness-only performance surface', async () => {
   await assertProductionBundleIsolation(await loadPerformanceBuildManifest());
 });
@@ -78,6 +258,12 @@ test.describe('production sentinel fixture', () => {
       instrumentation: false
     });
     expect(performanceLaunch.externalExecutionId).toMatch(/^[0-9a-f-]{36}$/);
+    const metricTarget = await performanceLaunch.resolveRendererMetricTarget();
+    expect(metricTarget.target).toMatchObject({
+      pid: performanceLaunch.rendererPid,
+      processIdentity: `renderer:${performanceLaunch.externalExecutionId}:${performanceLaunch.rendererPid}`
+    });
+    expect(['linux-procfs-v1', 'macos-ps-v1', 'windows-powershell-v1']).toContain(metricTarget.adapterId);
     await expect(performanceLaunch.window.evaluate(() => ({
       hasMarker: window.prismgbPerformanceLaunchMarker !== undefined,
       hasControlProbe: window.prismgbPerformanceControlProbe !== undefined,
@@ -127,6 +313,66 @@ test.describe('harness-control build', () => {
       instrumentation: false
     });
     await expect(performanceLaunch.readPerformanceControlProbe()).resolves.toEqual([]);
+  });
+});
+
+test.describe('harness-control external sentinel fixture', () => {
+  test.use({ performanceVariant: 'harness-control', performanceDiagnostics: false });
+
+  test('persists only externally observed callback and backend evidence', async ({
+    performanceLaunch,
+    performanceChromaticDevice
+  }) => {
+    const streamPage = new StreamPage(performanceLaunch.window);
+    await performanceChromaticDevice.connect({ testPattern: 'animated' });
+    await streamPage.start();
+
+    const warmup = await waitForExternalWarmupEligibility(performanceLaunch);
+    await performanceLaunch.pausePerformanceCallbacks();
+    await expect.poll(
+      () => performanceLaunch.readPerformanceCallbackGate(),
+      { timeout: 5000 }
+    ).toMatchObject({ paused: true, heldCallbackCount: 1 });
+    await performanceLaunch.resetPerformanceCallbacks();
+    await performanceLaunch.armPerformanceCallbackWindow(measurementWindowLimits);
+    const metricCapture = process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT
+      ? await performanceLaunch.openRendererMetricCapture()
+      : null;
+    const executeWindow = async () => {
+      await performanceLaunch.resumePerformanceCallbacks();
+      await waitForMeasurementWindowClosure(performanceLaunch);
+      await waitForExternalSentinelDrain(performanceLaunch);
+      return performanceLaunch.sealPerformanceCallbacks();
+    };
+    const measured = metricCapture
+      ? await collectExternalMetricTranscript({ metricCapture, executeWindow })
+      : Object.freeze({ result: await executeWindow(), transcript: null });
+    const sealedGate = measured.result;
+    expect(sealedGate).toMatchObject({
+      paused: true,
+      heldCallbackCount: 1,
+      measurementWindow: {
+        status: 'closed',
+        closureReason: 'minimum-reached',
+        terminalClosureEnd: expect.any(Number)
+      },
+      observations: {
+        postPauseCanvasDrawCount: 0,
+        callbackOverlapCount: 0,
+        outstandingWorkerFrames: 0
+      }
+    });
+
+    await streamPage.stop();
+    await persistExternalSentinelCapture({
+      performanceLaunch,
+      performanceChromaticDevice,
+      warmup,
+      gate: sealedGate
+    });
+    if (measured.transcript !== null) {
+      await persistExternalMetricCapture({ performanceLaunch, transcript: measured.transcript });
+    }
   });
 });
 

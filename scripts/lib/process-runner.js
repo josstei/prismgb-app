@@ -174,11 +174,13 @@ function parseLinuxStatFields(stat) {
   const pid = parseDecimalInteger(match[1], 'Linux /proc stat PID');
   const fields = match[3].trim().split(/\s+/);
   if (fields.length < 13) failExternalMetric('Linux /proc stat is missing CPU fields');
+  if (fields.length < 20) failExternalMetric('Linux /proc stat is missing process creation fields');
   if (!/^[A-Za-z]$/.test(fields[0])) failExternalMetric('Linux /proc stat process state is malformed');
   return {
     pid,
     userTicks: parseDecimalInteger(fields[11], 'Linux /proc stat user ticks'),
-    systemTicks: parseDecimalInteger(fields[12], 'Linux /proc stat system ticks')
+    systemTicks: parseDecimalInteger(fields[12], 'Linux /proc stat system ticks'),
+    startTicks: parseDecimalInteger(fields[19], 'Linux /proc stat start ticks')
   };
 }
 
@@ -235,6 +237,7 @@ export function parseLinuxProcfsMetricSnapshot({ stat, statm, clockTicks, pageSi
       pid: parsedStat.pid,
       userTicks: parsedStat.userTicks,
       systemTicks: parsedStat.systemTicks,
+      startTicks: parsedStat.startTicks,
       residentPages,
       pageSize,
       clockTicks
@@ -413,17 +416,70 @@ export function createLinuxProcfsSnapshotReader({
 
   return async (pid) => {
     assertPositiveSafeInteger(pid, 'Linux process PID');
-    const processDirectory = path.resolve(resolvedRoot, String(pid));
-    const relativeProcessDirectory = path.relative(resolvedRoot, processDirectory);
-    if (relativeProcessDirectory.startsWith('..') || path.isAbsolute(relativeProcessDirectory)) {
-      failExternalMetric('Linux process path escapes the procfs root');
-    }
+    const processDirectory = resolveLinuxProcfsProcessDirectory(resolvedRoot, pid);
     const stat = await readFile(path.join(processDirectory, 'stat'), 'utf8');
     const statm = await readFile(path.join(processDirectory, 'statm'), 'utf8');
     const snapshot = parseLinuxProcfsMetricSnapshot({ stat, statm, clockTicks, pageSize });
     if (snapshot.raw.pid !== pid) failExternalMetric('Linux /proc stat PID does not match the requested process');
     return snapshot;
   };
+}
+
+function resolveLinuxProcfsProcessDirectory(resolvedRoot, pid) {
+  const processDirectory = path.resolve(resolvedRoot, String(pid));
+  const relativeProcessDirectory = path.relative(resolvedRoot, processDirectory);
+  if (relativeProcessDirectory.startsWith('..') || path.isAbsolute(relativeProcessDirectory)) {
+    failExternalMetric('Linux process path escapes the procfs root');
+  }
+  return processDirectory;
+}
+
+/**
+ * Resolves a Linux process's PID-reuse-resistant creation identity from its
+ * procfs stat record. The returned identity is intended to be attached to a
+ * target before metric sampling begins.
+ *
+ * @param {{ procfsRoot?: string, readFile?: (file: string, encoding: 'utf8') => Promise<string> | string }} options
+ */
+export function createLinuxProcfsProcessIdentityReader({
+  procfsRoot = '/proc',
+  readFile = fs.readFile
+} = {}) {
+  assertNonemptyString(procfsRoot, 'procfs root');
+  if (typeof readFile !== 'function') failExternalMetric('readFile must be a function');
+  const resolvedRoot = path.resolve(procfsRoot);
+
+  return async (pid) => {
+    assertPositiveSafeInteger(pid, 'Linux process PID');
+    const processDirectory = resolveLinuxProcfsProcessDirectory(resolvedRoot, pid);
+    const parsed = parseLinuxStatFields(await readFile(path.join(processDirectory, 'stat'), 'utf8'));
+    if (parsed.pid !== pid) failExternalMetric('Linux /proc stat PID does not match the requested process');
+    return Object.freeze({ pid, creationIdentity: String(parsed.startTicks) });
+  };
+}
+
+/**
+ * Resolves the procfs quantities that define Linux CPU and working-set units.
+ * The external runner retains these values with the selected adapter instead
+ * of guessing them from a host architecture.
+ *
+ * @param {{ runCommand?: (command: string, args: string[]) => Promise<string> | string }} options
+ */
+export async function readLinuxProcfsMetricConfiguration({ runCommand = runGetconf } = {}) {
+  if (typeof runCommand !== 'function') failExternalMetric('runCommand must be a function');
+  const [pageSizeOutput, clockTicksOutput] = await Promise.all([
+    runCommand('getconf', ['PAGESIZE']),
+    runCommand('getconf', ['CLK_TCK'])
+  ]);
+  const pageSize = parseExternalDecimalOutput(pageSizeOutput, 'Linux page size');
+  const clockTicks = parseExternalDecimalOutput(clockTicksOutput, 'Linux clock ticks per second');
+  assertPositiveSafeInteger(pageSize, 'Linux page size');
+  assertPositiveSafeInteger(clockTicks, 'Linux clock ticks per second');
+  const counterQuantumSeconds = 1 / clockTicks;
+  if (!Number.isFinite(counterQuantumSeconds) || counterQuantumSeconds <= 0 || counterQuantumSeconds > 0.01) {
+    failExternalMetric('Linux clock ticks must yield a counter quantum at most 0.01 seconds');
+  }
+  return Object.freeze({ pageSize, clockTicks, counterQuantumSeconds });
 }
 
 async function runMacosPs(command, args) {
@@ -435,6 +491,31 @@ async function runMacosPs(command, args) {
   return stdout;
 }
 
+async function runWindowsPowerShell(command, args) {
+  const { stdout } = await execFileAsync(command, args, {
+    encoding: 'utf8',
+    windowsHide: true,
+    maxBuffer: 64 * 1024
+  });
+  return stdout;
+}
+
+async function runGetconf(command, args) {
+  const { stdout } = await execFileAsync(command, args, {
+    encoding: 'utf8',
+    windowsHide: true,
+    maxBuffer: 64 * 1024
+  });
+  return stdout;
+}
+
+function parseExternalDecimalOutput(output, label) {
+  if (typeof output !== 'string') failExternalMetric(`${label} output must be a string`);
+  const normalized = output.trim();
+  if (normalized.includes('\n') || normalized.includes('\r')) failExternalMetric(`${label} output must contain one decimal value`);
+  return parseDecimalInteger(normalized, label);
+}
+
 /**
  * @param {{ runCommand?: (command: string, args: string[]) => Promise<string> | string }} options
  */
@@ -444,6 +525,97 @@ export function createMacosPsSnapshotReader({ runCommand = runMacosPs } = {}) {
     assertPositiveSafeInteger(pid, 'macOS process PID');
     const output = await runCommand('/bin/ps', ['-o', 'time=', '-o', 'rss=', '-p', String(pid)]);
     return parseMacosPsMetricSnapshot(output);
+  };
+}
+
+function parseMacosPsIdentityFields(output, expectedFieldCount, label) {
+  if (typeof output !== 'string') failExternalMetric(`${label} output must be a string`);
+  const lines = output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.length !== 1) failExternalMetric(`${label} output must contain exactly one process row`);
+  const fields = lines[0].split(/\s+/);
+  if (fields.length !== expectedFieldCount) failExternalMetric(`${label} output has an invalid field count`);
+  const pid = parseDecimalInteger(fields[0], `${label} PID`);
+  const creationIdentity = fields.slice(1, 6).join(' ');
+  assertNonemptyString(creationIdentity, `${label} creation identity`);
+  return { fields, pid, creationIdentity };
+}
+
+/**
+ * Decodes `ps -o pid= -o lstart=` into an immutable PID and creation
+ * identity. `lstart` is preserved as the platform authority's normalized
+ * five-token value so the same reader can reject PID reuse during sampling.
+ *
+ * @param {string} output
+ */
+export function parseMacosPsProcessIdentity(output) {
+  const { pid, creationIdentity } = parseMacosPsIdentityFields(output, 6, 'macOS ps process identity');
+  return Object.freeze({ pid, creationIdentity });
+}
+
+/**
+ * Decodes one `ps -o pid= -o lstart= -o time= -o rss=` row. Unlike the
+ * metric-only decoder, this raw record carries the PID-reuse identity used to
+ * verify every prime and sample against the attached target.
+ *
+ * @param {string} output
+ */
+export function parseMacosPsMetricIdentitySnapshot(output) {
+  const { fields, pid, creationIdentity } = parseMacosPsIdentityFields(output, 8, 'macOS ps metric identity');
+  const metric = parseMacosPsMetricSnapshot(`${fields[6]} ${fields[7]}`);
+  return freezeSnapshot({
+    ...metric,
+    raw: { pid, creationIdentity, ...metric.raw }
+  });
+}
+
+/**
+ * @param {{ runCommand?: (command: string, args: string[]) => Promise<string> | string }} options
+ */
+export function createMacosPsProcessIdentityReader({ runCommand = runMacosPs } = {}) {
+  if (typeof runCommand !== 'function') failExternalMetric('runCommand must be a function');
+  return async (pid) => {
+    assertPositiveSafeInteger(pid, 'macOS process PID');
+    const output = await runCommand('/bin/ps', ['-o', 'pid=', '-o', 'lstart=', '-p', String(pid)]);
+    const identity = parseMacosPsProcessIdentity(output);
+    if (identity.pid !== pid) failExternalMetric('macOS ps PID does not match the requested process');
+    return identity;
+  };
+}
+
+/**
+ * @param {{ runCommand?: (command: string, args: string[]) => Promise<string> | string }} options
+ */
+export function createMacosPsMetricIdentitySnapshotReader({ runCommand = runMacosPs } = {}) {
+  if (typeof runCommand !== 'function') failExternalMetric('runCommand must be a function');
+  return async (pid) => {
+    assertPositiveSafeInteger(pid, 'macOS process PID');
+    const output = await runCommand('/bin/ps', ['-o', 'pid=', '-o', 'lstart=', '-o', 'time=', '-o', 'rss=', '-p', String(pid)]);
+    const snapshot = parseMacosPsMetricIdentitySnapshot(output);
+    if (snapshot.raw.pid !== pid) failExternalMetric('macOS ps PID does not match the requested process');
+    return snapshot;
+  };
+}
+
+function parseWindowsPowerShellCreationIdentity(output) {
+  if (typeof output !== 'string') failExternalMetric('Windows PowerShell creation identity output must be a string');
+  const identity = output.trim();
+  if (!/^\d+$/.test(identity)) failExternalMetric('Windows PowerShell creation identity must be an unsigned decimal integer');
+  return identity;
+}
+
+/**
+ * Resolves the immutable Windows process-start tick value used by the
+ * persistent PowerShell metric sampler to reject PID reuse.
+ *
+ * @param {{ runCommand?: (command: string, args: string[]) => Promise<string> | string }} options
+ */
+export function createWindowsPowerShellProcessIdentityReader({ runCommand = runWindowsPowerShell } = {}) {
+  if (typeof runCommand !== 'function') failExternalMetric('runCommand must be a function');
+  return async (pid) => {
+    assertPositiveSafeInteger(pid, 'Windows process PID');
+    const script = `$ErrorActionPreference = 'Stop'; $process = Get-Process -Id ${pid} -ErrorAction Stop; [Console]::Out.Write($process.StartTime.ToUniversalTime().Ticks.ToString())`;
+    const output = await runCommand('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script]);
+    return Object.freeze({ pid, creationIdentity: parseWindowsPowerShellCreationIdentity(output) });
   };
 }
 
@@ -842,6 +1014,354 @@ function metricSessionTargetKey(target) {
   return JSON.stringify([target.pid, target.creationIdentity, target.processIdentity]);
 }
 
+function cloneMetricCaptureRawValue(value, label) {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) failExternalMetric(`${label} must not contain a non-finite number`);
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return Object.freeze(value.map((entry, index) => cloneMetricCaptureRawValue(entry, `${label}[${index}]`)));
+  }
+  if (!value || typeof value !== 'object') failExternalMetric(`${label} must contain only JSON values`);
+  return Object.freeze(Object.fromEntries(Object.entries(value).map(([key, entry]) => [
+    key,
+    cloneMetricCaptureRawValue(entry, `${label}.${key}`)
+  ])));
+}
+
+function cloneMetricCaptureRead(value, target, expectedOrdinal, label) {
+  assertExactObjectKeys(value, ['sample', 'raw'], label);
+  assertExactObjectKeys(value.sample, [
+    'ordinal', 'readStart', 'readEnd', 'cumulativeCpuSeconds',
+    'counterQuantumSeconds', 'processIdentity', 'workingSetMiB'
+  ], `${label}.sample`);
+  if (value.sample.ordinal !== expectedOrdinal) failExternalMetric(`${label}.sample ordinal is not contiguous`);
+  assertFiniteNonnegativeNumber(value.sample.readStart, `${label}.sample read start`);
+  assertFiniteNonnegativeNumber(value.sample.readEnd, `${label}.sample read end`);
+  if (value.sample.readEnd < value.sample.readStart || value.sample.readEnd - value.sample.readStart > 0.05) {
+    failExternalMetric(`${label}.sample read bracket is invalid or exceeds 50 milliseconds`);
+  }
+  assertFiniteNonnegativeNumber(value.sample.cumulativeCpuSeconds, `${label}.sample cumulative CPU seconds`);
+  if (value.sample.counterQuantumSeconds !== target.counterQuantumSeconds) {
+    failExternalMetric(`${label}.sample counter quantum does not match the attached target`);
+  }
+  if (value.sample.processIdentity !== target.processIdentity) {
+    failExternalMetric(`${label}.sample process identity does not match the attached target`);
+  }
+  assertFiniteNonnegativeNumber(value.sample.workingSetMiB, `${label}.sample working set MiB`);
+  if (!value.raw || typeof value.raw !== 'object' || Array.isArray(value.raw)) {
+    failExternalMetric(`${label}.raw must be an object`);
+  }
+  return Object.freeze({
+    sample: Object.freeze({ ...value.sample }),
+    raw: cloneMetricCaptureRawValue(value.raw, `${label}.raw`)
+  });
+}
+
+function cloneMetricCaptureReadResult(value) {
+  return Object.freeze({
+    sample: Object.freeze({ ...value.sample }),
+    raw: cloneMetricCaptureRawValue(value.raw, 'metric capture raw')
+  });
+}
+
+/**
+ * Collects one attached side of a pair-scoped external metric session. The
+ * adapter session owns resource lifetime; this collector owns the immutable
+ * prime/sample transcript that later becomes raw evidence for one launch.
+ *
+ * @param {{
+ *   session: Readonly<{ attach: (target: unknown) => Promise<unknown> | unknown, prime: () => Promise<unknown> | unknown, sample: () => Promise<unknown> | unknown, detach: () => Promise<unknown> | unknown, abort: () => Promise<unknown> | unknown }>,
+ *   target: Readonly<{ pid: number, creationIdentity: string, processIdentity: string, counterQuantumSeconds: number }>
+ * }} options
+ */
+export function createExternalMetricRunCapture({ session, target: targetInput } = {}) {
+  if (!session || typeof session !== 'object') failExternalMetric('metric run capture session must be an object');
+  for (const operation of ['attach', 'prime', 'sample', 'detach', 'abort']) {
+    if (typeof session[operation] !== 'function') failExternalMetric(`metric run capture session must implement ${operation}`);
+  }
+  const target = normalizeMetricSessionTarget(targetInput);
+  let state = 'new';
+  let sampling = false;
+  let prime = null;
+  let lastCumulativeCpuSeconds = -Infinity;
+  const samples = [];
+
+  const assertState = (operation, expected) => {
+    if (state !== expected) failExternalMetric(`cannot ${operation} when metric run capture is ${state}`);
+  };
+
+  const appendRead = (value, expectedOrdinal, label) => {
+    const read = cloneMetricCaptureRead(value, target, expectedOrdinal, label);
+    if (read.sample.cumulativeCpuSeconds < lastCumulativeCpuSeconds) {
+      failExternalMetric(`${label}.sample cumulative CPU regressed`);
+    }
+    lastCumulativeCpuSeconds = read.sample.cumulativeCpuSeconds;
+    return read;
+  };
+
+  return Object.freeze({
+    async attachAndPrime() {
+      assertState('attach and prime a metric target', 'new');
+      try {
+        const attached = normalizeMetricSessionTarget(await session.attach(target));
+        if (metricSessionTargetKey(attached) !== metricSessionTargetKey(target)) {
+          failExternalMetric('metric run capture attached target does not match the requested target');
+        }
+        prime = appendRead(await session.prime(), 0, 'metric run capture prime');
+        state = 'active';
+        return cloneMetricCaptureReadResult(prime);
+      } catch (error) {
+        state = 'failed';
+        throw error;
+      }
+    },
+
+    async sample() {
+      assertState('sample a metric target', 'active');
+      if (sampling) failExternalMetric('metric run capture does not permit overlapping samples');
+      sampling = true;
+      try {
+        const read = appendRead(await session.sample(), samples.length + 1, 'metric run capture sample');
+        samples.push(read);
+        return cloneMetricCaptureReadResult(read);
+      } catch (error) {
+        state = 'failed';
+        throw error;
+      } finally {
+        sampling = false;
+      }
+    },
+
+    async detach() {
+      assertState('detach a metric target', 'active');
+      if (sampling) failExternalMetric('cannot detach a metric target during a sample');
+      try {
+        const detached = await session.detach();
+        state = 'closed';
+        return Object.freeze({
+          target: Object.freeze({ ...target }),
+          prime: cloneMetricCaptureReadResult(prime),
+          samples: Object.freeze(samples.map(cloneMetricCaptureReadResult)),
+          detached
+        });
+      } catch (error) {
+        state = 'failed';
+        throw error;
+      }
+    },
+
+    async abort() {
+      if (state === 'closed' || state === 'aborted') failExternalMetric(`cannot abort metric run capture when it is ${state}`);
+      const result = await session.abort();
+      state = 'aborted';
+      return result;
+    },
+
+    getAudit() {
+      return Object.freeze({
+        state,
+        target: Object.freeze({ ...target }),
+        prime: prime === null ? null : cloneMetricCaptureReadResult(prime),
+        samples: Object.freeze(samples.map(cloneMetricCaptureReadResult))
+      });
+    }
+  });
+}
+
+function metricSampleMidpoint(read, label) {
+  if (!read || typeof read !== 'object' || !read.sample || typeof read.sample !== 'object') {
+    failExternalMetric(`${label} must contain a metric sample`);
+  }
+  const { readStart, readEnd } = read.sample;
+  assertFiniteNonnegativeNumber(readStart, `${label} read start`);
+  assertFiniteNonnegativeNumber(readEnd, `${label} read end`);
+  if (readEnd < readStart) failExternalMetric(`${label} read bracket is inverted`);
+  return (readStart + readEnd) / 2;
+}
+
+/**
+ * Binds one external metric-run capture to the policy's continuous cadence
+ * grammar. The caller remains responsible for the platform timer and callback
+ * gate, while this controller makes missed cadence, premature terminal reads,
+ * and post-terminal reads impossible to serialize as one run transcript.
+ *
+ * @param {{
+ *   capture: Readonly<{ attachAndPrime: () => Promise<unknown> | unknown, sample: () => Promise<unknown> | unknown, detach: () => Promise<unknown> | unknown, abort: () => Promise<unknown> | unknown, getAudit: () => unknown }>,
+ *   cadenceMs?: number,
+ *   minimumCadenceMs?: number,
+ *   maximumCadenceMs?: number
+ * }} options
+ */
+export function createExternalMetricCadenceCapture({
+  capture,
+  cadenceMs = 500,
+  minimumCadenceMs = 450,
+  maximumCadenceMs = 550
+} = {}) {
+  if (!capture || typeof capture !== 'object') failExternalMetric('metric cadence capture requires a metric run capture');
+  for (const operation of ['attachAndPrime', 'sample', 'detach', 'abort', 'getAudit']) {
+    if (typeof capture[operation] !== 'function') failExternalMetric(`metric cadence capture requires ${operation}`);
+  }
+  if (!Number.isFinite(cadenceMs) || cadenceMs <= 0) failExternalMetric('metric cadence must be finite and positive');
+  if (!Number.isFinite(minimumCadenceMs) || !Number.isFinite(maximumCadenceMs)
+    || minimumCadenceMs <= 0 || maximumCadenceMs < minimumCadenceMs) {
+    failExternalMetric('metric cadence bounds are invalid');
+  }
+  if (cadenceMs < minimumCadenceMs || cadenceMs > maximumCadenceMs) {
+    failExternalMetric('metric cadence must be within its allowed bounds');
+  }
+
+  let state = 'new';
+  let prime = null;
+  let firstWindowSample = null;
+  let previousSample = null;
+  let terminalClosureEnd = null;
+  let terminalSample = null;
+  let nextSampleTargetAt = null;
+  const inWindowSamples = [];
+
+  const assertState = (operation, expected) => {
+    if (state !== expected) failExternalMetric(`cannot ${operation} when metric cadence capture is ${state}`);
+  };
+
+  const appendCadencedSample = async (label) => {
+    const read = cloneMetricCaptureReadResult(await capture.sample());
+    const midpoint = metricSampleMidpoint(read, label);
+    if (previousSample !== null) {
+      const cadenceMsObserved = (midpoint - metricSampleMidpoint(previousSample, 'previous metric sample')) * 1000;
+      if (cadenceMsObserved < minimumCadenceMs || cadenceMsObserved > maximumCadenceMs) {
+        failExternalMetric(`${label} cadence is outside the ${minimumCadenceMs}-${maximumCadenceMs}ms policy interval`);
+      }
+    }
+    previousSample = read;
+    nextSampleTargetAt = midpoint + (cadenceMs / 1000);
+    return read;
+  };
+
+  return Object.freeze({
+    async attachAndPrime() {
+      assertState('attach and prime a metric target', 'new');
+      try {
+        prime = cloneMetricCaptureReadResult(await capture.attachAndPrime());
+        state = 'primed';
+        return cloneMetricCaptureReadResult(prime);
+      } catch (error) {
+        state = 'failed';
+        throw error;
+      }
+    },
+
+    async beginWindow() {
+      assertState('begin the metric workload window', 'primed');
+      try {
+        const read = await appendCadencedSample('initial metric workload sample');
+        firstWindowSample = read;
+        inWindowSamples.push(read);
+        state = 'measuring';
+        return Object.freeze({
+          windowStart: read.sample.readStart,
+          sample: cloneMetricCaptureReadResult(read)
+        });
+      } catch (error) {
+        state = 'failed';
+        throw error;
+      }
+    },
+
+    async sampleInWindow() {
+      assertState('sample an active metric workload window', 'measuring');
+      try {
+        const read = await appendCadencedSample('in-window metric sample');
+        inWindowSamples.push(read);
+        return cloneMetricCaptureReadResult(read);
+      } catch (error) {
+        state = 'failed';
+        throw error;
+      }
+    },
+
+    markTerminalClosure(value) {
+      assertState('mark metric terminal closure', 'measuring');
+      assertFiniteNonnegativeNumber(value, 'metric terminal closure end');
+      if (value < firstWindowSample.sample.readStart) {
+        failExternalMetric('metric terminal closure precedes the workload window');
+      }
+      terminalClosureEnd = value;
+      state = 'terminal-pending';
+      return Object.freeze({ terminalClosureEnd });
+    },
+
+    async sampleTerminalClosure() {
+      assertState('sample metric terminal closure', 'terminal-pending');
+      try {
+        const read = await appendCadencedSample('terminal metric sample');
+        if (read.sample.readStart < terminalClosureEnd || read.sample.readEnd <= terminalClosureEnd) {
+          failExternalMetric('terminal metric sample must be the first sample after workload closure');
+        }
+        terminalSample = read;
+        state = 'terminal-sampled';
+        return cloneMetricCaptureReadResult(read);
+      } catch (error) {
+        state = 'failed';
+        throw error;
+      }
+    },
+
+    getNextSampleTargetAt() {
+      if (nextSampleTargetAt === null) {
+        failExternalMetric('metric cadence capture has not started a workload window');
+      }
+      return nextSampleTargetAt;
+    },
+
+    async detach() {
+      assertState('detach a metric cadence capture', 'terminal-sampled');
+      try {
+        const transcript = await capture.detach();
+        state = 'closed';
+        return Object.freeze({
+          window: Object.freeze({
+            start: firstWindowSample.sample.readStart,
+            terminalClosureEnd
+          }),
+          prime: cloneMetricCaptureReadResult(prime),
+          inWindowSamples: Object.freeze(inWindowSamples.map(cloneMetricCaptureReadResult)),
+          terminalSample: cloneMetricCaptureReadResult(terminalSample),
+          nextSampleTargetAt,
+          transcript
+        });
+      } catch (error) {
+        state = 'failed';
+        throw error;
+      }
+    },
+
+    async abort() {
+      if (state === 'closed' || state === 'aborted') failExternalMetric(`cannot abort metric cadence capture when it is ${state}`);
+      const result = await capture.abort();
+      state = 'aborted';
+      return result;
+    },
+
+    getAudit() {
+      return Object.freeze({
+        state,
+        prime: prime === null ? null : cloneMetricCaptureReadResult(prime),
+        window: firstWindowSample === null ? null : Object.freeze({
+          start: firstWindowSample.sample.readStart,
+          terminalClosureEnd
+        }),
+        inWindowSamples: Object.freeze(inWindowSamples.map(cloneMetricCaptureReadResult)),
+        terminalSample: terminalSample === null ? null : cloneMetricCaptureReadResult(terminalSample),
+        nextSampleTargetAt,
+        capture: capture.getAudit()
+      });
+    }
+  });
+}
+
 function cloneMetricSessionTransitions(transitions) {
   return Object.freeze(transitions.map((transition) => Object.freeze({
     ...transition,
@@ -1064,6 +1584,17 @@ function createMetricSessionReader({ target, counterQuantumSeconds, clock, readS
   });
 }
 
+function assertAttachedMetricTargetIdentity(identity, target, label) {
+  if (!identity || typeof identity !== 'object' || Array.isArray(identity)) {
+    failExternalMetric(`${label} must return a process identity object`);
+  }
+  assertPositiveSafeInteger(identity.pid, `${label} PID`);
+  assertNonemptyString(identity.creationIdentity, `${label} creation identity`);
+  if (identity.pid !== target.pid || identity.creationIdentity !== target.creationIdentity) {
+    failExternalMetric(`${label} does not match the attached process creation identity`);
+  }
+}
+
 /**
  * Creates the Linux procfs implementation of the pair-scoped metric-session
  * interface. The session owns no persistent subprocess: each sample reads the
@@ -1079,6 +1610,7 @@ export function createLinuxProcfsMetricAdapterSession({
   clock
 } = {}) {
   const readSnapshot = createLinuxProcfsSnapshotReader({ procfsRoot, pageSize, clockTicks, readFile });
+  const readIdentity = createLinuxProcfsProcessIdentityReader({ procfsRoot, readFile });
   const counterQuantumSeconds = 1 / clockTicks;
   if (!Number.isFinite(counterQuantumSeconds) || counterQuantumSeconds <= 0 || counterQuantumSeconds > 0.01) {
     failExternalMetric('Linux procfs clock ticks must yield a counter quantum at most 0.01 seconds');
@@ -1086,12 +1618,22 @@ export function createLinuxProcfsMetricAdapterSession({
   return createExternalMetricAdapterSession({
     adapterId: 'linux-procfs-v1',
     clock,
-    createReader: ({ target }) => createMetricSessionReader({
-      target,
-      counterQuantumSeconds,
-      clock,
-      readSnapshot: () => readSnapshot(target.pid)
-    })
+    async createReader({ target }) {
+      assertAttachedMetricTargetIdentity(await readIdentity(target.pid), target, 'Linux procfs process identity');
+      return createMetricSessionReader({
+        target,
+        counterQuantumSeconds,
+        clock,
+        readSnapshot: async () => {
+          const snapshot = await readSnapshot(target.pid);
+          assertAttachedMetricTargetIdentity({
+            pid: snapshot.raw.pid,
+            creationIdentity: String(snapshot.raw.startTicks)
+          }, target, 'Linux procfs metric sample');
+          return snapshot;
+        }
+      });
+    }
   });
 }
 
@@ -1103,16 +1645,27 @@ export function createLinuxProcfsMetricAdapterSession({
  * @param {{ runCommand?: (command: string, args: string[]) => Promise<string> | string, clock?: () => number }} options
  */
 export function createMacosPsMetricAdapterSession({ runCommand = runMacosPs, clock } = {}) {
-  const readSnapshot = createMacosPsSnapshotReader({ runCommand });
+  const readIdentity = createMacosPsProcessIdentityReader({ runCommand });
+  const readSnapshot = createMacosPsMetricIdentitySnapshotReader({ runCommand });
   return createExternalMetricAdapterSession({
     adapterId: 'macos-ps-v1',
     clock,
-    createReader: ({ target }) => createMetricSessionReader({
-      target,
-      counterQuantumSeconds: 0.01,
-      clock,
-      readSnapshot: () => readSnapshot(target.pid)
-    })
+    async createReader({ target }) {
+      assertAttachedMetricTargetIdentity(await readIdentity(target.pid), target, 'macOS ps process identity');
+      return createMetricSessionReader({
+        target,
+        counterQuantumSeconds: 0.01,
+        clock,
+        readSnapshot: async () => {
+          const snapshot = await readSnapshot(target.pid);
+          assertAttachedMetricTargetIdentity({
+            pid: snapshot.raw.pid,
+            creationIdentity: snapshot.raw.creationIdentity
+          }, target, 'macOS ps metric sample');
+          return snapshot;
+        }
+      });
+    }
   });
 }
 
@@ -1195,6 +1748,147 @@ export function createWindowsPowerShellMetricAdapterSession({
       });
     }
   });
+}
+
+function normalizeResolvedMetricIdentity(identity, pid, processIdentity, counterQuantumSeconds, label) {
+  if (!identity || typeof identity !== 'object' || Array.isArray(identity)) {
+    failExternalMetric(`${label} must return a process identity object`);
+  }
+  if (identity.pid !== pid) failExternalMetric(`${label} PID does not match the requested process`);
+  return normalizeMetricSessionTarget({
+    pid,
+    creationIdentity: identity.creationIdentity,
+    processIdentity,
+    counterQuantumSeconds
+  });
+}
+
+/**
+ * Resolves one renderer target through the selected platform authority. A
+ * comparison runner uses this once for each launch while retaining exactly one
+ * pair-scoped adapter session across its two sides.
+ *
+ * @param {{
+ *   platform?: NodeJS.Platform,
+ *   pid: number,
+ *   processIdentity: string,
+ *   linux?: { procfsRoot?: string, pageSize: number, clockTicks: number, readFile?: (file: string, encoding: 'utf8') => Promise<string> | string, clock?: () => number, readIdentity?: (pid: number) => Promise<{ pid: number, creationIdentity: string }> | { pid: number, creationIdentity: string } },
+ *   macos?: { runCommand?: (command: string, args: string[]) => Promise<string> | string, clock?: () => number, readIdentity?: (pid: number) => Promise<{ pid: number, creationIdentity: string }> | { pid: number, creationIdentity: string } },
+ *   windows?: { openSampler?: () => Promise<any> | any, clock?: () => number, readIdentity?: (pid: number) => Promise<{ pid: number, creationIdentity: string }> | { pid: number, creationIdentity: string } }
+ * }} options
+ */
+export async function resolvePlatformExternalMetricTarget({
+  platform = process.platform,
+  pid,
+  processIdentity,
+  linux = {},
+  macos = {},
+  windows = {}
+} = {}) {
+  assertPositiveSafeInteger(pid, 'platform metric process PID');
+  assertNonemptyString(processIdentity, 'platform metric process identity');
+  if (typeof platform !== 'string' || platform.length === 0) failExternalMetric('platform metric platform must be a nonempty string');
+  if (!linux || typeof linux !== 'object' || Array.isArray(linux)) failExternalMetric('platform Linux metric options must be an object');
+  if (!macos || typeof macos !== 'object' || Array.isArray(macos)) failExternalMetric('platform macOS metric options must be an object');
+  if (!windows || typeof windows !== 'object' || Array.isArray(windows)) failExternalMetric('platform Windows metric options must be an object');
+
+  if (platform === 'linux') {
+    const {
+      procfsRoot,
+      clockTicks,
+      readFile,
+      readIdentity = createLinuxProcfsProcessIdentityReader({ procfsRoot, readFile })
+    } = linux;
+    if (typeof readIdentity !== 'function') failExternalMetric('platform Linux process identity reader must be a function');
+    const counterQuantumSeconds = 1 / clockTicks;
+    const target = normalizeResolvedMetricIdentity(
+      await readIdentity(pid),
+      pid,
+      processIdentity,
+      counterQuantumSeconds,
+      'platform Linux process identity'
+    );
+    return Object.freeze({ adapterId: 'linux-procfs-v1', target });
+  }
+
+  if (platform === 'darwin') {
+    const {
+      runCommand,
+      readIdentity = createMacosPsProcessIdentityReader({ runCommand })
+    } = macos;
+    if (typeof readIdentity !== 'function') failExternalMetric('platform macOS process identity reader must be a function');
+    const target = normalizeResolvedMetricIdentity(
+      await readIdentity(pid),
+      pid,
+      processIdentity,
+      0.01,
+      'platform macOS process identity'
+    );
+    return Object.freeze({ adapterId: 'macos-ps-v1', target });
+  }
+
+  if (platform === 'win32') {
+    const {
+      readIdentity = createWindowsPowerShellProcessIdentityReader()
+    } = windows;
+    if (typeof readIdentity !== 'function') failExternalMetric('platform Windows process identity reader must be a function');
+    const target = normalizeResolvedMetricIdentity(
+      await readIdentity(pid),
+      pid,
+      processIdentity,
+      0.0000001,
+      'platform Windows process identity'
+    );
+    return Object.freeze({ adapterId: 'windows-powershell-v1', target });
+  }
+
+  failExternalMetric(`unsupported platform metric adapter ${platform}`);
+}
+
+/**
+ * Resolves one initial renderer target and constructs its unopened pair-scoped
+ * metric adapter. Callers reuse the returned session with a separately
+ * resolved target for the opposite side of the comparison.
+ *
+ * @param {{
+ *   platform?: NodeJS.Platform,
+ *   pid: number,
+ *   processIdentity: string,
+ *   linux?: { procfsRoot?: string, pageSize: number, clockTicks: number, readFile?: (file: string, encoding: 'utf8') => Promise<string> | string, clock?: () => number, readIdentity?: (pid: number) => Promise<{ pid: number, creationIdentity: string }> | { pid: number, creationIdentity: string } },
+ *   macos?: { runCommand?: (command: string, args: string[]) => Promise<string> | string, clock?: () => number, readIdentity?: (pid: number) => Promise<{ pid: number, creationIdentity: string }> | { pid: number, creationIdentity: string } },
+ *   windows?: { openSampler?: () => Promise<any> | any, clock?: () => number, readIdentity?: (pid: number) => Promise<{ pid: number, creationIdentity: string }> | { pid: number, creationIdentity: string } }
+ * }} options
+ */
+export async function createPlatformExternalMetricAdapterSession({
+  platform = process.platform,
+  pid,
+  processIdentity,
+  linux = {},
+  macos = {},
+  windows = {}
+} = {}) {
+  const resolved = await resolvePlatformExternalMetricTarget({
+    platform,
+    pid,
+    processIdentity,
+    linux,
+    macos,
+    windows
+  });
+  let session;
+  if (platform === 'linux') {
+    const { procfsRoot, pageSize, clockTicks, readFile, clock } = linux;
+    session = createLinuxProcfsMetricAdapterSession({ procfsRoot, pageSize, clockTicks, readFile, clock });
+  } else if (platform === 'darwin') {
+    const { runCommand, clock } = macos;
+    session = createMacosPsMetricAdapterSession({ runCommand, clock });
+  } else if (platform === 'win32') {
+    const { openSampler, clock } = windows;
+    session = createWindowsPowerShellMetricAdapterSession({ openSampler, clock });
+  } else {
+    failExternalMetric(`unsupported platform metric adapter ${platform}`);
+  }
+  return Object.freeze({ ...resolved, session });
 }
 
 function compareProcessIdentities(left, right) {

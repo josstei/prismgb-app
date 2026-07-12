@@ -10,6 +10,7 @@ import {
   pausePerformanceCallbacksAt,
   pauseExternalPerformanceSentinelCallbacks,
   readPerformanceCallbackGate,
+  readElectronRendererProcessId,
   readExternalPerformanceSentinelGate,
   readPerformanceControlProbe,
   readPerformanceDiagnostics,
@@ -72,6 +73,21 @@ describe('GPU performance baseline helper', () => {
 
     await expect(assertPerformanceController(electronApp, 'launch-id')).resolves.toEqual({ mainPid: process.pid });
     expect(assertLaunchId).toHaveBeenCalledWith('launch-id');
+  });
+
+  it('reads a live renderer OS process ID through Electron main-process evaluation', async () => {
+    const electronApp = {
+      evaluate: async (callback: (electronModule: { BrowserWindow: { getAllWindows: () => unknown[] } }) => number) => callback({
+        BrowserWindow: {
+          getAllWindows: () => [
+            { isDestroyed: () => true, webContents: { getOSProcessId: () => 1 } },
+            { isDestroyed: () => false, webContents: { getOSProcessId: () => 4242 } }
+          ]
+        }
+      })
+    };
+
+    await expect(readElectronRendererProcessId(electronApp)).resolves.toBe(4242);
   });
 
   it('passes the control-probe symbol into the renderer evaluation', async () => {

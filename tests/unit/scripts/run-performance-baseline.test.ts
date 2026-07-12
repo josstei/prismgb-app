@@ -11,10 +11,14 @@ import {
   createPerformanceCommandLedger,
   createPerformanceBuildEnvironment,
   createProductionBundleEvidence,
+  collectPerformanceExternalMetricCaptures,
+  collectPerformanceSentinelCaptures,
   parsePerformanceBaselineArgs,
   resolvePerformancePlaywrightCommand,
   runPerformanceBaseline
 } from '../../../scripts/run-performance-baseline.js';
+import { createPerformanceSentinelCapture, writePerformanceSentinelCapture } from '../../../scripts/lib/performance-sentinel-capture.js';
+import { createPerformanceExternalMetricCapture, writePerformanceExternalMetricCapture } from '../../../scripts/lib/performance-external-metric-capture.js';
 import { createPerformanceWorkloadCapture } from '../../../scripts/lib/performance-workload-capture.js';
 
 const tempDirectories: string[] = [];
@@ -28,6 +32,132 @@ async function createTemporaryWorkspace(): Promise<string> {
 afterEach(async () => {
   await Promise.all(tempDirectories.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })));
 });
+
+function createCanvasSentinelCapture({
+  sourceSha = 'a'.repeat(40),
+  bundleSha256 = 'b'.repeat(64)
+}: {
+  sourceSha?: string;
+  bundleSha256?: string;
+} = {}) {
+  return createPerformanceSentinelCapture({
+    sourceSha,
+    runId: 'external-sentinel-run',
+    externalExecutionId: '123e4567-e89b-42d3-a456-426614174000',
+    observationBoundaryId: 'external-sentinel-window',
+    build: {
+      id: 'harness-control',
+      harness: true,
+      instrumentation: false,
+      bundleSha256
+    },
+    backend: 'canvas2d',
+    workload: {
+      id: 'phase0-animated-160x144-v1',
+      pattern: 'animated',
+      width: 160,
+      height: 144,
+      frameRate: 60
+    },
+    warmup: { callbackCount: 600, elapsedMs: 10_000 },
+    window: {
+      minimumCallbacks: 1,
+      minimumDurationMs: 10,
+      maximumCallbacks: 2,
+      maximumDurationMs: 45,
+      deliveredCallbackCount: 1,
+      startedAt: 10,
+      closedAt: 20,
+      terminalClosureEnd: 25,
+      closureReason: 'minimum-reached'
+    },
+    observations: {
+      callbacks: [{
+        sequence: 1,
+        kind: 'renderer-callback',
+        observedAt: 11,
+        callbackOrdinal: 1,
+        mediaTime: 0.1
+      }],
+      canvasDraws: [{
+        sequence: 2,
+        kind: 'canvas-draw-completed',
+        observedAt: 13,
+        callbackOrdinal: 1,
+        startedAt: 12,
+        endedAt: 13
+      }],
+      workerFramePosts: [],
+      acknowledgements: [],
+      errors: [],
+      postPauseCanvasDrawCount: 0,
+      callbackOverlapCount: 0,
+      outstandingWorkerFrames: 0
+    }
+  });
+}
+
+function createCanvasExternalMetricCapture({
+  sourceSha = 'a'.repeat(40),
+  bundleSha256 = 'b'.repeat(64)
+}: {
+  sourceSha?: string;
+  bundleSha256?: string;
+} = {}) {
+  const externalExecutionId = '123e4567-e89b-42d3-a456-426614174000';
+  const processIdentity = `renderer:${externalExecutionId}:42`;
+  const metricRead = (ordinal: number, readStart: number, cumulativeCpuSeconds: number) => ({
+    sample: {
+      ordinal,
+      readStart,
+      readEnd: readStart + 0.01,
+      cumulativeCpuSeconds,
+      counterQuantumSeconds: 0.01,
+      processIdentity,
+      workingSetMiB: 128
+    },
+    raw: {
+      pid: 42,
+      userTicks: cumulativeCpuSeconds * 100,
+      systemTicks: 0,
+      startTicks: 30,
+      residentPages: 32768,
+      pageSize: 4096,
+      clockTicks: 100
+    }
+  });
+  return createPerformanceExternalMetricCapture({
+    sourceSha,
+    runId: 'external-sentinel-run',
+    externalExecutionId,
+    observationBoundaryId: 'external-sentinel-window',
+    build: {
+      id: 'harness-control',
+      harness: true,
+      instrumentation: false,
+      bundleSha256
+    },
+    adapterId: 'linux-procfs-v1',
+    target: {
+      pid: 42,
+      creationIdentity: '30',
+      processIdentity,
+      counterQuantumSeconds: 0.01
+    },
+    window: { start: 10, terminalClosureEnd: 40.25 },
+    prime: metricRead(0, 9.5, 1),
+    inWindowSamples: Array.from({ length: 61 }, (_, index) => metricRead(index + 1, 10 + (index * 0.5), index + 2)),
+    terminalSample: metricRead(62, 40.5, 63)
+  });
+}
+
+async function writeCanvasSentinelCapture(
+  outputDirectory: string,
+  options: { sourceSha?: string; bundleSha256?: string } = {}
+) {
+  const { schemaVersion: _schemaVersion, checksum: _checksum, ...input } = createCanvasSentinelCapture(options);
+  return writePerformanceSentinelCapture({ outputDirectory, ...input });
+}
 
 describe('parsePerformanceBaselineArgs', () => {
   it('requires an isolated output directory and accepts the closed experiment roles', () => {
@@ -212,6 +342,109 @@ describe('createPerformanceCommandLedger', () => {
   });
 });
 
+describe('collectPerformanceSentinelCaptures', () => {
+  it('indexes checksum-bound external captures only when their variant provenance matches the clean build', async () => {
+    const outputDirectory = await createTemporaryWorkspace();
+    const sourceSha = 'a'.repeat(40);
+    const bundleSha256 = 'b'.repeat(64);
+    const written = await writeCanvasSentinelCapture(outputDirectory, { sourceSha, bundleSha256 });
+    const manifest = {
+      variants: [
+        { id: 'production', harness: false, instrumentation: false, bundle: { sha256: 'c'.repeat(64) } },
+        { id: 'harness-control', harness: true, instrumentation: false, bundle: { sha256: bundleSha256 } },
+        { id: 'instrumented', harness: true, instrumentation: true, bundle: { sha256: 'd'.repeat(64) } }
+      ]
+    };
+
+    const result = await collectPerformanceSentinelCaptures({ outputDirectory, sourceSha, manifest });
+
+    expect(result.index).toMatchObject({
+      schemaVersion: 1,
+      sourceSha,
+      captures: [{
+        relativePath: written.relativePath,
+        buildId: 'harness-control',
+        backend: 'canvas2d',
+        callbackCount: 1,
+        backendOperationCount: 1,
+        acknowledgementCount: 0,
+        eventCount: 2
+      }],
+      checksum: expect.stringMatching(/^[a-f0-9]{64}$/)
+    });
+    await expect(fs.readFile(result.indexPath, 'utf8')).resolves.toContain(written.relativePath);
+  });
+
+  it('rejects an externally valid capture whose bundle does not belong to the manifest', async () => {
+    const outputDirectory = await createTemporaryWorkspace();
+    await writeCanvasSentinelCapture(outputDirectory, { bundleSha256: 'c'.repeat(64) });
+    await expect(collectPerformanceSentinelCaptures({
+      outputDirectory,
+      sourceSha: 'a'.repeat(40),
+      manifest: {
+        variants: [
+          { id: 'harness-control', harness: true, instrumentation: false, bundle: { sha256: 'b'.repeat(64) } }
+        ]
+      }
+    })).rejects.toThrow(/bundle hash does not match the build manifest/);
+  });
+});
+
+describe('collectPerformanceExternalMetricCaptures', () => {
+  it('indexes one raw metric transcript for each matching external sentinel', async () => {
+    const outputDirectory = await createTemporaryWorkspace();
+    const sourceSha = 'a'.repeat(40);
+    const bundleSha256 = 'b'.repeat(64);
+    const sentinelWritten = await writeCanvasSentinelCapture(outputDirectory, { sourceSha, bundleSha256 });
+    const { schemaVersion: _schemaVersion, checksum: _checksum, ...metricInput } = createCanvasExternalMetricCapture({
+      sourceSha,
+      bundleSha256
+    });
+    const metricWritten = await writePerformanceExternalMetricCapture({ outputDirectory, ...metricInput });
+    const manifest = {
+      variants: [{ id: 'harness-control', harness: true, instrumentation: false, bundle: { sha256: bundleSha256 } }]
+    };
+
+    const result = await collectPerformanceExternalMetricCaptures({
+      outputDirectory,
+      sourceSha,
+      manifest,
+      sentinelCaptures: [{ capture: sentinelWritten.capture }]
+    });
+
+    expect(result.index).toMatchObject({
+      sourceSha,
+      captures: [{
+        relativePath: metricWritten.relativePath,
+        buildId: 'harness-control',
+        adapterId: 'linux-procfs-v1',
+        inWindowSampleCount: 61,
+        terminalSampleOrdinal: 62
+      }]
+    });
+  });
+
+  it('rejects a metric transcript that does not bind its sentinel boundary', async () => {
+    const outputDirectory = await createTemporaryWorkspace();
+    const sentinelWritten = await writeCanvasSentinelCapture(outputDirectory);
+    const { schemaVersion: _schemaVersion, checksum: _checksum, ...metricInput } = createCanvasExternalMetricCapture();
+    await writePerformanceExternalMetricCapture({
+      outputDirectory,
+      ...metricInput,
+      observationBoundaryId: 'different-boundary'
+    });
+
+    await expect(collectPerformanceExternalMetricCaptures({
+      outputDirectory,
+      sourceSha: 'a'.repeat(40),
+      manifest: {
+        variants: [{ id: 'harness-control', harness: true, instrumentation: false, bundle: { sha256: 'b'.repeat(64) } }]
+      },
+      sentinelCaptures: [{ capture: sentinelWritten.capture }]
+    })).rejects.toThrow(/sentinel run and observation boundary/);
+  });
+});
+
 describe('runPerformanceBaseline', () => {
   it('clean-builds and preserves all three variant bundles before invoking the performance lane', async () => {
     const cwd = await createTemporaryWorkspace();
@@ -345,6 +578,7 @@ describe('runPerformanceBaseline', () => {
         if (!manifestPath || !outputDirectory) throw new Error('expected performance output environment');
         const manifest = JSON.parse(fsSync.readFileSync(manifestPath, 'utf8'));
         const instrumented = manifest.variants.find((variant: { id: string }) => variant.id === 'instrumented');
+        const harnessControl = manifest.variants.find((variant: { id: string }) => variant.id === 'harness-control');
         const capture = createPerformanceWorkloadCapture({
           sourceSha: 'a'.repeat(40),
           launchId: '123e4567-e89b-42d3-a456-426614174000',
@@ -373,6 +607,24 @@ describe('runPerformanceBaseline', () => {
         const directory = path.join(outputDirectory, 'raw-workload-captures');
         fsSync.mkdirSync(directory, { recursive: true });
         fsSync.writeFileSync(path.join(directory, `${capture.launchId}-${capture.checksum}.json`), JSON.stringify(capture));
+        const sentinelCapture = createCanvasSentinelCapture({
+          bundleSha256: harnessControl.bundle.sha256
+        });
+        const sentinelDirectory = path.join(outputDirectory, 'raw-sentinel-captures');
+        fsSync.mkdirSync(sentinelDirectory, { recursive: true });
+        fsSync.writeFileSync(
+          path.join(sentinelDirectory, `${sentinelCapture.externalExecutionId}-${sentinelCapture.checksum}.json`),
+          JSON.stringify(sentinelCapture)
+        );
+        const metricCapture = createCanvasExternalMetricCapture({
+          bundleSha256: harnessControl.bundle.sha256
+        });
+        const metricDirectory = path.join(outputDirectory, 'raw-external-metric-captures');
+        fsSync.mkdirSync(metricDirectory, { recursive: true });
+        fsSync.writeFileSync(
+          path.join(metricDirectory, `${metricCapture.externalExecutionId}-${metricCapture.checksum}.json`),
+          JSON.stringify(metricCapture)
+        );
         return { status: 0, stdout: '', stderr: '' };
       }
       throw new Error(`unexpected command ${command}`);
@@ -391,7 +643,17 @@ describe('runPerformanceBaseline', () => {
       sourceSha: 'a'.repeat(40),
       captures: [expect.objectContaining({ buildId: 'instrumented', sourceOpportunityCount: 2 })]
     });
+    expect(result.sentinelCapture.index).toMatchObject({
+      sourceSha: 'a'.repeat(40),
+      captures: [expect.objectContaining({ buildId: 'harness-control', backend: 'canvas2d' })]
+    });
+    expect(result.externalMetricCapture.index).toMatchObject({
+      sourceSha: 'a'.repeat(40),
+      captures: [expect.objectContaining({ buildId: 'harness-control', adapterId: 'linux-procfs-v1' })]
+    });
     await expect(fs.readFile(result.workloadCapture.indexPath, 'utf8')).resolves.toContain('raw-workload-captures/');
+    await expect(fs.readFile(result.sentinelCapture.indexPath, 'utf8')).resolves.toContain('raw-sentinel-captures/');
+    await expect(fs.readFile(result.externalMetricCapture.indexPath, 'utf8')).resolves.toContain('raw-external-metric-captures/');
   });
 
   it('rejects a passing Playwright lane that does not persist its workload capture', async () => {

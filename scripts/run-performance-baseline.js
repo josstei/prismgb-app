@@ -6,15 +6,21 @@ import { performance } from 'node:perf_hooks';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { stableStringify } from './lib/baseline-report.js';
+import { loadBaselinePolicy } from './lib/performance-evidence.js';
+import { readPerformanceExternalMetricCaptures } from './lib/performance-external-metric-capture.js';
+import { readPerformanceSentinelCaptures } from './lib/performance-sentinel-capture.js';
 import { readPerformanceWorkloadCaptures } from './lib/performance-workload-capture.js';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PERFORMANCE_BUILD_MANIFEST = 'performance-build-manifest.json';
 const PERFORMANCE_COMMAND_LEDGER = 'performance-command-ledger.json';
+const PERFORMANCE_EXTERNAL_METRIC_CAPTURE_INDEX = 'performance-external-metric-captures.json';
+const PERFORMANCE_SENTINEL_CAPTURE_INDEX = 'performance-sentinel-captures.json';
 const PERFORMANCE_WORKLOAD_CAPTURE_INDEX = 'performance-workload-captures.json';
 const PERFORMANCE_PRODUCTION_BUNDLE_EVIDENCE = 'performance-production-bundle-evidence.json';
 const PRODUCTION_CODE_ROOTS = Object.freeze(['main', 'preload', 'renderer', 'worker']);
 const PERFORMANCE_PLAYWRIGHT_ARGS = Object.freeze(['playwright', 'test', '--config', 'playwright.performance.config.js']);
+const PERFORMANCE_METRIC_POLICY = loadBaselinePolicy().policy.performanceMetricPolicy;
 
 export const PERFORMANCE_BUILD_VARIANTS = Object.freeze([
   Object.freeze({ id: 'production', harness: false, instrumentation: false }),
@@ -541,6 +547,174 @@ export async function collectPerformanceWorkloadCaptures({ outputDirectory, sour
   return Object.freeze({ index, indexPath, captures });
 }
 
+export async function collectPerformanceSentinelCaptures({ outputDirectory, sourceSha, manifest } = {}) {
+  if (typeof outputDirectory !== 'string' || outputDirectory.length === 0) {
+    fail('sentinel capture outputDirectory is required');
+  }
+  if (typeof sourceSha !== 'string' || !/^[a-f0-9]{40}$/.test(sourceSha)) {
+    fail('sentinel capture sourceSha is invalid');
+  }
+  if (!manifest || typeof manifest !== 'object' || !Array.isArray(manifest.variants)) {
+    fail('sentinel capture build manifest is invalid');
+  }
+
+  const captures = await readPerformanceSentinelCaptures({ outputDirectory });
+  if (captures.length === 0) {
+    fail('expected at least one external sentinel capture, found none');
+  }
+  const entries = captures.map(({ capture, relativePath }) => {
+    if (capture.sourceSha !== sourceSha) {
+      fail('sentinel capture source SHA does not match the clean build');
+    }
+    const variant = manifest.variants.find((entry) => entry.id === capture.build.id);
+    if (!variant || variant.harness !== capture.build.harness || variant.instrumentation !== capture.build.instrumentation) {
+      fail('sentinel capture build variant does not match the build manifest');
+    }
+    if (variant.bundle?.sha256 !== capture.build.bundleSha256) {
+      fail('sentinel capture bundle hash does not match the build manifest');
+    }
+    const backendOperationCount = capture.backend === 'canvas2d'
+      ? capture.observations.canvasDraws.length
+      : capture.observations.workerFramePosts.length;
+    const eventCount = capture.observations.callbacks.length
+      + capture.observations.canvasDraws.length
+      + capture.observations.workerFramePosts.length
+      + capture.observations.acknowledgements.length
+      + capture.observations.errors.length;
+    return {
+      relativePath,
+      checksum: capture.checksum,
+      runId: capture.runId,
+      externalExecutionId: capture.externalExecutionId,
+      observationBoundaryId: capture.observationBoundaryId,
+      buildId: capture.build.id,
+      backend: capture.backend,
+      callbackCount: capture.window.deliveredCallbackCount,
+      backendOperationCount,
+      acknowledgementCount: capture.observations.acknowledgements.length,
+      eventCount
+    };
+  });
+  const body = {
+    schemaVersion: 1,
+    sourceSha,
+    captures: entries
+  };
+  const index = Object.freeze({
+    ...body,
+    checksum: crypto.createHash('sha256').update(stableStringify(body), 'utf8').digest('hex')
+  });
+  const indexPath = path.join(outputDirectory, PERFORMANCE_SENTINEL_CAPTURE_INDEX);
+  await fs.writeFile(indexPath, `${stableStringify(index)}\n`, { encoding: 'utf8', flag: 'wx' });
+  return Object.freeze({ index, indexPath, captures });
+}
+
+/**
+ * Indexes the raw OS metric transcript that belongs to each external sentinel
+ * capture. The sentinel and metric files intentionally remain separate so an
+ * evaluator can replay their individual clock domains; this join only binds
+ * their immutable launch/build identities.
+ *
+ * @param {{
+ *   outputDirectory: string,
+ *   sourceSha: string,
+ *   manifest: { variants: Array<object> },
+ *   sentinelCaptures: ReadonlyArray<{ capture: object }>
+ * }} options
+ */
+export async function collectPerformanceExternalMetricCaptures({
+  outputDirectory,
+  sourceSha,
+  manifest,
+  sentinelCaptures
+} = {}) {
+  if (typeof outputDirectory !== 'string' || outputDirectory.length === 0) {
+    fail('external metric capture outputDirectory is required');
+  }
+  if (typeof sourceSha !== 'string' || !/^[a-f0-9]{40}$/.test(sourceSha)) {
+    fail('external metric capture sourceSha is invalid');
+  }
+  if (!manifest || typeof manifest !== 'object' || !Array.isArray(manifest.variants)) {
+    fail('external metric capture build manifest is invalid');
+  }
+  if (!Array.isArray(sentinelCaptures) || sentinelCaptures.length === 0) {
+    fail('external metric capture requires the completed sentinel captures');
+  }
+
+  const sentinelsByExecutionId = new Map();
+  for (const entry of sentinelCaptures) {
+    if (!entry || typeof entry !== 'object' || !entry.capture || typeof entry.capture !== 'object') {
+      fail('external metric capture sentinel entry is invalid');
+    }
+    const sentinel = entry.capture;
+    if (sentinelsByExecutionId.has(sentinel.externalExecutionId)) {
+      fail('external metric capture sentinel execution IDs must be unique');
+    }
+    sentinelsByExecutionId.set(sentinel.externalExecutionId, sentinel);
+  }
+
+  const captures = await readPerformanceExternalMetricCaptures({ outputDirectory });
+  if (captures.length !== sentinelCaptures.length) {
+    fail(`expected exactly ${sentinelCaptures.length} external metric captures, found ${captures.length}`);
+  }
+  const entries = captures.map(({ capture, relativePath }) => {
+    if (capture.sourceSha !== sourceSha) {
+      fail('external metric capture source SHA does not match the clean build');
+    }
+    const variant = manifest.variants.find((entry) => entry.id === capture.build.id);
+    if (!variant || variant.harness !== capture.build.harness || variant.instrumentation !== capture.build.instrumentation) {
+      fail('external metric capture build variant does not match the build manifest');
+    }
+    if (variant.bundle?.sha256 !== capture.build.bundleSha256) {
+      fail('external metric capture bundle hash does not match the build manifest');
+    }
+    const sentinel = sentinelsByExecutionId.get(capture.externalExecutionId);
+    if (!sentinel) {
+      fail('external metric capture does not bind a sentinel execution');
+    }
+    if (capture.runId !== sentinel.runId || capture.observationBoundaryId !== sentinel.observationBoundaryId) {
+      fail('external metric capture does not bind the sentinel run and observation boundary');
+    }
+    if (stableStringify(capture.build) !== stableStringify(sentinel.build)) {
+      fail('external metric capture does not bind the sentinel build identity');
+    }
+    if (capture.inWindowSamples.length < PERFORMANCE_METRIC_POLICY.minimumRawSamples) {
+      fail('external metric capture does not meet the policy raw sample floor');
+    }
+    if (capture.window.terminalClosureEnd - capture.window.start < 30) {
+      fail('external metric capture does not span the policy workload duration');
+    }
+    if (capture.terminalSample.sample.readEnd - capture.window.start < 30) {
+      fail('external metric capture does not retain a terminal sample after the policy workload duration');
+    }
+    return {
+      relativePath,
+      checksum: capture.checksum,
+      runId: capture.runId,
+      externalExecutionId: capture.externalExecutionId,
+      observationBoundaryId: capture.observationBoundaryId,
+      buildId: capture.build.id,
+      adapterId: capture.adapterId,
+      rendererPid: capture.target.pid,
+      processIdentity: capture.target.processIdentity,
+      inWindowSampleCount: capture.inWindowSamples.length,
+      terminalSampleOrdinal: capture.terminalSample.sample.ordinal
+    };
+  });
+  const body = {
+    schemaVersion: 1,
+    sourceSha,
+    captures: entries
+  };
+  const index = Object.freeze({
+    ...body,
+    checksum: crypto.createHash('sha256').update(stableStringify(body), 'utf8').digest('hex')
+  });
+  const indexPath = path.join(outputDirectory, PERFORMANCE_EXTERNAL_METRIC_CAPTURE_INDEX);
+  await fs.writeFile(indexPath, `${stableStringify(index)}\n`, { encoding: 'utf8', flag: 'wx' });
+  return Object.freeze({ index, indexPath, captures });
+}
+
 export async function runPerformanceBaseline({
   cwd = PROJECT_ROOT,
   argv = process.argv.slice(2),
@@ -592,13 +766,26 @@ export async function runPerformanceBaseline({
     sourceSha: build.manifest.sourceSha,
     manifest: build.manifest
   });
+  const sentinelCapture = await collectPerformanceSentinelCaptures({
+    outputDirectory: options.outputDirectory,
+    sourceSha: build.manifest.sourceSha,
+    manifest: build.manifest
+  });
+  const externalMetricCapture = await collectPerformanceExternalMetricCaptures({
+    outputDirectory: options.outputDirectory,
+    sourceSha: build.manifest.sourceSha,
+    manifest: build.manifest,
+    sentinelCaptures: sentinelCapture.captures
+  });
 
   return Object.freeze({
     ...build,
     role: options.role,
     selectedHost: options.selectedHost,
     playwrightExecuted: true,
-    workloadCapture
+    workloadCapture,
+    sentinelCapture,
+    externalMetricCapture
   });
 }
 

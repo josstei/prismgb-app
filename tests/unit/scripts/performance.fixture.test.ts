@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest';
-import { createPerformanceElectronLaunchOptions } from '../../e2e/fixtures/performance.fixture.js';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  createPerformanceElectronLaunchOptions,
+  openPerformanceRendererMetricCapture,
+  resolvePerformanceRendererMetricTarget
+} from '../../e2e/fixtures/performance.fixture.js';
 
 describe('createPerformanceElectronLaunchOptions', () => {
   const inheritedHarnessEnvironment = {
@@ -65,5 +69,98 @@ describe('createPerformanceElectronLaunchOptions', () => {
       userDataDirectory: '/tmp/production-profile',
       performanceDiagnostics: false
     })).toThrow(/must not receive a launch ID/);
+  });
+
+  it('resolves Linux renderer metrics through external adapter authorities only', async () => {
+    const readLinuxConfiguration = async () => ({ pageSize: 4096, clockTicks: 100, counterQuantumSeconds: 0.01 });
+
+    await expect(resolvePerformanceRendererMetricTarget({
+      platform: 'linux',
+      rendererPid: 4242,
+      externalExecutionId: '123e4567-e89b-42d3-a456-426614174000',
+      readLinuxConfiguration,
+      resolveTarget: async ({ pid, processIdentity }) => ({
+        adapterId: 'linux-procfs-v1' as const,
+        target: {
+          pid,
+          creationIdentity: '30',
+          processIdentity,
+          counterQuantumSeconds: 0.01
+        }
+      })
+    })).resolves.toEqual({
+      adapterId: 'linux-procfs-v1',
+      target: {
+        pid: 4242,
+        creationIdentity: '30',
+        processIdentity: 'renderer:123e4567-e89b-42d3-a456-426614174000:4242',
+        counterQuantumSeconds: 0.01
+      }
+    });
+  });
+
+  it('opens, primes, finalizes, and closes one externally owned renderer metric capture', async () => {
+    const target = {
+      pid: 4242,
+      creationIdentity: '30',
+      processIdentity: 'renderer:123e4567-e89b-42d3-a456-426614174000:4242',
+      counterQuantumSeconds: 0.01
+    };
+    const sample = (ordinal: number, readStart: number, readEnd: number, cumulativeCpuSeconds: number) => ({
+      sample: {
+        ordinal,
+        readStart,
+        readEnd,
+        cumulativeCpuSeconds,
+        counterQuantumSeconds: 0.01,
+        processIdentity: target.processIdentity,
+        workingSetMiB: 32
+      },
+      raw: { pid: 4242, startTicks: 30, ordinal }
+    });
+    const session = {
+      open: vi.fn(async () => ({ adapterId: 'macos-ps-v1' })),
+      attach: vi.fn(async () => target),
+      prime: vi.fn(async () => sample(0, 0, 0.01, 1)),
+      sample: vi.fn()
+        .mockResolvedValueOnce(sample(1, 1, 1.01, 1.1))
+        .mockResolvedValueOnce(sample(2, 1.5, 1.51, 1.2))
+        .mockResolvedValueOnce(sample(3, 2, 2.01, 1.3)),
+      detach: vi.fn(async () => ({ target })),
+      close: vi.fn(async () => ({ adapterId: 'macos-ps-v1' })),
+      abort: vi.fn(async () => ({ adapterId: 'macos-ps-v1' }))
+    };
+    const createAdapter = vi.fn(async () => ({ adapterId: 'macos-ps-v1', target, session }));
+
+    const capture = await openPerformanceRendererMetricCapture({
+      platform: 'darwin',
+      rendererPid: 4242,
+      externalExecutionId: '123e4567-e89b-42d3-a456-426614174000',
+      createAdapter
+    });
+
+    await capture.beginWindow();
+    await capture.sampleInWindow();
+    capture.markTerminalClosure(1.7);
+    await capture.sampleTerminalClosure();
+    const transcript = await capture.finalize();
+
+    expect(createAdapter).toHaveBeenCalledWith({
+      platform: 'darwin',
+      pid: 4242,
+      processIdentity: target.processIdentity
+    });
+    expect(session.open).toHaveBeenCalledTimes(1);
+    expect(session.attach).toHaveBeenCalledWith(target);
+    expect(session.prime).toHaveBeenCalledTimes(1);
+    expect(session.detach).toHaveBeenCalledTimes(1);
+    expect(session.close).toHaveBeenCalledTimes(1);
+    expect(session.abort).not.toHaveBeenCalled();
+    expect(transcript).toMatchObject({
+      window: { start: 1, terminalClosureEnd: 1.7 },
+      inWindowSamples: [sample(1, 1, 1.01, 1.1), sample(2, 1.5, 1.51, 1.2)],
+      terminalSample: sample(3, 2, 2.01, 1.3)
+    });
+    await expect(capture.abort()).rejects.toThrow(/when it is closed/);
   });
 });

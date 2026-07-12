@@ -2,6 +2,13 @@ import { test as base, _electron as electron } from '@playwright/test';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import {
+  createExternalMetricCadenceCapture,
+  createExternalMetricRunCapture,
+  createPlatformExternalMetricAdapterSession,
+  readLinuxProcfsMetricConfiguration,
+  resolvePlatformExternalMetricTarget
+} from '../../../scripts/lib/process-runner.js';
 import { ChromaticDeviceFixture } from './chromatic-device.fixture.js';
 import { AppShellPage } from '../pages/app-shell.page.js';
 import {
@@ -15,6 +22,7 @@ import {
   loadPerformanceBuildManifest,
   pauseExternalPerformanceSentinelCallbacks,
   pauseExternalPerformanceSentinelCallbacksAt,
+  readElectronRendererProcessId,
   readExternalPerformanceSentinelGate,
   removeExternalPerformanceSentinelGate,
   removePerformanceControlProbe,
@@ -23,6 +31,7 @@ import {
   resetExternalPerformanceSentinelGate,
   resetPerformanceControlProbe,
   resumeExternalPerformanceSentinelCallbacks,
+  sealExternalPerformanceSentinelGate,
   resetPerformanceDiagnostics
 } from '../helpers/gpu-performance-baseline.helper.js';
 
@@ -95,6 +104,183 @@ export function createPerformanceElectronLaunchOptions({
   return Object.freeze({ args: Object.freeze(args), env: Object.freeze(environment) });
 }
 
+/**
+ * Resolves the renderer's PID-reuse-resistant metric target exclusively from
+ * the external fixture runner. The returned target is deliberately separate
+ * from opening a pair session, so the runner can reuse one adapter across the
+ * two launch sides of a comparison.
+ *
+ * @param {{
+ *   platform?: NodeJS.Platform,
+ *   rendererPid: number,
+ *   externalExecutionId: string,
+ *   readLinuxConfiguration?: typeof readLinuxProcfsMetricConfiguration,
+ *   resolveTarget?: typeof resolvePlatformExternalMetricTarget
+ * }} options
+ */
+export async function resolvePerformanceRendererMetricTarget({
+  platform = process.platform,
+  rendererPid,
+  externalExecutionId,
+  readLinuxConfiguration = readLinuxProcfsMetricConfiguration,
+  resolveTarget = resolvePlatformExternalMetricTarget
+} = {}) {
+  if (!Number.isSafeInteger(rendererPid) || rendererPid <= 0) {
+    throw new Error('performance renderer metric target requires a positive renderer PID');
+  }
+  if (typeof externalExecutionId !== 'string' || !/^[0-9a-f-]{36}$/.test(externalExecutionId)) {
+    throw new Error('performance renderer metric target requires an external execution UUID');
+  }
+  if (typeof readLinuxConfiguration !== 'function' || typeof resolveTarget !== 'function') {
+    throw new Error('performance renderer metric target requires external adapter resolvers');
+  }
+  const options = platform === 'linux'
+    ? { linux: await readLinuxConfiguration() }
+    : {};
+  return resolveTarget({
+    platform,
+    pid: rendererPid,
+    processIdentity: `renderer:${externalExecutionId}:${rendererPid}`,
+    ...options
+  });
+}
+
+/**
+ * Opens, attaches, and primes the external renderer metric authority for one
+ * launch. The returned facade deliberately does not expose its platform
+ * session: callers must either finalize a complete cadence transcript or
+ * abort it, which prevents a detached capture from leaking its OS resource.
+ * A comparison runner may instead retain its own adapter session across both
+ * sides; this fixture helper is for a single externally observed launch.
+ *
+ * @param {{
+ *   platform?: NodeJS.Platform,
+ *   rendererPid: number,
+ *   externalExecutionId: string,
+ *   readLinuxConfiguration?: typeof readLinuxProcfsMetricConfiguration,
+ *   createAdapter?: (options: object) => Promise<any> | any,
+ *   createRunCapture?: typeof createExternalMetricRunCapture,
+ *   createCadenceCapture?: typeof createExternalMetricCadenceCapture
+ * }} options
+ */
+export async function openPerformanceRendererMetricCapture({
+  platform = process.platform,
+  rendererPid,
+  externalExecutionId,
+  readLinuxConfiguration = readLinuxProcfsMetricConfiguration,
+  createAdapter = createPlatformExternalMetricAdapterSession,
+  createRunCapture = createExternalMetricRunCapture,
+  createCadenceCapture = createExternalMetricCadenceCapture
+} = {}) {
+  if (!Number.isSafeInteger(rendererPid) || rendererPid <= 0) {
+    throw new Error('performance renderer metric capture requires a positive renderer PID');
+  }
+  if (typeof externalExecutionId !== 'string' || !/^[0-9a-f-]{36}$/.test(externalExecutionId)) {
+    throw new Error('performance renderer metric capture requires an external execution UUID');
+  }
+  if (typeof createAdapter !== 'function' || typeof createRunCapture !== 'function' || typeof createCadenceCapture !== 'function') {
+    throw new Error('performance renderer metric capture requires external metric capture factories');
+  }
+  if (platform === 'linux' && typeof readLinuxConfiguration !== 'function') {
+    throw new Error('performance renderer metric capture requires a Linux metric configuration reader');
+  }
+
+  const adapterOptions = platform === 'linux'
+    ? { linux: await readLinuxConfiguration() }
+    : {};
+  const adapter = await createAdapter({
+    platform,
+    pid: rendererPid,
+    processIdentity: `renderer:${externalExecutionId}:${rendererPid}`,
+    ...adapterOptions
+  });
+  if (!adapter || typeof adapter !== 'object' || typeof adapter.adapterId !== 'string'
+    || !adapter.target || typeof adapter.target !== 'object'
+    || !adapter.session || typeof adapter.session !== 'object') {
+    throw new Error('performance renderer metric adapter did not return a target and session');
+  }
+  for (const operation of ['open', 'close', 'abort']) {
+    if (typeof adapter.session[operation] !== 'function') {
+      throw new Error(`performance renderer metric adapter session must implement ${operation}`);
+    }
+  }
+
+  let state = 'opening';
+  let cadenceCapture;
+  try {
+    await adapter.session.open();
+    const runCapture = createRunCapture({ session: adapter.session, target: adapter.target });
+    cadenceCapture = createCadenceCapture({ capture: runCapture });
+    await cadenceCapture.attachAndPrime();
+    state = 'active';
+  } catch (error) {
+    await adapter.session.abort().catch(() => {});
+    throw error;
+  }
+
+  const requireActive = (operation) => {
+    if (state !== 'active') {
+      throw new Error(`cannot ${operation} when the performance renderer metric capture is ${state}`);
+    }
+  };
+
+  return Object.freeze({
+    adapterId: adapter.adapterId,
+    target: Object.freeze({ ...adapter.target }),
+    async beginWindow() {
+      requireActive('begin the metric window');
+      return cadenceCapture.beginWindow();
+    },
+    async sampleInWindow() {
+      requireActive('sample the metric window');
+      return cadenceCapture.sampleInWindow();
+    },
+    markTerminalClosure(terminalClosureEnd) {
+      requireActive('mark metric terminal closure');
+      return cadenceCapture.markTerminalClosure(terminalClosureEnd);
+    },
+    async sampleTerminalClosure() {
+      requireActive('sample metric terminal closure');
+      return cadenceCapture.sampleTerminalClosure();
+    },
+    getNextSampleTargetAt() {
+      requireActive('read the next metric sample target');
+      return cadenceCapture.getNextSampleTargetAt();
+    },
+    getAudit() {
+      return cadenceCapture.getAudit();
+    },
+    async finalize() {
+      requireActive('finalize the metric capture');
+      state = 'finalizing';
+      try {
+        const transcript = await cadenceCapture.detach();
+        const sessionClosure = await adapter.session.close();
+        state = 'closed';
+        return Object.freeze({ ...transcript, sessionClosure });
+      } catch (error) {
+        state = 'failed';
+        await adapter.session.abort().catch(() => {});
+        throw error;
+      }
+    },
+    async abort() {
+      if (state !== 'active') {
+        throw new Error(`cannot abort the performance renderer metric capture when it is ${state}`);
+      }
+      state = 'aborting';
+      try {
+        const result = await cadenceCapture.abort();
+        state = 'aborted';
+        return result;
+      } catch (error) {
+        state = 'failed';
+        throw error;
+      }
+    }
+  });
+}
+
 export const test = base.extend({
   performanceVariant: ['instrumented', { option: true }],
   performanceDiagnostics: [true, { option: true }],
@@ -121,12 +307,22 @@ export const test = base.extend({
       window = await app.firstWindow();
       await new AppShellPage(window).waitForReady();
       await installExternalPerformanceSentinelGate(window, externalExecutionId);
+      const rendererPid = await readElectronRendererProcessId(app);
       const commonLaunch = {
         app,
         window,
         sourceSha: loadedManifest.manifest.sourceSha,
         build,
         externalExecutionId,
+        rendererPid,
+        resolveRendererMetricTarget: () => resolvePerformanceRendererMetricTarget({
+          rendererPid,
+          externalExecutionId
+        }),
+        openRendererMetricCapture: () => openPerformanceRendererMetricCapture({
+          rendererPid,
+          externalExecutionId
+        }),
         pausePerformanceCallbacks: () => pauseExternalPerformanceSentinelCallbacks(window, externalExecutionId),
         pausePerformanceCallbacksAt: (callbackCount) => pauseExternalPerformanceSentinelCallbacksAt(
           window,
@@ -140,6 +336,7 @@ export const test = base.extend({
           limits
         ),
         resumePerformanceCallbacks: () => resumeExternalPerformanceSentinelCallbacks(window, externalExecutionId),
+        sealPerformanceCallbacks: () => sealExternalPerformanceSentinelGate(window, externalExecutionId),
         readPerformanceCallbackGate: () => readExternalPerformanceSentinelGate(window, externalExecutionId)
       };
       if (!build.harness) {

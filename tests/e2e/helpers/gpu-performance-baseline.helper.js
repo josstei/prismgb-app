@@ -124,6 +124,21 @@ export async function assertPerformanceController(electronApp, launchId) {
   }, launchId);
 }
 
+/**
+ * Reads the renderer OS process ID through Electron's main-process authority.
+ * This is an external fixture observation; it does not require, install, or
+ * expose an application performance control surface.
+ */
+export async function readElectronRendererProcessId(electronApp) {
+  return electronApp.evaluate(({ BrowserWindow }) => {
+    const mainWindow = BrowserWindow.getAllWindows().find((candidate) => !candidate.isDestroyed());
+    if (!mainWindow) throw new Error('performance renderer process requires a live BrowserWindow');
+    const pid = mainWindow.webContents.getOSProcessId();
+    if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error('performance renderer process ID is invalid');
+    return pid;
+  });
+}
+
 export async function installPerformanceControlProbe(page, launchId) {
   await page.evaluate(({ launchId: expectedLaunchId, probeSymbol }) => {
     const writes = [];
