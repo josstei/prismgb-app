@@ -1,11 +1,18 @@
 import { getPackageDefaultPreset } from './catalog';
 import { RecoverableBackendInitializationError } from '../domain/errors';
-import type { RenderBackend, RenderCapabilities, RenderPipeline, RenderPipelineConfig } from '../domain/types';
+import type {
+  RenderBackend,
+  RenderCapabilities,
+  RenderPipeline,
+  RenderPipelineConfig,
+  WebGpuLifecycleInstrumentationObserver
+} from '../domain/types';
 import { CanvasDriver } from '../infrastructure/canvas.driver';
 import { PipelineController } from '../infrastructure/pipeline-controller';
 
 export interface CreateGpuRendererOptions extends RenderPipelineConfig {
   capabilities?: RenderCapabilities;
+  lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver;
 }
 
 function createBaseConfig(options: CreateGpuRendererOptions) {
@@ -55,10 +62,11 @@ const BACKEND_FALLBACKS: Record<RenderBackend, readonly RenderBackend[]> = {
 
 async function initializeBackendRenderer(
   backend: RenderBackend,
-  renderer: RenderPipeline
+  renderer: RenderPipeline,
+  lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver
 ): Promise<RenderPipeline | null> {
   try {
-    await renderer.initialize();
+    await renderer.initialize(lifecycleInstrumentationObserver);
     return renderer;
   } catch (error) {
     await renderer.dispose().catch(() => undefined);
@@ -78,7 +86,7 @@ async function createCanvasRenderer(options: CreateGpuRendererOptions): Promise<
     nativeHeight: options.nativeHeight,
     preset: options.preset ?? getPackageDefaultPreset()
   }, new CanvasDriver());
-  await renderer.initialize();
+  await renderer.initialize(options.lifecycleInstrumentationObserver);
   return renderer;
 }
 
@@ -100,7 +108,11 @@ export async function createGpuRenderer(options: CreateGpuRendererOptions): Prom
     if (backend === 'webgpu' && capabilities.webgpu) {
       const { WebGpuDriver } = await import('../infrastructure/webgpu.driver');
       const renderer = new PipelineController(baseConfig, new WebGpuDriver());
-      const initializedRenderer = await initializeBackendRenderer('webgpu', renderer);
+      const initializedRenderer = await initializeBackendRenderer(
+        'webgpu',
+        renderer,
+        options.lifecycleInstrumentationObserver
+      );
       if (initializedRenderer) return initializedRenderer;
       continue;
     }

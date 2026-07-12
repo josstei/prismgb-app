@@ -42,6 +42,7 @@ export function createStreamingPerformanceInstrumentation(
 class RendererPerformanceInstrumentation implements StreamingPerformanceInstrumentation {
   private readonly diagnostics: PerformanceDiagnostics;
   private sourceSequence = 0;
+  private readonly lifecycleRequestSequences = new Map<string, number>();
   private readonly unsubscribers: Array<() => void>;
 
   constructor(
@@ -206,6 +207,24 @@ class RendererPerformanceInstrumentation implements StreamingPerformanceInstrume
             measurementEpochId: observation.context.measurementEpochId,
             sourceSequence: observation.context.sourceSequence,
             requestOrdinal: observation.context.sourceSequence,
+            ...request
+          });
+          if (result.accepted === false) {
+            this.logger.error(`Performance allocation observation rejected: ${result.reason}`);
+          }
+        }
+        return;
+      case 'worker-lifecycle-requests':
+        for (const request of observation.lifecycleRequestProxies) {
+          const requestKey = [request.lifecyclePhase, request.operationId, request.sourceLocationId].join(String.fromCharCode(0));
+          const phaseSequence = (this.lifecycleRequestSequences.get(requestKey) ?? 0) + 1;
+          this.lifecycleRequestSequences.set(requestKey, phaseSequence);
+          const result = this.diagnostics.recordWebGpuAllocationRequestProxy({
+            backend: 'webgpu',
+            carrier: 'lifecycle-request',
+            executionId: this.launchId,
+            phaseSequence,
+            requestOrdinal: phaseSequence,
             ...request
           });
           if (result.accepted === false) {

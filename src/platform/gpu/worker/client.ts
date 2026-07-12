@@ -8,7 +8,10 @@ import {
   isFrameToken,
   isFrameErrorResponse,
   isFrameRenderedResponse,
+  isInstrumentedWorkerReadyPayload,
   isWorkerPerformanceFrameTimingResponse,
+  isWorkerLifecycleRequestPayload,
+  isWorkerReadyPayload,
   isPerformanceHarnessBuild,
   isStatsResponse,
   type PresetPayload,
@@ -17,7 +20,8 @@ import {
   type WorkerResponsePayloadMap,
   type WorkerResponseTypeValue,
   type WorkerStatsPayload,
-  type WorkerPerformanceFrameTimingPayload
+  type WorkerPerformanceFrameTimingPayload,
+  type WorkerLifecycleRequestPayload
 } from './protocol';
 
 export type WorkerClientLogger = Pick<Console, 'debug' | 'error' | 'info'>;
@@ -49,6 +53,7 @@ export class WorkerRendererClient {
   private readonly observedHarnessTimingTokens = new Set<number>();
   private lastHarnessFrameToken = 0;
   private performanceFrameTimingHandler: ((payload: WorkerPerformanceFrameTimingPayload) => void) | null = null;
+  private performanceLifecycleRequestHandler: ((payload: WorkerLifecycleRequestPayload) => void) | null = null;
 
   constructor({ createWorker, logger = console }: WorkerRendererClientDependencies) {
     this.createWorker = createWorker;
@@ -114,6 +119,18 @@ export class WorkerRendererClient {
     this.resetHarnessFrameTokens();
     try {
       const ready = await this.withTimeout(this.control.initialize(config), timeout);
+      if (
+        typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+        __PRISMGB_PERF_HARNESS__ &&
+        typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+        __PRISMGB_PERF_INSTRUMENTATION__
+      ) {
+        if (!isWorkerReadyPayload(ready) && !isInstrumentedWorkerReadyPayload(ready)) {
+          throw new TypeError('Instrumented worker READY payload did not match the lifecycle protocol');
+        }
+      } else if (!isWorkerReadyPayload(ready)) {
+        throw new TypeError('Worker READY payload did not contain the selected backend');
+      }
       this.isWorkerReady = true;
       this.dispatch(WorkerResponseType.READY, ready);
       this.logger.info(`Worker initialized with ${ready.backend}`);
@@ -211,12 +228,14 @@ export class WorkerRendererClient {
     this.messageHandlers.get(type)?.(payload);
   }
 
-  private fireAndForget(operation: Promise<unknown>): void {
-    operation.catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : String(error);
-      this.logger.error('Worker control error:', message);
-      this.dispatch(WorkerResponseType.ERROR, { message });
-    });
+  private fireAndForget<T>(operation: Promise<T>, onSuccess?: (result: T) => void): void {
+    operation
+      .then((result) => onSuccess?.(result))
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.error('Worker control error:', message);
+        this.dispatch(WorkerResponseType.ERROR, { message });
+      });
   }
 
   renderFrame(imageBitmap: ImageBitmap, frameToken?: number, diagnosticFrameId?: number): boolean {
@@ -290,7 +309,23 @@ export class WorkerRendererClient {
 
   resize(width: number, height: number, scaleFactor: number): boolean {
     if (!this.isWorkerReady || !this.control) return false;
-    this.fireAndForget(this.control.resize({ width, height, scaleFactor }));
+    if (
+      typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+      __PRISMGB_PERF_HARNESS__ &&
+      typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+      __PRISMGB_PERF_INSTRUMENTATION__
+    ) {
+      this.fireAndForget(this.control.resize({ width, height, scaleFactor }), (payload) => {
+        if (payload === undefined) return;
+        if (!isWorkerLifecycleRequestPayload(payload)) {
+          this.logger.error('Worker resize lifecycle requests did not match the instrumented protocol');
+          return;
+        }
+        this.performanceLifecycleRequestHandler?.(payload);
+      });
+    } else {
+      this.fireAndForget(this.control.resize({ width, height, scaleFactor }));
+    }
     return true;
   }
 
@@ -362,6 +397,17 @@ export class WorkerRendererClient {
     };
   }
 
+  onPerformanceLifecycleRequests(
+    handler: (payload: WorkerLifecycleRequestPayload) => void
+  ): () => void {
+    this.performanceLifecycleRequestHandler = handler;
+    return () => {
+      if (this.performanceLifecycleRequestHandler === handler) {
+        this.performanceLifecycleRequestHandler = null;
+      }
+    };
+  }
+
   releaseResources(): void {
     if (!this.control) {
       this.logger.debug('releaseResources: No worker to release');
@@ -389,6 +435,7 @@ export class WorkerRendererClient {
     this.resetHarnessFrameTokens();
     this.messageHandlers.clear();
     this.performanceFrameTimingHandler = null;
+    this.performanceLifecycleRequestHandler = null;
     this.canvas = null;
     this.offscreenCanvas = null;
     this.wasCanvasTransferred = false;

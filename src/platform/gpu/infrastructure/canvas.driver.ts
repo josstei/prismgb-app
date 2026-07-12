@@ -1,4 +1,8 @@
-import type { FrameRenderResult, WebGpuFrameInstrumentationObserver } from '../domain/types';
+import type {
+  FrameRenderResult,
+  WebGpuFrameInstrumentationObserver,
+  WebGpuLifecycleInstrumentationObserver
+} from '../domain/types';
 import type { PipelineState, RenderDriver } from './pipeline-controller';
 
 export class CanvasDriver implements RenderDriver {
@@ -6,7 +10,10 @@ export class CanvasDriver implements RenderDriver {
 
   private ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null = null;
 
-  async initialize(state: PipelineState): Promise<void> {
+  async initialize(
+    state: PipelineState,
+    _lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver
+  ): Promise<void> {
     this.ctx = state.canvas.getContext('2d', {
       alpha: false,
       desynchronized: true
@@ -63,7 +70,7 @@ export class CanvasDriver implements RenderDriver {
     // Canvas2D has no shader uniform state.
   }
 
-  resize(): void {
+  resize(_state: PipelineState, _lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver): void {
     this.disableImageSmoothing();
   }
 

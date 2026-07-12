@@ -241,7 +241,7 @@ describe('PerformanceDiagnostics', () => {
     });
   });
 
-  it('resets every retained observation and leaves earlier snapshots unchanged', () => {
+  it('resets cohort observations while preserving lifecycle request proxies and earlier snapshots', () => {
     const diagnostics = createPerformanceDiagnostics();
 
     expect(diagnostics.recordBackendObservation({
@@ -255,6 +255,7 @@ describe('PerformanceDiagnostics', () => {
     expect(diagnostics.recordWindowBoundary({ kind: 'warmup-start', measurementEpochId: 'epoch-1', at: 1 })).toEqual({ accepted: true });
     expect(diagnostics.recordWindowBoundary({ kind: 'warmup-end', measurementEpochId: 'epoch-1', at: 2 })).toEqual({ accepted: true });
     expect(diagnostics.recordTimingSample(timingSample(1))).toEqual({ accepted: true });
+    expect(diagnostics.recordWebGpuAllocationRequestProxy(lifecycleRequest(1))).toEqual({ accepted: true });
 
     const beforeReset = diagnostics.getSnapshot();
     diagnostics.reset();
@@ -270,6 +271,7 @@ describe('PerformanceDiagnostics', () => {
       measurementEpochId: null,
       at: null
     });
+    expect(afterReset.allocationRequestProxies.lifecycleRequests).toEqual([lifecycleRequest(1)]);
   });
 
   it('retains a source sequence boundary across a cohort reset', () => {

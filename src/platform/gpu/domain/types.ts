@@ -159,6 +159,38 @@ export type WebGpuFrameRequestProxy =
   }>;
 
 /**
+ * Harness-only evidence of a native WebGPU resource request made outside a
+ * source-frame cohort. The descriptor values are request proxies, never a
+ * claim about physical GPU allocation or lifetime.
+ */
+export type WebGpuLifecycleRequestProxy =
+  | Readonly<{
+    readonly lifecyclePhase: 'startup';
+    readonly operationId: 'gpu-buffer-request';
+    readonly sourceLocationId: 'webgpu-driver:create-buffer';
+    readonly outcome: 'success' | 'failed';
+    readonly byteKind: 'descriptor-size';
+    readonly byteValue: number;
+    readonly descriptorSize: number;
+  }>
+  | Readonly<{
+    readonly lifecyclePhase: 'startup' | 'resize';
+    readonly operationId: 'gpu-texture-request';
+    readonly sourceLocationId: 'webgpu-driver:create-texture';
+    readonly outcome: 'success' | 'failed';
+    readonly byteKind: 'logical-texel-footprint';
+    readonly byteValue: number;
+    readonly textureDescriptor: Readonly<{
+      readonly width: number;
+      readonly height: number;
+      readonly depth: number;
+      readonly format: string;
+      readonly usage: string;
+      readonly logicalTexelFootprint: number;
+    }>;
+  }>;
+
+/**
  * Optional in-process hook for the instrumented worker build. It observes CPU
  * boundaries and request-proxy invocations without claiming GPU allocation or
  * completion.
@@ -168,6 +200,10 @@ export interface WebGpuFrameInstrumentationObserver {
   recordWebGpuFrameRequestProxy(request: WebGpuFrameRequestProxy): void;
 }
 
+export interface WebGpuLifecycleInstrumentationObserver {
+  recordWebGpuLifecycleRequestProxy(request: WebGpuLifecycleRequestProxy): void;
+}
+
 export type FrameRenderResult = FrameDisposition | undefined;
 
 export interface RenderPipeline {
@@ -175,9 +211,9 @@ export interface RenderPipeline {
   readonly isInitialized: boolean;
   readonly isActive: boolean;
 
-  initialize(): Promise<void>;
+  initialize(lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver): Promise<void>;
   renderFrame(source: TexImageSource, instrumentationObserver?: WebGpuFrameInstrumentationObserver): FrameRenderResult;
-  resize(width: number, height: number): void;
+  resize(width: number, height: number, lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver): void;
 
   setPreset(preset: RenderPreset): void;
   getPreset(): RenderPreset;

@@ -142,4 +142,92 @@ describe('instrumented WebGpuDriver frame instrumentation', () => {
       byteValue: null
     });
   });
+
+  it('reports only actual startup and resize resource requests as lifecycle proxies', async () => {
+    const runtime = createRuntime();
+    vi.stubGlobal('navigator', { gpu: runtime.gpu });
+    const renderer = new PipelineController({
+      canvas: {
+        width: 640,
+        height: 576,
+        getContext: vi.fn((contextType) => contextType === 'webgpu' ? runtime.context : null)
+      } as unknown as HTMLCanvasElement,
+      nativeWidth: 160,
+      nativeHeight: 144,
+      preset: getPreset('vibrant')!
+    }, new WebGpuDriver());
+    const lifecycleInstrumentationObserver = {
+      recordWebGpuLifecycleRequestProxy: vi.fn()
+    };
+
+    await renderer.initialize(lifecycleInstrumentationObserver);
+
+    expect(lifecycleInstrumentationObserver.recordWebGpuLifecycleRequestProxy).toHaveBeenCalledTimes(
+      WEBGPU_RENDER_PASSES.length + 3
+    );
+    expect(lifecycleInstrumentationObserver.recordWebGpuLifecycleRequestProxy.mock.calls.map(([request]) => request)).toEqual([
+      {
+        lifecyclePhase: 'startup',
+        operationId: 'gpu-texture-request',
+        sourceLocationId: 'webgpu-driver:create-texture',
+        outcome: 'success',
+        byteKind: 'logical-texel-footprint',
+        byteValue: 160 * 144 * 4,
+        textureDescriptor: {
+          width: 160,
+          height: 144,
+          depth: 1,
+          format: 'rgba8unorm',
+          usage: 'texture-binding-copy-dst-render-attachment',
+          logicalTexelFootprint: 160 * 144 * 4
+        }
+      },
+      ...[0, 1].map(() => ({
+        lifecyclePhase: 'startup' as const,
+        operationId: 'gpu-texture-request' as const,
+        sourceLocationId: 'webgpu-driver:create-texture' as const,
+        outcome: 'success' as const,
+        byteKind: 'logical-texel-footprint' as const,
+        byteValue: 640 * 576 * 4,
+        textureDescriptor: {
+          width: 640,
+          height: 576,
+          depth: 1,
+          format: 'rgba8unorm',
+          usage: 'texture-binding-render-attachment',
+          logicalTexelFootprint: 640 * 576 * 4
+        }
+      })),
+      ...WEBGPU_RENDER_PASSES.map((pass) => ({
+        lifecyclePhase: 'startup' as const,
+        operationId: 'gpu-buffer-request' as const,
+        sourceLocationId: 'webgpu-driver:create-buffer' as const,
+        outcome: 'success' as const,
+        byteKind: 'descriptor-size' as const,
+        byteValue: pass.backend.layout.byteLength,
+        descriptorSize: pass.backend.layout.byteLength
+      }))
+    ]);
+
+    renderer.resize(1280, 1152, lifecycleInstrumentationObserver);
+
+    expect(lifecycleInstrumentationObserver.recordWebGpuLifecycleRequestProxy.mock.calls.slice(-2).map(([request]) => request)).toEqual(
+      [0, 1].map(() => ({
+        lifecyclePhase: 'resize',
+        operationId: 'gpu-texture-request',
+        sourceLocationId: 'webgpu-driver:create-texture',
+        outcome: 'success',
+        byteKind: 'logical-texel-footprint',
+        byteValue: 1280 * 1152 * 4,
+        textureDescriptor: {
+          width: 1280,
+          height: 1152,
+          depth: 1,
+          format: 'rgba8unorm',
+          usage: 'texture-binding-render-attachment',
+          logicalTexelFootprint: 1280 * 1152 * 4
+        }
+      }))
+    );
+  });
 });

@@ -9,7 +9,9 @@ import type {
   RenderPreset,
   RenderStats,
   WebGpuFrameInstrumentationObserver,
-  WebGpuFrameRequestProxy
+  WebGpuFrameRequestProxy,
+  WebGpuLifecycleInstrumentationObserver,
+  WebGpuLifecycleRequestProxy
 } from '../domain/types';
 import {
   CONTROL_PORT_MESSAGE,
@@ -29,6 +31,7 @@ import {
   type ResizePayload,
   type WorkerCaptureReadyPayload,
   type WorkerControlApi,
+  type WorkerLifecycleRequestPayload,
   type WorkerReadyPayload,
   type WorkerRenderBackend,
   type WorkerRendererConfig
@@ -42,8 +45,9 @@ export type WorkerRendererServiceScope = {
 
 type WorkerRendererPipeline = {
   backend: WorkerRenderBackend;
+  startupLifecycleRequestProxies?: readonly WebGpuLifecycleRequestProxy[];
   render: (source: TexImageSource, instrumentationObserver?: WebGpuFrameInstrumentationObserver) => FrameRenderResult;
-  resize: (width: number, height: number) => void;
+  resize: (width: number, height: number) => readonly WebGpuLifecycleRequestProxy[] | undefined;
   captureFrame: () => Promise<ImageBitmap>;
   getStats: () => RenderStats & { uploadTime?: number };
   dispose: () => Promise<void>;
@@ -53,6 +57,21 @@ type WorkerRendererPipeline = {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function isPerformanceInstrumentationBuild(): boolean {
+  return (
+    typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+    __PRISMGB_PERF_HARNESS__ &&
+    typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+    __PRISMGB_PERF_INSTRUMENTATION__
+  );
+}
+
+function cloneLifecycleRequestProxy(request: WebGpuLifecycleRequestProxy): WebGpuLifecycleRequestProxy {
+  return 'textureDescriptor' in request
+    ? { ...request, textureDescriptor: { ...request.textureDescriptor } }
+    : { ...request };
 }
 
 async function createWorkerRendererPipeline(options: {
@@ -68,6 +87,16 @@ async function createWorkerRendererPipeline(options: {
   options.canvas.width = outputWidth;
   options.canvas.height = outputHeight;
 
+  const startupLifecycleRequestProxies: WebGpuLifecycleRequestProxy[] = [];
+  const lifecycleInstrumentationObserver: WebGpuLifecycleInstrumentationObserver | undefined =
+    isPerformanceInstrumentationBuild()
+      ? {
+        recordWebGpuLifecycleRequestProxy(request): void {
+          startupLifecycleRequestProxies.push(cloneLifecycleRequestProxy(request));
+        }
+      }
+      : undefined;
+
   const renderer = await createGpuRenderer({
     canvas: options.canvas,
     nativeWidth,
@@ -75,7 +104,8 @@ async function createWorkerRendererPipeline(options: {
     preferredBackend: options.backend,
     capabilities: detectWorkerGpuCapabilities(options.canvas, options.backend),
     allowCanvas2D: false,
-    preset: options.preset
+    preset: options.preset,
+    lifecycleInstrumentationObserver
   }) as RenderPipeline;
 
   if (!isWorkerRenderBackend(renderer.backend)) {
@@ -84,10 +114,26 @@ async function createWorkerRendererPipeline(options: {
 
   return {
     backend: renderer.backend,
+    ...(lifecycleInstrumentationObserver === undefined
+      ? {}
+      : { startupLifecycleRequestProxies }),
     render: (source, instrumentationObserver) => instrumentationObserver === undefined
       ? renderer.renderFrame(source)
       : renderer.renderFrame(source, instrumentationObserver),
-    resize: (width, height) => renderer.resize(width, height),
+    resize: (width, height) => {
+      if (!isPerformanceInstrumentationBuild()) {
+        renderer.resize(width, height);
+        return undefined;
+      }
+
+      const lifecycleRequestProxies: WebGpuLifecycleRequestProxy[] = [];
+      renderer.resize(width, height, {
+        recordWebGpuLifecycleRequestProxy(request): void {
+          lifecycleRequestProxies.push(cloneLifecycleRequestProxy(request));
+        }
+      });
+      return lifecycleRequestProxies;
+    },
     captureFrame: () => renderer.captureFrame(),
     getStats: () => renderer.getStats(),
     dispose: () => renderer.dispose(),
@@ -146,17 +192,27 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
       lastStatsTime = performance.now();
       lastHarnessFrameToken = 0;
 
+      if (isPerformanceInstrumentationBuild()) {
+        return {
+          backend: pipeline.backend,
+          lifecycleRequestProxies: pipeline.startupLifecycleRequestProxies ?? []
+        };
+      }
       return { backend: pipeline.backend };
     },
 
-    async resize(payload: ResizePayload): Promise<void> {
+    async resize(payload: ResizePayload): Promise<WorkerLifecycleRequestPayload | undefined> {
       if (!isInitialized || !pipeline) return;
       if (config) config.scaleFactor = payload.scaleFactor;
-      pipeline.resize(payload.width, payload.height);
+      const lifecycleRequestProxies = pipeline.resize(payload.width, payload.height);
       if (canvas) {
         canvas.width = payload.width;
         canvas.height = payload.height;
       }
+      if (isPerformanceInstrumentationBuild() && lifecycleRequestProxies !== undefined) {
+        return { lifecycleRequestProxies };
+      }
+      return undefined;
     },
 
     async setPreset(payload: PresetPayload): Promise<void> {

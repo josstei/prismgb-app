@@ -10,7 +10,8 @@ import type {
   RenderCapabilities,
   FrameDispositionOutcome,
   FrameRenderResult,
-  WebGpuFrameRequestProxy
+  WebGpuFrameRequestProxy,
+  WebGpuLifecycleRequestProxy
 } from '../domain/types';
 
 export type GpuVideoFrameMeasurementContext = Readonly<{
@@ -40,6 +41,10 @@ export type GpuVideoPerformanceObservation =
     readonly workerRender: Readonly<{ readonly startedAt: number; readonly endedAt: number }>;
     readonly queueSubmit: Readonly<{ readonly startedAt: number; readonly endedAt: number }>;
     readonly frameRequestProxies: readonly WebGpuFrameRequestProxy[];
+  }>
+  | Readonly<{
+    readonly kind: 'worker-lifecycle-requests';
+    readonly lifecycleRequestProxies: readonly WebGpuLifecycleRequestProxy[];
   }>
   | Readonly<{
     readonly kind: 'worker-frame-acknowledged';
@@ -153,6 +158,12 @@ function isPerformanceInstrumentationBuild(): boolean {
 
 function harnessDisposition(outcome: FrameDispositionOutcome): FrameRenderResult {
   return isPerformanceHarnessBuild() ? { outcome } : undefined;
+}
+
+function cloneLifecycleRequestProxy(request: WebGpuLifecycleRequestProxy): WebGpuLifecycleRequestProxy {
+  return 'textureDescriptor' in request
+    ? { ...request, textureDescriptor: { ...request.textureDescriptor } }
+    : { ...request };
 }
 
 class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
@@ -310,6 +321,18 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
     this.messageUnsubscribers = [
       this.workerClient.onReady((payload) => {
         this.logger.info(`Render worker ready (backend: ${payload.backend})`);
+        if (
+          typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+          __PRISMGB_PERF_HARNESS__ &&
+          typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+          __PRISMGB_PERF_INSTRUMENTATION__ &&
+          'lifecycleRequestProxies' in payload
+        ) {
+          this.recordPerformanceObservation({
+            kind: 'worker-lifecycle-requests',
+            lifecycleRequestProxies: payload.lifecycleRequestProxies.map(cloneLifecycleRequestProxy)
+          });
+        }
         this.onReadyCb?.({ backend: payload.backend });
       }),
 
@@ -425,6 +448,12 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
           workerRender: { ...payload.workerRender },
           queueSubmit: { ...payload.queueSubmit },
           frameRequestProxies: payload.frameRequestProxies.map((request) => ({ ...request }))
+        });
+      }));
+      this.messageUnsubscribers.push(this.workerClient.onPerformanceLifecycleRequests((payload) => {
+        this.recordPerformanceObservation({
+          kind: 'worker-lifecycle-requests',
+          lifecycleRequestProxies: payload.lifecycleRequestProxies.map(cloneLifecycleRequestProxy)
         });
       }));
     }

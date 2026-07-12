@@ -931,9 +931,7 @@ export class PerformanceDiagnostics {
     this.timingSamples = createTimingRecord(() => []);
     this.timingSampleKeys = createTimingRecord(() => new Set<string>());
     this.frameAllocationRequestProxies = [];
-    this.lifecycleAllocationRequestProxies = [];
     this.frameAllocationRequestProxyKeys = new Set();
-    this.lifecycleAllocationRequestProxyKeys = new Set();
     this.rendererHeapObservations = [];
     this.rendererHeapObservationIds = new Set();
     this.rendererHeapUnavailableReason = 'not-collected';

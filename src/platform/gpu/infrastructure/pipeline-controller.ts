@@ -6,7 +6,8 @@ import type {
   RenderPipeline,
   RenderPreset,
   RenderStats,
-  WebGpuFrameInstrumentationObserver
+  WebGpuFrameInstrumentationObserver,
+  WebGpuLifecycleInstrumentationObserver
 } from '../domain/types';
 import { buildUniforms } from '../application/uniform-builder';
 
@@ -40,13 +41,13 @@ export interface PipelineState {
  */
 export interface RenderDriver {
   readonly backend: RenderBackend;
-  initialize(state: PipelineState): Promise<void>;
+  initialize(state: PipelineState, lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver): Promise<void>;
   renderFrame(
     source: TexImageSource,
     state: PipelineState,
     instrumentationObserver?: WebGpuFrameInstrumentationObserver
   ): FrameRenderResult;
-  resize(state: PipelineState): void;
+  resize(state: PipelineState, lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver): void;
   clearFrame(state: PipelineState): void;
   captureFrame(state: PipelineState): Promise<ImageBitmap>;
   onUniformsChanged(): void;
@@ -111,10 +112,10 @@ export class PipelineController implements RenderPipeline, PipelineState {
     });
   }
 
-  async initialize(): Promise<void> {
+  async initialize(lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver): Promise<void> {
     if (this._isInitialized) return;
 
-    await this.driver.initialize(this);
+    await this.driver.initialize(this, lifecycleInstrumentationObserver);
     this._isInitialized = true;
     this._isActive = true;
   }
@@ -139,13 +140,13 @@ export class PipelineController implements RenderPipeline, PipelineState {
     this.driver.onUniformsChanged();
   }
 
-  resize(width: number, height: number): void {
+  resize(width: number, height: number, lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver): void {
     this.outputWidth = width;
     this.outputHeight = height;
     this.canvas.width = width;
     this.canvas.height = height;
     this.uniforms = this.rebuildUniforms();
-    this.driver.resize(this);
+    this.driver.resize(this, lifecycleInstrumentationObserver);
   }
 
   pause(): void {

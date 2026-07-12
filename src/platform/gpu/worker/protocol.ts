@@ -2,7 +2,8 @@ import type {
   FrameDispositionOutcome,
   RenderBackend,
   RenderPreset,
-  WebGpuFrameRequestProxy
+  WebGpuFrameRequestProxy,
+  WebGpuLifecycleRequestProxy
 } from '../domain/types';
 
 /**
@@ -74,7 +75,15 @@ type HarnessFramePayload = { imageBitmap: ImageBitmap; frameToken: number };
 type InstrumentedFramePayload = HarnessFramePayload & { diagnosticFrameId: number };
 export type ResizePayload = { width: number; height: number; scaleFactor: number };
 export type PresetPayload = { presetId: string; preset: RenderPreset };
-export type WorkerReadyPayload = { backend: WorkerRenderBackend };
+export type WorkerReadyPayload =
+  | Readonly<{ backend: WorkerRenderBackend }>
+  | Readonly<{
+    backend: WorkerRenderBackend;
+    lifecycleRequestProxies: readonly WebGpuLifecycleRequestProxy[];
+  }>;
+export type WorkerLifecycleRequestPayload = Readonly<{
+  lifecycleRequestProxies: readonly WebGpuLifecycleRequestProxy[];
+}>;
 export type WorkerStatsPayload = { fps: number; frameTime: number | string; gpuTime?: number; uploadTime?: number };
 export type WorkerErrorPayload = { message: string; stack?: string; code?: string; adapterInfo?: object | null };
 export type WorkerCaptureReadyPayload = { bitmap: ImageBitmap };
@@ -118,7 +127,7 @@ export type WorkerResponsePayloadMap = {
  */
 export interface WorkerControlApi {
   initialize(config: WorkerRendererConfig): Promise<WorkerReadyPayload>;
-  resize(payload: ResizePayload): Promise<void>;
+  resize(payload: ResizePayload): Promise<WorkerLifecycleRequestPayload | undefined>;
   setPreset(payload: PresetPayload): Promise<void>;
   setBrightness(brightness: number): Promise<void>;
   requestCapture(): Promise<void>;
@@ -196,12 +205,130 @@ export function isWorkerRenderBackend(value: unknown): value is WorkerRenderBack
   return value === 'webgpu';
 }
 
+export function isWorkerReadyPayload(value: unknown): value is Readonly<{ backend: WorkerRenderBackend }> {
+  return isRecord(value) &&
+    hasExactKeys(value, ['backend']) &&
+    isWorkerRenderBackend(value.backend);
+}
+
 export function isFrameToken(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 }
 
 function isNonnegativeFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+type WebGpuTextureRequestDescriptor = Readonly<{
+  readonly width: number;
+  readonly height: number;
+  readonly depth: number;
+  readonly format: 'rgba8unorm';
+  readonly usage: 'texture-binding-copy-dst-render-attachment' | 'texture-binding-render-attachment';
+  readonly logicalTexelFootprint: number;
+}>;
+
+function isTextureDescriptor(value: unknown): value is WebGpuTextureRequestDescriptor {
+  if (!isRecord(value) || !hasExactKeys(value, [
+    'width',
+    'height',
+    'depth',
+    'format',
+    'usage',
+    'logicalTexelFootprint'
+  ])) {
+    return false;
+  }
+
+  if (
+    !isPositiveSafeInteger(value.width) ||
+    !isPositiveSafeInteger(value.height) ||
+    !isPositiveSafeInteger(value.depth) ||
+    value.format !== 'rgba8unorm' ||
+    (value.usage !== 'texture-binding-copy-dst-render-attachment' && value.usage !== 'texture-binding-render-attachment') ||
+    !isPositiveSafeInteger(value.logicalTexelFootprint)
+  ) {
+    return false;
+  }
+
+  const footprint = value.width * value.height * value.depth * 4;
+  return Number.isSafeInteger(footprint) && footprint === value.logicalTexelFootprint;
+}
+
+function isTextureLifecycleRequestProxy(
+  value: unknown,
+  lifecyclePhase: 'startup' | 'resize'
+): value is WebGpuLifecycleRequestProxy {
+  if (!isRecord(value) ||
+    !hasExactKeys(value, [
+      'lifecyclePhase',
+      'operationId',
+      'sourceLocationId',
+      'outcome',
+      'byteKind',
+      'byteValue',
+      'textureDescriptor'
+    ])) {
+    return false;
+  }
+
+  const textureDescriptor = value.textureDescriptor;
+  return (
+    value.lifecyclePhase === lifecyclePhase &&
+    value.operationId === 'gpu-texture-request' &&
+    value.sourceLocationId === 'webgpu-driver:create-texture' &&
+    value.outcome === 'success' &&
+    value.byteKind === 'logical-texel-footprint' &&
+    isPositiveSafeInteger(value.byteValue) &&
+    isTextureDescriptor(textureDescriptor) &&
+    value.byteValue === textureDescriptor.logicalTexelFootprint
+  );
+}
+
+function isBufferLifecycleRequestProxy(value: unknown): value is WebGpuLifecycleRequestProxy {
+  return isRecord(value) &&
+    hasExactKeys(value, [
+      'lifecyclePhase',
+      'operationId',
+      'sourceLocationId',
+      'outcome',
+      'byteKind',
+      'byteValue',
+      'descriptorSize'
+    ]) &&
+    value.lifecyclePhase === 'startup' &&
+    value.operationId === 'gpu-buffer-request' &&
+    value.sourceLocationId === 'webgpu-driver:create-buffer' &&
+    value.outcome === 'success' &&
+    value.byteKind === 'descriptor-size' &&
+    isPositiveSafeInteger(value.byteValue) &&
+    value.descriptorSize === value.byteValue;
+}
+
+function isStartupLifecycleRequestProxies(value: unknown): value is readonly WebGpuLifecycleRequestProxy[] {
+  return Array.isArray(value) &&
+    value.length === 7 &&
+    value.slice(0, 3).every((request) => isTextureLifecycleRequestProxy(request, 'startup')) &&
+    value.slice(3).every(isBufferLifecycleRequestProxy);
+}
+
+function isResizeLifecycleRequestProxies(value: unknown): value is readonly WebGpuLifecycleRequestProxy[] {
+  return Array.isArray(value) &&
+    value.length === 2 &&
+    value.every((request) => isTextureLifecycleRequestProxy(request, 'resize'));
+}
+
+export function isInstrumentedWorkerReadyPayload(value: unknown): value is Extract<WorkerReadyPayload, { lifecycleRequestProxies: unknown }> {
+  return isRecord(value) &&
+    hasExactKeys(value, ['backend', 'lifecycleRequestProxies']) &&
+    isWorkerRenderBackend(value.backend) &&
+    isStartupLifecycleRequestProxies(value.lifecycleRequestProxies);
+}
+
+export function isWorkerLifecycleRequestPayload(value: unknown): value is WorkerLifecycleRequestPayload {
+  return isRecord(value) &&
+    hasExactKeys(value, ['lifecycleRequestProxies']) &&
+    isResizeLifecycleRequestProxies(value.lifecycleRequestProxies);
 }
 
 export function isFrameDispositionOutcome(value: unknown): value is FrameDispositionOutcome {

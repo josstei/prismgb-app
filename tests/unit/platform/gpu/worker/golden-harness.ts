@@ -6,7 +6,10 @@ import {
   type WorkerControlApi,
   type WorkerReadyPayload
 } from '../../../../../src/platform/gpu/worker/protocol';
-import type { WebGpuFrameRequestProxy } from '../../../../../src/platform/gpu/domain/types';
+import type {
+  WebGpuFrameRequestProxy,
+  WebGpuLifecycleInstrumentationObserver
+} from '../../../../../src/platform/gpu/domain/types';
 
 /**
  * Transport-agnostic golden-test harness. Touches ONLY the WorkerRendererClient
@@ -22,8 +25,57 @@ export type RecordingDriverHandle = {
 
 export function createRecordingDriver(mockCreateGpuRenderer: ReturnType<typeof vi.fn>): RecordingDriverHandle {
   const record: DriverRecord = [];
-  mockCreateGpuRenderer.mockImplementation(async (opts: { nativeWidth: number; nativeHeight: number }) => {
+  mockCreateGpuRenderer.mockImplementation(async (opts: {
+    nativeWidth: number;
+    nativeHeight: number;
+    lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver;
+  }) => {
     record.push(`create:${opts.nativeWidth}x${opts.nativeHeight}`);
+    opts.lifecycleInstrumentationObserver?.recordWebGpuLifecycleRequestProxy({
+      lifecyclePhase: 'startup',
+      operationId: 'gpu-texture-request',
+      sourceLocationId: 'webgpu-driver:create-texture',
+      outcome: 'success',
+      byteKind: 'logical-texel-footprint',
+      byteValue: opts.nativeWidth * opts.nativeHeight * 4,
+      textureDescriptor: {
+        width: opts.nativeWidth,
+        height: opts.nativeHeight,
+        depth: 1,
+        format: 'rgba8unorm',
+        usage: 'texture-binding-copy-dst-render-attachment',
+        logicalTexelFootprint: opts.nativeWidth * opts.nativeHeight * 4
+      }
+    });
+    for (let index = 0; index < 2; index++) {
+      opts.lifecycleInstrumentationObserver?.recordWebGpuLifecycleRequestProxy({
+        lifecyclePhase: 'startup',
+        operationId: 'gpu-texture-request',
+        sourceLocationId: 'webgpu-driver:create-texture',
+        outcome: 'success',
+        byteKind: 'logical-texel-footprint',
+        byteValue: 640 * 576 * 4,
+        textureDescriptor: {
+          width: 640,
+          height: 576,
+          depth: 1,
+          format: 'rgba8unorm',
+          usage: 'texture-binding-render-attachment',
+          logicalTexelFootprint: 640 * 576 * 4
+        }
+      });
+    }
+    for (let index = 0; index < 4; index++) {
+      opts.lifecycleInstrumentationObserver?.recordWebGpuLifecycleRequestProxy({
+        lifecyclePhase: 'startup',
+        operationId: 'gpu-buffer-request',
+        sourceLocationId: 'webgpu-driver:create-buffer',
+        outcome: 'success',
+        byteKind: 'descriptor-size',
+        byteValue: 64,
+        descriptorSize: 64
+      });
+    }
     return {
       backend: 'webgpu',
       renderFrame: (
@@ -60,8 +112,30 @@ export function createRecordingDriver(mockCreateGpuRenderer: ReturnType<typeof v
         instrumentationObserver?.recordWebGpuQueueSubmitTiming(queueSubmitStartedAt, performance.now());
         return { outcome: 'webgpu-queue-submit-completed' as const };
       },
-      resize: (w: number, h: number) => {
+      resize: (
+        w: number,
+        h: number,
+        lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver
+      ) => {
         record.push(`resize:${w}x${h}`);
+        for (let index = 0; index < 2; index++) {
+          lifecycleInstrumentationObserver?.recordWebGpuLifecycleRequestProxy({
+            lifecyclePhase: 'resize',
+            operationId: 'gpu-texture-request',
+            sourceLocationId: 'webgpu-driver:create-texture',
+            outcome: 'success',
+            byteKind: 'logical-texel-footprint',
+            byteValue: w * h * 4,
+            textureDescriptor: {
+              width: w,
+              height: h,
+              depth: 1,
+              format: 'rgba8unorm',
+              usage: 'texture-binding-render-attachment',
+              logicalTexelFootprint: w * h * 4
+            }
+          });
+        }
       },
       captureFrame: async () => new Uint8Array([9, 8, 7, 6]).buffer,
       getStats: () => ({ fps: 0, frameTime: 0, framesRendered: 0, framesDropped: 0 }),

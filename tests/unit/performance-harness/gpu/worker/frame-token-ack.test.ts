@@ -80,9 +80,28 @@ describe('harness worker frame-token acknowledgement', () => {
       logger: { debug: vi.fn(), error: vi.fn(), info: vi.fn() }
     });
     const onFrameRendered = vi.fn();
+    const onReady = vi.fn();
+    const onPerformanceLifecycleRequests = vi.fn();
     client.onFrameRendered(onFrameRendered);
+    client.onReady(onReady);
+    client.onPerformanceLifecycleRequests(onPerformanceLifecycleRequests);
 
     await client.initialize(mockCanvas(), config());
+    expect(onReady).toHaveBeenCalledWith(expect.objectContaining({
+      backend: 'webgpu',
+      lifecycleRequestProxies: expect.any(Array)
+    }));
+    expect((onReady.mock.calls[0][0] as { lifecycleRequestProxies: unknown[] }).lifecycleRequestProxies).toHaveLength(7);
+
+    expect(client.resize(320, 288, 2)).toBe(true);
+    await flush();
+    expect(onPerformanceLifecycleRequests).toHaveBeenCalledWith({
+      lifecycleRequestProxies: [
+        expect.objectContaining({ lifecyclePhase: 'resize', operationId: 'gpu-texture-request' }),
+        expect.objectContaining({ lifecyclePhase: 'resize', operationId: 'gpu-texture-request' })
+      ]
+    });
+
     const frame = makeDeterministicFrame(1);
     expect(client.renderFrame(frame, 1, 1)).toBe(true);
     await flush(3);

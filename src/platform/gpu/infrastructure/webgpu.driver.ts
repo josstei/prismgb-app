@@ -1,7 +1,11 @@
 import type { PipelineState, RenderDriver } from './pipeline-controller';
 import { loadWebGpuShaders } from './shaders';
 import { RecoverableBackendInitializationError } from '../domain/errors';
-import type { FrameRenderResult, WebGpuFrameInstrumentationObserver } from '../domain/types';
+import type {
+  FrameRenderResult,
+  WebGpuFrameInstrumentationObserver,
+  WebGpuLifecycleInstrumentationObserver
+} from '../domain/types';
 import type { PipelineUniforms } from '../domain/uniforms';
 import {
   compileRenderPasses,
@@ -197,7 +201,10 @@ export class WebGpuDriver implements RenderDriver {
 
   private hasError = false;
 
-  async initialize(state: PipelineState): Promise<void> {
+  async initialize(
+    state: PipelineState,
+    lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver
+  ): Promise<void> {
     if (!navigator.gpu) {
       throw new RecoverableBackendInitializationError('WebGPU not supported');
     }
@@ -237,7 +244,7 @@ export class WebGpuDriver implements RenderDriver {
 
     await this.createPipelines();
     this.createSamplers();
-    this.createResources(state);
+    this.createResources(state, lifecycleInstrumentationObserver);
   }
 
   private async createPipelines(): Promise<void> {
@@ -325,16 +332,47 @@ export class WebGpuDriver implements RenderDriver {
     });
   }
 
-  private createResources(state: PipelineState): void {
+  private createResources(
+    state: PipelineState,
+    lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver
+  ): void {
     const device = this.device!;
     const [targetWidth, targetHeight] = state.uniforms.upscale.outputSize;
 
-    this.sourceTexture = device.createTexture({
+    const sourceTexture = device.createTexture({
       label: 'Source Texture',
       size: [state.nativeWidth, state.nativeHeight],
       format: 'rgba8unorm',
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT
     });
+    if (
+      typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+      __PRISMGB_PERF_HARNESS__ &&
+      typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+      __PRISMGB_PERF_INSTRUMENTATION__
+    ) {
+      const logicalTexelFootprint = state.nativeWidth * state.nativeHeight * 4;
+      if (!Number.isSafeInteger(logicalTexelFootprint) || logicalTexelFootprint <= 0) {
+        throw new RangeError('Source texture request footprint must be a positive safe integer');
+      }
+      lifecycleInstrumentationObserver?.recordWebGpuLifecycleRequestProxy({
+        lifecyclePhase: 'startup',
+        operationId: 'gpu-texture-request',
+        sourceLocationId: 'webgpu-driver:create-texture',
+        outcome: 'success',
+        byteKind: 'logical-texel-footprint',
+        byteValue: logicalTexelFootprint,
+        textureDescriptor: {
+          width: state.nativeWidth,
+          height: state.nativeHeight,
+          depth: 1,
+          format: 'rgba8unorm',
+          usage: 'texture-binding-copy-dst-render-attachment',
+          logicalTexelFootprint
+        }
+      });
+    }
+    this.sourceTexture = sourceTexture;
 
     this.intermediateTextures = [];
     this.intermediateTextureViews = [];
@@ -345,6 +383,33 @@ export class WebGpuDriver implements RenderDriver {
         format: 'rgba8unorm',
         usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT
       });
+      if (
+        typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+        __PRISMGB_PERF_HARNESS__ &&
+        typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+        __PRISMGB_PERF_INSTRUMENTATION__
+      ) {
+        const logicalTexelFootprint = targetWidth * targetHeight * 4;
+        if (!Number.isSafeInteger(logicalTexelFootprint) || logicalTexelFootprint <= 0) {
+          throw new RangeError('Intermediate texture request footprint must be a positive safe integer');
+        }
+        lifecycleInstrumentationObserver?.recordWebGpuLifecycleRequestProxy({
+          lifecyclePhase: 'startup',
+          operationId: 'gpu-texture-request',
+          sourceLocationId: 'webgpu-driver:create-texture',
+          outcome: 'success',
+          byteKind: 'logical-texel-footprint',
+          byteValue: logicalTexelFootprint,
+          textureDescriptor: {
+            width: targetWidth,
+            height: targetHeight,
+            depth: 1,
+            format: 'rgba8unorm',
+            usage: 'texture-binding-render-attachment',
+            logicalTexelFootprint
+          }
+        });
+      }
 
       this.intermediateTextures.push(texture);
       this.intermediateTextureViews.push(texture.createView());
@@ -352,11 +417,28 @@ export class WebGpuDriver implements RenderDriver {
 
     const uniformBuffers = new Map<string, GPUBuffer>();
     for (const pass of WEBGPU_RENDER_PASSES) {
-      uniformBuffers.set(pass.passId, device.createBuffer({
+      const buffer = device.createBuffer({
         label: `${pass.passId} uniform buffer`,
         size: pass.backend.layout.byteLength,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-      }));
+      });
+      if (
+        typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+        __PRISMGB_PERF_HARNESS__ &&
+        typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+        __PRISMGB_PERF_INSTRUMENTATION__
+      ) {
+        lifecycleInstrumentationObserver?.recordWebGpuLifecycleRequestProxy({
+          lifecyclePhase: 'startup',
+          operationId: 'gpu-buffer-request',
+          sourceLocationId: 'webgpu-driver:create-buffer',
+          outcome: 'success',
+          byteKind: 'descriptor-size',
+          byteValue: pass.backend.layout.byteLength,
+          descriptorSize: pass.backend.layout.byteLength
+        });
+      }
+      uniformBuffers.set(pass.passId, buffer);
     }
 
     this.uniformBuffers = uniformBuffers;
@@ -606,7 +688,10 @@ export class WebGpuDriver implements RenderDriver {
     this.uniformChangeTracker.invalidateAll();
   }
 
-  resize(state: PipelineState): void {
+  resize(
+    state: PipelineState,
+    lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver
+  ): void {
     if (!this.device || !this.context) return;
 
     this.intermediateTextures.forEach((texture) => texture.destroy());
@@ -621,6 +706,33 @@ export class WebGpuDriver implements RenderDriver {
         format: 'rgba8unorm',
         usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT
       });
+      if (
+        typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+        __PRISMGB_PERF_HARNESS__ &&
+        typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+        __PRISMGB_PERF_INSTRUMENTATION__
+      ) {
+        const logicalTexelFootprint = targetWidth * targetHeight * 4;
+        if (!Number.isSafeInteger(logicalTexelFootprint) || logicalTexelFootprint <= 0) {
+          throw new RangeError('Resized texture request footprint must be a positive safe integer');
+        }
+        lifecycleInstrumentationObserver?.recordWebGpuLifecycleRequestProxy({
+          lifecyclePhase: 'resize',
+          operationId: 'gpu-texture-request',
+          sourceLocationId: 'webgpu-driver:create-texture',
+          outcome: 'success',
+          byteKind: 'logical-texel-footprint',
+          byteValue: logicalTexelFootprint,
+          textureDescriptor: {
+            width: targetWidth,
+            height: targetHeight,
+            depth: 1,
+            format: 'rgba8unorm',
+            usage: 'texture-binding-render-attachment',
+            logicalTexelFootprint
+          }
+        });
+      }
       this.intermediateTextures.push(texture);
       this.intermediateTextureViews.push(texture.createView());
     }
