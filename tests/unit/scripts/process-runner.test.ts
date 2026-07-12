@@ -8,6 +8,7 @@ import {
   createMacosPsSnapshotReader,
   createProcessIdentityTracker,
   headlessElectronEnv,
+  openWindowsPowerShellMetricSampler,
   parseLinuxProcfsMetricSnapshot,
   parseMacosPsMetricSnapshot,
   parseWindowsPowerShellMetricSnapshot,
@@ -21,6 +22,63 @@ class FakeChildProcess extends EventEmitter {
     setImmediate(() => this.emit('close', null, signal ?? 'SIGTERM'));
     return true;
   });
+}
+
+class FakePowerShellSampler extends EventEmitter {
+  pid = 8484;
+  stdout = new EventEmitter();
+  stderr = new EventEmitter();
+  stdin = {
+    write: vi.fn((line: string) => {
+      const request = JSON.parse(line);
+      this.respond(request);
+      return true;
+    }),
+    end: vi.fn(() => {
+      queueMicrotask(() => this.emit('close', 0, null));
+    })
+  };
+  private sequence = 0;
+  private cpuTicks = 10_000_000;
+
+  constructor(private readonly responseOverride?: (request: Record<string, unknown>) => Record<string, unknown> | null) {
+    super();
+    queueMicrotask(() => this.stdout.emit('data', `${JSON.stringify({ type: 'ready', protocolVersion: 1 })}\n`));
+  }
+
+  kill = vi.fn(() => {
+    queueMicrotask(() => this.emit('close', null, 'SIGKILL'));
+    return true;
+  });
+
+  private respond(request: Record<string, unknown>) {
+    const overridden = this.responseOverride?.(request);
+    if (overridden !== undefined && overridden !== null) {
+      queueMicrotask(() => this.stdout.emit('data', `${JSON.stringify(overridden)}\n`));
+      return;
+    }
+    this.sequence += 1;
+    const operation = request.operation;
+    const common = {
+      requestId: request.requestId,
+      ok: true,
+      operation,
+      samplerSequence: this.sequence,
+      pid: request.pid ?? 42,
+      creationIdentity: request.creationIdentity ?? 'creation-42'
+    };
+    const response = operation === 'prime' || operation === 'sample'
+      ? {
+          ...common,
+          totalProcessorTimeTicks: String(this.cpuTicks += 10_000_000),
+          workingSetBytes: '10485760',
+          readStartTicks: '1000',
+          readEndTicks: '2000',
+          stopwatchFrequency: '100000'
+        }
+      : common;
+    queueMicrotask(() => this.stdout.emit('data', `${JSON.stringify(response)}\n`));
+  }
 }
 
 describe('headlessElectronEnv', () => {
@@ -321,6 +379,55 @@ describe('createExternalMetricAdapterSession', () => {
     await expect(session.attach(target)).rejects.toThrow(/reuse a detached target/);
     await expect(session.attach({ ...target, creationIdentity: 'replacement' })).rejects.toThrow(/PID replacement/);
     await expect(session.attach({ ...target, processIdentity: 'replacement' })).rejects.toThrow(/PID replacement/);
+  });
+});
+
+describe('openWindowsPowerShellMetricSampler', () => {
+  const target = {
+    pid: 42,
+    creationIdentity: 'creation-42',
+    processIdentity: 'renderer-42',
+    counterQuantumSeconds: 0.0000001
+  };
+
+  it('uses one ready persistent sampler with a closed attach/prime/sample/detach protocol', async () => {
+    const child = new FakePowerShellSampler();
+    const spawnProcess = vi.fn(() => child);
+    const sampler = await openWindowsPowerShellMetricSampler({ spawnProcess });
+
+    await expect(sampler.attach(target)).resolves.toEqual(target);
+    await expect(sampler.prime()).resolves.toMatchObject({
+      snapshot: { cumulativeCpuSeconds: 2, workingSetMiB: 10, counterQuantumSeconds: 0.0000001 },
+      sampler: { pid: 42, creationIdentity: 'creation-42', bracketSeconds: 0.01 }
+    });
+    await expect(sampler.sample()).resolves.toMatchObject({ snapshot: { cumulativeCpuSeconds: 3 } });
+    await expect(sampler.detach()).resolves.toEqual({ target });
+    await expect(sampler.close()).resolves.toMatchObject({ pid: 8484, exit: { code: 0, signal: null }, stderr: '' });
+    expect(spawnProcess).toHaveBeenCalledWith('powershell.exe', expect.arrayContaining(['-NoProfile', '-NonInteractive', '-Command']), {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true
+    });
+    expect(child.stdin.write).toHaveBeenCalledTimes(4);
+    expect(child.stdin.write.mock.calls.map(([line]) => JSON.parse(line).operation)).toEqual(['attach', 'prime', 'sample', 'detach']);
+  });
+
+  it('fails closed on response target/sequence corruption and leaves an attached sampler uncloseable', async () => {
+    const mismatchedChild = new FakePowerShellSampler((request) => ({
+      requestId: request.requestId,
+      ok: true,
+      operation: request.operation,
+      samplerSequence: 1,
+      pid: 99,
+      creationIdentity: 'creation-42'
+    }));
+    const sampler = await openWindowsPowerShellMetricSampler({ spawnProcess: () => mismatchedChild });
+    await expect(sampler.attach(target)).rejects.toThrow(/target identity/);
+
+    const attachedChild = new FakePowerShellSampler();
+    const attachedSampler = await openWindowsPowerShellMetricSampler({ spawnProcess: () => attachedChild });
+    await attachedSampler.attach(target);
+    await expect(attachedSampler.close()).rejects.toThrow(/attached target/);
+    await expect(attachedSampler.abort()).resolves.toMatchObject({ aborted: true, exit: { code: 0, signal: null } });
   });
 });
 

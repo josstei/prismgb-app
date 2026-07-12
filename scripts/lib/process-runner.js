@@ -2,7 +2,7 @@
  * Shared child-process lifecycle helpers for gate scripts: headless electron
  * environment, close-awaiting, and platform-aware process-tree termination.
  */
-import { exec, execFile } from 'node:child_process';
+import { exec, execFile, spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import { performance } from 'node:perf_hooks';
 import path from 'node:path';
@@ -10,6 +10,93 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const MEBIBYTE_BYTES = 1024 * 1024;
+export const WINDOWS_POWERSHELL_METRIC_SAMPLER_PROTOCOL_VERSION = 1;
+
+export const WINDOWS_POWERSHELL_METRIC_SAMPLER_SCRIPT = String.raw`
+$ErrorActionPreference = 'Stop'
+$protocolVersion = 1
+$sequence = 0
+$attached = $null
+
+function Send-SamplerEnvelope([object]$Value) {
+  [Console]::Out.WriteLine(($Value | ConvertTo-Json -Compress -Depth 4))
+}
+
+function Require-AttachedProcess() {
+  if ($null -eq $attached) {
+    throw 'no process is attached to the sampler'
+  }
+  $process = Get-Process -Id ([int]$attached.pid) -ErrorAction Stop
+  $creationIdentity = $process.StartTime.ToUniversalTime().Ticks.ToString()
+  if ($creationIdentity -ne [string]$attached.creationIdentity) {
+    throw 'the attached process creation identity changed'
+  }
+  return $process
+}
+
+Send-SamplerEnvelope ([ordered]@{ type = 'ready'; protocolVersion = $protocolVersion })
+
+while (($line = [Console]::In.ReadLine()) -ne $null) {
+  $request = $null
+  try {
+    $request = $line | ConvertFrom-Json -ErrorAction Stop
+    $requestId = [int]$request.requestId
+    $operation = [string]$request.operation
+
+    if ($operation -eq 'attach') {
+      if ($null -ne $attached) {
+        throw 'a process is already attached to the sampler'
+      }
+      $process = Get-Process -Id ([int]$request.pid) -ErrorAction Stop
+      $creationIdentity = $process.StartTime.ToUniversalTime().Ticks.ToString()
+      if ($creationIdentity -ne [string]$request.creationIdentity) {
+        throw 'the requested process creation identity does not match'
+      }
+      $attached = [ordered]@{ pid = [int]$request.pid; creationIdentity = $creationIdentity }
+      $sequence += 1
+      Send-SamplerEnvelope ([ordered]@{
+        requestId = $requestId; ok = $true; operation = 'attach'; samplerSequence = $sequence;
+        pid = $attached.pid; creationIdentity = $attached.creationIdentity
+      })
+      continue
+    }
+
+    if ($operation -eq 'prime' -or $operation -eq 'sample') {
+      $readStartTicks = [System.Diagnostics.Stopwatch]::GetTimestamp()
+      $process = Require-AttachedProcess
+      $process.Refresh()
+      $totalProcessorTimeTicks = $process.TotalProcessorTime.Ticks
+      $workingSetBytes = $process.WorkingSet64
+      $readEndTicks = [System.Diagnostics.Stopwatch]::GetTimestamp()
+      $sequence += 1
+      Send-SamplerEnvelope ([ordered]@{
+        requestId = $requestId; ok = $true; operation = $operation; samplerSequence = $sequence;
+        pid = $attached.pid; creationIdentity = $attached.creationIdentity;
+        totalProcessorTimeTicks = $totalProcessorTimeTicks.ToString(); workingSetBytes = $workingSetBytes.ToString();
+        readStartTicks = $readStartTicks.ToString(); readEndTicks = $readEndTicks.ToString();
+        stopwatchFrequency = [System.Diagnostics.Stopwatch]::Frequency.ToString()
+      })
+      continue
+    }
+
+    if ($operation -eq 'detach') {
+      Require-AttachedProcess | Out-Null
+      $sequence += 1
+      Send-SamplerEnvelope ([ordered]@{
+        requestId = $requestId; ok = $true; operation = 'detach'; samplerSequence = $sequence;
+        pid = $attached.pid; creationIdentity = $attached.creationIdentity
+      })
+      $attached = $null
+      continue
+    }
+
+    throw "unsupported sampler operation: $operation"
+  } catch {
+    $requestId = if ($null -ne $request -and $null -ne $request.requestId) { [int]$request.requestId } else { $null }
+    Send-SamplerEnvelope ([ordered]@{ requestId = $requestId; ok = $false; error = [string]$_.Exception.Message })
+  }
+}
+`;
 
 function failProcessIdentity(message) {
   throw new TypeError(`Process identity tracker failed: ${message}`);
@@ -350,6 +437,375 @@ export function createMacosPsSnapshotReader({ runCommand = runMacosPs } = {}) {
     const output = await runCommand('/bin/ps', ['-o', 'time=', '-o', 'rss=', '-p', String(pid)]);
     return parseMacosPsMetricSnapshot(output);
   };
+}
+
+function assertExactObjectKeys(value, keys, label) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    failExternalMetric(`${label} must be an object`);
+  }
+  const actual = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  if (actual.join('\u0000') !== expected.join('\u0000')) {
+    failExternalMetric(`${label} has an invalid field set`);
+  }
+}
+
+function parseSamplerBigInteger(value, label) {
+  const parsed = parseBigDecimalInteger(value, label);
+  return Object.freeze({ value: parsed, text: parsed.toString() });
+}
+
+function normalizeWindowsSamplerTarget(value) {
+  const target = normalizeMetricSessionTarget(value);
+  if (target.counterQuantumSeconds !== 0.0000001) {
+    failExternalMetric('Windows sampler targets must use the 100-nanosecond counter quantum');
+  }
+  return target;
+}
+
+function validateWindowsSamplerResponse(response, operation, requestId, target, lastSamplerSequence) {
+  if (!response || typeof response !== 'object' || Array.isArray(response)) {
+    failExternalMetric('Windows sampler response must be an object');
+  }
+  const sampleOperation = operation === 'prime' || operation === 'sample';
+  assertExactObjectKeys(response, sampleOperation
+    ? ['requestId', 'ok', 'operation', 'samplerSequence', 'pid', 'creationIdentity', 'totalProcessorTimeTicks', 'workingSetBytes', 'readStartTicks', 'readEndTicks', 'stopwatchFrequency']
+    : ['requestId', 'ok', 'operation', 'samplerSequence', 'pid', 'creationIdentity'], 'Windows sampler response');
+  if (response.requestId !== requestId || response.ok !== true || response.operation !== operation) {
+    failExternalMetric('Windows sampler response does not bind its request');
+  }
+  assertPositiveSafeInteger(response.samplerSequence, 'Windows sampler response sequence');
+  if (response.samplerSequence !== lastSamplerSequence + 1) {
+    failExternalMetric('Windows sampler response sequence is not contiguous');
+  }
+  if (response.pid !== target.pid || response.creationIdentity !== target.creationIdentity) {
+    failExternalMetric('Windows sampler response target identity does not match the attached process');
+  }
+  if (!sampleOperation) return Object.freeze({ samplerSequence: response.samplerSequence });
+
+  const readStartTicks = parseSamplerBigInteger(response.readStartTicks, 'Windows sampler read start ticks');
+  const readEndTicks = parseSamplerBigInteger(response.readEndTicks, 'Windows sampler read end ticks');
+  const stopwatchFrequency = parseSamplerBigInteger(response.stopwatchFrequency, 'Windows sampler stopwatch frequency');
+  if (readEndTicks.value < readStartTicks.value || stopwatchFrequency.value <= 0n) {
+    failExternalMetric('Windows sampler response has an invalid read bracket');
+  }
+  const bracketSeconds = Number(readEndTicks.value - readStartTicks.value) / Number(stopwatchFrequency.value);
+  if (!Number.isFinite(bracketSeconds) || bracketSeconds < 0 || bracketSeconds > 0.05) {
+    failExternalMetric('Windows sampler response read bracket exceeds 50 milliseconds');
+  }
+  const snapshot = parseWindowsPowerShellMetricSnapshot({
+    totalProcessorTimeTicks: response.totalProcessorTimeTicks,
+    workingSetBytes: response.workingSetBytes
+  });
+  return Object.freeze({
+    samplerSequence: response.samplerSequence,
+    snapshot,
+    sampler: Object.freeze({
+      pid: target.pid,
+      creationIdentity: target.creationIdentity,
+      readStartTicks: readStartTicks.text,
+      readEndTicks: readEndTicks.text,
+      stopwatchFrequency: stopwatchFrequency.text,
+      bracketSeconds
+    })
+  });
+}
+
+function waitForValue(promise, timeoutMs, label) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
+
+/**
+ * Opens the one persistent Windows PowerShell sampler allowed for a
+ * pair-scoped metric session. The JSON-lines transport is deliberately closed
+ * to attach, prime, sample, and detach requests; a one-time ready envelope
+ * establishes the subprocess before either comparison side attaches.
+ *
+ * @param {{
+ *   spawnProcess?: (command: string, args: string[], options: { stdio: [string, string, string], windowsHide: boolean }) => any,
+ *   command?: string,
+ *   readyTimeoutMs?: number,
+ *   responseTimeoutMs?: number,
+ *   maximumResponseBytes?: number
+ * }} options
+ */
+export async function openWindowsPowerShellMetricSampler({
+  spawnProcess = spawn,
+  command = 'powershell.exe',
+  readyTimeoutMs = 5_000,
+  responseTimeoutMs = 5_000,
+  maximumResponseBytes = 64 * 1024
+} = {}) {
+  if (typeof spawnProcess !== 'function') failExternalMetric('spawnProcess must be a function');
+  assertNonemptyString(command, 'Windows PowerShell command');
+  for (const [label, value] of Object.entries({ readyTimeoutMs, responseTimeoutMs, maximumResponseBytes })) {
+    assertPositiveSafeInteger(value, `Windows sampler ${label}`);
+  }
+  if (readyTimeoutMs > 5_000 || responseTimeoutMs > 5_000 || maximumResponseBytes > 64 * 1024) {
+    failExternalMetric('Windows sampler timeout or response limit exceeds the closed policy cap');
+  }
+
+  const child = spawnProcess(command, ['-NoProfile', '-NonInteractive', '-Command', WINDOWS_POWERSHELL_METRIC_SAMPLER_SCRIPT], {
+    stdio: ['pipe', 'pipe', 'pipe'],
+    windowsHide: true
+  });
+  if (!child || typeof child !== 'object' || !child.stdin || !child.stdout || !child.stderr || typeof child.once !== 'function') {
+    failExternalMetric('Windows sampler spawn did not return a stdio child process');
+  }
+  if (typeof child.stdin.write !== 'function' || typeof child.stdin.end !== 'function' || typeof child.stdout.on !== 'function' || typeof child.stderr.on !== 'function') {
+    failExternalMetric('Windows sampler child does not expose writable stdin and readable stdout/stderr');
+  }
+  assertPositiveSafeInteger(child.pid, 'Windows sampler PID');
+
+  let ready = false;
+  let closed = false;
+  let closing = false;
+  let terminalError = null;
+  let stdoutBuffer = '';
+  let stderr = '';
+  let pending = null;
+  let requestId = 0;
+  let samplerSequence = 0;
+  let activeTarget = null;
+  let resolveReady;
+  let rejectReady;
+  let resolveClose;
+  const readyPromise = new Promise((resolve, reject) => {
+    resolveReady = resolve;
+    rejectReady = reject;
+  });
+  const closePromise = new Promise((resolve) => {
+    resolveClose = resolve;
+  });
+
+  const failTransport = (error) => {
+    if (terminalError !== null) return;
+    terminalError = error instanceof Error ? error : new Error(String(error));
+    if (!ready) rejectReady(terminalError);
+    if (pending !== null) {
+      clearTimeout(pending.timer);
+      const rejected = pending;
+      pending = null;
+      rejected.reject(terminalError);
+    }
+  };
+
+  const processResponse = (response) => {
+    if (!response || typeof response !== 'object' || Array.isArray(response)) {
+      failTransport(new Error('Windows sampler emitted a non-object response'));
+      return;
+    }
+    if (response.type === 'ready') {
+      try {
+        assertExactObjectKeys(response, ['type', 'protocolVersion'], 'Windows sampler ready response');
+        if (ready || response.protocolVersion !== WINDOWS_POWERSHELL_METRIC_SAMPLER_PROTOCOL_VERSION) {
+          failExternalMetric('Windows sampler ready response is invalid');
+        }
+        ready = true;
+        resolveReady();
+      } catch (error) {
+        failTransport(error);
+      }
+      return;
+    }
+    if (pending === null) {
+      failTransport(new Error('Windows sampler emitted an unsolicited response'));
+      return;
+    }
+    const current = pending;
+    pending = null;
+    clearTimeout(current.timer);
+    if (response.requestId !== current.requestId) {
+      const error = new Error('Windows sampler response request ID does not match the pending request');
+      failTransport(error);
+      current.reject(error);
+      return;
+    }
+    if (response.ok === false) {
+      try {
+        assertExactObjectKeys(response, ['requestId', 'ok', 'error'], 'Windows sampler error response');
+        assertNonemptyString(response.error, 'Windows sampler error response message');
+        const error = new Error(`Windows sampler rejected ${current.operation}: ${response.error}`);
+        failTransport(error);
+        current.reject(error);
+      } catch (error) {
+        failTransport(error);
+        current.reject(error);
+      }
+      return;
+    }
+    current.resolve(response);
+  };
+
+  child.stdout.on('data', (chunk) => {
+    if (terminalError !== null) return;
+    stdoutBuffer += String(chunk);
+    if (Buffer.byteLength(stdoutBuffer, 'utf8') > maximumResponseBytes) {
+      failTransport(new Error('Windows sampler stdout buffer exceeded the configured limit'));
+      return;
+    }
+    let newlineIndex;
+    while ((newlineIndex = stdoutBuffer.indexOf('\n')) !== -1) {
+      const line = stdoutBuffer.slice(0, newlineIndex).trim();
+      stdoutBuffer = stdoutBuffer.slice(newlineIndex + 1);
+      if (line.length === 0) continue;
+      try {
+        processResponse(JSON.parse(line));
+      } catch (error) {
+        failTransport(new Error(`Windows sampler emitted invalid JSON: ${error instanceof Error ? error.message : String(error)}`));
+      }
+    }
+  });
+  child.stderr.on('data', (chunk) => {
+    stderr += String(chunk);
+    if (Buffer.byteLength(stderr, 'utf8') > maximumResponseBytes) {
+      failTransport(new Error('Windows sampler stderr buffer exceeded the configured limit'));
+    }
+  });
+  child.once('error', (error) => failTransport(error));
+  child.once('close', (code, signal) => {
+    closed = true;
+    const closeResult = Object.freeze({ code, signal });
+    resolveClose(closeResult);
+    if (!closing) failTransport(new Error(`Windows sampler exited unexpectedly with code ${code} and signal ${signal}`));
+  });
+
+  try {
+    await waitForValue(readyPromise, readyTimeoutMs, 'Windows sampler ready handshake');
+  } catch (error) {
+    try {
+      child.kill?.('SIGKILL');
+    } catch {
+      // The spawn/transport failure is already the authoritative error.
+    }
+    throw error;
+  }
+
+  const request = async (operation, payload = {}) => {
+    if (terminalError !== null) throw terminalError;
+    if (closed) failExternalMetric('Windows sampler is closed');
+    if (!ready) failExternalMetric('Windows sampler is not ready');
+    if (pending !== null) failExternalMetric('Windows sampler does not permit overlapping requests');
+    const nextRequestId = ++requestId;
+    const response = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        if (pending?.requestId === nextRequestId) {
+          pending = null;
+          reject(new Error(`Windows sampler ${operation} response timed out after ${responseTimeoutMs}ms`));
+        }
+      }, responseTimeoutMs);
+      pending = { requestId: nextRequestId, operation, resolve, reject, timer };
+    });
+    try {
+      child.stdin.write(`${JSON.stringify({ requestId: nextRequestId, operation, ...payload })}\n`);
+    } catch (error) {
+      if (pending?.requestId === nextRequestId) {
+        clearTimeout(pending.timer);
+        pending = null;
+      }
+      throw error;
+    }
+    return response;
+  };
+
+  const requireActiveTarget = (operation) => {
+    if (activeTarget === null) failExternalMetric(`cannot ${operation} without an attached Windows sampler target`);
+    return activeTarget;
+  };
+
+  const readSample = async (operation) => {
+    const target = requireActiveTarget(operation);
+    const response = await request(operation);
+    let parsed;
+    try {
+      parsed = validateWindowsSamplerResponse(response, operation, requestId, target, samplerSequence);
+    } catch (error) {
+      failTransport(error);
+      throw error;
+    }
+    samplerSequence = parsed.samplerSequence;
+    return Object.freeze({ snapshot: parsed.snapshot, sampler: parsed.sampler });
+  };
+
+  const finish = async (aborted) => {
+    if (closing || closed) failExternalMetric('Windows sampler is already closing or closed');
+    if (!aborted && activeTarget !== null) failExternalMetric('cannot close Windows sampler with an attached target');
+    closing = true;
+    try {
+      child.stdin.end();
+    } catch (error) {
+      failTransport(error);
+      throw error;
+    }
+    const result = await waitForValue(closePromise, responseTimeoutMs, 'Windows sampler close');
+    if (result.code !== 0 || result.signal !== null || stderr.trim() !== '') {
+      failExternalMetric('Windows sampler did not close cleanly');
+    }
+    return Object.freeze({ pid: child.pid, aborted, exit: result, stderr: '' });
+  };
+
+  return Object.freeze({
+    pid: child.pid,
+
+    async attach(targetInput) {
+      if (activeTarget !== null) failExternalMetric('Windows sampler already has an attached target');
+      const target = normalizeWindowsSamplerTarget(targetInput);
+      const response = await request('attach', { pid: target.pid, creationIdentity: target.creationIdentity });
+      let parsed;
+      try {
+        parsed = validateWindowsSamplerResponse(response, 'attach', requestId, target, samplerSequence);
+      } catch (error) {
+        failTransport(error);
+        throw error;
+      }
+      samplerSequence = parsed.samplerSequence;
+      activeTarget = target;
+      return target;
+    },
+
+    async prime() {
+      return readSample('prime');
+    },
+
+    async sample() {
+      return readSample('sample');
+    },
+
+    async detach() {
+      const target = requireActiveTarget('detach');
+      const response = await request('detach');
+      let parsed;
+      try {
+        parsed = validateWindowsSamplerResponse(response, 'detach', requestId, target, samplerSequence);
+      } catch (error) {
+        failTransport(error);
+        throw error;
+      }
+      samplerSequence = parsed.samplerSequence;
+      activeTarget = null;
+      return Object.freeze({ target });
+    },
+
+    async close() {
+      return finish(false);
+    },
+
+    async abort() {
+      return finish(true);
+    }
+  });
 }
 
 function normalizeMetricSessionTarget(value) {
