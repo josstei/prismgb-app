@@ -11,8 +11,8 @@ import { writePerformanceWorkloadCapture } from '../../scripts/lib/performance-w
 const performancePolicy = loadBaselinePolicy().policy;
 const { warmup: warmupLimits, window: windowLimits } = performancePolicy.performanceLimits;
 const measurementWindowLimits = Object.freeze({
-  minimumCallbacks: 1_800,
-  minimumDurationMs: 30_000,
+  minimumCallbacks: windowLimits.minimumCallbacks,
+  minimumDurationMs: windowLimits.minimumSeconds * 1000,
   maximumCallbacks: windowLimits.maximumCallbacks,
   maximumDurationMs: windowLimits.maximumSeconds * 1000
 });

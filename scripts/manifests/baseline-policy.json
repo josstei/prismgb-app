@@ -334,7 +334,7 @@
     "readinessSeconds": 30,
     "sourceFlowSeconds": 15,
     "warmup": { "minimumSeconds": 10, "minimumCallbacks": 600, "maximumSeconds": 30, "maximumCallbacks": 900 },
-    "window": { "maximumSeconds": 45, "maximumCallbacks": 2048 },
+    "window": { "minimumSeconds": 30, "minimumCallbacks": 1800, "maximumSeconds": 45, "maximumCallbacks": 2048 },
     "oneLaunchSeconds": 300,
     "ciExperimentSeconds": 10800,
     "referenceExperimentSeconds": 28800,

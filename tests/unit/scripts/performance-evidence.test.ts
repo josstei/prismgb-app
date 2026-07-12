@@ -22,6 +22,11 @@ const hash = 'a'.repeat(64);
 const compiledPolicy = loadBaselinePolicy();
 const policyHash = compiledPolicy.policyHash;
 const experimentId = 'performance-evidence-experiment';
+const runtimeCallbackCount = compiledPolicy.policy.performanceLimits.window.minimumCallbacks;
+
+function runtimeSourceSequences() {
+  return Array.from({ length: runtimeCallbackCount }, (_, index) => index + 1);
+}
 
 const runtimeEvidenceProvenance = {
   kind: 'runtime-capture' as const,
@@ -97,7 +102,7 @@ function validLedger({
     { sequence: 3, operationId: 'electron-harness-spawn', start: 2, end: 3, metricSessionId: 'session', comparisonSide: 'A', comparisonKind, buildVariant: 'harness-control', runId: instrumentation ? 'control' : 'a', launchId: 'launch-control', executionId: instrumentation ? 'control-execution' : 'execution', ...common, ownership: { class: 'application-owned' }, cleanup: closure, outcome: 'completed' },
     { sequence: 4, operationId: 'internal-reset', start: 3, end: 4, metricSessionId: 'session', resetId: 'b', boundary: 'reset-before-b' },
     instrumentation
-      ? { sequence: 5, operationId: 'electron-harness-spawn', start: 4, end: 5, metricSessionId: 'session', comparisonSide: 'B', comparisonKind, buildVariant: 'instrumented', runId: 'run', launchId: 'launch-instrumented', executionId: 'run-execution', measurementEpochId: 'epoch', frameSourceSequences: [1], ...common, ownership: { class: 'application-owned' }, cleanup: closure, outcome: 'completed' }
+      ? { sequence: 5, operationId: 'electron-harness-spawn', start: 4, end: 5, metricSessionId: 'session', comparisonSide: 'B', comparisonKind, buildVariant: 'instrumented', runId: 'run', launchId: 'launch-instrumented', executionId: 'run-execution', measurementEpochId: 'epoch', frameSourceSequences: runtimeSourceSequences(), ...common, ownership: { class: 'application-owned' }, cleanup: closure, outcome: 'completed' }
       : { sequence: 5, operationId: 'production-sentinel-spawn', start: 4, end: 5, metricSessionId: 'session', comparisonSide: 'B', comparisonKind, buildVariant: 'production', runId: 'b', externalExecutionId: 'external', ...common, ownership: { class: 'application-owned' }, cleanup: closure, outcome: 'completed' },
     { sequence: 6, operationId: 'metric-adapter-session-close', start: 5, end: 6, metricSessionId: 'session', outcome: 'completed', closure }
   ];
@@ -148,7 +153,7 @@ function rawEvidence(ledger: ReturnType<typeof validLedger>) {
   const launches = ledger.filter((entry) => entry.operationId === 'electron-harness-spawn' || entry.operationId === 'production-sentinel-spawn');
   return {
     runs: launches.map((launch: any) => {
-      const sourceSequences = launch.buildVariant === 'instrumented' ? launch.frameSourceSequences : [1];
+      const sourceSequences = launch.buildVariant === 'instrumented' ? launch.frameSourceSequences : runtimeSourceSequences();
       const identity = `${launch.runId}-identity`;
       const cpuSamples = Array.from({ length: 61 }, (_, index) => {
         const readStart = index * 0.5;
@@ -225,7 +230,7 @@ function qualificationInput() {
 
 function validRuntimeEvaluationInput() {
   const ledger = validLedger({ experimentId, backend: 'webgpu', comparisonKind: 'instrumentation-overhead' });
-  const expected = deriveAllocationExpectedCoverage({ acceptedRunIds: ['run'], frameCountByRun: { run: 1 } }, compiledPolicy);
+  const expected = deriveAllocationExpectedCoverage({ acceptedRunIds: ['run'], frameCountByRun: { run: runtimeCallbackCount } }, compiledPolicy);
   const rows = expected.flatMap((entry) => Array.from({ length: entry.expectedCardinality }, (_, offset) => allocationRow(entry, offset + 1)));
   return {
     experimentId,
@@ -286,7 +291,7 @@ describe('performance evidence policy evaluator', () => {
       processAdapter: { id: 'linux-procfs-v1' }, seedManifestHash: hash, timestamps: [1]
     };
     expect(computeQualificationFingerprint(qualification, policy)).toMatch(/^[a-f0-9]{64}$/);
-    const expected = deriveAllocationExpectedCoverage({ acceptedRunIds: ['run'], frameCountByRun: { run: 1 } }, policy);
+    const expected = deriveAllocationExpectedCoverage({ acceptedRunIds: ['run'], frameCountByRun: { run: runtimeCallbackCount } }, policy);
     const completeRows = expected.flatMap((entry) => Array.from({ length: entry.expectedCardinality }, (_, offset) => allocationRow(entry, offset + 1)));
     expect(deriveAllocationEvidence(allocationInput(completeRows), policy).state).toBe('measured-request-proxy');
     const encodedRows = ['frame-request', 'lifecycle-request'].flatMap((rawKind) => {
@@ -388,14 +393,14 @@ describe('performance evidence policy evaluator', () => {
       allocationValuesObserved: false,
       syntheticCapacityCoverage: {
         encoding: compiledPolicy.policy.capacityFixturePolicy.encoding,
-        frameCohorts: [{ runId: 'run', callbackCount: 1 }]
+        frameCohorts: [{ runId: 'run', callbackCount: runtimeCallbackCount }]
       }
     });
     if (!('syntheticCapacityCoverage' in derived)) throw new Error('expected synthetic capacity coverage metadata');
     expect(derived.syntheticCapacityCoverage.semanticExpansionChecksum).toMatch(/^[a-f0-9]{64}$/);
     expect(() => deriveAllocationEvidence({
       ...syntheticAllocation,
-      syntheticCoverage: { ...coverage, frameCohorts: [{ runId: 'run', callbackCount: 2 }] }
+      syntheticCoverage: { ...coverage, frameCohorts: [{ runId: 'run', callbackCount: runtimeCallbackCount + 1 }] }
     }, compiledPolicy)).toThrow(/ledger-derived callback cardinalities/);
     expect(() => deriveAllocationEvidence({
       ...runtimeAllocation,
@@ -594,7 +599,7 @@ describe('performance evidence policy evaluator', () => {
     const acceptedRuns = deriveAcceptedInstrumentedLedgerRuns(ledger, { experimentId, backend: 'webgpu' }, policy);
     expect(acceptedRuns).toHaveLength(1);
     expect(acceptedRuns[0]).toMatchObject({ runId: 'run', measurementEpochId: 'epoch', buildVariant: 'instrumented', comparisonKind: 'instrumentation-overhead', policyHash: policy.policyHash });
-    const expected = deriveAllocationExpectedCoverage({ acceptedRunIds: ['run'], frameCountByRun: { run: 1 } }, policy);
+    const expected = deriveAllocationExpectedCoverage({ acceptedRunIds: ['run'], frameCountByRun: { run: runtimeCallbackCount } }, policy);
     const completeRows = expected.flatMap((entry) => Array.from({ length: entry.expectedCardinality }, (_, offset) => allocationRow(entry, offset + 1)));
     expect(deriveAllocationEvidence(allocationInput(completeRows), policy).state).toBe('measured-request-proxy');
     const frame = completeRows.find((row) => row.carrier === 'frame-request')!;
@@ -648,7 +653,7 @@ describe('performance evidence policy evaluator', () => {
       ['chunk schema unknown raw kind', (policy) => { policy.performanceEvidenceChunkPolicy.rawKinds.unknown = { sortKeys: [] }; }],
       ['chunk schema missing columns', (policy) => { delete policy.performanceEvidenceChunkPolicy.rawKinds['cpu-sample'].columns; }],
       ['chunk schema has nonrequired reference', (policy) => { policy.performanceEvidenceChunkPolicy.rawKinds['cpu-sample'].referenceColumns = ['processIdentity']; }],
-      ['limit nested shape malformed', (policy) => { delete policy.performanceLimits.window.maximumCallbacks; }],
+      ['limit nested shape malformed', (policy) => { delete policy.performanceLimits.window.minimumCallbacks; }],
       ['allocation nested schema malformed', (policy) => { policy.allocationEvidencePolicy.webgpu.coverage[0].lifecyclePhase = 'startup'; }],
       ['transcode impacts reordered', (policy) => { policy.transcodeDecisionPolicy.rows[0].impactedContractIds.reverse(); }],
       ['transcode option strategy mapping changed', (policy) => {
@@ -796,6 +801,11 @@ describe('performance evidence policy evaluator', () => {
     const invalidTiming = JSON.parse(JSON.stringify(input));
     invalidTiming.rawEvidence.runs[0].callbackTiming.timingSpans[0].firstSourceSequence = 2;
     expect(() => evaluatePerformanceExperiment(invalidTiming, compiledPolicy)).toThrow(/safe integer|partition/);
+
+    const undersizedRuntimeCohort = JSON.parse(JSON.stringify(input));
+    undersizedRuntimeCohort.rawEvidence.runs[0].callbackTiming.callbackCohort.sourceSequences.pop();
+    undersizedRuntimeCohort.rawEvidence.runs[0].callbackTiming.timingSpans[0].lastSourceSequence = runtimeCallbackCount - 1;
+    expect(() => evaluatePerformanceExperiment(undersizedRuntimeCohort, compiledPolicy)).toThrow(/closed workload/);
 
     const invalidEnvironment = JSON.parse(JSON.stringify(input));
     invalidEnvironment.rawEvidence.runs[0].environment.traces[0].dynamicState.power = 'battery';

@@ -419,9 +419,12 @@ export function validateBaselinePolicy(policy) {
   }
   for (const field of ['buildSeconds', 'seedMaterializationSeconds', 'cooldownAndIdleSeconds', 'readinessSeconds', 'sourceFlowSeconds', 'oneLaunchSeconds', 'ciExperimentSeconds', 'referenceExperimentSeconds', 'maximumEnvironmentPolls', 'maximumSameStateEvents', 'maximumProcessObservations', 'maximumIdentities', 'maximumIdentifierBytes', 'maximumPathBytes']) assertSafeInteger(policy.performanceLimits[field], `performanceLimits.${field}`, 1);
   assertExactKeys(policy.performanceLimits.warmup, ['minimumSeconds', 'minimumCallbacks', 'maximumSeconds', 'maximumCallbacks'], 'performanceLimits.warmup');
-  assertExactKeys(policy.performanceLimits.window, ['maximumSeconds', 'maximumCallbacks'], 'performanceLimits.window');
+  assertExactKeys(policy.performanceLimits.window, ['minimumSeconds', 'minimumCallbacks', 'maximumSeconds', 'maximumCallbacks'], 'performanceLimits.window');
   for (const [label, value] of Object.entries({ ...policy.performanceLimits.warmup, ...policy.performanceLimits.window })) assertSafeInteger(value, `performanceLimits.${label}`, 1);
-  if (policy.performanceLimits.buildSeconds !== 600 || policy.performanceLimits.seedMaterializationSeconds !== 30 || policy.performanceLimits.cooldownAndIdleSeconds !== 135 || policy.performanceLimits.readinessSeconds !== 30 || policy.performanceLimits.sourceFlowSeconds !== 15 || policy.performanceLimits.warmup.minimumSeconds !== 10 || policy.performanceLimits.warmup.minimumCallbacks !== 600 || policy.performanceLimits.warmup.maximumSeconds !== 30 || policy.performanceLimits.warmup.maximumCallbacks !== 900 || policy.performanceLimits.window.maximumSeconds !== 45 || policy.performanceLimits.window.maximumCallbacks !== 2048 || policy.performanceLimits.maximumEnvironmentPolls !== 300 || policy.performanceLimits.maximumSameStateEvents !== 4096 || policy.performanceLimits.maximumProcessObservations !== 1024 || policy.performanceLimits.maximumIdentities !== 128 || policy.performanceLimits.maximumIdentifierBytes !== 1024 || policy.performanceLimits.maximumPathBytes !== 4096) fail('performanceLimits are incompatible with the closed performance limits policy');
+  if (policy.performanceLimits.warmup.minimumSeconds > policy.performanceLimits.warmup.maximumSeconds || policy.performanceLimits.warmup.minimumCallbacks > policy.performanceLimits.warmup.maximumCallbacks || policy.performanceLimits.window.minimumSeconds > policy.performanceLimits.window.maximumSeconds || policy.performanceLimits.window.minimumCallbacks > policy.performanceLimits.window.maximumCallbacks) {
+    fail('performanceLimits minimum values cannot exceed their corresponding caps');
+  }
+  if (policy.performanceLimits.buildSeconds !== 600 || policy.performanceLimits.seedMaterializationSeconds !== 30 || policy.performanceLimits.cooldownAndIdleSeconds !== 135 || policy.performanceLimits.readinessSeconds !== 30 || policy.performanceLimits.sourceFlowSeconds !== 15 || policy.performanceLimits.warmup.minimumSeconds !== 10 || policy.performanceLimits.warmup.minimumCallbacks !== 600 || policy.performanceLimits.warmup.maximumSeconds !== 30 || policy.performanceLimits.warmup.maximumCallbacks !== 900 || policy.performanceLimits.window.minimumSeconds !== 30 || policy.performanceLimits.window.minimumCallbacks !== 1800 || policy.performanceLimits.window.maximumSeconds !== 45 || policy.performanceLimits.window.maximumCallbacks !== 2048 || policy.performanceLimits.maximumEnvironmentPolls !== 300 || policy.performanceLimits.maximumSameStateEvents !== 4096 || policy.performanceLimits.maximumProcessObservations !== 1024 || policy.performanceLimits.maximumIdentities !== 128 || policy.performanceLimits.maximumIdentifierBytes !== 1024 || policy.performanceLimits.maximumPathBytes !== 4096) fail('performanceLimits are incompatible with the closed performance limits policy');
 
   assertExactKeys(policy.transcodeDecisionPolicy, ['version', 'semanticIntegritySha256', 'contracts', 'rows'], 'transcodeDecisionPolicy');
   if (policy.transcodeDecisionPolicy.version !== 1) fail('transcodeDecisionPolicy.version must be 1');
@@ -807,7 +810,13 @@ function validateCallbackAndTimingEvidence(value, label, launch, compiledPolicy,
   assertBoolean(cohort.drained, `${label}.callbackCohort.drained`);
   if (cohort.sealed !== true || cohort.drained !== true || cohort.dropCount > callbackCount) fail(`${label}.callbackCohort has invalid seal, drain, or drop evidence`);
   const windowSeconds = cohort.windowEnd - cohort.windowStart;
-  if (windowSeconds < 30 || windowSeconds > compiledPolicy.policy.performanceLimits.window.maximumSeconds || callbackCount > compiledPolicy.policy.performanceLimits.window.maximumCallbacks) fail(`${label}.callbackCohort violates the closed workload window`);
+  const windowLimits = compiledPolicy.policy.performanceLimits.window;
+  if (
+    windowSeconds < windowLimits.minimumSeconds
+    || windowSeconds > windowLimits.maximumSeconds
+    || (!allowSyntheticCapacityCohort && callbackCount < windowLimits.minimumCallbacks)
+    || callbackCount > windowLimits.maximumCallbacks
+  ) fail(`${label}.callbackCohort violates the closed workload window`);
   assertArray(value.timingSpans, `${label}.timingSpans`);
   if (value.timingSpans.length === 0) fail(`${label}.timingSpans must not be empty`);
   let expectedSequence = 1;
