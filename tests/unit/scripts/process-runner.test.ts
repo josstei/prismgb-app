@@ -4,9 +4,12 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   createExternalMetricAdapterSession,
   createExternalMetricSampleReader,
+  createLinuxProcfsMetricAdapterSession,
   createLinuxProcfsSnapshotReader,
+  createMacosPsMetricAdapterSession,
   createMacosPsSnapshotReader,
   createProcessIdentityTracker,
+  createWindowsPowerShellMetricAdapterSession,
   headlessElectronEnv,
   openWindowsPowerShellMetricSampler,
   parseLinuxProcfsMetricSnapshot,
@@ -224,14 +227,17 @@ describe('external process metric snapshots', () => {
   it('brackets monotonic raw samples and rejects regression, slow reads, and post-close access', async () => {
     const snapshots = [
       parseMacosPsMetricSnapshot('00:01 1024\n'),
-      parseMacosPsMetricSnapshot('00:02 2048\n')
+      parseMacosPsMetricSnapshot('00:02 2048\n'),
+      parseMacosPsMetricSnapshot('00:03 3072\n')
     ];
     const clock = vi.fn()
       .mockReturnValueOnce(10)
       .mockReturnValueOnce(10.01)
       .mockReturnValueOnce(10.5)
       .mockReturnValueOnce(10.52)
-      .mockReturnValueOnce(10.53);
+      .mockReturnValueOnce(11)
+      .mockReturnValueOnce(11.02)
+      .mockReturnValueOnce(11.03);
     const reader = createExternalMetricSampleReader({
       processIdentity: 'renderer-42',
       counterQuantumSeconds: 0.01,
@@ -239,13 +245,16 @@ describe('external process metric snapshots', () => {
       readSnapshot: vi.fn(() => snapshots.shift())
     });
 
-    await expect(reader.sample()).resolves.toMatchObject({
-      sample: { ordinal: 1, readStart: 10, readEnd: 10.01, processIdentity: 'renderer-42', cumulativeCpuSeconds: 1, workingSetMiB: 1 }
+    await expect(reader.prime()).resolves.toMatchObject({
+      sample: { ordinal: 0, readStart: 10, readEnd: 10.01, processIdentity: 'renderer-42', cumulativeCpuSeconds: 1, workingSetMiB: 1 }
     });
     await expect(reader.sample()).resolves.toMatchObject({
-      sample: { ordinal: 2, readStart: 10.5, readEnd: 10.52, cumulativeCpuSeconds: 2, workingSetMiB: 2 }
+      sample: { ordinal: 1, readStart: 10.5, readEnd: 10.52, cumulativeCpuSeconds: 2, workingSetMiB: 2 }
     });
-    expect(reader.close()).toEqual({ samplesRead: 2, closedAt: 10.53 });
+    await expect(reader.sample()).resolves.toMatchObject({
+      sample: { ordinal: 2, readStart: 11, readEnd: 11.02, cumulativeCpuSeconds: 3, workingSetMiB: 3 }
+    });
+    expect(reader.close()).toEqual({ samplesRead: 2, closedAt: 11.03 });
     await expect(reader.sample()).rejects.toThrow(/closed metric reader/);
 
     const slowReader = createExternalMetricSampleReader({
@@ -296,10 +305,11 @@ describe('createExternalMetricAdapterSession', () => {
     counterQuantumSeconds: 0.01
   };
 
-  it('enforces the open, attach, sample, detach, and close lifecycle for distinct targets', async () => {
-    const readers = new Map<string, { sample: ReturnType<typeof vi.fn>, close: ReturnType<typeof vi.fn> }>();
+  it('enforces the open, attach, prime, sample, detach, and close lifecycle for distinct targets', async () => {
+    const readers = new Map<string, { prime: ReturnType<typeof vi.fn>, sample: ReturnType<typeof vi.fn>, close: ReturnType<typeof vi.fn> }>();
     const createReader = vi.fn(({ target: attachedTarget }) => {
       const reader = {
+        prime: vi.fn(() => ({ target: attachedTarget.processIdentity })),
         sample: vi.fn(() => ({ target: attachedTarget.processIdentity })),
         close: vi.fn(() => ({ closed: attachedTarget.processIdentity }))
       };
@@ -320,7 +330,9 @@ describe('createExternalMetricAdapterSession', () => {
     await expect(session.attach(target)).rejects.toThrow(/session is new/);
     await expect(session.open()).resolves.toEqual({ adapterId: 'macos-ps-v1' });
     await expect(session.attach(target)).resolves.toEqual(target);
+    await expect(session.sample()).rejects.toThrow(/primed before sampling/);
     await expect(session.prime()).resolves.toEqual({ target: 'renderer-42' });
+    await expect(session.prime()).rejects.toThrow(/already primed/);
     await expect(session.sample()).resolves.toEqual({ target: 'renderer-42' });
     await expect(session.detach()).resolves.toEqual({ closed: 'renderer-42' });
 
@@ -348,7 +360,8 @@ describe('createExternalMetricAdapterSession', () => {
     });
     expect(openResource).toHaveBeenCalledWith({ adapterId: 'macos-ps-v1' });
     expect(closeResource).toHaveBeenCalledWith({ sampler: 'resource' }, { adapterId: 'macos-ps-v1' });
-    expect(readers.get('renderer-42')?.sample).toHaveBeenCalledTimes(2);
+    expect(readers.get('renderer-42')?.prime).toHaveBeenCalledTimes(1);
+    expect(readers.get('renderer-42')?.sample).toHaveBeenCalledTimes(1);
     await expect(session.sample()).rejects.toThrow(/session is closed/);
   });
 
@@ -362,6 +375,7 @@ describe('createExternalMetricAdapterSession', () => {
         return () => ++value;
       })(),
       createReader: () => ({
+        prime: () => ({ primed: true }),
         sample: () => pendingSample,
         close: () => ({ closed: true })
       })
@@ -371,6 +385,7 @@ describe('createExternalMetricAdapterSession', () => {
     await expect(session.sample()).rejects.toThrow(/without an attached metric target/);
     await session.attach(target);
     await expect(session.close()).rejects.toThrow(/attached target/);
+    await session.prime();
     const firstSample = session.sample();
     await expect(session.sample()).rejects.toThrow(/overlapping samples/);
     resolveSample({ sample: 'complete' });
@@ -379,6 +394,68 @@ describe('createExternalMetricAdapterSession', () => {
     await expect(session.attach(target)).rejects.toThrow(/reuse a detached target/);
     await expect(session.attach({ ...target, creationIdentity: 'replacement' })).rejects.toThrow(/PID replacement/);
     await expect(session.attach({ ...target, processIdentity: 'replacement' })).rejects.toThrow(/PID replacement/);
+  });
+});
+
+describe('platform external metric adapter sessions', () => {
+  const target = {
+    pid: 42,
+    creationIdentity: 'creation-42',
+    processIdentity: 'renderer-42',
+    counterQuantumSeconds: 0.01
+  };
+
+  const createClock = () => {
+    let value = 0;
+    return () => {
+      value += 0.001;
+      return value;
+    };
+  };
+
+  it('exposes the same prime/sample/detach session contract for procfs, ps, and PowerShell', async () => {
+    const linuxReadFile = vi.fn(async (file: string) => {
+      if (file.endsWith('/stat')) return '42 (Browser) S 0 0 0 0 0 0 0 0 0 0 10 20';
+      if (file.endsWith('/statm')) return '500 25 0 0 0 0 0';
+      throw new Error(`unexpected file ${file}`);
+    });
+    const linux = createLinuxProcfsMetricAdapterSession({
+      procfsRoot: '/fixture/proc', pageSize: 4096, clockTicks: 100, readFile: linuxReadFile, clock: createClock()
+    });
+    await linux.open();
+    await linux.attach(target);
+    await expect(linux.prime()).resolves.toMatchObject({ sample: { ordinal: 0 }, raw: { pid: 42 } });
+    await expect(linux.sample()).resolves.toMatchObject({ sample: { ordinal: 1, processIdentity: 'renderer-42' }, raw: { residentPages: 25 } });
+    await linux.detach();
+    await expect(linux.close()).resolves.toMatchObject({ adapterId: 'linux-procfs-v1' });
+    expect(linuxReadFile).toHaveBeenCalledTimes(4);
+
+    const runCommand = vi.fn(async () => '00:01 1024\n');
+    const macos = createMacosPsMetricAdapterSession({ runCommand, clock: createClock() });
+    await macos.open();
+    await expect(macos.attach({ ...target, counterQuantumSeconds: 0.001 })).rejects.toThrow(/counter quantum/);
+    await macos.attach(target);
+    await expect(macos.prime()).resolves.toMatchObject({ sample: { ordinal: 0 }, raw: { residentSetKiB: 1024 } });
+    await expect(macos.sample()).resolves.toMatchObject({ sample: { ordinal: 1 }, raw: { cpuTime: '00:01' } });
+    await macos.detach();
+    await expect(macos.close()).resolves.toMatchObject({ adapterId: 'macos-ps-v1' });
+    expect(runCommand).toHaveBeenCalledTimes(2);
+
+    const child = new FakePowerShellSampler();
+    const openSampler = vi.fn(() => openWindowsPowerShellMetricSampler({ spawnProcess: () => child }));
+    const windows = createWindowsPowerShellMetricAdapterSession({ openSampler, clock: createClock() });
+    const windowsTarget = { ...target, counterQuantumSeconds: 0.0000001 };
+    await windows.open();
+    await windows.attach(windowsTarget);
+    await expect(windows.prime()).resolves.toMatchObject({
+      sample: { ordinal: 0, counterQuantumSeconds: 0.0000001 },
+      raw: { sampler: { pid: 42, creationIdentity: 'creation-42', bracketSeconds: 0.01 } }
+    });
+    await expect(windows.sample()).resolves.toMatchObject({ sample: { ordinal: 1, cumulativeCpuSeconds: 3 } });
+    await windows.detach();
+    await expect(windows.close()).resolves.toMatchObject({ adapterId: 'windows-powershell-v1' });
+    expect(openSampler).toHaveBeenCalledTimes(1);
+    expect(child.stdin.write.mock.calls.map(([line]) => JSON.parse(line).operation)).toEqual(['attach', 'prime', 'sample', 'detach']);
   });
 });
 

@@ -301,7 +301,7 @@ export function parseWindowsPowerShellMetricSnapshot(payload) {
  * alongside the projection used by the evaluator.
  *
  * @param {{
- *   readSnapshot: (context: Readonly<{ sequence: number, processIdentity: string }>) => Promise<Readonly<{ cumulativeCpuSeconds: number, workingSetMiB: number, counterQuantumSeconds: number, raw: object }>> | Readonly<{ cumulativeCpuSeconds: number, workingSetMiB: number, counterQuantumSeconds: number, raw: object }>,
+ *   readSnapshot: (context: Readonly<{ sequence: number, processIdentity: string, operation: 'prime' | 'sample' }>) => Promise<Readonly<{ cumulativeCpuSeconds: number, workingSetMiB: number, counterQuantumSeconds: number, raw: object }>> | Readonly<{ cumulativeCpuSeconds: number, workingSetMiB: number, counterQuantumSeconds: number, raw: object }>,
  *   processIdentity: string,
  *   counterQuantumSeconds: number,
  *   clock?: () => number,
@@ -336,43 +336,51 @@ export function createExternalMetricSampleReader({
     return value;
   };
 
-  return Object.freeze({
-    async sample() {
-      if (closed) failExternalMetric('cannot sample a closed metric reader');
-      const nextSequence = sequence + 1;
-      const readStart = readClock('metric read start');
-      if (readStart < lastReadEnd) failExternalMetric('metric read start regressed behind the prior read end');
-      const snapshot = await readSnapshot(Object.freeze({ sequence: nextSequence, processIdentity }));
-      const readEnd = readClock('metric read end');
-      if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
-        failExternalMetric('readSnapshot must return a metric snapshot object');
-      }
-      const normalizedSnapshot = freezeSnapshot(snapshot);
-      if (normalizedSnapshot.counterQuantumSeconds !== counterQuantumSeconds) {
-        failExternalMetric('metric snapshot counter quantum does not match its reader');
-      }
-      if (readEnd < readStart || readEnd - readStart > maximumReadSeconds) {
-        failExternalMetric('metric read bracket is invalid or exceeds its maximum duration');
-      }
-      if (normalizedSnapshot.cumulativeCpuSeconds < lastCumulativeCpuSeconds) {
-        failExternalMetric('metric cumulative CPU regressed');
-      }
+  const takeSample = async (operation) => {
+    if (closed) failExternalMetric('cannot sample a closed metric reader');
+    const nextSequence = operation === 'prime' ? 0 : sequence + 1;
+    const readStart = readClock('metric read start');
+    if (readStart < lastReadEnd) failExternalMetric('metric read start regressed behind the prior read end');
+    const snapshot = await readSnapshot(Object.freeze({ sequence: nextSequence, processIdentity, operation }));
+    const readEnd = readClock('metric read end');
+    if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+      failExternalMetric('readSnapshot must return a metric snapshot object');
+    }
+    const normalizedSnapshot = freezeSnapshot(snapshot);
+    if (normalizedSnapshot.counterQuantumSeconds !== counterQuantumSeconds) {
+      failExternalMetric('metric snapshot counter quantum does not match its reader');
+    }
+    if (readEnd < readStart || readEnd - readStart > maximumReadSeconds) {
+      failExternalMetric('metric read bracket is invalid or exceeds its maximum duration');
+    }
+    if (normalizedSnapshot.cumulativeCpuSeconds < lastCumulativeCpuSeconds) {
+      failExternalMetric('metric cumulative CPU regressed');
+    }
 
-      sequence = nextSequence;
-      lastReadEnd = readEnd;
-      lastCumulativeCpuSeconds = normalizedSnapshot.cumulativeCpuSeconds;
-      return Object.freeze({
-        sample: Object.freeze({
-          ordinal: sequence,
-          readStart,
-          readEnd,
-          cumulativeCpuSeconds: normalizedSnapshot.cumulativeCpuSeconds,
-          counterQuantumSeconds,
-          processIdentity,
-          workingSetMiB: normalizedSnapshot.workingSetMiB
-        }),
-        raw: normalizedSnapshot.raw
-      });
+    if (operation === 'sample') sequence = nextSequence;
+    lastReadEnd = readEnd;
+    lastCumulativeCpuSeconds = normalizedSnapshot.cumulativeCpuSeconds;
+    return Object.freeze({
+      sample: Object.freeze({
+        ordinal: sequence,
+        readStart,
+        readEnd,
+        cumulativeCpuSeconds: normalizedSnapshot.cumulativeCpuSeconds,
+        counterQuantumSeconds,
+        processIdentity,
+        workingSetMiB: normalizedSnapshot.workingSetMiB
+      }),
+      raw: normalizedSnapshot.raw
+    });
+  };
+
+  return Object.freeze({
+    async prime() {
+      return takeSample('prime');
+    },
+
+    async sample() {
+      return takeSample('sample');
     },
 
     close() {
@@ -849,7 +857,7 @@ function cloneMetricSessionTransitions(transitions) {
  *
  * @param {{
  *   adapterId: string,
- *   createReader: (context: Readonly<{ adapterId: string, resource: unknown, target: Readonly<{ pid: number, creationIdentity: string, processIdentity: string, counterQuantumSeconds: number }> }>) => Promise<Readonly<{ sample: () => Promise<unknown> | unknown, close: () => Promise<unknown> | unknown }>> | Readonly<{ sample: () => Promise<unknown> | unknown, close: () => Promise<unknown> | unknown }>,
+ *   createReader: (context: Readonly<{ adapterId: string, resource: unknown, target: Readonly<{ pid: number, creationIdentity: string, processIdentity: string, counterQuantumSeconds: number }> }>) => Promise<Readonly<{ prime: () => Promise<unknown> | unknown, sample: () => Promise<unknown> | unknown, close: () => Promise<unknown> | unknown }>> | Readonly<{ prime: () => Promise<unknown> | unknown, sample: () => Promise<unknown> | unknown, close: () => Promise<unknown> | unknown }>,
  *   openResource?: (context: Readonly<{ adapterId: string }>) => Promise<unknown> | unknown,
  *   closeResource?: (resource: unknown, context: Readonly<{ adapterId: string }>) => Promise<unknown> | unknown,
  *   clock?: () => number
@@ -905,10 +913,13 @@ export function createExternalMetricAdapterSession({
 
   const readFromActiveTarget = async (operation) => {
     requireActive(operation);
+    if (operation === 'prime' && active.primed) failExternalMetric('metric session target is already primed');
+    if (operation === 'sample' && !active.primed) failExternalMetric('metric session target must be primed before sampling');
     if (sampling) failExternalMetric('metric session does not permit overlapping samples');
     sampling = true;
     try {
-      const value = await active.reader.sample();
+      const value = await active.reader[operation]();
+      if (operation === 'prime') active.primed = true;
       recordTransition(operation, active.target);
       return value;
     } catch (error) {
@@ -943,13 +954,13 @@ export function createExternalMetricAdapterSession({
       }
       if (seenTargetKeys.has(targetKey)) failExternalMetric('metric session cannot reuse a detached target');
       const reader = await createReader(Object.freeze({ adapterId, resource, target }));
-      if (!reader || typeof reader !== 'object' || typeof reader.sample !== 'function' || typeof reader.close !== 'function') {
-        failExternalMetric('createReader must return sample and close functions');
+      if (!reader || typeof reader !== 'object' || typeof reader.prime !== 'function' || typeof reader.sample !== 'function' || typeof reader.close !== 'function') {
+        failExternalMetric('createReader must return prime, sample, and close functions');
       }
       targetKeyByPid.set(target.pid, targetKey);
       targetKeyByProcessIdentity.set(target.processIdentity, targetKey);
       seenTargetKeys.add(targetKey);
-      active = Object.freeze({ target, reader });
+      active = { target, reader, primed: false };
       recordTransition('attach', target);
       return target;
     },
@@ -995,6 +1006,151 @@ export function createExternalMetricAdapterSession({
         adapterId,
         state,
         transitions: cloneMetricSessionTransitions(transitions)
+      });
+    }
+  });
+}
+
+function createMetricSessionReader({ target, counterQuantumSeconds, clock, readSnapshot }) {
+  if (target.counterQuantumSeconds !== counterQuantumSeconds) {
+    failExternalMetric('metric session target counter quantum does not match its adapter');
+  }
+  const reader = createExternalMetricSampleReader({
+    readSnapshot,
+    processIdentity: target.processIdentity,
+    counterQuantumSeconds,
+    clock
+  });
+  return Object.freeze({
+    prime: () => reader.prime(),
+    sample: () => reader.sample(),
+    close: () => reader.close()
+  });
+}
+
+/**
+ * Creates the Linux procfs implementation of the pair-scoped metric-session
+ * interface. The session owns no persistent subprocess: each sample reads the
+ * target's stat and statm files through the injected procfs authority.
+ *
+ * @param {{ procfsRoot?: string, pageSize: number, clockTicks: number, readFile?: (file: string, encoding: 'utf8') => Promise<string> | string, clock?: () => number }} options
+ */
+export function createLinuxProcfsMetricAdapterSession({
+  procfsRoot = '/proc',
+  pageSize,
+  clockTicks,
+  readFile = fs.readFile,
+  clock
+} = {}) {
+  const readSnapshot = createLinuxProcfsSnapshotReader({ procfsRoot, pageSize, clockTicks, readFile });
+  const counterQuantumSeconds = 1 / clockTicks;
+  if (!Number.isFinite(counterQuantumSeconds) || counterQuantumSeconds <= 0 || counterQuantumSeconds > 0.01) {
+    failExternalMetric('Linux procfs clock ticks must yield a counter quantum at most 0.01 seconds');
+  }
+  return createExternalMetricAdapterSession({
+    adapterId: 'linux-procfs-v1',
+    clock,
+    createReader: ({ target }) => createMetricSessionReader({
+      target,
+      counterQuantumSeconds,
+      clock,
+      readSnapshot: () => readSnapshot(target.pid)
+    })
+  });
+}
+
+/**
+ * Creates the macOS ps implementation of the pair-scoped metric-session
+ * interface. Each read is intentionally represented by one injected command
+ * authority rather than a persistent sampler.
+ *
+ * @param {{ runCommand?: (command: string, args: string[]) => Promise<string> | string, clock?: () => number }} options
+ */
+export function createMacosPsMetricAdapterSession({ runCommand = runMacosPs, clock } = {}) {
+  const readSnapshot = createMacosPsSnapshotReader({ runCommand });
+  return createExternalMetricAdapterSession({
+    adapterId: 'macos-ps-v1',
+    clock,
+    createReader: ({ target }) => createMetricSessionReader({
+      target,
+      counterQuantumSeconds: 0.01,
+      clock,
+      readSnapshot: () => readSnapshot(target.pid)
+    })
+  });
+}
+
+function assertWindowsMetricSampler(resource) {
+  if (!resource || typeof resource !== 'object'
+    || typeof resource.attach !== 'function'
+    || typeof resource.prime !== 'function'
+    || typeof resource.sample !== 'function'
+    || typeof resource.detach !== 'function'
+    || typeof resource.close !== 'function') {
+    failExternalMetric('Windows metric sampler does not implement the closed session protocol');
+  }
+}
+
+function normalizeWindowsMetricSamplerSnapshot(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || !value.snapshot || typeof value.snapshot !== 'object' || Array.isArray(value.snapshot)
+    || !value.snapshot.raw || typeof value.snapshot.raw !== 'object' || Array.isArray(value.snapshot.raw)
+    || !value.sampler || typeof value.sampler !== 'object' || Array.isArray(value.sampler)) {
+    failExternalMetric('Windows metric sampler did not return a sample with its read bracket');
+  }
+  return Object.freeze({
+    ...value.snapshot,
+    raw: Object.freeze({
+      ...value.snapshot.raw,
+      sampler: Object.freeze({ ...value.sampler })
+    })
+  });
+}
+
+/**
+ * Creates the Windows implementation of the pair-scoped metric-session
+ * interface. It opens exactly one persistent PowerShell sampler per session;
+ * targets attach, prime, sample, and detach in that sampler's closed order.
+ *
+ * @param {{ openSampler?: () => Promise<any> | any, clock?: () => number }} options
+ */
+export function createWindowsPowerShellMetricAdapterSession({
+  openSampler = openWindowsPowerShellMetricSampler,
+  clock
+} = {}) {
+  if (typeof openSampler !== 'function') failExternalMetric('openSampler must be a function');
+  return createExternalMetricAdapterSession({
+    adapterId: 'windows-powershell-v1',
+    clock,
+    async openResource() {
+      const resource = await openSampler();
+      assertWindowsMetricSampler(resource);
+      return resource;
+    },
+    async closeResource(resource) {
+      assertWindowsMetricSampler(resource);
+      return resource.close();
+    },
+    async createReader({ resource, target }) {
+      assertWindowsMetricSampler(resource);
+      if (target.counterQuantumSeconds !== 0.0000001) {
+        failExternalMetric('Windows metric session targets must use the 100-nanosecond counter quantum');
+      }
+      await resource.attach(target);
+      const reader = createMetricSessionReader({
+        target,
+        counterQuantumSeconds: 0.0000001,
+        clock,
+        readSnapshot: async ({ operation }) => normalizeWindowsMetricSamplerSnapshot(await resource[operation]())
+      });
+      return Object.freeze({
+        prime: () => reader.prime(),
+        sample: () => reader.sample(),
+        async close() {
+          const detached = await resource.detach();
+          const closed = reader.close();
+          return Object.freeze({ detached, closed });
+        }
       });
     }
   });
