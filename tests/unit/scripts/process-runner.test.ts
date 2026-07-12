@@ -13,6 +13,7 @@ import {
   createMacosPsMetricIdentitySnapshotReader,
   createMacosPsProcessIdentityReader,
   createMacosPsSnapshotReader,
+  createPlatformExternalMetricSession,
   createPlatformExternalMetricAdapterSession,
   createProcessIdentityTracker,
   createWindowsPowerShellMetricAdapterSession,
@@ -869,6 +870,27 @@ describe('platform external metric adapter sessions', () => {
     await expect(createPlatformExternalMetricAdapterSession({
       platform: 'freebsd', pid: 42, processIdentity: 'renderer-42'
     })).rejects.toThrow(/unsupported platform metric adapter/);
+  });
+
+  it('creates a target-free persistent adapter before either pair side launches', async () => {
+    const child = new FakePowerShellSampler();
+    const openSampler = vi.fn(() => openWindowsPowerShellMetricSampler({ spawnProcess: () => child }));
+    const adapter = createPlatformExternalMetricSession({
+      platform: 'win32',
+      windows: { openSampler, clock: createClock() }
+    });
+
+    expect(adapter.adapterId).toBe('windows-powershell-v1');
+    await adapter.session.open();
+    await adapter.session.attach({ ...target, counterQuantumSeconds: 0.0000001 });
+    await adapter.session.prime();
+    await adapter.session.detach();
+    await adapter.session.close();
+
+    expect(openSampler).toHaveBeenCalledTimes(1);
+    expect(child.stdin.write.mock.calls.map(([line]) => JSON.parse(line).operation)).toEqual([
+      'attach', 'prime', 'detach'
+    ]);
   });
 
   it('resolves a second side target without creating another pair-scoped adapter', async () => {

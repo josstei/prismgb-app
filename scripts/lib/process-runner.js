@@ -1846,6 +1846,62 @@ export async function resolvePlatformExternalMetricTarget({
 }
 
 /**
+ * Creates an unopened platform metric session without binding it to a renderer
+ * target. Comparison orchestration opens this once before either cold launch,
+ * then resolves and attaches each launch target in order so a persistent
+ * platform resource (notably the Windows sampler) spans the whole pair.
+ *
+ * @param {{
+ *   platform?: NodeJS.Platform,
+ *   linux?: { procfsRoot?: string, pageSize: number, clockTicks: number, readFile?: (file: string, encoding: 'utf8') => Promise<string> | string, clock?: () => number },
+ *   macos?: { runCommand?: (command: string, args: string[]) => Promise<string> | string, clock?: () => number },
+ *   windows?: { openSampler?: () => Promise<any> | any, clock?: () => number }
+ * }} options
+ */
+export function createPlatformExternalMetricSession({
+  platform = process.platform,
+  linux = {},
+  macos = {},
+  windows = {}
+} = {}) {
+  if (typeof platform !== 'string' || platform.length === 0) {
+    failExternalMetric('platform metric session platform must be a nonempty string');
+  }
+  if (!linux || typeof linux !== 'object' || Array.isArray(linux)) {
+    failExternalMetric('platform Linux metric session options must be an object');
+  }
+  if (!macos || typeof macos !== 'object' || Array.isArray(macos)) {
+    failExternalMetric('platform macOS metric session options must be an object');
+  }
+  if (!windows || typeof windows !== 'object' || Array.isArray(windows)) {
+    failExternalMetric('platform Windows metric session options must be an object');
+  }
+
+  if (platform === 'linux') {
+    const { procfsRoot, pageSize, clockTicks, readFile, clock } = linux;
+    return Object.freeze({
+      adapterId: 'linux-procfs-v1',
+      session: createLinuxProcfsMetricAdapterSession({ procfsRoot, pageSize, clockTicks, readFile, clock })
+    });
+  }
+  if (platform === 'darwin') {
+    const { runCommand, clock } = macos;
+    return Object.freeze({
+      adapterId: 'macos-ps-v1',
+      session: createMacosPsMetricAdapterSession({ runCommand, clock })
+    });
+  }
+  if (platform === 'win32') {
+    const { openSampler, clock } = windows;
+    return Object.freeze({
+      adapterId: 'windows-powershell-v1',
+      session: createWindowsPowerShellMetricAdapterSession({ openSampler, clock })
+    });
+  }
+  failExternalMetric(`unsupported platform metric adapter ${platform}`);
+}
+
+/**
  * Resolves one initial renderer target and constructs its unopened pair-scoped
  * metric adapter. Callers reuse the returned session with a separately
  * resolved target for the opposite side of the comparison.
@@ -1875,20 +1931,11 @@ export async function createPlatformExternalMetricAdapterSession({
     macos,
     windows
   });
-  let session;
-  if (platform === 'linux') {
-    const { procfsRoot, pageSize, clockTicks, readFile, clock } = linux;
-    session = createLinuxProcfsMetricAdapterSession({ procfsRoot, pageSize, clockTicks, readFile, clock });
-  } else if (platform === 'darwin') {
-    const { runCommand, clock } = macos;
-    session = createMacosPsMetricAdapterSession({ runCommand, clock });
-  } else if (platform === 'win32') {
-    const { openSampler, clock } = windows;
-    session = createWindowsPowerShellMetricAdapterSession({ openSampler, clock });
-  } else {
-    failExternalMetric(`unsupported platform metric adapter ${platform}`);
+  const adapter = createPlatformExternalMetricSession({ platform, linux, macos, windows });
+  if (adapter.adapterId !== resolved.adapterId) {
+    failExternalMetric('platform metric target and session adapters disagree');
   }
-  return Object.freeze({ ...resolved, session });
+  return Object.freeze({ ...resolved, session: adapter.session });
 }
 
 function compareProcessIdentities(left, right) {

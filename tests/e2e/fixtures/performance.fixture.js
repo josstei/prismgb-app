@@ -5,6 +5,7 @@ import path from 'node:path';
 import {
   createExternalMetricCadenceCapture,
   createExternalMetricRunCapture,
+  createPlatformExternalMetricSession,
   createPlatformExternalMetricAdapterSession,
   readLinuxProcfsMetricConfiguration,
   resolvePlatformExternalMetricTarget
@@ -142,6 +143,213 @@ export async function resolvePerformanceRendererMetricTarget({
     pid: rendererPid,
     processIdentity: `renderer:${externalExecutionId}:${rendererPid}`,
     ...options
+  });
+}
+
+/**
+ * Opens one external metric authority for a complete cold-launch comparison.
+ * Each side resolves its renderer only after that application starts, then
+ * attaches and detaches within this shared session. This keeps the platform
+ * adapter timebase and any persistent sampler owned by the pair rather than a
+ * single launch.
+ *
+ * @param {{
+ *   platform?: NodeJS.Platform,
+ *   readLinuxConfiguration?: typeof readLinuxProcfsMetricConfiguration,
+ *   createSession?: (options: object) => Promise<any> | any,
+ *   resolveTarget?: typeof resolvePlatformExternalMetricTarget,
+ *   createRunCapture?: typeof createExternalMetricRunCapture,
+ *   createCadenceCapture?: typeof createExternalMetricCadenceCapture
+ * }} options
+ */
+export async function openPerformanceRendererMetricPairSession({
+  platform = process.platform,
+  readLinuxConfiguration = readLinuxProcfsMetricConfiguration,
+  createSession = createPlatformExternalMetricSession,
+  resolveTarget = resolvePlatformExternalMetricTarget,
+  createRunCapture = createExternalMetricRunCapture,
+  createCadenceCapture = createExternalMetricCadenceCapture
+} = {}) {
+  if (typeof platform !== 'string' || platform.length === 0) {
+    throw new Error('performance renderer metric pair session requires a platform');
+  }
+  if (typeof readLinuxConfiguration !== 'function'
+    || typeof createSession !== 'function'
+    || typeof resolveTarget !== 'function'
+    || typeof createRunCapture !== 'function'
+    || typeof createCadenceCapture !== 'function') {
+    throw new Error('performance renderer metric pair session requires external metric factories');
+  }
+
+  const adapterOptions = platform === 'linux'
+    ? { linux: await readLinuxConfiguration() }
+    : {};
+  const adapter = await createSession({ platform, ...adapterOptions });
+  if (!adapter || typeof adapter !== 'object' || typeof adapter.adapterId !== 'string'
+    || !adapter.session || typeof adapter.session !== 'object') {
+    throw new Error('performance renderer metric pair adapter did not return a session');
+  }
+  for (const operation of ['open', 'close', 'abort']) {
+    if (typeof adapter.session[operation] !== 'function') {
+      throw new Error(`performance renderer metric pair session must implement ${operation}`);
+    }
+  }
+
+  let state = 'opening';
+  let activeSide = null;
+  try {
+    await adapter.session.open();
+    state = 'open';
+  } catch (error) {
+    await adapter.session.abort().catch(() => {});
+    throw error;
+  }
+
+  const requireOpen = (operation) => {
+    if (state !== 'open') {
+      throw new Error(`cannot ${operation} when the performance renderer metric pair session is ${state}`);
+    }
+  };
+
+  const resolveSideTarget = async ({ rendererPid, externalExecutionId }) => {
+    if (!Number.isSafeInteger(rendererPid) || rendererPid <= 0) {
+      throw new Error('performance renderer metric pair side requires a positive renderer PID');
+    }
+    if (typeof externalExecutionId !== 'string' || !/^[0-9a-f-]{36}$/.test(externalExecutionId)) {
+      throw new Error('performance renderer metric pair side requires an external execution UUID');
+    }
+    const resolved = await resolveTarget({
+      platform,
+      pid: rendererPid,
+      processIdentity: `renderer:${externalExecutionId}:${rendererPid}`,
+      ...adapterOptions
+    });
+    if (!resolved || typeof resolved !== 'object' || resolved.adapterId !== adapter.adapterId
+      || !resolved.target || typeof resolved.target !== 'object') {
+      throw new Error('performance renderer metric pair side does not match its adapter');
+    }
+    return resolved.target;
+  };
+
+  return Object.freeze({
+    adapterId: adapter.adapterId,
+    async openSide(input) {
+      requireOpen('open a metric pair side');
+      if (activeSide !== null) {
+        throw new Error('cannot open a metric pair side while another side is active');
+      }
+      const target = await resolveSideTarget(input);
+      const runCapture = createRunCapture({ session: adapter.session, target });
+      const cadenceCapture = createCadenceCapture({ capture: runCapture });
+      const side = { state: 'opening', target, cadenceCapture };
+      activeSide = side;
+      try {
+        await cadenceCapture.attachAndPrime();
+        side.state = 'active';
+      } catch (error) {
+        side.state = 'failed';
+        activeSide = null;
+        state = 'failed';
+        await adapter.session.abort().catch(() => {});
+        throw error;
+      }
+
+      const requireActiveSide = (operation) => {
+        requireOpen(operation);
+        if (activeSide !== side || side.state !== 'active') {
+          throw new Error(`cannot ${operation} when the performance renderer metric pair side is ${side.state}`);
+        }
+      };
+
+      return Object.freeze({
+        adapterId: adapter.adapterId,
+        target: Object.freeze({ ...target }),
+        async beginWindow() {
+          requireActiveSide('begin the metric pair window');
+          return cadenceCapture.beginWindow();
+        },
+        async sampleInWindow() {
+          requireActiveSide('sample the metric pair window');
+          return cadenceCapture.sampleInWindow();
+        },
+        markTerminalClosure(terminalClosureEnd) {
+          requireActiveSide('mark metric pair terminal closure');
+          return cadenceCapture.markTerminalClosure(terminalClosureEnd);
+        },
+        async sampleTerminalClosure() {
+          requireActiveSide('sample metric pair terminal closure');
+          return cadenceCapture.sampleTerminalClosure();
+        },
+        getNextSampleTargetAt() {
+          requireActiveSide('read the next metric pair sample target');
+          return cadenceCapture.getNextSampleTargetAt();
+        },
+        getAudit() {
+          return cadenceCapture.getAudit();
+        },
+        async finalize() {
+          requireActiveSide('finalize the metric pair side');
+          side.state = 'finalizing';
+          try {
+            const transcript = await cadenceCapture.detach();
+            side.state = 'closed';
+            activeSide = null;
+            return transcript;
+          } catch (error) {
+            side.state = 'failed';
+            activeSide = null;
+            state = 'failed';
+            await adapter.session.abort().catch(() => {});
+            throw error;
+          }
+        },
+        async abort() {
+          requireActiveSide('abort the metric pair side');
+          side.state = 'aborting';
+          try {
+            const result = await cadenceCapture.abort();
+            side.state = 'aborted';
+            activeSide = null;
+            state = 'aborted';
+            return result;
+          } catch (error) {
+            side.state = 'failed';
+            activeSide = null;
+            state = 'failed';
+            throw error;
+          }
+        }
+      });
+    },
+    async close() {
+      requireOpen('close the metric pair session');
+      if (activeSide !== null) {
+        throw new Error('cannot close the metric pair session with an active side');
+      }
+      state = 'closing';
+      try {
+        const closure = await adapter.session.close();
+        state = 'closed';
+        return closure;
+      } catch (error) {
+        state = 'failed';
+        await adapter.session.abort().catch(() => {});
+        throw error;
+      }
+    },
+    async abort() {
+      requireOpen('abort the metric pair session');
+      state = 'aborting';
+      try {
+        const result = await adapter.session.abort();
+        activeSide = null;
+        state = 'aborted';
+        return result;
+      } catch (error) {
+        state = 'failed';
+        throw error;
+      }
+    }
   });
 }
 

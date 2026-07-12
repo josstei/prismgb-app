@@ -14,6 +14,7 @@ import { readPerformanceWorkloadCaptures } from './lib/performance-workload-capt
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PERFORMANCE_BUILD_MANIFEST = 'performance-build-manifest.json';
 const PERFORMANCE_COMMAND_LEDGER = 'performance-command-ledger.json';
+const PERFORMANCE_PAIR_PLAN = 'performance-pair-plan.json';
 const PERFORMANCE_EXTERNAL_METRIC_CAPTURE_INDEX = 'performance-external-metric-captures.json';
 const PERFORMANCE_SENTINEL_CAPTURE_INDEX = 'performance-sentinel-captures.json';
 const PERFORMANCE_WORKLOAD_CAPTURE_INDEX = 'performance-workload-captures.json';
@@ -27,6 +28,11 @@ export const PERFORMANCE_BUILD_VARIANTS = Object.freeze([
   Object.freeze({ id: 'harness-control', harness: true, instrumentation: false }),
   Object.freeze({ id: 'instrumented', harness: true, instrumentation: true })
 ]);
+
+export const PERFORMANCE_PAIR_CARDINALITIES = Object.freeze({
+  'harness-overhead': 3,
+  'instrumentation-overhead': 6
+});
 
 function fail(message) {
   throw new Error(`Performance baseline runner failed: ${message}`);
@@ -204,6 +210,93 @@ function parseRole(value) {
     return value;
   }
   fail(`unsupported experiment role ${value}`);
+}
+
+function assertUuid(value, label) {
+  if (typeof value !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value)) {
+    fail(`${label} must be a UUID`);
+  }
+}
+
+function assertNonemptyString(value, label) {
+  if (typeof value !== 'string' || value.length === 0) {
+    fail(`${label} must be a nonempty string`);
+  }
+}
+
+function freezePairPlan(value) {
+  return Object.freeze({
+    ...value,
+    pairs: Object.freeze(value.pairs.map((pair) => Object.freeze({
+      ...pair,
+      launches: Object.freeze(pair.launches.map((launch) => Object.freeze({ ...launch })))
+    })))
+  });
+}
+
+/**
+ * Creates the closed, balanced launch order for one backend family. The
+ * immutable plan separates order from pair identity: every side remains
+ * ledger-addressable even when the cold-launch order alternates.
+ *
+ * @param {{
+ *   experimentId: string,
+ *   backend: 'canvas2d' | 'webgpu',
+ *   createSessionId?: () => string
+ * }} options
+ */
+export function createPerformancePairPlan({
+  experimentId,
+  backend,
+  createSessionId = () => crypto.randomUUID()
+} = {}) {
+  assertUuid(experimentId, 'performance pair plan experimentId');
+  if (!['canvas2d', 'webgpu'].includes(backend)) {
+    fail('performance pair plan backend is invalid');
+  }
+  if (typeof createSessionId !== 'function') {
+    fail('performance pair plan session ID factory must be a function');
+  }
+
+  const variantsByComparisonKind = {
+    'harness-overhead': ['production', 'harness-control'],
+    'instrumentation-overhead': ['harness-control', 'instrumented']
+  };
+  const metricSessionIds = new Set();
+  const pairs = [];
+  for (const comparisonKind of Object.keys(PERFORMANCE_PAIR_CARDINALITIES)) {
+    const pairCount = PERFORMANCE_PAIR_CARDINALITIES[comparisonKind];
+    const canonicalVariants = variantsByComparisonKind[comparisonKind];
+    for (let pairIndex = 1; pairIndex <= pairCount; pairIndex += 1) {
+      const generatedId = createSessionId();
+      assertNonemptyString(generatedId, 'performance pair plan metric session ID');
+      const metricSessionId = `${experimentId}:${comparisonKind}:${backend}:pair-${pairIndex}:attempt-1:${generatedId}`;
+      if (metricSessionIds.has(metricSessionId)) {
+        fail('performance pair plan session IDs must be unique');
+      }
+      metricSessionIds.add(metricSessionId);
+      const buildVariants = pairIndex % 2 === 1
+        ? canonicalVariants
+        : [...canonicalVariants].reverse();
+      pairs.push({
+        comparisonKind,
+        backend,
+        pairIndex,
+        attemptIndex: 1,
+        metricSessionId,
+        launches: buildVariants.map((buildVariant, index) => ({
+          comparisonSide: index === 0 ? 'A' : 'B',
+          buildVariant
+        }))
+      });
+    }
+  }
+  return freezePairPlan({
+    schemaVersion: 1,
+    experimentId,
+    backend,
+    pairs
+  });
 }
 
 export function parsePerformanceBaselineArgs(argv, { cwd = PROJECT_ROOT } = {}) {
@@ -742,6 +835,11 @@ export async function runPerformanceBaseline({
     });
   }
 
+  const experimentId = crypto.randomUUID();
+  const pairPlan = createPerformancePairPlan({ experimentId, backend: 'canvas2d' });
+  const pairPlanPath = path.join(options.outputDirectory, PERFORMANCE_PAIR_PLAN);
+  await fs.writeFile(pairPlanPath, `${stableStringify(pairPlan)}\n`, { encoding: 'utf8', flag: 'wx' });
+
   const playwright = resolvePerformancePlaywrightCommand({
     cwd,
     platform,
@@ -756,6 +854,8 @@ export async function runPerformanceBaseline({
       PRISMGB_PERFORMANCE_OUTPUT: options.outputDirectory,
       PRISMGB_PERFORMANCE_CAPTURE_OUTPUT: options.outputDirectory,
       PRISMGB_PERFORMANCE_ROLE: options.role,
+      PRISMGB_PERFORMANCE_EXPERIMENT_ID: experimentId,
+      PRISMGB_PERFORMANCE_PAIR_PLAN: pairPlanPath,
       PRISMGB_PERF_SELECTED_HOST: options.selectedHost ? '1' : '0'
     },
     spawn
@@ -782,6 +882,9 @@ export async function runPerformanceBaseline({
     ...build,
     role: options.role,
     selectedHost: options.selectedHost,
+    experimentId,
+    pairPlan,
+    pairPlanPath,
     playwrightExecuted: true,
     workloadCapture,
     sentinelCapture,

@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   PERFORMANCE_BUILD_VARIANTS,
   createBundleManifest,
+  createPerformancePairPlan,
   createPerformanceCommandLedger,
   createPerformanceBuildEnvironment,
   createProductionBundleEvidence,
@@ -195,6 +196,94 @@ describe('createPerformanceBuildEnvironment', () => {
       PRISMGB_PERF_HARNESS_BUILD: '1',
       PRISMGB_PERF_INSTRUMENTATION_BUILD: '1'
     });
+  });
+});
+
+describe('createPerformancePairPlan', () => {
+  it('uses the exact three-plus-six cardinality and alternates cold-launch order', () => {
+    let session = 0;
+    const plan = createPerformancePairPlan({
+      experimentId: '123e4567-e89b-42d3-a456-426614174000',
+      backend: 'canvas2d',
+      createSessionId: () => `session-${++session}`
+    });
+
+    expect(plan).toMatchObject({ schemaVersion: 1, backend: 'canvas2d' });
+    expect(plan.pairs.map((pair) => ({
+      comparisonKind: pair.comparisonKind,
+      pairIndex: pair.pairIndex,
+      launches: pair.launches
+    }))).toEqual([
+      {
+        comparisonKind: 'harness-overhead',
+        pairIndex: 1,
+        launches: [{ comparisonSide: 'A', buildVariant: 'production' }, { comparisonSide: 'B', buildVariant: 'harness-control' }]
+      },
+      {
+        comparisonKind: 'harness-overhead',
+        pairIndex: 2,
+        launches: [{ comparisonSide: 'A', buildVariant: 'harness-control' }, { comparisonSide: 'B', buildVariant: 'production' }]
+      },
+      {
+        comparisonKind: 'harness-overhead',
+        pairIndex: 3,
+        launches: [{ comparisonSide: 'A', buildVariant: 'production' }, { comparisonSide: 'B', buildVariant: 'harness-control' }]
+      },
+      {
+        comparisonKind: 'instrumentation-overhead',
+        pairIndex: 1,
+        launches: [{ comparisonSide: 'A', buildVariant: 'harness-control' }, { comparisonSide: 'B', buildVariant: 'instrumented' }]
+      },
+      {
+        comparisonKind: 'instrumentation-overhead',
+        pairIndex: 2,
+        launches: [{ comparisonSide: 'A', buildVariant: 'instrumented' }, { comparisonSide: 'B', buildVariant: 'harness-control' }]
+      },
+      {
+        comparisonKind: 'instrumentation-overhead',
+        pairIndex: 3,
+        launches: [{ comparisonSide: 'A', buildVariant: 'harness-control' }, { comparisonSide: 'B', buildVariant: 'instrumented' }]
+      },
+      {
+        comparisonKind: 'instrumentation-overhead',
+        pairIndex: 4,
+        launches: [{ comparisonSide: 'A', buildVariant: 'instrumented' }, { comparisonSide: 'B', buildVariant: 'harness-control' }]
+      },
+      {
+        comparisonKind: 'instrumentation-overhead',
+        pairIndex: 5,
+        launches: [{ comparisonSide: 'A', buildVariant: 'harness-control' }, { comparisonSide: 'B', buildVariant: 'instrumented' }]
+      },
+      {
+        comparisonKind: 'instrumentation-overhead',
+        pairIndex: 6,
+        launches: [{ comparisonSide: 'A', buildVariant: 'instrumented' }, { comparisonSide: 'B', buildVariant: 'harness-control' }]
+      }
+    ]);
+    const byKind = (comparisonKind: string) => plan.pairs.filter((pair) => pair.comparisonKind === comparisonKind);
+    expect(byKind('harness-overhead')).toHaveLength(3);
+    expect(byKind('instrumentation-overhead')).toHaveLength(6);
+    expect(byKind('harness-overhead').flatMap((pair) => pair.launches).filter((launch) => launch.buildVariant === 'production')).toHaveLength(3);
+    expect(byKind('instrumentation-overhead').filter((pair) => pair.launches[0].buildVariant === 'harness-control')).toHaveLength(3);
+    expect(byKind('instrumentation-overhead').filter((pair) => pair.launches[0].buildVariant === 'instrumented')).toHaveLength(3);
+    expect(new Set(plan.pairs.map((pair) => pair.metricSessionId)).size).toBe(9);
+    expect(Object.isFrozen(plan.pairs[0].launches)).toBe(true);
+  });
+
+  it('rejects invalid experiment/backend/session identities', () => {
+    expect(() => createPerformancePairPlan({
+      experimentId: 'not-a-uuid',
+      backend: 'canvas2d'
+    })).toThrow(/experimentId/);
+    expect(() => createPerformancePairPlan({
+      experimentId: '123e4567-e89b-42d3-a456-426614174000',
+      backend: 'unknown' as never
+    })).toThrow(/backend/);
+    expect(() => createPerformancePairPlan({
+      experimentId: '123e4567-e89b-42d3-a456-426614174000',
+      backend: 'canvas2d',
+      createSessionId: () => ''
+    })).toThrow(/session ID/);
   });
 });
 
@@ -575,8 +664,11 @@ describe('runPerformanceBaseline', () => {
       if (command === 'npx') {
         const manifestPath = options.env.PRISMGB_PERFORMANCE_BUILD_MANIFEST;
         const outputDirectory = options.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT;
-        if (!manifestPath || !outputDirectory) throw new Error('expected performance output environment');
+        const pairPlanPath = options.env.PRISMGB_PERFORMANCE_PAIR_PLAN;
+        if (!manifestPath || !outputDirectory || !pairPlanPath) throw new Error('expected performance output environment');
         const manifest = JSON.parse(fsSync.readFileSync(manifestPath, 'utf8'));
+        const pairPlan = JSON.parse(fsSync.readFileSync(pairPlanPath, 'utf8'));
+        if (pairPlan.pairs.length !== 9) throw new Error('expected the exact performance pair plan');
         const instrumented = manifest.variants.find((variant: { id: string }) => variant.id === 'instrumented');
         const harnessControl = manifest.variants.find((variant: { id: string }) => variant.id === 'harness-control');
         const capture = createPerformanceWorkloadCapture({
@@ -651,6 +743,8 @@ describe('runPerformanceBaseline', () => {
       sourceSha: 'a'.repeat(40),
       captures: [expect.objectContaining({ buildId: 'harness-control', adapterId: 'linux-procfs-v1' })]
     });
+    expect(result.pairPlan).toMatchObject({ backend: 'canvas2d', pairs: expect.any(Array) });
+    await expect(fs.readFile(result.pairPlanPath, 'utf8')).resolves.toContain('instrumentation-overhead');
     await expect(fs.readFile(result.workloadCapture.indexPath, 'utf8')).resolves.toContain('raw-workload-captures/');
     await expect(fs.readFile(result.sentinelCapture.indexPath, 'utf8')).resolves.toContain('raw-sentinel-captures/');
     await expect(fs.readFile(result.externalMetricCapture.indexPath, 'utf8')).resolves.toContain('raw-external-metric-captures/');
