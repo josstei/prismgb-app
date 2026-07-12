@@ -8,11 +8,17 @@ import {
   assertPerformanceController,
   createPerformanceLaunchId,
   getPerformanceBuild,
+  installPerformanceCallbackGate,
   installPerformanceControlProbe,
   loadPerformanceBuildManifest,
+  pausePerformanceCallbacks,
+  pausePerformanceCallbacksAt,
+  readPerformanceCallbackGate,
   removePerformanceControlProbe,
+  removePerformanceCallbackGate,
   readPerformanceControlProbe,
   readPerformanceDiagnostics,
+  resumePerformanceCallbacks,
   resetPerformanceDiagnostics
 } from '../helpers/gpu-performance-baseline.helper.js';
 
@@ -63,12 +69,17 @@ export const test = base.extend({
       }
       await assertPerformanceController(app, launchId);
       await installPerformanceControlProbe(window, launchId);
+      await installPerformanceCallbackGate(window, launchId);
       await use({
         app,
         window,
         launchId,
         build,
         readPerformanceControlProbe: () => readPerformanceControlProbe(window),
+        pausePerformanceCallbacks: () => pausePerformanceCallbacks(window, launchId),
+        pausePerformanceCallbacksAt: (callbackCount) => pausePerformanceCallbacksAt(window, launchId, callbackCount),
+        resumePerformanceCallbacks: () => resumePerformanceCallbacks(window, launchId),
+        readPerformanceCallbackGate: () => readPerformanceCallbackGate(window, launchId),
         readPerformanceDiagnostics: () => {
           if (!build.instrumentation) {
             throw new Error('renderer diagnostics require an instrumented performance build');
@@ -84,6 +95,7 @@ export const test = base.extend({
       });
     } finally {
       if (window) {
+        await removePerformanceCallbackGate(window, launchId).catch(() => {});
         await removePerformanceControlProbe(window).catch(() => {});
       }
       await app.close().catch(() => {});

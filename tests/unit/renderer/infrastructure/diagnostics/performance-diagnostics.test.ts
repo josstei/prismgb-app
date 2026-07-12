@@ -61,6 +61,10 @@ function lifecycleRequest(phaseSequence: number): WebGpuAllocationRequestProxyIn
 }
 
 describe('PerformanceDiagnostics', () => {
+  it('uses the policy maximum callback count as its default bounded sample capacity', () => {
+    expect(createPerformanceDiagnostics().getSnapshot().maxSamplesPerKind).toBe(2048);
+  });
+
   it('bounds each raw sample kind and rejects duplicate or summary-shaped timing input', () => {
     const diagnostics = createPerformanceDiagnostics({ maxSamplesPerKind: 1 });
 

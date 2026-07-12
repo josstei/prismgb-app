@@ -24,6 +24,7 @@ const PRODUCTION_FORBIDDEN_SENTINELS = Object.freeze([
 ]);
 
 const PERFORMANCE_CONTROL_PROBE_SYMBOL = 'prismgb.performance.controlProbe';
+const PERFORMANCE_CALLBACK_GATE_SYMBOL = 'prismgb.performance.callbackGate';
 const PERFORMANCE_RENDERER_DIAGNOSTICS_SYMBOL = 'prismgb.performance.rendererDiagnostics';
 
 function fail(message) {
@@ -221,6 +222,149 @@ export async function installPerformanceControlProbe(page, launchId) {
       value: () => writes.map((write) => ({ ...write }))
     });
   }, { launchId, probeSymbol: PERFORMANCE_CONTROL_PROBE_SYMBOL });
+}
+
+export async function installPerformanceCallbackGate(page, launchId) {
+  await page.evaluate(({ launchId: expectedLaunchId, gateSymbol }) => {
+    const marker = window.prismgbPerformanceLaunchMarker;
+    if (marker?.launchId !== expectedLaunchId) {
+      throw new Error('cannot install a callback gate without the validated renderer marker');
+    }
+    const gateKey = Symbol.for(gateSymbol);
+    if (window[gateKey] !== undefined) {
+      throw new Error('performance callback gate is already installed');
+    }
+
+    const videoPrototype = HTMLVideoElement.prototype;
+    const requestDescriptor = Object.getOwnPropertyDescriptor(videoPrototype, 'requestVideoFrameCallback');
+    if (!requestDescriptor || typeof requestDescriptor.value !== 'function') {
+      throw new Error('performance callback gate requires requestVideoFrameCallback');
+    }
+    const cancelDescriptor = Object.getOwnPropertyDescriptor(videoPrototype, 'cancelVideoFrameCallback');
+    const originalRequest = requestDescriptor.value;
+    const originalCancel = cancelDescriptor?.value;
+    const heldCallbacks = new Map();
+    let paused = false;
+    let pauseAtCallbackCount = null;
+    let interceptedCallbackCount = 0;
+
+    const assertLaunchId = (requestedLaunchId) => {
+      if (requestedLaunchId !== expectedLaunchId) {
+        throw new Error('performance callback gate launch ID does not match the preload marker');
+      }
+    };
+    const snapshot = () => ({
+      paused,
+      heldCallbackCount: heldCallbacks.size,
+      interceptedCallbackCount,
+      pauseAtCallbackCount
+    });
+
+    Object.defineProperty(videoPrototype, 'requestVideoFrameCallback', {
+      ...requestDescriptor,
+      value: function patchedRequestVideoFrameCallback(callback) {
+        const video = this;
+        let frameCallbackHandle;
+        const wrappedCallback = (now, metadata) => {
+          interceptedCallbackCount++;
+          if (paused || (pauseAtCallbackCount !== null && interceptedCallbackCount >= pauseAtCallbackCount)) {
+            paused = true;
+            pauseAtCallbackCount = null;
+            heldCallbacks.set(frameCallbackHandle, { video, callback, now, metadata });
+            return;
+          }
+          return callback.call(video, now, metadata);
+        };
+        frameCallbackHandle = Reflect.apply(originalRequest, video, [wrappedCallback]);
+        return frameCallbackHandle;
+      }
+    });
+
+    if (cancelDescriptor && typeof originalCancel === 'function') {
+      Object.defineProperty(videoPrototype, 'cancelVideoFrameCallback', {
+        ...cancelDescriptor,
+        value: function patchedCancelVideoFrameCallback(frameCallbackHandle) {
+          heldCallbacks.delete(frameCallbackHandle);
+          return Reflect.apply(originalCancel, this, [frameCallbackHandle]);
+        }
+      });
+    }
+
+    Object.defineProperty(window, gateKey, {
+      configurable: true,
+      enumerable: false,
+      writable: false,
+      value: Object.freeze({
+        pause(requestedLaunchId) {
+          assertLaunchId(requestedLaunchId);
+          paused = true;
+          pauseAtCallbackCount = null;
+          return snapshot();
+        },
+        pauseAt(requestedLaunchId, requestedCallbackCount) {
+          assertLaunchId(requestedLaunchId);
+          if (!Number.isSafeInteger(requestedCallbackCount) || requestedCallbackCount <= interceptedCallbackCount) {
+            throw new Error('performance callback gate pause target must be a future callback count');
+          }
+          pauseAtCallbackCount = requestedCallbackCount;
+          return snapshot();
+        },
+        resume(requestedLaunchId) {
+          assertLaunchId(requestedLaunchId);
+          paused = false;
+          const callbacks = [...heldCallbacks.values()];
+          heldCallbacks.clear();
+          callbacks.forEach(({ video, callback, now, metadata }) => callback.call(video, now, metadata));
+          return snapshot();
+        },
+        snapshot(requestedLaunchId) {
+          assertLaunchId(requestedLaunchId);
+          return snapshot();
+        },
+        dispose(requestedLaunchId) {
+          assertLaunchId(requestedLaunchId);
+          heldCallbacks.clear();
+          pauseAtCallbackCount = null;
+          Object.defineProperty(videoPrototype, 'requestVideoFrameCallback', requestDescriptor);
+          if (cancelDescriptor) {
+            Object.defineProperty(videoPrototype, 'cancelVideoFrameCallback', cancelDescriptor);
+          }
+          delete window[gateKey];
+          return snapshot();
+        }
+      })
+    });
+  }, { launchId, gateSymbol: PERFORMANCE_CALLBACK_GATE_SYMBOL });
+}
+
+async function usePerformanceCallbackGate(page, launchId, method, args = []) {
+  return page.evaluate(({ launchId: expectedLaunchId, gateSymbol, method: requestedMethod, args: requestedArgs }) => {
+    const gate = window[Symbol.for(gateSymbol)];
+    if (!gate || typeof gate[requestedMethod] !== 'function') {
+      throw new Error('performance callback gate is unavailable');
+    }
+    return gate[requestedMethod](expectedLaunchId, ...requestedArgs);
+  }, { launchId, gateSymbol: PERFORMANCE_CALLBACK_GATE_SYMBOL, method, args });
+}
+
+export async function pausePerformanceCallbacks(page, launchId) {
+  return usePerformanceCallbackGate(page, launchId, 'pause');
+}
+
+export async function pausePerformanceCallbacksAt(page, launchId, callbackCount) {
+  return usePerformanceCallbackGate(page, launchId, 'pauseAt', [callbackCount]);
+}
+
+export async function resumePerformanceCallbacks(page, launchId) {
+  return usePerformanceCallbackGate(page, launchId, 'resume');
+}
+
+export async function readPerformanceCallbackGate(page, launchId) {
+  return usePerformanceCallbackGate(page, launchId, 'snapshot');
+}
+
+export async function removePerformanceCallbackGate(page, launchId) {
+  await usePerformanceCallbackGate(page, launchId, 'dispose');
 }
 
 export async function readPerformanceControlProbe(page) {

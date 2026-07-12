@@ -103,3 +103,62 @@ test('the instrumented harness records raw branch evidence for the animated Chro
   });
   expect(resetDiagnostics.timingSamples['source-callback']).toEqual([]);
 });
+
+test('the instrumented harness delimits a 600-callback renderer cohort after warmup', async ({
+  performanceLaunch,
+  performanceChromaticDevice
+}) => {
+  const streamPage = new StreamPage(performanceLaunch.window);
+  await performanceChromaticDevice.connect({ testPattern: 'animated' });
+  await streamPage.start();
+
+  const warmupStartedAt = performance.now();
+  await expect.poll(async () => {
+    const writes = await performanceLaunch.readPerformanceControlProbe();
+    const sourceOpportunityCount = writes.filter((write) => write.kind === 'source-opportunity').length;
+    return sourceOpportunityCount >= 600 && performance.now() - warmupStartedAt >= 10_000;
+  }, { timeout: 30000 }).toBe(true);
+
+  await performanceLaunch.pausePerformanceCallbacks();
+  await expect.poll(
+    () => performanceLaunch.readPerformanceCallbackGate(),
+    { timeout: 5000 }
+  ).toMatchObject({ paused: true, heldCallbackCount: 1 });
+
+  const warmupSourceOpportunityCount = (await performanceLaunch.readPerformanceControlProbe())
+    .filter((write) => write.kind === 'source-opportunity').length;
+  const warmupGate = await performanceLaunch.readPerformanceCallbackGate();
+  await expect(performanceLaunch.resetPerformanceDiagnostics()).resolves.toEqual({ reset: true });
+  await expect(performanceLaunch.pausePerformanceCallbacksAt(warmupGate.interceptedCallbackCount + 600))
+    .resolves.toMatchObject({ pauseAtCallbackCount: warmupGate.interceptedCallbackCount + 600 });
+  await performanceLaunch.resumePerformanceCallbacks();
+
+  await expect.poll(
+    () => performanceLaunch.readPerformanceCallbackGate(),
+    { timeout: 20000 }
+  ).toMatchObject({ paused: true, heldCallbackCount: 1, pauseAtCallbackCount: null });
+
+  await streamPage.stop();
+  const writes = await performanceLaunch.readPerformanceControlProbe();
+  const cohortSourceWrites = writes
+    .filter((write) => write.kind === 'source-opportunity')
+    .slice(warmupSourceOpportunityCount);
+  const diagnostics = await performanceLaunch.readPerformanceDiagnostics();
+
+  expect(cohortSourceWrites).toHaveLength(600);
+  expect(cohortSourceWrites.map((write) => write.sourceSequence)).toEqual(
+    cohortSourceWrites.map((write, index) => cohortSourceWrites[0].sourceSequence + index)
+  );
+  expect(diagnostics).toMatchObject({
+    source: {
+      sourceOpportunities: 600,
+      fatalDispositions: { total: 0 },
+      reconciliation: { accountedOpportunities: 600, isConserved: true }
+    },
+    shutdown: {
+      beforeRelease: { availability: 'observed', launchId: performanceLaunch.launchId },
+      releaseDispatched: { availability: 'observed', launchId: performanceLaunch.launchId }
+    }
+  });
+  expect(diagnostics.timingSamples['source-callback']).toHaveLength(600);
+});

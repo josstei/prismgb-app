@@ -2,9 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   assertPerformanceController,
   installPerformanceControlProbe,
+  pausePerformanceCallbacks,
+  pausePerformanceCallbacksAt,
+  readPerformanceCallbackGate,
   readPerformanceControlProbe,
   readPerformanceDiagnostics,
+  removePerformanceCallbackGate,
   resetPerformanceDiagnostics,
+  resumePerformanceCallbacks,
   removePerformanceControlProbe
 } from '../../e2e/helpers/gpu-performance-baseline.helper.js';
 
@@ -81,5 +86,48 @@ describe('GPU performance baseline helper', () => {
     await expect(resetPerformanceDiagnostics(page, 'launch-id')).resolves.toEqual({ reset: true });
     expect(reader).toHaveBeenCalledWith('launch-id');
     expect(reader).toHaveBeenLastCalledWith('launch-id', 'reset');
+  });
+
+  it('routes callback-gate commands through the marker-bound fixture control', async () => {
+    const calls: string[] = [];
+    const gate = {
+      pause: vi.fn(() => {
+        calls.push('pause');
+        return { paused: true, heldCallbackCount: 0, interceptedCallbackCount: 0 };
+      }),
+      pauseAt: vi.fn((_launchId: string, callbackCount: number) => ({
+        paused: false,
+        heldCallbackCount: 0,
+        interceptedCallbackCount: 1,
+        pauseAtCallbackCount: callbackCount
+      })),
+      resume: vi.fn(() => {
+        calls.push('resume');
+        return { paused: false, heldCallbackCount: 0, interceptedCallbackCount: 1 };
+      }),
+      snapshot: vi.fn(() => ({ paused: false, heldCallbackCount: 1, interceptedCallbackCount: 1 })),
+      dispose: vi.fn(() => {
+        calls.push('dispose');
+        return { paused: false, heldCallbackCount: 0, interceptedCallbackCount: 1 };
+      })
+    };
+    const windowTarget: Record<PropertyKey, unknown> = {
+      [Symbol.for('prismgb.performance.callbackGate')]: gate
+    };
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: windowTarget
+    });
+    const page = {
+      evaluate: async <T>(callback: (argument: T) => unknown, argument: T) => callback(argument)
+    };
+
+    await expect(pausePerformanceCallbacks(page, 'launch-id')).resolves.toMatchObject({ paused: true });
+    await expect(pausePerformanceCallbacksAt(page, 'launch-id', 2)).resolves.toMatchObject({ pauseAtCallbackCount: 2 });
+    await expect(readPerformanceCallbackGate(page, 'launch-id')).resolves.toMatchObject({ heldCallbackCount: 1 });
+    await expect(resumePerformanceCallbacks(page, 'launch-id')).resolves.toMatchObject({ paused: false });
+    await expect(removePerformanceCallbackGate(page, 'launch-id')).resolves.toBeUndefined();
+    expect(calls).toEqual(['pause', 'resume', 'dispose']);
+    expect(gate.pauseAt).toHaveBeenCalledWith('launch-id', 2);
   });
 });

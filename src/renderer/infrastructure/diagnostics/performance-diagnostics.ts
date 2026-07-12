@@ -439,7 +439,7 @@ type MutableWorkerCounters = {
   driverFailed: number;
 };
 
-const DEFAULT_MAX_SAMPLES_PER_KIND = 256;
+const DEFAULT_MAX_SAMPLES_PER_KIND = 2_048;
 const MAX_SAMPLES_PER_KIND = 10_000;
 const ADAPTER_IDENTITY_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{0,95})$/;
 
