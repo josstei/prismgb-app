@@ -36,6 +36,10 @@ import {
   sealExternalPerformanceSentinelGate,
   resetPerformanceDiagnostics
 } from '../helpers/gpu-performance-baseline.helper.js';
+import {
+  validatePerformanceRootExitAuditFile,
+  validatePerformanceRootExitObservation
+} from '../../../scripts/lib/performance-controller-audit.js';
 
 /**
  * @param {{
@@ -82,6 +86,9 @@ export function createPerformanceElectronLaunchOptions({
     '--disable-dev-shm-usage'
   ];
   if (launchId !== null) args.splice(2, 0, `--prismgb-performance-launch-id=${launchId}`);
+  const rootExitAuditPath = build.harness
+    ? path.join(userDataDirectory, 'root-exit-audit.json')
+    : null;
   const environment = {
     ...baseEnvironment,
     NODE_ENV: 'test',
@@ -95,15 +102,135 @@ export function createPerformanceElectronLaunchOptions({
       PRISMGB_PERF_MEASUREMENT: '1',
       PRISMGB_PERF_LAUNCH_ID: launchId,
       PRISMGB_E2E_DIAGNOSTICS: build.instrumentation && performanceDiagnostics ? '1' : '0',
-      PRISMGB_E2E_TEST_CONTROL: '1'
+      PRISMGB_E2E_TEST_CONTROL: '1',
+      PRISMGB_PERF_ROOT_EXIT_AUDIT_PATH: rootExitAuditPath
     });
   } else {
     delete environment.PRISMGB_PERF_MEASUREMENT;
     delete environment.PRISMGB_PERF_LAUNCH_ID;
     delete environment.PRISMGB_E2E_DIAGNOSTICS;
     delete environment.PRISMGB_E2E_TEST_CONTROL;
+    delete environment.PRISMGB_PERF_ROOT_EXIT_AUDIT_PATH;
   }
-  return Object.freeze({ args: Object.freeze(args), env: Object.freeze(environment) });
+  return Object.freeze({
+    args: Object.freeze(args),
+    env: Object.freeze(environment),
+    rootExitAuditPath
+  });
+}
+
+function isObservedProcessAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (error && typeof error === 'object' && error.code === 'ESRCH') return false;
+    throw error;
+  }
+}
+
+/**
+ * Waits for an externally observed PID to disappear. A surviving or reused
+ * PID is intentionally fatal: either outcome invalidates terminal closure.
+ *
+ * @param {{
+ *   pid: number,
+ *   timeoutMs?: number,
+ *   clock?: () => number,
+ *   isAlive?: (pid: number) => boolean | Promise<boolean>,
+ *   wait?: (milliseconds: number) => Promise<void>
+ * }} options
+ * @returns {Promise<number>}
+ */
+export async function waitForObservedProcessTermination({
+  pid,
+  timeoutMs = 5000,
+  clock = () => performance.now(),
+  isAlive = isObservedProcessAlive,
+  wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))
+} = {}) {
+  if (!Number.isSafeInteger(pid) || pid <= 0) {
+    throw new Error('performance root-exit observation requires a positive process PID');
+  }
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || typeof clock !== 'function'
+    || typeof isAlive !== 'function' || typeof wait !== 'function') {
+    throw new Error('performance root-exit observation options are invalid');
+  }
+  const deadline = clock() + timeoutMs;
+  while (true) {
+    if (!await isAlive(pid)) return clock();
+    if (clock() >= deadline) {
+      throw new Error(`performance root-exit observation timed out waiting for PID ${pid}`);
+    }
+    await wait(Math.min(25, Math.max(1, deadline - clock())));
+  }
+}
+
+/**
+ * @param {{
+ *   auditPath: string,
+ *   instrumentation: boolean,
+ *   readFile?: (path: string, encoding: 'utf8') => Promise<string>
+ * }} options
+ */
+export async function readPerformanceRootExitAudit({
+  auditPath,
+  instrumentation,
+  readFile = fs.readFile
+} = {}) {
+  if (typeof auditPath !== 'string' || !path.isAbsolute(auditPath) || typeof instrumentation !== 'boolean'
+    || typeof readFile !== 'function') {
+    throw new Error('performance root-exit audit reader options are invalid');
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(await readFile(auditPath, 'utf8'));
+  } catch (error) {
+    const unreadable = new Error(
+      `performance root-exit audit is unreadable: ${error instanceof Error ? error.message : String(error)}`
+    );
+    if (error && typeof error === 'object' && typeof error.code === 'string') {
+      unreadable.code = error.code;
+    }
+    throw unreadable;
+  }
+  return validatePerformanceRootExitAuditFile(parsed, { instrumentation });
+}
+
+/**
+ * @param {{
+ *   rootExitAudit: { controllerAudit: unknown, launchId: string },
+ *   clock?: () => number,
+ *   waitForTermination?: (options: { pid: number }) => Promise<number>
+ * }} options
+ * @returns {Promise<unknown>}
+ */
+export async function observePerformanceRootExit({
+  rootExitAudit,
+  clock = () => performance.now(),
+  waitForTermination = waitForObservedProcessTermination
+} = {}) {
+  if (!rootExitAudit || typeof rootExitAudit !== 'object' || typeof clock !== 'function'
+    || typeof waitForTermination !== 'function') {
+    throw new Error('performance root-exit observer options are invalid');
+  }
+  const gate = rootExitAudit.controllerAudit?.rootExitGate;
+  if (!gate || typeof gate !== 'object') {
+    throw new Error('performance root-exit audit has no root-exit gate evidence');
+  }
+  const rootExitObservedAt = await waitForTermination({ pid: gate.root.pid });
+  const frameworkExitTimes = await Promise.all(gate.frameworkSurvivors.map((survivor) => (
+    waitForTermination({ pid: survivor.pid })
+  )));
+  const terminalClosureEnd = Math.max(rootExitObservedAt, ...frameworkExitTimes);
+  return validatePerformanceRootExitObservation({
+    launchId: rootExitAudit.launchId,
+    protocol: 'electron-application-close',
+    rootExitObservedAt,
+    terminalClosureEnd,
+    root: gate.root,
+    frameworkSurvivors: gate.frameworkSurvivors
+  }, { controllerAudit: rootExitAudit.controllerAudit });
 }
 
 /**
@@ -506,7 +633,7 @@ export async function openPerformanceLaunch({
   performanceVariant = 'instrumented',
   performanceDiagnostics = true,
   loadedManifest = undefined,
-  launchElectron = electron.launch
+  launchElectron = electron.launch.bind(electron)
 } = {}) {
   if (!['production', 'harness-control', 'instrumented'].includes(performanceVariant)) {
     throw new Error('performance launch variant is invalid');
@@ -528,9 +655,11 @@ export async function openPerformanceLaunch({
   let app = null;
   let window = null;
   let performanceMeasurement = null;
+  let rootProcessId = null;
   let closed = false;
+  let rootExitEvidence = null;
   const close = async () => {
-    if (closed) return;
+    if (closed) return rootExitEvidence;
     closed = true;
     if (window) {
       await removeExternalPerformanceSentinelGate(window, externalExecutionId).catch(() => {});
@@ -538,8 +667,40 @@ export async function openPerformanceLaunch({
     if (window && build.harness && launchId !== null) {
       await removePerformanceControlProbe(window).catch(() => {});
     }
-    if (app) await app.close().catch(() => {});
-    await fs.rm(userDataDirectory, { recursive: true, force: true });
+    let closeError = null;
+    try {
+      if (app) await app.close();
+      if (build.harness && launch.rootExitAuditPath !== null) {
+        if (performanceMeasurement !== null && rootProcessId !== null) {
+          await waitForObservedProcessTermination({ pid: rootProcessId });
+        }
+        try {
+          const rootExitAudit = await readPerformanceRootExitAudit({
+            auditPath: launch.rootExitAuditPath,
+            instrumentation: build.instrumentation
+          });
+          if (rootProcessId !== null && rootExitAudit.controllerAudit.rootExitGate.root.pid !== rootProcessId) {
+            throw new Error('performance root-exit audit root PID does not match the launched Browser process');
+          }
+          rootExitEvidence = Object.freeze({
+            controllerAudit: rootExitAudit.controllerAudit,
+            rootExit: await observePerformanceRootExit({ rootExitAudit })
+          });
+        } catch (error) {
+          const auditIsOptional = performanceMeasurement === null && error?.code === 'ENOENT';
+          if (!auditIsOptional) throw error;
+        }
+      }
+      if (performanceMeasurement !== null && rootExitEvidence === null) {
+        throw new Error('planned harness launch closed without root-exit closure evidence');
+      }
+    } catch (error) {
+      closeError = error;
+    } finally {
+      await fs.rm(userDataDirectory, { recursive: true, force: true });
+    }
+    if (closeError !== null) throw closeError;
+    return rootExitEvidence;
   };
 
   try {
@@ -587,7 +748,8 @@ export async function openPerformanceLaunch({
 
     const marker = await window.evaluate(() => window.prismgbPerformanceLaunchMarker);
     if (marker?.launchId !== launchId) throw new Error('renderer marker does not match the launch controller identity');
-    await assertPerformanceController(app, launchId);
+    const controllerIdentity = await assertPerformanceController(app, launchId);
+    rootProcessId = controllerIdentity.mainPid;
     await installPerformanceControlProbe(window, launchId);
     if (performanceMeasurement !== null) {
       await performanceMeasurement.recordStartupEnvironment();
@@ -613,7 +775,7 @@ export async function openPerformanceLaunch({
       }
     });
   } catch (error) {
-    await close();
+    await close().catch(() => {});
     throw error;
   }
 }

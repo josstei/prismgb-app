@@ -26,7 +26,10 @@ import { createPerformanceExternalMetricCapture } from '../../../scripts/lib/per
 import { createPerformanceMetricSessionCapture } from '../../../scripts/lib/performance-metric-session-capture.js';
 import { createPerformanceWorkloadCapture } from '../../../scripts/lib/performance-workload-capture.js';
 import { readPerformanceRawCaptureManifest } from '../../../scripts/lib/performance-raw-capture-manifest.js';
-import { createPerformanceControllerAuditFixture } from './performance-controller-audit.fixture.js';
+import {
+  createPerformanceControllerAuditFixture,
+  createPerformanceRootExitObservationFixture
+} from './performance-controller-audit.fixture.js';
 
 const tempDirectories: string[] = [];
 
@@ -113,6 +116,12 @@ function createCanvasSentinelCapture({
   runId?: string;
   observationBoundaryId?: string;
 } = {}) {
+  const controllerAudit = buildId === 'production'
+    ? null
+    : createPerformanceControllerAuditFixture({
+      launchId: externalExecutionId,
+      instrumentation: false
+    });
   return createPerformanceSentinelCapture({
     sourceSha,
     runId,
@@ -163,12 +172,8 @@ function createCanvasSentinelCapture({
       callbackOverlapCount: 0,
       outstandingWorkerFrames: 0
     },
-    controllerAudit: buildId === 'production'
-      ? null
-      : createPerformanceControllerAuditFixture({
-        launchId: externalExecutionId,
-        instrumentation: false
-      })
+    controllerAudit,
+    rootExit: controllerAudit === null ? null : createPerformanceRootExitObservationFixture(controllerAudit)
   });
 }
 
@@ -252,6 +257,10 @@ function createInstrumentationWorkloadCapture({
   observationBoundaryId?: string;
   diagnostics?: Record<string, unknown>;
 } = {}) {
+  const controllerAudit = createPerformanceControllerAuditFixture({
+    launchId,
+    instrumentation: buildId === 'instrumented'
+  });
   return createPerformanceWorkloadCapture({
     sourceSha,
     launchId,
@@ -274,10 +283,8 @@ function createInstrumentationWorkloadCapture({
     sourceSequences: [1, 2],
     controlWrites: [],
     diagnostics,
-    controllerAudit: createPerformanceControllerAuditFixture({
-      launchId,
-      instrumentation: buildId === 'instrumented'
-    })
+    controllerAudit,
+    rootExit: createPerformanceRootExitObservationFixture(controllerAudit)
   });
 }
 
@@ -850,7 +857,8 @@ describe('planned raw capture collection', () => {
       sourceSequences: original.capture.sourceSequences,
       controlWrites: original.capture.controlWrites,
       diagnostics: original.capture.diagnostics,
-      controllerAudit: original.capture.controllerAudit
+      controllerAudit: original.capture.controllerAudit,
+      rootExit: original.capture.rootExit
     });
     await fs.rm(path.join(outputDirectory, original.relativePath));
     await fs.writeFile(

@@ -9,11 +9,18 @@ import {
   validatePerformanceWorkloadCapture,
   writePerformanceWorkloadCapture
 } from '../../../scripts/lib/performance-workload-capture.js';
-import { createPerformanceControllerAuditFixture } from './performance-controller-audit.fixture.js';
+import {
+  createPerformanceControllerAuditFixture,
+  createPerformanceRootExitObservationFixture
+} from './performance-controller-audit.fixture.js';
 
 const temporaryDirectories: string[] = [];
 
 function captureInput() {
+  const controllerAudit = createPerformanceControllerAuditFixture({
+    launchId: '123e4567-e89b-42d3-a456-426614174000',
+    instrumentation: true
+  });
   return {
     sourceSha: 'a'.repeat(40),
     launchId: '123e4567-e89b-42d3-a456-426614174000',
@@ -59,10 +66,8 @@ function captureInput() {
     sourceSequences: [41, 42],
     controlWrites: [{ kind: 'source-opportunity', sourceSequence: 41 }],
     diagnostics: { source: { sourceOpportunities: 2 } },
-    controllerAudit: createPerformanceControllerAuditFixture({
-      launchId: '123e4567-e89b-42d3-a456-426614174000',
-      instrumentation: true
-    })
+    controllerAudit,
+    rootExit: createPerformanceRootExitObservationFixture(controllerAudit)
   };
 }
 
@@ -81,7 +86,7 @@ describe('performance workload capture', () => {
     const capture = createPerformanceWorkloadCapture(captureInput());
 
     expect(capture).toMatchObject({
-      schemaVersion: 7,
+      schemaVersion: 8,
       externalExecutionId: '123e4567-e89b-42d3-a456-426614174010',
       observationBoundaryId: 'external-sentinel-window:123e4567-e89b-42d3-a456-426614174010',
       checksum: expect.stringMatching(/^[a-f0-9]{64}$/),
@@ -145,6 +150,13 @@ describe('performance workload capture', () => {
         }
       }
     })).toThrow(/epoch token count/);
+    expect(() => createPerformanceWorkloadCapture({
+      ...captureInput(),
+      rootExit: {
+        ...captureInput().rootExit,
+        root: { pid: 2, creationTime: 10 }
+      }
+    })).toThrow(/root-exit broker membership/);
   });
 
   it('persists only no-clobber checksum-bound capture files and reads them back', async () => {
@@ -163,6 +175,10 @@ describe('performance workload capture', () => {
 
   it('permits a harness-control pair side with control-probe evidence but no instrumentation diagnostics', () => {
     const input = captureInput();
+    const controllerAudit = createPerformanceControllerAuditFixture({
+      launchId: input.launchId,
+      instrumentation: false
+    });
     const capture = createPerformanceWorkloadCapture({
       ...input,
       pair: { ...input.pair, comparisonSide: 'A' },
@@ -173,10 +189,8 @@ describe('performance workload capture', () => {
         bundleSha256: input.build.bundleSha256
       },
       diagnostics: {},
-      controllerAudit: createPerformanceControllerAuditFixture({
-        launchId: input.launchId,
-        instrumentation: false
-      })
+      controllerAudit,
+      rootExit: createPerformanceRootExitObservationFixture(controllerAudit)
     });
 
     expect(capture).toMatchObject({

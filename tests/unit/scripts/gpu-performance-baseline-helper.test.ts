@@ -76,7 +76,7 @@ describe('GPU performance baseline helper', () => {
     expect(assertLaunchId).toHaveBeenCalledWith('launch-id');
   });
 
-  it('owns the complete marker-bound controller lifecycle through named main-process evaluation', async () => {
+  it('owns the fixture-visible lifecycle through application descendant closure before root exit', async () => {
     const launchId = '123e4567-e89b-42d3-a456-426614174000';
     const phases: string[] = [];
     const samples: Array<{ phase: string; purpose: string }> = [];
@@ -95,8 +95,7 @@ describe('GPU performance baseline helper', () => {
       openNumericEpoch: vi.fn(() => ({ epochToken: { nonce: 'epoch:measurement' } })),
       closeNumericEpoch: vi.fn(() => ({ closedAt: 1, callSequence: 1 })),
       recordReleaseDispatched: vi.fn(() => ({ notBeforeFixtureAt: 1_000 })),
-      samplePostReleaseSettle: vi.fn(() => ({ rawAppMetrics: [] })),
-      finalize: vi.fn(() => ({ launchId, finalPhase: 'pre-exit' }))
+      samplePostReleaseSettle: vi.fn(() => ({ rawAppMetrics: [] }))
     };
     Object.defineProperty(globalThis, controllerSymbol, {
       configurable: true,
@@ -120,9 +119,7 @@ describe('GPU performance baseline helper', () => {
     await expect(lease.recordReleaseDispatched(0)).resolves.toEqual({ notBeforeFixtureAt: 1_000 });
     await lease.samplePostReleaseSettle(1_000);
     await lease.advance('application-descendant-closure');
-    await lease.advance('pre-exit');
-
-    await expect(lease.finalize()).resolves.toEqual({ launchId, finalPhase: 'pre-exit' });
+    expect(lease.prepareRootExit()).toEqual({ ready: true });
     expect(controller.assertLaunchId).toHaveBeenCalledWith(launchId);
     expect(phases).toEqual([
       'startup',
@@ -132,8 +129,7 @@ describe('GPU performance baseline helper', () => {
       'submission-seal',
       'drain',
       'shutdown',
-      'application-descendant-closure',
-      'pre-exit'
+      'application-descendant-closure'
     ]);
     expect(samples.map(({ purpose }) => purpose)).toEqual([
       'startup-identity',
@@ -144,14 +140,13 @@ describe('GPU performance baseline helper', () => {
       'submission-seal',
       'drain',
       'shutdown',
-      'application-descendant-closure',
-      'pre-exit'
+      'application-descendant-closure'
     ]);
     expect(controller.openNumericEpoch).toHaveBeenCalledWith({ nonce: 'phase:measurement' }, launchId);
     expect(controller.closeNumericEpoch).toHaveBeenCalledWith({ nonce: 'epoch:measurement' });
     expect(controller.recordReleaseDispatched).toHaveBeenCalledWith({ nonce: 'phase:shutdown' }, 0);
     expect(controller.samplePostReleaseSettle).toHaveBeenCalledWith({ nonce: 'phase:shutdown' }, 1_000);
-    expect(controller.sampleEnvironment).toHaveBeenCalledTimes(2);
+    expect(controller.sampleEnvironment).toHaveBeenCalledTimes(1);
   });
 
   it('reads a live renderer OS process ID through Electron main-process evaluation', async () => {

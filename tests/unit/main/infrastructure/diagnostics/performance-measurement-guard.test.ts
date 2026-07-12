@@ -20,7 +20,7 @@ function createEventSource(name: string, emitter: EventEmitter, events: readonly
   };
 }
 
-function completeOperationAfterStartup(
+function completeOperationThroughApplicationDescendantClosure(
   controller: ReturnType<typeof installPerformanceMeasurementGuard>,
   operationToken: PerformanceOperationToken
 ) {
@@ -43,9 +43,7 @@ function completeOperationAfterStartup(
   controller.samplePostReleaseSettle(shutdown, 1_100);
   const closure = controller.beginPhase(operationToken, 'application-descendant-closure').phaseToken;
   controller.sample(closure, 'application-descendant-closure');
-  const preExit = controller.beginPhase(operationToken, 'pre-exit').phaseToken;
-  controller.sample(preExit, 'pre-exit');
-  return preExit;
+  return closure;
 }
 
 describe('PerformanceMeasurementController', () => {
@@ -57,7 +55,8 @@ describe('PerformanceMeasurementController', () => {
     const controller = installPerformanceMeasurementGuard(launchId, {
       globalTarget,
       clock: () => ++clock,
-      getAppMetrics: () => [{ pid: 1, type: 'Browser' }],
+      getAppMetrics: () => [{ pid: 1, creationTime: 10, type: 'Browser' }],
+      rootProcessId: 1,
       getEnvironmentSnapshot: () => ({ power: 'ac', display: 'single' }),
       eventSources: [
         createEventSource('power', power, ['on-ac']),
@@ -79,11 +78,11 @@ describe('PerformanceMeasurementController', () => {
     expect(environment.currentState).toEqual({ power: 'ac', display: 'single' });
     expect(environment.eventBoundary).toEqual({ 'power:on-ac': 1, 'screen:display-added': 2 });
 
-    const preExit = completeOperationAfterStartup(controller, operationToken);
-    await controller.sampleEnvironment(preExit);
-
-    const audit = controller.finalize(operationToken);
-    expect(audit.brokerSamples).toHaveLength(11);
+    completeOperationThroughApplicationDescendantClosure(controller, operationToken);
+    const audit = await controller.finalizeAtRootExit();
+    expect(audit).not.toBeNull();
+    if (audit === null) throw new Error('root-exit finalization did not return an audit');
+    expect(audit.brokerSamples).toHaveLength(12);
     expect(audit.postReleaseSettle).toMatchObject({
       purpose: 'post-release-settle',
       releaseDispatchedReceiptAt: 100,
@@ -93,6 +92,12 @@ describe('PerformanceMeasurementController', () => {
     });
     expect(audit.sourceFinalSequences).toEqual({ power: 1, screen: 2 });
     expect(audit.lastBrokerCall).toEqual(audit.brokerSamples.at(-1));
+    expect(audit.rootExitGate).toMatchObject({
+      applicationDescendantClosureEnd: expect.any(Number),
+      root: { pid: 1, creationTime: 10 },
+      frameworkSurvivors: [],
+      brokerDisposeEnd: audit.disposedAt
+    });
     expect(audit.finalTokenState).toEqual({
       operation: 'finalized',
       phase: 'pre-exit',
@@ -150,6 +155,82 @@ describe('PerformanceMeasurementController', () => {
         createEventSource('source', emitter, ['second'])
       ]
     })).toThrow(/source name is duplicated/);
+  });
+
+  it.each([
+    {
+      name: 'application-owned Tab survivor',
+      metrics: [
+        { pid: 1, creationTime: 10, type: 'Browser' },
+        { pid: 2, creationTime: 11, type: 'Tab' }
+      ],
+      message: /application-owned Tab/
+    },
+    {
+      name: 'unknown survivor',
+      metrics: [
+        { pid: 1, creationTime: 10, type: 'Browser' },
+        { pid: 2, creationTime: 11, type: 'Unknown' }
+      ],
+      message: /unknown process class/
+    },
+    {
+      name: 'unidentified Utility survivor',
+      metrics: [
+        { pid: 1, creationTime: 10, type: 'Browser' },
+        { pid: 2, creationTime: 11, type: 'Utility' }
+      ],
+      message: /Utility survivors require both name and serviceName/
+    }
+  ])('rejects a $name at the root-exit gate', async ({ metrics, message }) => {
+    const controller = installPerformanceMeasurementGuard(launchId, {
+      globalTarget: {},
+      rootProcessId: 1,
+      rootExitClosureTimeoutMs: 0,
+      getAppMetrics: () => metrics
+    });
+    const { operationToken } = controller.beginOperation(launchId);
+    const startup = controller.beginPhase(operationToken, 'startup').phaseToken;
+    controller.sample(startup, 'startup-identity');
+    await controller.sampleEnvironment(startup);
+    completeOperationThroughApplicationDescendantClosure(controller, operationToken);
+
+    await expect(controller.finalizeAtRootExit()).rejects.toThrow(message);
+  });
+
+  it('waits for application-owned descendants to close before taking the pre-exit broker sample', async () => {
+    const browser = [{ pid: 1, creationTime: 10, type: 'Browser' }];
+    const tab = { pid: 2, creationTime: 11, type: 'Tab' };
+    let metricReadCount = 0;
+    let clock = 0;
+    const wait = vi.fn(async () => {});
+    const controller = installPerformanceMeasurementGuard(launchId, {
+      globalTarget: {},
+      rootProcessId: 1,
+      rootExitClosureTimeoutMs: 1_000,
+      clock: () => ++clock,
+      wait,
+      getAppMetrics: () => {
+        metricReadCount += 1;
+        return metricReadCount === 11 ? [...browser, tab] : browser;
+      }
+    });
+    const { operationToken } = controller.beginOperation(launchId);
+    const startup = controller.beginPhase(operationToken, 'startup').phaseToken;
+    controller.sample(startup, 'startup-identity');
+    await controller.sampleEnvironment(startup);
+    completeOperationThroughApplicationDescendantClosure(controller, operationToken);
+
+    const audit = await controller.finalizeAtRootExit();
+    expect(audit).not.toBeNull();
+    expect(wait).toHaveBeenCalledOnce();
+    expect(wait).toHaveBeenCalledWith(25);
+    expect(audit?.rootExitGate).toMatchObject({
+      applicationCleanupCompletedAt: expect.any(Number),
+      applicationDescendantClosureEnd: expect.any(Number),
+      root: { pid: 1, creationTime: 10 }
+    });
+    expect(metricReadCount).toBe(13);
   });
 
   it('requires the release-dispatched receipt and one-second fixture settle before descendant closure', () => {

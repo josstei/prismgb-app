@@ -12,7 +12,9 @@ export const PERFORMANCE_CONTROLLER_PHASES = Object.freeze([
   'pre-exit'
 ]);
 
-const EXPECTED_BROKER_SAMPLES = Object.freeze([
+export const PERFORMANCE_ROOT_EXIT_AUDIT_SCHEMA_VERSION = 1;
+
+const REQUIRED_BROKER_SAMPLE_PREFIX = Object.freeze([
   Object.freeze({ phase: 'startup', purpose: 'startup-identity' }),
   Object.freeze({ phase: 'qualification-probe', purpose: 'qualification' }),
   Object.freeze({ phase: 'warmup', purpose: 'warmup' }),
@@ -22,8 +24,43 @@ const EXPECTED_BROKER_SAMPLES = Object.freeze([
   Object.freeze({ phase: 'drain', purpose: 'drain' }),
   Object.freeze({ phase: 'shutdown', purpose: 'shutdown' }),
   Object.freeze({ phase: 'shutdown', purpose: 'post-release-settle' }),
-  Object.freeze({ phase: 'application-descendant-closure', purpose: 'application-descendant-closure' }),
-  Object.freeze({ phase: 'pre-exit', purpose: 'pre-exit' })
+  Object.freeze({ phase: 'application-descendant-closure', purpose: 'application-descendant-closure' })
+]);
+
+const ROOT_EXIT_CLOSURE_WAIT_SAMPLE = Object.freeze({
+  phase: 'application-descendant-closure',
+  purpose: 'application-descendant-closure-wait'
+});
+
+const REQUIRED_FINAL_BROKER_SAMPLE = Object.freeze({ phase: 'pre-exit', purpose: 'pre-exit' });
+
+function validateRequiredBrokerSampleOrder(samples, label) {
+  if (samples.length < REQUIRED_BROKER_SAMPLE_PREFIX.length + 2) {
+    fail(`${label} must retain the fixed samples, at least one root-exit closure wait, and the pre-exit sample`);
+  }
+  REQUIRED_BROKER_SAMPLE_PREFIX.forEach((expected, index) => {
+    const sample = samples[index];
+    if (sample.phase !== expected.phase || sample.purpose !== expected.purpose) {
+      fail(`${label} does not retain the required fixed phase and purpose order`);
+    }
+  });
+  const closureWaitSamples = samples.slice(REQUIRED_BROKER_SAMPLE_PREFIX.length, -1);
+  if (closureWaitSamples.some((sample) => (
+    sample.phase !== ROOT_EXIT_CLOSURE_WAIT_SAMPLE.phase
+    || sample.purpose !== ROOT_EXIT_CLOSURE_WAIT_SAMPLE.purpose
+  ))) {
+    fail(`${label} must retain only root-exit closure waits between descendant closure and pre-exit`);
+  }
+  const finalSample = samples.at(-1);
+  if (finalSample.phase !== REQUIRED_FINAL_BROKER_SAMPLE.phase
+    || finalSample.purpose !== REQUIRED_FINAL_BROKER_SAMPLE.purpose) {
+    fail(`${label} must retain the pre-exit broker sample last`);
+  }
+  return closureWaitSamples;
+}
+
+const FRAMEWORK_PROCESS_CLASSES = new Set([
+  'Utility', 'Zygote', 'Sandbox helper', 'GPU', 'Pepper Plugin', 'Pepper Plugin Broker'
 ]);
 
 const REQUEST_LOG_EVENTS = new Set([
@@ -36,6 +73,7 @@ const REQUEST_LOG_EVENTS = new Set([
   'close-numeric-epoch',
   'record-release-dispatched',
   'sample-post-release-settle',
+  'begin-root-exit-gate',
   'finalize'
 ]);
 
@@ -112,6 +150,7 @@ function validateRequestLogEntry(entry, index, previousSequence) {
     'close-numeric-epoch': ['closedAt', 'callSequence'],
     'record-release-dispatched': ['releaseDispatchedReceiptAt', 'notBeforeFixtureAt'],
     'sample-post-release-settle': ['purpose', 'sampledFixtureAt', 'brokerCallSequence'],
+    'begin-root-exit-gate': ['applicationCleanupCompletedAt'],
     finalize: ['disposedAt']
   };
   exact(entry, ['sequence', 'event', 'at', ...detailsByEvent[entry.event]], label);
@@ -152,14 +191,11 @@ function validateRequestLog(value, { launchId, instrumentation }) {
   if (instrumentation && byEvent['open-numeric-epoch'][0].measurementEpochId !== launchId) {
     fail('controller audit numeric epoch does not match the harness launch ID');
   }
-  if (byEvent.sample.length !== EXPECTED_BROKER_SAMPLES.length) {
-    fail('controller audit does not retain the required broker sample count');
-  }
+  const closureWaitRequests = validateRequiredBrokerSampleOrder(
+    byEvent.sample,
+    'controller audit request samples'
+  );
   byEvent.sample.forEach((entry, index) => {
-    const expected = EXPECTED_BROKER_SAMPLES[index];
-    if (entry.phase !== expected.phase || entry.purpose !== expected.purpose) {
-      fail('controller audit request samples do not follow the required phase and purpose order');
-    }
     integer(entry.callSequence, `controllerAudit request sample ${index} callSequence`, 1);
   });
   if (byEvent['sample-environment'].length !== 2
@@ -170,6 +206,26 @@ function validateRequestLog(value, { launchId, instrumentation }) {
   byEvent['sample-environment'].forEach((entry, index) => {
     integer(entry.callSequence, `controllerAudit request environment sample ${index} callSequence`, 1);
   });
+  if (byEvent['begin-root-exit-gate'].length !== 1) {
+    fail('controller audit must enter the root-exit gate exactly once');
+  }
+  finite(byEvent['begin-root-exit-gate'][0].applicationCleanupCompletedAt, 'controllerAudit root-exit cleanup boundary');
+  const descendantClosureIndex = entries.findIndex((entry) => (
+    entry.event === 'sample'
+    && entry.phase === 'application-descendant-closure'
+    && entry.purpose === 'application-descendant-closure'
+  ));
+  const rootExitGateIndex = entries.indexOf(byEvent['begin-root-exit-gate'][0]);
+  const preExitPhaseIndex = entries.findIndex((entry) => (
+    entry.event === 'begin-phase' && entry.phase === 'pre-exit'
+  ));
+  const firstClosureWaitIndex = entries.indexOf(closureWaitRequests[0]);
+  const lastClosureWaitIndex = entries.indexOf(closureWaitRequests.at(-1));
+  if (!(descendantClosureIndex < rootExitGateIndex
+    && rootExitGateIndex < firstClosureWaitIndex
+    && lastClosureWaitIndex < preExitPhaseIndex)) {
+    fail('controller audit root-exit gate does not retain closure waits between descendant closure and pre-exit');
+  }
   if (byEvent.finalize.length !== 1 || entries.at(-1)?.event !== 'finalize') {
     fail('controller audit must finalize once after every other recorded request');
   }
@@ -178,24 +234,21 @@ function validateRequestLog(value, { launchId, instrumentation }) {
 }
 
 function validateBrokerSamples(value, launchId) {
-  if (!Array.isArray(value) || value.length !== EXPECTED_BROKER_SAMPLES.length) {
-    fail('controllerAudit.brokerSamples must retain the required sample count');
-  }
-  return value.map((sample, index) => {
+  if (!Array.isArray(value)) fail('controllerAudit.brokerSamples must be an array');
+  const samples = value.map((sample, index) => {
     const label = `controllerAudit.brokerSamples[${index}]`;
     exact(sample, ['launchId', 'callSequence', 'phase', 'purpose', 'capturedAt', 'rawAppMetrics', 'servedFromCache'], label);
     if (sample.launchId !== launchId) fail(`${label}.launchId does not match the harness launch`);
     integer(sample.callSequence, `${label}.callSequence`, 1);
     finite(sample.capturedAt, `${label}.capturedAt`);
-    const expected = EXPECTED_BROKER_SAMPLES[index];
-    if (sample.phase !== expected.phase || sample.purpose !== expected.purpose || sample.servedFromCache !== false) {
-      fail(`${label} does not match the required leased broker sample`);
-    }
+    if (sample.servedFromCache !== false) fail(`${label} must retain a leased broker sample`);
     return {
       ...sample,
       rawAppMetrics: cloneJson(sample.rawAppMetrics, `${label}.rawAppMetrics`)
     };
   });
+  validateRequiredBrokerSampleOrder(samples, 'controllerAudit.brokerSamples');
+  return samples;
 }
 
 function validateEnvironmentSamples(value, launchId) {
@@ -285,6 +338,128 @@ function validateLastBrokerCall(value, { brokerSamples, disposedAt }) {
     fail('controller audit broker disposal precedes its last broker call');
   }
   return expected;
+}
+
+function deriveRootExitProcesses(rawAppMetrics, label) {
+  if (!Array.isArray(rawAppMetrics)) fail(`${label} must retain an app metrics array`);
+  const seenProcessIds = new Set();
+  const browserRoots = [];
+  const frameworkSurvivors = [];
+  rawAppMetrics.forEach((metric, index) => {
+    const metricLabel = `${label}[${index}]`;
+    if (!isObject(metric)) fail(`${metricLabel} must be an object`);
+    integer(metric.pid, `${metricLabel}.pid`, 1);
+    finite(metric.creationTime, `${metricLabel}.creationTime`);
+    text(metric.type, `${metricLabel}.type`);
+    if (seenProcessIds.has(metric.pid)) fail('controller audit root-exit metrics contain a duplicate PID');
+    seenProcessIds.add(metric.pid);
+    if (metric.type === 'Browser') {
+      browserRoots.push({ pid: metric.pid, creationTime: metric.creationTime });
+      return;
+    }
+    if (metric.type === 'Tab') fail('controller audit root-exit metrics retain an application-owned Tab descendant');
+    if (metric.type === 'Unknown') fail('controller audit root-exit metrics retain an unknown process class');
+    if (!FRAMEWORK_PROCESS_CLASSES.has(metric.type)) {
+      fail(`controller audit root-exit metrics retain an unsupported process class: ${metric.type}`);
+    }
+    const name = metric.name === undefined ? null : metric.name;
+    const serviceName = metric.serviceName === undefined ? null : metric.serviceName;
+    if (!(name === null || typeof name === 'string')) fail(`${metricLabel}.name is invalid`);
+    if (!(serviceName === null || typeof serviceName === 'string')) fail(`${metricLabel}.serviceName is invalid`);
+    if (metric.type === 'Utility' && (!name || !serviceName)) {
+      fail('controller audit Utility survivor requires name and serviceName identity');
+    }
+    frameworkSurvivors.push({
+      pid: metric.pid,
+      creationTime: metric.creationTime,
+      type: metric.type,
+      name,
+      serviceName
+    });
+  });
+  if (browserRoots.length !== 1) fail('controller audit root-exit metrics must retain exactly one Browser root');
+  frameworkSurvivors.sort((left, right) => (
+    left.pid - right.pid
+    || left.creationTime - right.creationTime
+    || left.type.localeCompare(right.type)
+  ));
+  return { root: browserRoots[0], frameworkSurvivors };
+}
+
+function validateRootExitGate(value, { requestLog, brokerSamples, lastBrokerCall, disposedAt }) {
+  exact(value, [
+    'applicationCleanupCompletedAt', 'applicationDescendantClosureEnd', 'root', 'frameworkSurvivors', 'brokerDisposeEnd'
+  ], 'controllerAudit.rootExitGate');
+  finite(value.applicationCleanupCompletedAt, 'controllerAudit.rootExitGate.applicationCleanupCompletedAt');
+  finite(value.applicationDescendantClosureEnd, 'controllerAudit.rootExitGate.applicationDescendantClosureEnd');
+  exact(value.root, ['pid', 'creationTime'], 'controllerAudit.rootExitGate.root');
+  integer(value.root.pid, 'controllerAudit.rootExitGate.root.pid', 1);
+  finite(value.root.creationTime, 'controllerAudit.rootExitGate.root.creationTime');
+  if (!Array.isArray(value.frameworkSurvivors)) {
+    fail('controllerAudit.rootExitGate.frameworkSurvivors must be an array');
+  }
+  const frameworkSurvivors = value.frameworkSurvivors.map((survivor, index) => {
+    const label = `controllerAudit.rootExitGate.frameworkSurvivors[${index}]`;
+    exact(survivor, ['pid', 'creationTime', 'type', 'name', 'serviceName'], label);
+    integer(survivor.pid, `${label}.pid`, 1);
+    finite(survivor.creationTime, `${label}.creationTime`);
+    text(survivor.type, `${label}.type`);
+    if (!FRAMEWORK_PROCESS_CLASSES.has(survivor.type)) fail(`${label}.type is invalid`);
+    if (!(survivor.name === null || typeof survivor.name === 'string')) fail(`${label}.name is invalid`);
+    if (!(survivor.serviceName === null || typeof survivor.serviceName === 'string')) fail(`${label}.serviceName is invalid`);
+    if (survivor.type === 'Utility' && (!survivor.name || !survivor.serviceName)) {
+      fail(`${label} Utility survivor has no identity`);
+    }
+    if (index > 0) {
+      const prior = value.frameworkSurvivors[index - 1];
+      const ordered = survivor.pid > prior.pid
+        || (survivor.pid === prior.pid && (
+          survivor.creationTime > prior.creationTime
+          || (survivor.creationTime === prior.creationTime && survivor.type > prior.type)
+        ));
+      if (!ordered) fail('controllerAudit.rootExitGate.frameworkSurvivors must be ordered and unique');
+    }
+    return {
+      pid: survivor.pid,
+      creationTime: survivor.creationTime,
+      type: survivor.type,
+      name: survivor.name,
+      serviceName: survivor.serviceName
+    };
+  });
+  finite(value.brokerDisposeEnd, 'controllerAudit.rootExitGate.brokerDisposeEnd');
+  if (value.brokerDisposeEnd !== disposedAt) {
+    fail('controllerAudit.rootExitGate broker disposal boundary must equal controller disposal');
+  }
+  const closureWaitSamples = brokerSamples.filter((sample) => (
+    sample.phase === ROOT_EXIT_CLOSURE_WAIT_SAMPLE.phase
+    && sample.purpose === ROOT_EXIT_CLOSURE_WAIT_SAMPLE.purpose
+  ));
+  const lastClosureWaitSample = closureWaitSamples.at(-1);
+  if (!lastClosureWaitSample) fail('controllerAudit.rootExitGate requires a root-exit closure wait sample');
+  if (value.applicationCleanupCompletedAt > lastClosureWaitSample.capturedAt
+    || lastClosureWaitSample.capturedAt > value.applicationDescendantClosureEnd
+    || value.applicationCleanupCompletedAt > value.applicationDescendantClosureEnd
+    || value.applicationDescendantClosureEnd > lastBrokerCall.capturedAt
+    || lastBrokerCall.capturedAt > value.brokerDisposeEnd) {
+    fail('controllerAudit.rootExitGate violates cleanup, closure-wait, broker, and disposal ordering');
+  }
+  const rootExitGateRequest = requestLog.find((entry) => entry.event === 'begin-root-exit-gate');
+  if (!rootExitGateRequest || rootExitGateRequest.applicationCleanupCompletedAt !== value.applicationCleanupCompletedAt) {
+    fail('controllerAudit.rootExitGate does not bind its cleanup boundary request');
+  }
+  const derived = deriveRootExitProcesses(lastBrokerCall.rawAppMetrics, 'controllerAudit.lastBrokerCall.rawAppMetrics');
+  if (stableStringify(value.root) !== stableStringify(derived.root)
+    || stableStringify(frameworkSurvivors) !== stableStringify(derived.frameworkSurvivors)) {
+    fail('controllerAudit.rootExitGate does not match the final broker process membership');
+  }
+  return {
+    applicationCleanupCompletedAt: value.applicationCleanupCompletedAt,
+    applicationDescendantClosureEnd: value.applicationDescendantClosureEnd,
+    root: { ...value.root },
+    frameworkSurvivors,
+    brokerDisposeEnd: value.brokerDisposeEnd
+  };
 }
 
 function validateFinalTokenState(value, { instrumentation }) {
@@ -431,6 +606,7 @@ export function validatePerformanceControllerAudit(value, {
     'sourceFinalSequences',
     'lastBrokerCall',
     'postReleaseSettle',
+    'rootExitGate',
     'fatalReasons',
     'finalPhase',
     'finalTokenState',
@@ -457,9 +633,18 @@ export function validatePerformanceControllerAudit(value, {
   });
   const lastBrokerCall = validateLastBrokerCall(value.lastBrokerCall, { brokerSamples, disposedAt: value.disposedAt });
   const postReleaseSettle = validatePostReleaseSettle(value.postReleaseSettle, { requestLog, brokerSamples });
+  const rootExitGate = validateRootExitGate(value.rootExitGate, {
+    requestLog,
+    brokerSamples,
+    lastBrokerCall,
+    disposedAt: value.disposedAt
+  });
   const finalTokenState = validateFinalTokenState(value.finalTokenState, { instrumentation });
   const requestSamples = requestLog.filter((entry) => entry.event === 'sample');
   const requestEnvironmentSamples = requestLog.filter((entry) => entry.event === 'sample-environment');
+  if (requestSamples.length !== brokerSamples.length) {
+    fail('controller audit request and broker sample counts do not match');
+  }
   requestSamples.forEach((entry, index) => {
     if (entry.callSequence !== brokerSamples[index].callSequence) {
       fail('controller audit request samples do not bind their broker snapshots');
@@ -484,6 +669,7 @@ export function validatePerformanceControllerAudit(value, {
     sourceFinalSequences,
     lastBrokerCall,
     postReleaseSettle,
+    rootExitGate,
     fatalReasons: [],
     finalPhase: 'pre-exit',
     finalTokenState,
@@ -492,4 +678,79 @@ export function validatePerformanceControllerAudit(value, {
     disposedAt: value.disposedAt
   };
   return freeze(cloneJson(audit, label));
+}
+
+/**
+ * Validates the one-shot handoff written by the main-process root-exit gate.
+ * The fixture reads it only after the Electron application has closed, so it
+ * cannot be substituted for a live controller command.
+ *
+ * @param {unknown} value
+ * @param {{ instrumentation: boolean, label?: string }} options
+ */
+export function validatePerformanceRootExitAuditFile(value, {
+  instrumentation,
+  label = 'rootExitAudit'
+} = {}) {
+  if (typeof instrumentation !== 'boolean') fail(`${label} instrumentation mode must be boolean`);
+  exact(value, ['schemaVersion', 'launchId', 'controllerAudit'], label);
+  if (value.schemaVersion !== PERFORMANCE_ROOT_EXIT_AUDIT_SCHEMA_VERSION) {
+    fail(`${label}.schemaVersion is invalid`);
+  }
+  uuid(value.launchId, `${label}.launchId`);
+  const controllerAudit = validatePerformanceControllerAudit(value.controllerAudit, {
+    launchId: value.launchId,
+    instrumentation,
+    label: `${label}.controllerAudit`
+  });
+  return freeze({
+    schemaVersion: PERFORMANCE_ROOT_EXIT_AUDIT_SCHEMA_VERSION,
+    launchId: value.launchId,
+    controllerAudit
+  });
+}
+
+/**
+ * Binds a fixture-clock root/terminal closure observation to the main-process
+ * audit. The clocks remain separate; the explicit close protocol is the join
+ * between broker disposal and the external terminal observation.
+ *
+ * @param {unknown} value
+ * @param {{ controllerAudit: ReturnType<typeof validatePerformanceControllerAudit>, label?: string }} options
+ */
+export function validatePerformanceRootExitObservation(value, {
+  controllerAudit,
+  label = 'rootExit'
+} = {}) {
+  if (!controllerAudit || typeof controllerAudit !== 'object') {
+    fail(`${label} requires a normalized controller audit`);
+  }
+  const gate = controllerAudit.rootExitGate;
+  if (!gate || typeof gate !== 'object') fail(`${label} requires root-exit gate evidence`);
+  exact(value, [
+    'launchId', 'protocol', 'rootExitObservedAt', 'terminalClosureEnd', 'root', 'frameworkSurvivors'
+  ], label);
+  if (value.launchId !== controllerAudit.launchId) fail(`${label}.launchId does not match its controller audit`);
+  if (value.protocol !== 'electron-application-close') {
+    fail(`${label}.protocol is invalid`);
+  }
+  finite(value.rootExitObservedAt, `${label}.rootExitObservedAt`);
+  finite(value.terminalClosureEnd, `${label}.terminalClosureEnd`, value.rootExitObservedAt);
+  exact(value.root, ['pid', 'creationTime'], `${label}.root`);
+  integer(value.root.pid, `${label}.root.pid`, 1);
+  finite(value.root.creationTime, `${label}.root.creationTime`);
+  if (!Array.isArray(value.frameworkSurvivors)) fail(`${label}.frameworkSurvivors must be an array`);
+  const normalized = {
+    launchId: value.launchId,
+    protocol: value.protocol,
+    rootExitObservedAt: value.rootExitObservedAt,
+    terminalClosureEnd: value.terminalClosureEnd,
+    root: { ...value.root },
+    frameworkSurvivors: cloneJson(value.frameworkSurvivors, `${label}.frameworkSurvivors`)
+  };
+  if (stableStringify(normalized.root) !== stableStringify(gate.root)
+    || stableStringify(normalized.frameworkSurvivors) !== stableStringify(gate.frameworkSurvivors)) {
+    fail(`${label} does not match the root-exit broker membership`);
+  }
+  return freeze(normalized);
 }

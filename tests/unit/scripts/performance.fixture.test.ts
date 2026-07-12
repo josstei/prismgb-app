@@ -1,10 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   createPerformanceElectronLaunchOptions,
+  observePerformanceRootExit,
   openPerformanceRendererMetricPairSession,
   openPerformanceRendererMetricCapture,
-  resolvePerformanceRendererMetricTarget
+  readPerformanceRootExitAudit,
+  resolvePerformanceRendererMetricTarget,
+  waitForObservedProcessTermination
 } from '../../e2e/fixtures/performance.fixture.js';
+import { createPerformanceControllerAuditFixture } from './performance-controller-audit.fixture.js';
 
 describe('createPerformanceElectronLaunchOptions', () => {
   const inheritedHarnessEnvironment = {
@@ -43,6 +47,8 @@ describe('createPerformanceElectronLaunchOptions', () => {
     expect(launch.env).not.toHaveProperty('PRISMGB_PERF_LAUNCH_ID');
     expect(launch.env).not.toHaveProperty('PRISMGB_E2E_DIAGNOSTICS');
     expect(launch.env).not.toHaveProperty('PRISMGB_E2E_TEST_CONTROL');
+    expect(launch.env).not.toHaveProperty('PRISMGB_PERF_ROOT_EXIT_AUDIT_PATH');
+    expect(launch.rootExitAuditPath).toBeNull();
   });
 
   it('adds the marker and harness-only environment for a harness launch', () => {
@@ -59,8 +65,10 @@ describe('createPerformanceElectronLaunchOptions', () => {
       PRISMGB_PERF_MEASUREMENT: '1',
       PRISMGB_PERF_LAUNCH_ID: 'launch-42',
       PRISMGB_E2E_DIAGNOSTICS: '1',
-      PRISMGB_E2E_TEST_CONTROL: '1'
+      PRISMGB_E2E_TEST_CONTROL: '1',
+      PRISMGB_PERF_ROOT_EXIT_AUDIT_PATH: '/tmp/harness-profile/root-exit-audit.json'
     });
+    expect(launch.rootExitAuditPath).toBe('/tmp/harness-profile/root-exit-audit.json');
   });
 
   it('rejects a launch marker on a production sentinel', () => {
@@ -70,6 +78,63 @@ describe('createPerformanceElectronLaunchOptions', () => {
       userDataDirectory: '/tmp/production-profile',
       performanceDiagnostics: false
     })).toThrow(/must not receive a launch ID/);
+  });
+
+  it('waits for every externally observed root-exit PID to terminate', async () => {
+    let now = 0;
+    const isAlive = vi.fn()
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    const wait = vi.fn(async (milliseconds: number) => {
+      now += milliseconds;
+    });
+
+    await expect(waitForObservedProcessTermination({
+      pid: 42,
+      timeoutMs: 50,
+      clock: () => now,
+      isAlive,
+      wait
+    })).resolves.toBe(25);
+    expect(wait).toHaveBeenCalledWith(25);
+  });
+
+  it('binds the post-close root observation to the main-process audit handoff', async () => {
+    const controllerAudit = createPerformanceControllerAuditFixture({
+      launchId: '123e4567-e89b-42d3-a456-426614174000',
+      instrumentation: true
+    });
+    const readFile = vi.fn(async () => JSON.stringify({
+      schemaVersion: 1,
+      launchId: controllerAudit.launchId,
+      controllerAudit
+    }));
+    const audit = await readPerformanceRootExitAudit({
+      auditPath: '/tmp/prismgb-root-exit-audit.json',
+      instrumentation: true,
+      readFile
+    });
+    let now = 200;
+    const waitForTermination = vi.fn(async ({ pid }: { pid: number }) => {
+      expect(pid).toBe(1);
+      now += 1;
+      return now;
+    });
+
+    await expect(observePerformanceRootExit({
+      rootExitAudit: audit,
+      clock: () => now,
+      waitForTermination
+    })).resolves.toEqual({
+      launchId: controllerAudit.launchId,
+      protocol: 'electron-application-close',
+      rootExitObservedAt: 201,
+      terminalClosureEnd: 201,
+      root: { pid: 1, creationTime: 10 },
+      frameworkSurvivors: []
+    });
+    expect(readFile).toHaveBeenCalledWith('/tmp/prismgb-root-exit-audit.json', 'utf8');
+    expect(waitForTermination).toHaveBeenCalledTimes(1);
   });
 
   it('resolves Linux renderer metrics through external adapter authorities only', async () => {

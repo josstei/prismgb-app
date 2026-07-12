@@ -47,7 +47,7 @@ export function createPerformanceControllerAuditFixture({
       phase,
       purpose,
       capturedAt: sampleCallSequence,
-      rawAppMetrics: [{ pid: 1, type: 'Browser' }],
+      rawAppMetrics: [{ pid: 1, creationTime: 10, type: 'Browser' }],
       servedFromCache: false
     });
     record('sample', { phase, purpose, callSequence: sampleCallSequence });
@@ -68,6 +68,8 @@ export function createPerformanceControllerAuditFixture({
 
   record('install-environment-listeners', { count: 1 });
   record('begin-operation', { launchId });
+  const applicationCleanupCompletedAt = 1;
+  let applicationDescendantClosureEnd: number | null = null;
   let postReleaseSettle: {
     purpose: 'post-release-settle';
     releaseDispatchedReceiptAt: number;
@@ -76,6 +78,13 @@ export function createPerformanceControllerAuditFixture({
     brokerCallSequence: number;
   } | null = null;
   for (const phase of phases) {
+    if (phase === 'pre-exit') {
+      record('begin-root-exit-gate', { applicationCleanupCompletedAt });
+      applicationDescendantClosureEnd = sample(
+        'application-descendant-closure',
+        'application-descendant-closure-wait'
+      );
+    }
     record('begin-phase', { phase });
     if (phase === 'measurement' && instrumentation) record('open-numeric-epoch', { measurementEpochId: launchId });
     for (const [samplePhase, purpose] of samples.filter(([samplePhase]) => samplePhase === phase)) {
@@ -107,6 +116,9 @@ export function createPerformanceControllerAuditFixture({
   }
   record('finalize', { disposedAt: sequence + 1 });
   if (postReleaseSettle === null) throw new Error('performance controller audit fixture did not record post-release settle evidence');
+  if (applicationDescendantClosureEnd === null) {
+    throw new Error('performance controller audit fixture did not record root-exit closure evidence');
+  }
   const lastBrokerCall = brokerSamples.at(-1);
   if (!lastBrokerCall) throw new Error('performance controller audit fixture did not record a final broker call');
 
@@ -119,6 +131,13 @@ export function createPerformanceControllerAuditFixture({
     sourceFinalSequences: { app: 0 },
     lastBrokerCall,
     postReleaseSettle,
+    rootExitGate: {
+      applicationCleanupCompletedAt,
+      applicationDescendantClosureEnd,
+      root: { pid: 1, creationTime: 10 },
+      frameworkSurvivors: [],
+      brokerDisposeEnd: 100
+    },
     fatalReasons: [],
     finalPhase: 'pre-exit',
     finalTokenState: {
@@ -131,5 +150,21 @@ export function createPerformanceControllerAuditFixture({
     listenerEvidence: [{ eventType: 'app:gpu-info-update', removed: true }],
     restorationOutcome: 'restored',
     disposedAt: 100
+  };
+}
+
+export function createPerformanceRootExitObservationFixture(
+  controllerAudit: ReturnType<typeof createPerformanceControllerAuditFixture>
+) {
+  if (controllerAudit.rootExitGate === null) {
+    throw new Error('performance controller audit fixture did not retain root-exit gate evidence');
+  }
+  return {
+    launchId: controllerAudit.launchId,
+    protocol: 'electron-application-close' as const,
+    rootExitObservedAt: 101,
+    terminalClosureEnd: 102,
+    root: controllerAudit.rootExitGate.root,
+    frameworkSurvivors: controllerAudit.rootExitGate.frameworkSurvivors
   };
 }

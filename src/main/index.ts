@@ -12,6 +12,10 @@ import {
   installPerformanceMeasurementGuard,
   type MeasurementEventSource
 } from './infrastructure/diagnostics/performance-measurement-guard.js';
+import {
+  resolvePerformanceRootExitAuditPath,
+  writePerformanceRootExitAudit
+} from './infrastructure/diagnostics/performance-root-exit-audit.js';
 
 const APP_NAME = 'PrismGB';
 
@@ -34,16 +38,20 @@ function createMeasurementEventSource(
   };
 }
 
+let performanceRootExitAuditPath: string | null = null;
+
 const performanceMeasurementController =
   typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__
     ? (() => {
         const launchId = installPerformanceLaunchMarker(app, process.argv, process.env);
         if (launchId === null) return null;
+        performanceRootExitAuditPath = resolvePerformanceRootExitAuditPath(process.env);
         const gpuInfoReady = new Promise<void>((resolve) => {
           app.once('gpu-info-update', () => resolve());
         });
         return installPerformanceMeasurementGuard(launchId, {
           getAppMetrics: () => app.getAppMetrics(),
+          rootProcessId: process.pid,
           getEnvironmentSnapshot: async () => {
             await gpuInfoReady;
             return {
@@ -245,12 +253,35 @@ if (process.argv.includes('--smoke-test')) {
       app.isQuitting = true;
 
       if (!quitCleanupPromise) {
+        let cleanupFailed = false;
+        let rootExitFailure: unknown = null;
         quitCleanupPromise = application.cleanup()
           .catch((error: unknown) => {
+            cleanupFailed = true;
             console.error('Application cleanup failed:', error);
+          })
+          .then(async () => {
+            if (performanceMeasurementController === null) return;
+            if (cleanupFailed) {
+              throw new Error('performance root-exit gate cannot run after failed application cleanup');
+            }
+            const controllerAudit = await performanceMeasurementController.finalizeAtRootExit();
+            if (controllerAudit === null) return;
+            if (performanceRootExitAuditPath === null) {
+              throw new Error('performance root-exit gate requires its fixture-owned audit path');
+            }
+            await writePerformanceRootExitAudit(performanceRootExitAuditPath, controllerAudit);
+          })
+          .catch((error: unknown) => {
+            rootExitFailure = error;
+            console.error('Performance root-exit gate failed:', error);
           })
           .finally(() => {
             quitCleanupComplete = true;
+            if (rootExitFailure !== null) {
+              app.exit(1);
+              return;
+            }
             app.quit();
           });
       }

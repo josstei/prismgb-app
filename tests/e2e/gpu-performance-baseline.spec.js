@@ -275,7 +275,8 @@ async function persistExternalSentinelCapture({
   warmup,
   gate,
   pair,
-  controllerAudit
+  controllerAudit,
+  rootExit
 }) {
   if (!process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT) return;
   const measurementWindow = gate.measurementWindow;
@@ -317,7 +318,8 @@ async function persistExternalSentinelCapture({
       closureReason: measurementWindow.closureReason
     },
     observations: gate.observations,
-    controllerAudit
+    controllerAudit,
+    rootExit
   });
 }
 
@@ -354,7 +356,8 @@ async function persistPerformanceWorkloadCapture({
   sourceSequences,
   diagnostics,
   pair,
-  controllerAudit
+  controllerAudit,
+  rootExit
 }) {
   if (!process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT) return;
   if (!pair) throw new Error('harness workload capture requires its planned pair binding');
@@ -399,7 +402,8 @@ async function persistPerformanceWorkloadCapture({
     sourceSequences,
     controlWrites: writes,
     diagnostics,
-    controllerAudit
+    controllerAudit,
+    rootExit
   });
 }
 
@@ -444,11 +448,10 @@ async function beginPerformanceMeasurementWindow(performanceLaunch, instrumentat
   return measurement;
 }
 
-async function finalizeHarnessPerformanceMeasurement(performanceLaunch) {
+function prepareHarnessPerformanceRootExit(performanceLaunch) {
   const measurement = requireHarnessPerformanceMeasurement(performanceLaunch);
   if (measurement === null) return null;
-  await measurement.advance('pre-exit');
-  return measurement.finalize();
+  return measurement.prepareRootExit();
 }
 
 async function executeExternalSentinelMeasurement({
@@ -657,6 +660,7 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
     performanceDiagnostics: launch.buildVariant === 'instrumented'
   });
   let metricCapture = null;
+  let performanceLaunchClosed = false;
   try {
     const openMetricCapture = async () => {
       if (metricCapture !== null) throw new Error('planned performance launch opened its metric capture more than once');
@@ -711,7 +715,14 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
     } finally {
       await performanceChromaticDevice.cleanup();
     }
-    const controllerAudit = await finalizeHarnessPerformanceMeasurement(performanceLaunch);
+    prepareHarnessPerformanceRootExit(performanceLaunch);
+    const rootExitEvidence = await performanceLaunch.close();
+    performanceLaunchClosed = true;
+    if (performanceLaunch.build.harness && rootExitEvidence === null) {
+      throw new Error('planned harness launch did not retain root-exit closure evidence');
+    }
+    const controllerAudit = rootExitEvidence?.controllerAudit ?? null;
+    const rootExit = rootExitEvidence?.rootExit ?? null;
     if (measurementKind === 'harness-overhead') {
       await persistExternalSentinelCapture({
         performanceLaunch,
@@ -719,7 +730,8 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
         warmup: measured.warmup,
         gate: measured.gate,
         pair: binding,
-        controllerAudit
+        controllerAudit,
+        rootExit
       });
     } else {
       await persistPerformanceWorkloadCapture({
@@ -731,7 +743,8 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
         sourceSequences: measured.sourceSequences,
         diagnostics: measured.diagnostics,
         pair: binding,
-        controllerAudit
+        controllerAudit,
+        rootExit
       });
     }
     return persistPlannedMetricCapture(measured.transcript);
@@ -739,7 +752,7 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
     if (metricCapture) await metricCapture.abort().catch(() => {});
     throw error;
   } finally {
-    await performanceLaunch.close();
+    if (!performanceLaunchClosed) await performanceLaunch.close();
   }
 }
 

@@ -2,10 +2,13 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { stableStringify } from './baseline-report.js';
-import { validatePerformanceControllerAudit } from './performance-controller-audit.js';
+import {
+  validatePerformanceControllerAudit,
+  validatePerformanceRootExitObservation
+} from './performance-controller-audit.js';
 import { validatePerformancePairBinding } from './performance-pair-plan.js';
 
-export const PERFORMANCE_SENTINEL_CAPTURE_SCHEMA_VERSION = 6;
+export const PERFORMANCE_SENTINEL_CAPTURE_SCHEMA_VERSION = 7;
 export const PERFORMANCE_SENTINEL_CAPTURE_DIRECTORY = 'raw-sentinel-captures';
 
 const BUILD_VARIANTS = Object.freeze({
@@ -206,7 +209,7 @@ function validateObservations(value, window, backend) {
 function body(input) {
   exact(input, [
     'sourceSha', 'runId', 'externalExecutionId', 'observationBoundaryId', 'pair', 'build',
-    'backend', 'workload', 'warmup', 'window', 'observations', 'controllerAudit'
+    'backend', 'workload', 'warmup', 'window', 'observations', 'controllerAudit', 'rootExit'
   ], 'capture input');
   sha(input.sourceSha, 'capture.sourceSha', 40);
   text(input.runId, 'capture.runId');
@@ -233,6 +236,15 @@ function body(input) {
       if (input.controllerAudit !== null) fail('capture.controllerAudit must be null for the production sentinel');
       return null;
     })();
+  const rootExit = build.harness
+    ? validatePerformanceRootExitObservation(input.rootExit, {
+      controllerAudit,
+      label: 'capture.rootExit'
+    })
+    : (() => {
+      if (input.rootExit !== null) fail('capture.rootExit must be null for the production sentinel');
+      return null;
+    })();
   return {
     schemaVersion: PERFORMANCE_SENTINEL_CAPTURE_SCHEMA_VERSION,
     sourceSha: input.sourceSha,
@@ -246,7 +258,8 @@ function body(input) {
     warmup: { ...input.warmup },
     window,
     observations: validateObservations(input.observations, window, input.backend),
-    controllerAudit
+    controllerAudit,
+    rootExit
   };
 }
 
@@ -262,7 +275,7 @@ export function createPerformanceSentinelCapture(input) {
 export function validatePerformanceSentinelCapture(value) {
   exact(value, [
     'schemaVersion', 'sourceSha', 'runId', 'externalExecutionId', 'observationBoundaryId', 'pair',
-    'build', 'backend', 'workload', 'warmup', 'window', 'observations', 'controllerAudit', 'checksum'
+    'build', 'backend', 'workload', 'warmup', 'window', 'observations', 'controllerAudit', 'rootExit', 'checksum'
   ], 'capture');
   if (value.schemaVersion !== PERFORMANCE_SENTINEL_CAPTURE_SCHEMA_VERSION) fail('capture schema version is invalid');
   sha(value.checksum, 'capture.checksum', 64);
@@ -278,7 +291,8 @@ export function validatePerformanceSentinelCapture(value) {
     warmup: value.warmup,
     window: value.window,
     observations: value.observations,
-    controllerAudit: value.controllerAudit
+    controllerAudit: value.controllerAudit,
+    rootExit: value.rootExit
   });
   if (digest(normalized) !== value.checksum) fail('capture checksum does not match its body');
   return freeze({ ...normalized, checksum: value.checksum });

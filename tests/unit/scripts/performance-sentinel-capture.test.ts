@@ -8,7 +8,10 @@ import {
   validatePerformanceSentinelCapture,
   writePerformanceSentinelCapture
 } from '../../../scripts/lib/performance-sentinel-capture.js';
-import { createPerformanceControllerAuditFixture } from './performance-controller-audit.fixture.js';
+import {
+  createPerformanceControllerAuditFixture,
+  createPerformanceRootExitObservationFixture
+} from './performance-controller-audit.fixture.js';
 
 const temporaryDirectories: string[] = [];
 
@@ -26,6 +29,12 @@ afterEach(async () => {
 });
 
 function baseCapture(backend: 'canvas2d' | 'webgpu' = 'canvas2d') {
+  const controllerAudit = backend === 'canvas2d'
+    ? null
+    : createPerformanceControllerAuditFixture({
+      launchId: '123e4567-e89b-42d3-a456-426614174003',
+      instrumentation: false
+    });
   const callbacks = [{
     sequence: 1,
     kind: 'renderer-callback',
@@ -118,12 +127,8 @@ function baseCapture(backend: 'canvas2d' | 'webgpu' = 'canvas2d') {
       callbackOverlapCount: 0,
       outstandingWorkerFrames: 0
     },
-    controllerAudit: backend === 'canvas2d'
-      ? null
-      : createPerformanceControllerAuditFixture({
-        launchId: '123e4567-e89b-42d3-a456-426614174003',
-        instrumentation: false
-      })
+    controllerAudit,
+    rootExit: controllerAudit === null ? null : createPerformanceRootExitObservationFixture(controllerAudit)
   };
 }
 
@@ -132,7 +137,7 @@ describe('performance sentinel capture', () => {
     const capture = createPerformanceSentinelCapture(baseCapture());
 
     expect(capture).toMatchObject({
-      schemaVersion: 6,
+      schemaVersion: 7,
       build: { id: 'production', harness: false, instrumentation: false },
       backend: 'canvas2d',
       observations: {
@@ -171,6 +176,15 @@ describe('performance sentinel capture', () => {
     const postPauseDraw = baseCapture();
     postPauseDraw.observations.postPauseCanvasDrawCount = 1;
     expect(() => createPerformanceSentinelCapture(postPauseDraw)).toThrow(/post-pause draw/);
+
+    const productionRootExit = baseCapture();
+    productionRootExit.rootExit = createPerformanceRootExitObservationFixture(
+      createPerformanceControllerAuditFixture({
+        launchId: '123e4567-e89b-42d3-a456-426614174003',
+        instrumentation: false
+      })
+    );
+    expect(() => createPerformanceSentinelCapture(productionRootExit)).toThrow(/rootExit must be null/);
   });
 
   it('writes and reads a checksum-bound capture without overwriting it', async () => {

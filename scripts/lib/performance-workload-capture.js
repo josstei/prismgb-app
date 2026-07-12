@@ -2,10 +2,13 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { stableStringify } from './baseline-report.js';
-import { validatePerformanceControllerAudit } from './performance-controller-audit.js';
+import {
+  validatePerformanceControllerAudit,
+  validatePerformanceRootExitObservation
+} from './performance-controller-audit.js';
 import { validatePerformancePairBinding } from './performance-pair-plan.js';
 
-export const PERFORMANCE_WORKLOAD_CAPTURE_SCHEMA_VERSION = 7;
+export const PERFORMANCE_WORKLOAD_CAPTURE_SCHEMA_VERSION = 8;
 export const PERFORMANCE_WORKLOAD_CAPTURE_DIRECTORY = 'raw-workload-captures';
 
 const BUILD_VARIANTS = Object.freeze({
@@ -183,7 +186,8 @@ function captureBody(input) {
     'sourceSequences',
     'controlWrites',
     'diagnostics',
-    'controllerAudit'
+    'controllerAudit',
+    'rootExit'
   ], 'capture input');
   assertSha(input.sourceSha, 'capture.sourceSha', 40);
   assertUuid(input.launchId, 'capture.launchId');
@@ -209,6 +213,10 @@ function captureBody(input) {
     instrumentation: build.instrumentation,
     label: 'capture.controllerAudit'
   });
+  const rootExit = validatePerformanceRootExitObservation(input.rootExit, {
+    controllerAudit,
+    label: 'capture.rootExit'
+  });
 
   return {
     schemaVersion: PERFORMANCE_WORKLOAD_CAPTURE_SCHEMA_VERSION,
@@ -224,7 +232,8 @@ function captureBody(input) {
     sourceSequences,
     controlWrites: cloneJson(input.controlWrites, 'capture.controlWrites'),
     diagnostics,
-    controllerAudit
+    controllerAudit,
+    rootExit
   };
 }
 
@@ -249,6 +258,7 @@ export function validatePerformanceWorkloadCapture(value) {
     'controlWrites',
     'diagnostics',
     'controllerAudit',
+    'rootExit',
     'checksum'
   ], 'capture');
   if (value.schemaVersion !== PERFORMANCE_WORKLOAD_CAPTURE_SCHEMA_VERSION) {
@@ -268,7 +278,8 @@ export function validatePerformanceWorkloadCapture(value) {
     sourceSequences: value.sourceSequences,
     controlWrites: value.controlWrites,
     diagnostics: value.diagnostics,
-    controllerAudit: value.controllerAudit
+    controllerAudit: value.controllerAudit,
+    rootExit: value.rootExit
   });
   if (checksum(body) !== value.checksum) fail('capture checksum does not match its body');
   return deepFreeze({ ...body, checksum: value.checksum });

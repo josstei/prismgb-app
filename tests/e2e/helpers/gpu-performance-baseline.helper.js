@@ -206,9 +206,6 @@ async function runPerformanceMeasurementControllerCommand(electronApp, command) 
     if (input.kind === 'sample-post-release-settle') {
       return controller.samplePostReleaseSettle(input.phaseToken, input.sampledFixtureAt);
     }
-    if (input.kind === 'finalize') {
-      return controller.finalize(input.operationToken);
-    }
     throw new Error('performance measurement controller command is unsupported');
   }, command);
 }
@@ -406,20 +403,15 @@ export async function openPerformanceMeasurementLease(electronApp, launchId) {
       postReleaseSettleRecorded = true;
     },
 
-    async finalize() {
-      requireLive('finalize the performance measurement lease');
-      if (currentPhase !== 'pre-exit' || epochToken !== null || !postReleaseSettleRecorded) {
-        fail('performance measurement lease must reach pre-exit after post-release settling with no open numeric epoch before finalization');
+    prepareRootExit() {
+      requireLive('prepare the performance measurement root exit');
+      if (currentPhase !== 'application-descendant-closure' || epochToken !== null || !postReleaseSettleRecorded) {
+        fail('performance measurement root exit requires completed application descendant closure after post-release settling');
       }
-      const audit = await runPerformanceMeasurementControllerCommand(electronApp, {
-        kind: 'finalize',
-        launchId,
-        operationToken
-      });
       finalized = true;
       operationToken = null;
       phaseToken = null;
-      return audit;
+      return Object.freeze({ ready: true });
     }
   });
 }
