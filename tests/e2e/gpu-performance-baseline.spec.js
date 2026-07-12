@@ -5,6 +5,63 @@ import {
   readPerformanceDiagnostics
 } from './helpers/gpu-performance-baseline.helper.js';
 import { StreamPage } from './pages/stream.page.js';
+import { loadBaselinePolicy } from '../../scripts/lib/performance-evidence.js';
+
+const performancePolicy = loadBaselinePolicy().policy;
+const { warmup: warmupLimits, window: windowLimits } = performancePolicy.performanceLimits;
+const measurementWindowLimits = Object.freeze({
+  minimumCallbacks: 1_800,
+  minimumDurationMs: 30_000,
+  maximumCallbacks: windowLimits.maximumCallbacks,
+  maximumDurationMs: windowLimits.maximumSeconds * 1000
+});
+
+function sourceOpportunityWrites(writes) {
+  return writes.filter((write) => write.kind === 'source-opportunity');
+}
+
+function waitFor(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function waitForWarmupEligibility(performanceLaunch) {
+  const startedAt = performance.now();
+  while (true) {
+    const sourceWrites = sourceOpportunityWrites(await performanceLaunch.readPerformanceControlProbe());
+    const elapsedMs = performance.now() - startedAt;
+    if (
+      sourceWrites.length >= warmupLimits.minimumCallbacks &&
+      elapsedMs >= warmupLimits.minimumSeconds * 1000
+    ) {
+      return { sourceWrites, elapsedMs };
+    }
+    if (
+      sourceWrites.length >= warmupLimits.maximumCallbacks ||
+      elapsedMs >= warmupLimits.maximumSeconds * 1000
+    ) {
+      throw new Error(
+        `performance workload warm-up did not become eligible before the ${warmupLimits.maximumSeconds}s/${warmupLimits.maximumCallbacks}-callback cap`
+      );
+    }
+    await waitFor(100);
+  }
+}
+
+async function waitForMeasurementWindowClosure(performanceLaunch) {
+  const deadline = performance.now() + measurementWindowLimits.maximumDurationMs + 5000;
+  while (true) {
+    const gate = await performanceLaunch.readPerformanceCallbackGate();
+    const measurementWindow = gate.measurementWindow;
+    if (measurementWindow?.status === 'closed') return gate;
+    if (measurementWindow?.status === 'failed') {
+      throw new Error(`performance workload window closed at its ${measurementWindow.closureReason} cap`);
+    }
+    if (performance.now() >= deadline) {
+      throw new Error('performance workload window did not close before its policy deadline');
+    }
+    await waitFor(100);
+  }
+}
 
 test('the production build excludes the harness-only performance surface', async () => {
   await assertProductionBundleIsolation(await loadPerformanceBuildManifest());
@@ -104,20 +161,21 @@ test('the instrumented harness records raw branch evidence for the animated Chro
   expect(resetDiagnostics.timingSamples['source-callback']).toEqual([]);
 });
 
-test('the instrumented harness delimits a 600-callback renderer cohort after warmup', async ({
+test('the instrumented harness delimits the policy-bound renderer cohort after warmup', async ({
   performanceLaunch,
   performanceChromaticDevice
 }) => {
   const streamPage = new StreamPage(performanceLaunch.window);
+  expect(performancePolicy.performanceMetricPolicy.workloadId).toBe('phase0-animated-160x144-v1');
+  expect(performanceChromaticDevice.fixture.display).toMatchObject({ nativeWidth: 160, nativeHeight: 144 });
   await performanceChromaticDevice.connect({ testPattern: 'animated' });
   await streamPage.start();
 
-  const warmupStartedAt = performance.now();
-  await expect.poll(async () => {
-    const writes = await performanceLaunch.readPerformanceControlProbe();
-    const sourceOpportunityCount = writes.filter((write) => write.kind === 'source-opportunity').length;
-    return sourceOpportunityCount >= 600 && performance.now() - warmupStartedAt >= 10_000;
-  }, { timeout: 30000 }).toBe(true);
+  const warmup = await waitForWarmupEligibility(performanceLaunch);
+  expect(warmup.sourceWrites.length).toBeGreaterThanOrEqual(warmupLimits.minimumCallbacks);
+  expect(warmup.sourceWrites.length).toBeLessThanOrEqual(warmupLimits.maximumCallbacks);
+  expect(warmup.elapsedMs).toBeGreaterThanOrEqual(warmupLimits.minimumSeconds * 1000);
+  expect(warmup.elapsedMs).toBeLessThanOrEqual(warmupLimits.maximumSeconds * 1000);
 
   await performanceLaunch.pausePerformanceCallbacks();
   await expect.poll(
@@ -125,40 +183,59 @@ test('the instrumented harness delimits a 600-callback renderer cohort after war
     { timeout: 5000 }
   ).toMatchObject({ paused: true, heldCallbackCount: 1 });
 
-  const warmupSourceOpportunityCount = (await performanceLaunch.readPerformanceControlProbe())
-    .filter((write) => write.kind === 'source-opportunity').length;
-  const warmupGate = await performanceLaunch.readPerformanceCallbackGate();
+  await expect(performanceLaunch.resetPerformanceControlProbe()).resolves.toEqual({ reset: true });
   await expect(performanceLaunch.resetPerformanceDiagnostics()).resolves.toEqual({ reset: true });
-  await expect(performanceLaunch.pausePerformanceCallbacksAt(warmupGate.interceptedCallbackCount + 600))
-    .resolves.toMatchObject({ pauseAtCallbackCount: warmupGate.interceptedCallbackCount + 600 });
+  await expect(performanceLaunch.armPerformanceCallbackWindow({
+    ...measurementWindowLimits
+  })).resolves.toMatchObject({
+    paused: true,
+    heldCallbackCount: 1,
+    measurementWindow: {
+      status: 'armed',
+      ...measurementWindowLimits
+    }
+  });
   await performanceLaunch.resumePerformanceCallbacks();
 
-  await expect.poll(
-    () => performanceLaunch.readPerformanceCallbackGate(),
-    { timeout: 20000 }
-  ).toMatchObject({ paused: true, heldCallbackCount: 1, pauseAtCallbackCount: null });
+  const closedGate = await waitForMeasurementWindowClosure(performanceLaunch);
+  expect(closedGate).toMatchObject({
+    paused: true,
+    heldCallbackCount: 1,
+    pauseAtCallbackCount: null,
+    measurementWindow: {
+      status: 'closed',
+      closureReason: 'minimum-reached'
+    }
+  });
 
   await streamPage.stop();
   const writes = await performanceLaunch.readPerformanceControlProbe();
-  const cohortSourceWrites = writes
-    .filter((write) => write.kind === 'source-opportunity')
-    .slice(warmupSourceOpportunityCount);
+  const cohortSourceWrites = sourceOpportunityWrites(writes);
   const diagnostics = await performanceLaunch.readPerformanceDiagnostics();
+  const measurementWindow = closedGate.measurementWindow;
 
-  expect(cohortSourceWrites).toHaveLength(600);
+  expect(cohortSourceWrites.length).toBeGreaterThanOrEqual(measurementWindowLimits.minimumCallbacks);
+  expect(cohortSourceWrites.length).toBeLessThanOrEqual(measurementWindowLimits.maximumCallbacks);
+  expect(measurementWindow.deliveredCallbackCount).toBe(cohortSourceWrites.length);
+  expect(measurementWindow.closedAt - measurementWindow.startedAt).toBeGreaterThanOrEqual(
+    measurementWindowLimits.minimumDurationMs
+  );
+  expect(measurementWindow.closedAt - measurementWindow.startedAt).toBeLessThanOrEqual(
+    measurementWindowLimits.maximumDurationMs
+  );
   expect(cohortSourceWrites.map((write) => write.sourceSequence)).toEqual(
     cohortSourceWrites.map((write, index) => cohortSourceWrites[0].sourceSequence + index)
   );
   expect(diagnostics).toMatchObject({
     source: {
-      sourceOpportunities: 600,
+      sourceOpportunities: cohortSourceWrites.length,
       fatalDispositions: { total: 0 },
-      reconciliation: { accountedOpportunities: 600, isConserved: true }
+      reconciliation: { accountedOpportunities: cohortSourceWrites.length, isConserved: true }
     },
     shutdown: {
       beforeRelease: { availability: 'observed', launchId: performanceLaunch.launchId },
       releaseDispatched: { availability: 'observed', launchId: performanceLaunch.launchId }
     }
   });
-  expect(diagnostics.timingSamples['source-callback']).toHaveLength(600);
+  expect(diagnostics.timingSamples['source-callback']).toHaveLength(cohortSourceWrites.length);
 });

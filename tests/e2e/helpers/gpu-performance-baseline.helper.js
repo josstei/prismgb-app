@@ -219,7 +219,17 @@ export async function installPerformanceControlProbe(page, launchId) {
       configurable: true,
       enumerable: false,
       writable: false,
-      value: () => writes.map((write) => ({ ...write }))
+      value: (command = 'snapshot') => {
+        if (command === 'snapshot') {
+          return writes.map((write) => ({ ...write }));
+        }
+        if (command === 'reset') {
+          writes.length = 0;
+          sourceSequences.clear();
+          return Object.freeze({ reset: true });
+        }
+        throw new Error('performance control probe command is unsupported');
+      }
     });
   }, { launchId, probeSymbol: PERFORMANCE_CONTROL_PROBE_SYMBOL });
 }
@@ -247,6 +257,7 @@ export async function installPerformanceCallbackGate(page, launchId) {
     let paused = false;
     let pauseAtCallbackCount = null;
     let interceptedCallbackCount = 0;
+    let measurementWindow = null;
 
     const assertLaunchId = (requestedLaunchId) => {
       if (requestedLaunchId !== expectedLaunchId) {
@@ -257,8 +268,48 @@ export async function installPerformanceCallbackGate(page, launchId) {
       paused,
       heldCallbackCount: heldCallbacks.size,
       interceptedCallbackCount,
-      pauseAtCallbackCount
+      pauseAtCallbackCount,
+      measurementWindow: measurementWindow === null ? null : { ...measurementWindow }
     });
+    const holdCallback = (frameCallbackHandle, video, callback, now, metadata) => {
+      heldCallbacks.set(frameCallbackHandle, { video, callback, now, metadata });
+    };
+    const closeMeasurementWindowIfReady = (observedAt) => {
+      if (measurementWindow?.status !== 'running' || measurementWindow.startedAt === null) {
+        return false;
+      }
+
+      const elapsedMs = observedAt - measurementWindow.startedAt;
+      if (
+        measurementWindow.deliveredCallbackCount >= measurementWindow.minimumCallbacks &&
+        elapsedMs >= measurementWindow.minimumDurationMs
+      ) {
+        measurementWindow.status = 'closed';
+        measurementWindow.closedAt = observedAt;
+        measurementWindow.closureReason = 'minimum-reached';
+        return true;
+      }
+
+      if (
+        measurementWindow.deliveredCallbackCount >= measurementWindow.maximumCallbacks ||
+        elapsedMs >= measurementWindow.maximumDurationMs
+      ) {
+        measurementWindow.status = 'failed';
+        measurementWindow.closedAt = observedAt;
+        measurementWindow.closureReason = measurementWindow.deliveredCallbackCount >= measurementWindow.maximumCallbacks
+          ? 'callback-cap-reached'
+          : 'duration-cap-reached';
+        return true;
+      }
+
+      return false;
+    };
+    const invokeCallback = ({ video, callback, now, metadata }) => {
+      if (measurementWindow?.status === 'running') {
+        measurementWindow.deliveredCallbackCount += 1;
+      }
+      return callback.call(video, now, metadata);
+    };
 
     Object.defineProperty(videoPrototype, 'requestVideoFrameCallback', {
       ...requestDescriptor,
@@ -267,13 +318,20 @@ export async function installPerformanceCallbackGate(page, launchId) {
         let frameCallbackHandle;
         const wrappedCallback = (now, metadata) => {
           interceptedCallbackCount++;
+          const observedAt = performance.now();
+          if (closeMeasurementWindowIfReady(observedAt)) {
+            paused = true;
+            pauseAtCallbackCount = null;
+            holdCallback(frameCallbackHandle, video, callback, now, metadata);
+            return;
+          }
           if (paused || (pauseAtCallbackCount !== null && interceptedCallbackCount >= pauseAtCallbackCount)) {
             paused = true;
             pauseAtCallbackCount = null;
-            heldCallbacks.set(frameCallbackHandle, { video, callback, now, metadata });
+            holdCallback(frameCallbackHandle, video, callback, now, metadata);
             return;
           }
-          return callback.call(video, now, metadata);
+          return invokeCallback({ video, callback, now, metadata });
         };
         frameCallbackHandle = Reflect.apply(originalRequest, video, [wrappedCallback]);
         return frameCallbackHandle;
@@ -297,24 +355,75 @@ export async function installPerformanceCallbackGate(page, launchId) {
       value: Object.freeze({
         pause(requestedLaunchId) {
           assertLaunchId(requestedLaunchId);
+          if (measurementWindow?.status === 'running') {
+            throw new Error('performance callback gate cannot pause an active measurement window');
+          }
           paused = true;
           pauseAtCallbackCount = null;
           return snapshot();
         },
         pauseAt(requestedLaunchId, requestedCallbackCount) {
           assertLaunchId(requestedLaunchId);
+          if (measurementWindow?.status === 'running') {
+            throw new Error('performance callback gate cannot set a pause target during an active measurement window');
+          }
           if (!Number.isSafeInteger(requestedCallbackCount) || requestedCallbackCount <= interceptedCallbackCount) {
             throw new Error('performance callback gate pause target must be a future callback count');
           }
           pauseAtCallbackCount = requestedCallbackCount;
           return snapshot();
         },
+        armWindow(requestedLaunchId, limits) {
+          assertLaunchId(requestedLaunchId);
+          if (!paused || heldCallbacks.size !== 1) {
+            throw new Error('performance callback gate requires exactly one held callback before arming a measurement window');
+          }
+          if (measurementWindow !== null) {
+            throw new Error('performance callback gate measurement window is already armed');
+          }
+          if (!limits || typeof limits !== 'object') {
+            throw new Error('performance callback gate measurement window limits are required');
+          }
+          const {
+            minimumCallbacks,
+            minimumDurationMs,
+            maximumCallbacks,
+            maximumDurationMs
+          } = limits;
+          if (
+            !Number.isSafeInteger(minimumCallbacks) || minimumCallbacks <= 0 ||
+            !Number.isFinite(minimumDurationMs) || minimumDurationMs <= 0 ||
+            !Number.isSafeInteger(maximumCallbacks) || maximumCallbacks < minimumCallbacks ||
+            !Number.isFinite(maximumDurationMs) || maximumDurationMs < minimumDurationMs
+          ) {
+            throw new Error('performance callback gate measurement window limits are invalid');
+          }
+          measurementWindow = {
+            status: 'armed',
+            minimumCallbacks,
+            minimumDurationMs,
+            maximumCallbacks,
+            maximumDurationMs,
+            deliveredCallbackCount: 0,
+            startedAt: null,
+            closedAt: null,
+            closureReason: null
+          };
+          return snapshot();
+        },
         resume(requestedLaunchId) {
           assertLaunchId(requestedLaunchId);
-          paused = false;
           const callbacks = [...heldCallbacks.values()];
+          if (measurementWindow?.status === 'armed') {
+            if (callbacks.length !== 1) {
+              throw new Error('performance callback gate measurement window lost its held callback before resume');
+            }
+            measurementWindow.status = 'running';
+            measurementWindow.startedAt = performance.now();
+          }
+          paused = false;
           heldCallbacks.clear();
-          callbacks.forEach(({ video, callback, now, metadata }) => callback.call(video, now, metadata));
+          callbacks.forEach(invokeCallback);
           return snapshot();
         },
         snapshot(requestedLaunchId) {
@@ -325,6 +434,7 @@ export async function installPerformanceCallbackGate(page, launchId) {
           assertLaunchId(requestedLaunchId);
           heldCallbacks.clear();
           pauseAtCallbackCount = null;
+          measurementWindow = null;
           Object.defineProperty(videoPrototype, 'requestVideoFrameCallback', requestDescriptor);
           if (cancelDescriptor) {
             Object.defineProperty(videoPrototype, 'cancelVideoFrameCallback', cancelDescriptor);
@@ -355,6 +465,10 @@ export async function pausePerformanceCallbacksAt(page, launchId, callbackCount)
   return usePerformanceCallbackGate(page, launchId, 'pauseAt', [callbackCount]);
 }
 
+export async function armPerformanceCallbackWindow(page, launchId, limits) {
+  return usePerformanceCallbackGate(page, launchId, 'armWindow', [limits]);
+}
+
 export async function resumePerformanceCallbacks(page, launchId) {
   return usePerformanceCallbackGate(page, launchId, 'resume');
 }
@@ -373,7 +487,17 @@ export async function readPerformanceControlProbe(page) {
     if (typeof reader !== 'function') {
       throw new Error('performance control probe reader is unavailable');
     }
-    return reader();
+    return reader('snapshot');
+  }, PERFORMANCE_CONTROL_PROBE_SYMBOL);
+}
+
+export async function resetPerformanceControlProbe(page) {
+  return page.evaluate((symbolName) => {
+    const reader = window[Symbol.for(symbolName)];
+    if (typeof reader !== 'function') {
+      throw new Error('performance control probe reader is unavailable');
+    }
+    return reader('reset');
   }, PERFORMANCE_CONTROL_PROBE_SYMBOL);
 }
 

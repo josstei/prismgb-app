@@ -5,6 +5,7 @@ import path from 'node:path';
 import { ChromaticDeviceFixture } from './chromatic-device.fixture.js';
 import { AppShellPage } from '../pages/app-shell.page.js';
 import {
+  armPerformanceCallbackWindow,
   assertPerformanceController,
   createPerformanceLaunchId,
   getPerformanceBuild,
@@ -18,6 +19,7 @@ import {
   removePerformanceCallbackGate,
   readPerformanceControlProbe,
   readPerformanceDiagnostics,
+  resetPerformanceControlProbe,
   resumePerformanceCallbacks,
   resetPerformanceDiagnostics
 } from '../helpers/gpu-performance-baseline.helper.js';
@@ -78,8 +80,10 @@ export const test = base.extend({
         readPerformanceControlProbe: () => readPerformanceControlProbe(window),
         pausePerformanceCallbacks: () => pausePerformanceCallbacks(window, launchId),
         pausePerformanceCallbacksAt: (callbackCount) => pausePerformanceCallbacksAt(window, launchId, callbackCount),
+        armPerformanceCallbackWindow: (limits) => armPerformanceCallbackWindow(window, launchId, limits),
         resumePerformanceCallbacks: () => resumePerformanceCallbacks(window, launchId),
         readPerformanceCallbackGate: () => readPerformanceCallbackGate(window, launchId),
+        resetPerformanceControlProbe: () => resetPerformanceControlProbe(window),
         readPerformanceDiagnostics: () => {
           if (!build.instrumentation) {
             throw new Error('renderer diagnostics require an instrumented performance build');

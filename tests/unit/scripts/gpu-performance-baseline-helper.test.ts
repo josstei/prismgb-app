@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  armPerformanceCallbackWindow,
   assertPerformanceController,
   installPerformanceControlProbe,
   pausePerformanceCallbacks,
@@ -8,6 +9,7 @@ import {
   readPerformanceControlProbe,
   readPerformanceDiagnostics,
   removePerformanceCallbackGate,
+  resetPerformanceControlProbe,
   resetPerformanceDiagnostics,
   resumePerformanceCallbacks,
   removePerformanceControlProbe
@@ -63,6 +65,8 @@ describe('GPU performance baseline helper', () => {
 
     await installPerformanceControlProbe(page, 'launch-id');
     await expect(readPerformanceControlProbe(page)).resolves.toEqual([]);
+    await expect(resetPerformanceControlProbe(page)).resolves.toEqual({ reset: true });
+    await expect(readPerformanceControlProbe(page)).resolves.toEqual([]);
     await removePerformanceControlProbe(page);
     expect(windowTarget['prismgbPerformanceControlProbe']).toBeUndefined();
     expect(windowTarget[Symbol.for('prismgb.performance.controlProbe')]).toBeUndefined();
@@ -101,6 +105,12 @@ describe('GPU performance baseline helper', () => {
         interceptedCallbackCount: 1,
         pauseAtCallbackCount: callbackCount
       })),
+      armWindow: vi.fn((_launchId: string, limits: Record<string, number>) => ({
+        paused: true,
+        heldCallbackCount: 1,
+        interceptedCallbackCount: 1,
+        measurementWindow: { status: 'armed', ...limits }
+      })),
       resume: vi.fn(() => {
         calls.push('resume');
         return { paused: false, heldCallbackCount: 0, interceptedCallbackCount: 1 };
@@ -124,10 +134,15 @@ describe('GPU performance baseline helper', () => {
 
     await expect(pausePerformanceCallbacks(page, 'launch-id')).resolves.toMatchObject({ paused: true });
     await expect(pausePerformanceCallbacksAt(page, 'launch-id', 2)).resolves.toMatchObject({ pauseAtCallbackCount: 2 });
+    const limits = { minimumCallbacks: 1800, minimumDurationMs: 30000, maximumCallbacks: 2048, maximumDurationMs: 45000 };
+    await expect(armPerformanceCallbackWindow(page, 'launch-id', limits)).resolves.toMatchObject({
+      measurementWindow: { status: 'armed', ...limits }
+    });
     await expect(readPerformanceCallbackGate(page, 'launch-id')).resolves.toMatchObject({ heldCallbackCount: 1 });
     await expect(resumePerformanceCallbacks(page, 'launch-id')).resolves.toMatchObject({ paused: false });
     await expect(removePerformanceCallbackGate(page, 'launch-id')).resolves.toBeUndefined();
     expect(calls).toEqual(['pause', 'resume', 'dispose']);
     expect(gate.pauseAt).toHaveBeenCalledWith('launch-id', 2);
+    expect(gate.armWindow).toHaveBeenCalledWith('launch-id', limits);
   });
 });
