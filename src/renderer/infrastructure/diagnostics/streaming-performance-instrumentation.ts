@@ -205,12 +205,8 @@ class RendererPerformanceInstrumentation implements StreamingPerformanceInstrume
             carrier: 'frame-request',
             measurementEpochId: observation.context.measurementEpochId,
             sourceSequence: observation.context.sourceSequence,
-            operationId: request.operationId,
-            sourceLocationId: request.sourceLocationId,
             requestOrdinal: observation.context.sourceSequence,
-            outcome: request.outcome,
-            byteKind: request.byteKind,
-            byteValue: request.byteValue
+            ...request
           });
           if (result.accepted === false) {
             this.logger.error(`Performance allocation observation rejected: ${result.reason}`);

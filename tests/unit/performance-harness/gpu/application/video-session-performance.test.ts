@@ -89,6 +89,14 @@ describe('harness video-session performance observations', () => {
         queueSubmit: { startedAt: 11, endedAt: 11.5 },
         frameRequestProxies: [
           {
+            operationId: 'uniform-float32-array',
+            sourceLocationId: 'webgpu-driver:uniform-float32-array',
+            outcome: 'success',
+            byteKind: 'requested-byte-length',
+            byteValue: 96,
+            requestedByteLength: 96
+          },
+          {
             operationId: 'render-pass-plan-materialization',
             sourceLocationId: 'webgpu-driver:materialize-render-plan',
             outcome: 'success',
@@ -116,6 +124,14 @@ describe('harness video-session performance observations', () => {
       workerRender: { startedAt: 10, endedAt: 12 },
       queueSubmit: { startedAt: 11, endedAt: 11.5 },
       frameRequestProxies: [
+        {
+          operationId: 'uniform-float32-array',
+          sourceLocationId: 'webgpu-driver:uniform-float32-array',
+          outcome: 'success',
+          byteKind: 'requested-byte-length',
+          byteValue: 96,
+          requestedByteLength: 96
+        },
         {
           operationId: 'render-pass-plan-materialization',
           sourceLocationId: 'webgpu-driver:materialize-render-plan',

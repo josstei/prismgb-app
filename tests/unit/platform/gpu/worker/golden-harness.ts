@@ -35,6 +35,14 @@ export function createRecordingDriver(mockCreateGpuRenderer: ReturnType<typeof v
       ) => {
         record.push(`render:${(src as { sig?: string }).sig ?? '?'}`);
         instrumentationObserver?.recordWebGpuFrameRequestProxy({
+          operationId: 'uniform-float32-array',
+          sourceLocationId: 'webgpu-driver:uniform-float32-array',
+          outcome: 'success',
+          byteKind: 'requested-byte-length',
+          byteValue: 96,
+          requestedByteLength: 96
+        });
+        instrumentationObserver?.recordWebGpuFrameRequestProxy({
           operationId: 'render-pass-plan-materialization',
           sourceLocationId: 'webgpu-driver:materialize-render-plan',
           outcome: 'success',

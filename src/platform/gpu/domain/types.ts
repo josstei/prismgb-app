@@ -136,6 +136,14 @@ export interface FrameDisposition {
 
 export type WebGpuFrameRequestProxy =
   | Readonly<{
+    readonly operationId: 'uniform-float32-array';
+    readonly sourceLocationId: 'webgpu-driver:uniform-float32-array';
+    readonly outcome: 'success' | 'failed';
+    readonly byteKind: 'requested-byte-length';
+    readonly byteValue: number;
+    readonly requestedByteLength: number;
+  }>
+  | Readonly<{
     readonly operationId: 'bind-group-create';
     readonly sourceLocationId: 'webgpu-driver:create-bind-group';
     readonly outcome: 'success' | 'failed';

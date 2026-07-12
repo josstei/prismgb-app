@@ -20,6 +20,10 @@ function isNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
+function isPositiveSafeInteger(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+}
+
 function isString(value: unknown): value is string {
   return typeof value === 'string';
 }
@@ -294,26 +298,43 @@ function isWorkerPerformanceFrameTimingPayload(value: unknown): value is WorkerP
     return false;
   }
 
-  if (!Array.isArray(value.frameRequestProxies) || value.frameRequestProxies.length !== 2) {
+  if (!Array.isArray(value.frameRequestProxies) || value.frameRequestProxies.length !== 3) {
     return false;
   }
 
-  const [renderPassPlanRequest, bindGroupRequest] = value.frameRequestProxies;
+  const [uniformRequest, renderPassPlanRequest, bindGroupRequest] = value.frameRequestProxies;
   const isExpectedFrameRequestProxy = (
     request: unknown,
     operationId: WebGpuFrameRequestProxy['operationId'],
     sourceLocationId: WebGpuFrameRequestProxy['sourceLocationId']
-  ): request is WebGpuFrameRequestProxy => (
-    isRecord(request) &&
-    hasExactKeys(request, ['operationId', 'sourceLocationId', 'outcome', 'byteKind', 'byteValue']) &&
-    request.operationId === operationId &&
-    request.sourceLocationId === sourceLocationId &&
-    request.outcome === 'success' &&
-    request.byteKind === 'count-only-unavailable' &&
-    request.byteValue === null
-  );
+  ): request is WebGpuFrameRequestProxy => {
+    if (!isRecord(request) || request.operationId !== operationId || request.sourceLocationId !== sourceLocationId || request.outcome !== 'success') {
+      return false;
+    }
+    if (operationId === 'uniform-float32-array') {
+      return hasExactKeys(request, [
+        'operationId',
+        'sourceLocationId',
+        'outcome',
+        'byteKind',
+        'byteValue',
+        'requestedByteLength'
+      ]) &&
+        request.byteKind === 'requested-byte-length' &&
+        isPositiveSafeInteger(request.byteValue) &&
+        request.requestedByteLength === request.byteValue;
+    }
+    return hasExactKeys(request, ['operationId', 'sourceLocationId', 'outcome', 'byteKind', 'byteValue']) &&
+      request.byteKind === 'count-only-unavailable' &&
+      request.byteValue === null;
+  };
 
   if (
+    !isExpectedFrameRequestProxy(
+      uniformRequest,
+      'uniform-float32-array',
+      'webgpu-driver:uniform-float32-array'
+    ) ||
     !isExpectedFrameRequestProxy(
       renderPassPlanRequest,
       'render-pass-plan-materialization',

@@ -104,6 +104,14 @@ describe('harness worker frame-token acknowledgement', () => {
         queueSubmit: { startedAt: expect.any(Number), endedAt: expect.any(Number) },
         frameRequestProxies: [
           {
+            operationId: 'uniform-float32-array',
+            sourceLocationId: 'webgpu-driver:uniform-float32-array',
+            outcome: 'success',
+            byteKind: 'requested-byte-length',
+            byteValue: 96,
+            requestedByteLength: 96
+          },
+          {
             operationId: 'render-pass-plan-materialization',
             sourceLocationId: 'webgpu-driver:materialize-render-plan',
             outcome: 'success',
@@ -172,6 +180,14 @@ describe('harness worker frame-token acknowledgement', () => {
         queueSubmit: { startedAt: 1, endedAt: 1.5 },
         frameRequestProxies: [
           {
+            operationId: 'uniform-float32-array',
+            sourceLocationId: 'webgpu-driver:uniform-float32-array',
+            outcome: 'success',
+            byteKind: 'requested-byte-length',
+            byteValue: 96,
+            requestedByteLength: 96
+          },
+          {
             operationId: 'render-pass-plan-materialization',
             sourceLocationId: 'webgpu-driver:materialize-render-plan',
             outcome: 'success',
@@ -199,6 +215,14 @@ describe('harness worker frame-token acknowledgement', () => {
         workerRender: { startedAt: 1, endedAt: 3 },
         queueSubmit: { startedAt: 1.5, endedAt: 2 },
         frameRequestProxies: [
+          {
+            operationId: 'uniform-float32-array',
+            sourceLocationId: 'webgpu-driver:uniform-float32-array',
+            outcome: 'success',
+            byteKind: 'requested-byte-length',
+            byteValue: 96,
+            requestedByteLength: 96
+          },
           {
             operationId: 'bind-group-create',
             sourceLocationId: 'webgpu-driver:create-bind-group',
@@ -282,6 +306,14 @@ describe('harness worker frame-token acknowledgement', () => {
       workerRender: { startedAt: 1, endedAt: 3 },
       queueSubmit: { startedAt: 1.5, endedAt: 2 },
       frameRequestProxies: [
+        {
+          operationId: 'uniform-float32-array',
+          sourceLocationId: 'webgpu-driver:uniform-float32-array',
+          outcome: 'success',
+          byteKind: 'requested-byte-length',
+          byteValue: 96,
+          requestedByteLength: 96
+        },
         {
           operationId: 'render-pass-plan-materialization',
           sourceLocationId: 'webgpu-driver:materialize-render-plan',

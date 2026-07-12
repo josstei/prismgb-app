@@ -105,6 +105,14 @@ describe('StreamingPerformanceInstrumentation', () => {
       queueSubmit: { startedAt: 11, endedAt: 11.5 },
       frameRequestProxies: [
         {
+          operationId: 'uniform-float32-array',
+          sourceLocationId: 'webgpu-driver:uniform-float32-array',
+          outcome: 'success',
+          byteKind: 'requested-byte-length',
+          byteValue: 96,
+          requestedByteLength: 96
+        },
+        {
           operationId: 'render-pass-plan-materialization',
           sourceLocationId: 'webgpu-driver:materialize-render-plan',
           outcome: 'success',
@@ -153,6 +161,19 @@ describe('StreamingPerformanceInstrumentation', () => {
       reconciliation: { isConserved: true }
     });
     expect(snapshot.allocationRequestProxies.frameRequests).toEqual([
+      {
+        backend: 'webgpu',
+        carrier: 'frame-request',
+        measurementEpochId: 'launch-1',
+        sourceSequence: 1,
+        operationId: 'uniform-float32-array',
+        sourceLocationId: 'webgpu-driver:uniform-float32-array',
+        requestOrdinal: 1,
+        outcome: 'success',
+        byteKind: 'requested-byte-length',
+        byteValue: 96,
+        requestedByteLength: 96
+      },
       {
         backend: 'webgpu',
         carrier: 'frame-request',

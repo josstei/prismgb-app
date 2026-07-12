@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getPreset } from '../../../../../src/platform/gpu/application/catalog';
-import { WebGpuDriver } from '../../../../../src/platform/gpu/infrastructure/webgpu.driver';
+import { WEBGPU_RENDER_PASSES, WebGpuDriver } from '../../../../../src/platform/gpu/infrastructure/webgpu.driver';
 import { PipelineController } from '../../../../../src/platform/gpu/infrastructure/pipeline-controller';
 
 vi.mock('../../../../../src/platform/gpu/infrastructure/shaders', () => ({
@@ -101,6 +101,10 @@ describe('instrumented WebGpuDriver frame instrumentation', () => {
       nativeHeight: 144,
       preset: getPreset('vibrant')!
     }, new WebGpuDriver());
+    const expectedUniformByteLength = WEBGPU_RENDER_PASSES.reduce(
+      (total, pass) => total + pass.backend.layout.byteLength,
+      0
+    );
     const instrumentationObserver = {
       recordWebGpuQueueSubmitTiming: vi.fn(),
       recordWebGpuFrameRequestProxy: vi.fn()
@@ -116,13 +120,21 @@ describe('instrumented WebGpuDriver frame instrumentation', () => {
     const [startedAt, endedAt] = instrumentationObserver.recordWebGpuQueueSubmitTiming.mock.calls[0];
     expect(startedAt).toBeLessThanOrEqual(endedAt);
     expect(instrumentationObserver.recordWebGpuFrameRequestProxy).toHaveBeenNthCalledWith(1, {
+      operationId: 'uniform-float32-array',
+      sourceLocationId: 'webgpu-driver:uniform-float32-array',
+      outcome: 'success',
+      byteKind: 'requested-byte-length',
+      byteValue: expectedUniformByteLength,
+      requestedByteLength: expectedUniformByteLength
+    });
+    expect(instrumentationObserver.recordWebGpuFrameRequestProxy).toHaveBeenNthCalledWith(2, {
       operationId: 'render-pass-plan-materialization',
       sourceLocationId: 'webgpu-driver:materialize-render-plan',
       outcome: 'success',
       byteKind: 'count-only-unavailable',
       byteValue: null
     });
-    expect(instrumentationObserver.recordWebGpuFrameRequestProxy).toHaveBeenNthCalledWith(2, {
+    expect(instrumentationObserver.recordWebGpuFrameRequestProxy).toHaveBeenNthCalledWith(3, {
       operationId: 'bind-group-create',
       sourceLocationId: 'webgpu-driver:create-bind-group',
       outcome: 'success',

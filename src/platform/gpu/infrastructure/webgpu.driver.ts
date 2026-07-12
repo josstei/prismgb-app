@@ -395,7 +395,7 @@ export class WebGpuDriver implements RenderDriver {
         [state.nativeWidth, state.nativeHeight]
       );
 
-      this.uploadUniforms(state);
+      this.uploadUniforms(state, instrumentationObserver);
 
       const commandEncoder = this.device.createCommandEncoder();
       const plan = createRenderPassPlan(
@@ -565,10 +565,22 @@ export class WebGpuDriver implements RenderDriver {
     passEncoder.end();
   }
 
-  private uploadUniforms(state: PipelineState): void {
+  private uploadUniforms(
+    state: PipelineState,
+    instrumentationObserver?: WebGpuFrameInstrumentationObserver
+  ): void {
     const device = this.device!;
+    const collectUniformRequest =
+      typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+      __PRISMGB_PERF_HARNESS__ &&
+      typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+      __PRISMGB_PERF_INSTRUMENTATION__;
+    let requestedByteLength = 0;
     for (const pass of WEBGPU_RENDER_PASSES) {
       const uniformData = pass.backend.uniformData(state.uniforms);
+      if (collectUniformRequest) {
+        requestedByteLength += uniformData.byteLength;
+      }
       const buffer = this.uniformBuffers!.get(pass.passId);
       if (!buffer) {
         throw new Error(`Missing uniform buffer for pass '${pass.passId}'`);
@@ -577,6 +589,16 @@ export class WebGpuDriver implements RenderDriver {
       if (this.uniformChangeTracker.hasChanged(pass.passId, uniformData)) {
         device.queue.writeBuffer(buffer, 0, uniformData as unknown as ArrayBuffer);
       }
+    }
+    if (collectUniformRequest) {
+      instrumentationObserver?.recordWebGpuFrameRequestProxy({
+        operationId: 'uniform-float32-array',
+        sourceLocationId: 'webgpu-driver:uniform-float32-array',
+        outcome: 'success',
+        byteKind: 'requested-byte-length',
+        byteValue: requestedByteLength,
+        requestedByteLength
+      });
     }
   }
 
