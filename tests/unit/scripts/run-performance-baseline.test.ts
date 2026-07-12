@@ -15,6 +15,7 @@ import {
   collectPerformanceExternalMetricCaptures,
   collectPerformanceMetricSessionCaptures,
   collectPerformanceSentinelCaptures,
+  collectPerformanceWorkloadCaptures,
   parsePerformanceBaselineArgs,
   resolvePerformanceExperimentDeadline,
   resolvePerformancePlaywrightCommand,
@@ -228,16 +229,22 @@ function createInstrumentedWorkloadCapture({
   sourceSha = 'a'.repeat(40),
   bundleSha256 = 'd'.repeat(64),
   pair = DEFAULT_INSTRUMENTATION_PAIR,
-  launchId = fixtureUuid(20)
+  launchId = fixtureUuid(20),
+  externalExecutionId = fixtureUuid(21),
+  observationBoundaryId = `external-sentinel-window:${externalExecutionId}`
 }: {
   sourceSha?: string;
   bundleSha256?: string;
   pair?: Record<string, unknown>;
   launchId?: string;
+  externalExecutionId?: string;
+  observationBoundaryId?: string;
 } = {}) {
   return createPerformanceWorkloadCapture({
     sourceSha,
     launchId,
+    externalExecutionId,
+    observationBoundaryId,
     pair,
     build: buildMetadata('instrumented', bundleSha256),
     workload: { id: 'phase0-animated-160x144-v1', pattern: 'animated', width: 160, height: 144, frameRate: 60 },
@@ -341,7 +348,9 @@ function writePlannedCaptureFixturesSync({
           sourceSha,
           bundleSha256: build.bundle.sha256,
           pair: binding,
-          launchId: fixtureUuid(200 + execution)
+          launchId: fixtureUuid(200 + execution),
+          externalExecutionId,
+          observationBoundaryId
         });
         workloads.push({
           capture: workload,
@@ -694,6 +703,13 @@ describe('planned raw capture collection', () => {
       sentinelCaptures: sentinel.captures,
       pairPlan
     });
+    const workload = await collectPerformanceWorkloadCaptures({
+      outputDirectory,
+      sourceSha,
+      manifest,
+      pairPlan,
+      externalMetricCaptures: externalMetric.captures
+    });
     const metricSession = await collectPerformanceMetricSessionCaptures({
       outputDirectory,
       sourceSha,
@@ -712,6 +728,13 @@ describe('planned raw capture collection', () => {
     expect(externalMetric.index).toMatchObject({ schemaVersion: 3, sourceSha });
     expect(externalMetric.index.captures).toHaveLength(18);
     expect(externalMetric.index.captures.filter((capture) => capture.buildId === 'instrumented')).toHaveLength(6);
+    expect(workload.index).toMatchObject({ schemaVersion: 4, sourceSha });
+    expect(workload.index.captures).toHaveLength(6);
+    expect(workload.index.captures[0]).toMatchObject({
+      buildId: 'instrumented',
+      externalExecutionId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      externalMetricChecksum: expect.stringMatching(/^[a-f0-9]{64}$/)
+    });
     expect(metricSession.index).toMatchObject({ schemaVersion: 1, sourceSha });
     expect(metricSession.index.captures).toHaveLength(9);
     expect(metricSession.index.captures[0]).toMatchObject({
@@ -768,6 +791,55 @@ describe('planned raw capture collection', () => {
       pairPlan
     })).rejects.toThrow(/sentinel run and observation boundary/);
     expect(fixtures.metrics).toHaveLength(18);
+  });
+
+  it('rejects an instrumented workload that does not bind its external metric execution', async () => {
+    const outputDirectory = await createTemporaryWorkspace();
+    const pairPlan = createFixturePairPlan();
+    const manifest = createFixtureManifest();
+    const fixtures = writePlannedCaptureFixturesSync({ outputDirectory, pairPlan, manifest });
+    const sentinel = await collectPerformanceSentinelCaptures({
+      outputDirectory,
+      sourceSha: 'a'.repeat(40),
+      manifest,
+      pairPlan
+    });
+    const externalMetric = await collectPerformanceExternalMetricCaptures({
+      outputDirectory,
+      sourceSha: 'a'.repeat(40),
+      manifest,
+      sentinelCaptures: sentinel.captures,
+      pairPlan
+    });
+    const original = fixtures.workloads[0];
+    const externalExecutionId = fixtureUuid(999);
+    const malformed = createPerformanceWorkloadCapture({
+      sourceSha: original.capture.sourceSha,
+      launchId: original.capture.launchId,
+      externalExecutionId,
+      observationBoundaryId: `external-sentinel-window:${externalExecutionId}`,
+      pair: original.capture.pair,
+      build: original.capture.build,
+      workload: original.capture.workload,
+      warmup: original.capture.warmup,
+      window: original.capture.window,
+      sourceSequences: original.capture.sourceSequences,
+      controlWrites: original.capture.controlWrites,
+      diagnostics: original.capture.diagnostics
+    });
+    await fs.rm(path.join(outputDirectory, original.relativePath));
+    await fs.writeFile(
+      path.join(outputDirectory, `raw-workload-captures/${malformed.launchId}-${malformed.checksum}.json`),
+      JSON.stringify(malformed)
+    );
+
+    await expect(collectPerformanceWorkloadCaptures({
+      outputDirectory,
+      sourceSha: 'a'.repeat(40),
+      manifest,
+      pairPlan,
+      externalMetricCaptures: externalMetric.captures
+    })).rejects.toThrow(/execution and observation boundary/);
   });
 
   it('rejects a metric session side that does not bind its raw external metric transcript', async () => {
@@ -1089,7 +1161,7 @@ describe('runPerformanceBaseline', () => {
 
   it('rejects a passing Playwright lane that does not persist its workload capture', async () => {
     const cwd = await createTemporaryWorkspace();
-    const spawn = vi.fn((command: string, args: readonly string[], options: { cwd: string }) => {
+    const spawn = vi.fn((command: string, args: readonly string[], options: { cwd: string; env: NodeJS.ProcessEnv }) => {
       if (command === 'git' && args[0] === 'status') return { status: 0, stdout: '', stderr: '' };
       if (command === 'git' && args[0] === 'rev-parse') return { status: 0, stdout: `${'a'.repeat(40)}\n`, stderr: '' };
       if (command === 'npm') {
@@ -1105,7 +1177,20 @@ describe('runPerformanceBaseline', () => {
         fsSync.writeFileSync(path.join(dist, 'renderer', 'assets', 'worker-entry-fixture.js'), 'worker');
         return { status: 0, stdout: '', stderr: '' };
       }
-      if (command === 'npx') return { status: 0, stdout: '', stderr: '' };
+      if (command === 'npx') {
+        const manifestPath = options.env.PRISMGB_PERFORMANCE_BUILD_MANIFEST;
+        const outputDirectory = options.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT;
+        const pairPlanPath = options.env.PRISMGB_PERFORMANCE_PAIR_PLAN;
+        if (!manifestPath || !outputDirectory || !pairPlanPath) throw new Error('expected performance output environment');
+        writePlannedCaptureFixturesSync({
+          outputDirectory,
+          manifest: JSON.parse(fsSync.readFileSync(manifestPath, 'utf8')),
+          pairPlan: JSON.parse(fsSync.readFileSync(pairPlanPath, 'utf8')),
+          sourceSha: 'a'.repeat(40)
+        });
+        fsSync.rmSync(path.join(outputDirectory, 'raw-workload-captures'), { recursive: true, force: true });
+        return { status: 0, stdout: '', stderr: '' };
+      }
       throw new Error(`unexpected command ${command}`);
     });
 

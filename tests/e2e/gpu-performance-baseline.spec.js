@@ -469,6 +469,8 @@ async function executeInstrumentedMeasurement({ performanceLaunch, performanceCh
         outputDirectory: process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT,
         sourceSha: performanceLaunch.sourceSha,
         launchId: performanceLaunch.launchId,
+        externalExecutionId: performanceLaunch.externalExecutionId,
+        observationBoundaryId: `external-sentinel-window:${performanceLaunch.externalExecutionId}`,
         pair,
         build: {
           id: performanceLaunch.build.id,
@@ -903,6 +905,8 @@ test('the instrumented harness delimits the policy-bound renderer cohort after w
       outputDirectory: process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT,
       sourceSha: performanceLaunch.sourceSha,
       launchId: performanceLaunch.launchId,
+      externalExecutionId: performanceLaunch.externalExecutionId,
+      observationBoundaryId: `external-sentinel-window:${performanceLaunch.externalExecutionId}`,
       build: {
         id: performanceLaunch.build.id,
         harness: performanceLaunch.build.harness,

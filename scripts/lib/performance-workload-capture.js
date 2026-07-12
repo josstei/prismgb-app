@@ -4,7 +4,7 @@ import path from 'node:path';
 import { stableStringify } from './baseline-report.js';
 import { validatePerformancePairBinding } from './performance-pair-plan.js';
 
-export const PERFORMANCE_WORKLOAD_CAPTURE_SCHEMA_VERSION = 3;
+export const PERFORMANCE_WORKLOAD_CAPTURE_SCHEMA_VERSION = 4;
 export const PERFORMANCE_WORKLOAD_CAPTURE_DIRECTORY = 'raw-workload-captures';
 
 const BUILD_VARIANTS = Object.freeze({
@@ -172,6 +172,8 @@ function captureBody(input) {
   assertExactKeys(input, [
     'sourceSha',
     'launchId',
+    'externalExecutionId',
+    'observationBoundaryId',
     'pair',
     'build',
     'workload',
@@ -183,6 +185,8 @@ function captureBody(input) {
   ], 'capture input');
   assertSha(input.sourceSha, 'capture.sourceSha', 40);
   assertUuid(input.launchId, 'capture.launchId');
+  assertUuid(input.externalExecutionId, 'capture.externalExecutionId');
+  assertString(input.observationBoundaryId, 'capture.observationBoundaryId');
   const build = validateBuild(input.build);
   const pair = validatePerformancePairBinding(input.pair, {
     label: 'capture.pair',
@@ -199,6 +203,8 @@ function captureBody(input) {
     schemaVersion: PERFORMANCE_WORKLOAD_CAPTURE_SCHEMA_VERSION,
     sourceSha: input.sourceSha,
     launchId: input.launchId,
+    externalExecutionId: input.externalExecutionId,
+    observationBoundaryId: input.observationBoundaryId,
     pair,
     build,
     workload,
@@ -220,6 +226,8 @@ export function validatePerformanceWorkloadCapture(value) {
     'schemaVersion',
     'sourceSha',
     'launchId',
+    'externalExecutionId',
+    'observationBoundaryId',
     'pair',
     'build',
     'workload',
@@ -237,6 +245,8 @@ export function validatePerformanceWorkloadCapture(value) {
   const body = captureBody({
     sourceSha: value.sourceSha,
     launchId: value.launchId,
+    externalExecutionId: value.externalExecutionId,
+    observationBoundaryId: value.observationBoundaryId,
     pair: value.pair,
     build: value.build,
     workload: value.workload,

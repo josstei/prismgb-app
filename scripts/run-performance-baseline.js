@@ -624,7 +624,13 @@ function collectPlannedCaptureSet({ captures, pairPlan: pairPlanInput, label, pr
   });
 }
 
-export async function collectPerformanceWorkloadCaptures({ outputDirectory, sourceSha, manifest, pairPlan } = {}) {
+export async function collectPerformanceWorkloadCaptures({
+  outputDirectory,
+  sourceSha,
+  manifest,
+  pairPlan,
+  externalMetricCaptures
+} = {}) {
   if (typeof outputDirectory !== 'string' || outputDirectory.length === 0) {
     fail('workload capture outputDirectory is required');
   }
@@ -634,6 +640,9 @@ export async function collectPerformanceWorkloadCaptures({ outputDirectory, sour
   if (!manifest || typeof manifest !== 'object' || !Array.isArray(manifest.variants)) {
     fail('workload capture build manifest is invalid');
   }
+  if (!Array.isArray(externalMetricCaptures)) {
+    fail('workload capture requires the completed external metric captures');
+  }
 
   const rawCaptures = await readPerformanceWorkloadCaptures({ outputDirectory });
   const plannedCaptures = collectPlannedCaptureSet({
@@ -642,6 +651,30 @@ export async function collectPerformanceWorkloadCaptures({ outputDirectory, sour
     label: 'instrumented workload',
     predicate: ({ pair, launch }) => pair.comparisonKind === 'instrumentation-overhead' && launch.buildVariant === 'instrumented'
   });
+  const externalMetricsByPairKey = new Map();
+  for (const entry of externalMetricCaptures) {
+    if (!entry || typeof entry !== 'object' || !entry.capture || typeof entry.capture !== 'object') {
+      fail('workload capture external metric entry is invalid');
+    }
+    const externalMetric = entry.capture;
+    let planned;
+    try {
+      planned = resolvePerformancePairPlanLaunch(plannedCaptures.pairPlan, externalMetric.pair);
+    } catch (error) {
+      fail(`workload capture external metric does not bind one planned launch: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (planned.pair.comparisonKind !== 'instrumentation-overhead' || planned.launch.buildVariant !== 'instrumented') {
+      continue;
+    }
+    const key = performancePairCaptureKey(externalMetric.pair);
+    if (externalMetricsByPairKey.has(key)) {
+      fail('workload capture external metrics duplicate one instrumented planned launch side');
+    }
+    externalMetricsByPairKey.set(key, externalMetric);
+  }
+  if (externalMetricsByPairKey.size !== plannedCaptures.captures.length) {
+    fail('workload capture external metrics do not cover every instrumented planned launch side');
+  }
   const entries = plannedCaptures.captures.map(({ capture, relativePath }) => {
     if (capture.sourceSha !== sourceSha) {
       fail('workload capture source SHA does not match the clean build');
@@ -656,10 +689,26 @@ export async function collectPerformanceWorkloadCaptures({ outputDirectory, sour
     if (variant.bundle?.sha256 !== capture.build.bundleSha256) {
       fail('workload capture bundle hash does not match the build manifest');
     }
+    const externalMetric = externalMetricsByPairKey.get(performancePairCaptureKey(capture.pair));
+    if (!externalMetric) {
+      fail('workload capture has no external metric transcript for its planned launch side');
+    }
+    if (externalMetric.sourceSha !== capture.sourceSha
+      || stableStringify(externalMetric.pair) !== stableStringify(capture.pair)
+      || stableStringify(externalMetric.build) !== stableStringify(capture.build)) {
+      fail('workload capture does not bind the external metric source, pair, and build identity');
+    }
+    if (externalMetric.externalExecutionId !== capture.externalExecutionId
+      || externalMetric.observationBoundaryId !== capture.observationBoundaryId) {
+      fail('workload capture does not bind the external metric execution and observation boundary');
+    }
     return {
       relativePath,
       checksum: capture.checksum,
       launchId: capture.launchId,
+      externalExecutionId: capture.externalExecutionId,
+      observationBoundaryId: capture.observationBoundaryId,
+      externalMetricChecksum: externalMetric.checksum,
       pair: capture.pair,
       buildId: capture.build.id,
       sourceOpportunityCount: capture.window.deliveredCallbackCount,
@@ -668,7 +717,7 @@ export async function collectPerformanceWorkloadCaptures({ outputDirectory, sour
     };
   });
   const body = {
-    schemaVersion: 3,
+    schemaVersion: 4,
     sourceSha,
     captures: entries
   };
@@ -1091,12 +1140,6 @@ export async function runPerformanceBaseline({
     fail(`${options.role} performance experiment exceeded its ${experimentDeadlineSeconds}-second deadline`);
   }
 
-  const workloadCapture = await collectPerformanceWorkloadCaptures({
-    outputDirectory: options.outputDirectory,
-    sourceSha: build.manifest.sourceSha,
-    manifest: build.manifest,
-    pairPlan
-  });
   const sentinelCapture = await collectPerformanceSentinelCaptures({
     outputDirectory: options.outputDirectory,
     sourceSha: build.manifest.sourceSha,
@@ -1109,6 +1152,13 @@ export async function runPerformanceBaseline({
     manifest: build.manifest,
     sentinelCaptures: sentinelCapture.captures,
     pairPlan
+  });
+  const workloadCapture = await collectPerformanceWorkloadCaptures({
+    outputDirectory: options.outputDirectory,
+    sourceSha: build.manifest.sourceSha,
+    manifest: build.manifest,
+    pairPlan,
+    externalMetricCaptures: externalMetricCapture.captures
   });
   const metricSessionCapture = await collectPerformanceMetricSessionCaptures({
     outputDirectory: options.outputDirectory,

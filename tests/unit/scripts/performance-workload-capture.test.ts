@@ -16,6 +16,8 @@ function captureInput() {
   return {
     sourceSha: 'a'.repeat(40),
     launchId: '123e4567-e89b-42d3-a456-426614174000',
+    externalExecutionId: '123e4567-e89b-42d3-a456-426614174010',
+    observationBoundaryId: 'external-sentinel-window:123e4567-e89b-42d3-a456-426614174010',
     pair: {
       experimentId: '123e4567-e89b-42d3-a456-426614174001',
       pairPlanChecksum: 'c'.repeat(64),
@@ -74,7 +76,9 @@ describe('performance workload capture', () => {
     const capture = createPerformanceWorkloadCapture(captureInput());
 
     expect(capture).toMatchObject({
-      schemaVersion: 3,
+      schemaVersion: 4,
+      externalExecutionId: '123e4567-e89b-42d3-a456-426614174010',
+      observationBoundaryId: 'external-sentinel-window:123e4567-e89b-42d3-a456-426614174010',
       checksum: expect.stringMatching(/^[a-f0-9]{64}$/),
       window: { closureReason: 'minimum-reached', deliveredCallbackCount: 2 },
       sourceSequences: [41, 42]
@@ -88,6 +92,10 @@ describe('performance workload capture', () => {
       ...captureInput(),
       sourceSequences: [41, 43]
     })).toThrow(/contiguous/);
+    expect(() => createPerformanceWorkloadCapture({
+      ...captureInput(),
+      externalExecutionId: 'not-a-uuid'
+    })).toThrow(/externalExecutionId/);
   });
 
   it('persists only no-clobber checksum-bound capture files and reads them back', async () => {
