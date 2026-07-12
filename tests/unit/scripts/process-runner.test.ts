@@ -672,7 +672,7 @@ describe('createExternalMetricRunCapture', () => {
 
     await expect(capture.attachAndPrime()).resolves.toMatchObject({ sample: { ordinal: 0 } });
     await expect(capture.beginWindow()).resolves.toMatchObject({ windowStart: 10, sample: { sample: { ordinal: 1 } } });
-    expect(capture.getNextSampleTargetAt()).toBeCloseTo(10.505);
+    expect(capture.getNextSampleTargetAt()).toBeCloseTo(10.48);
     await expect(capture.sampleInWindow()).resolves.toMatchObject({ sample: { ordinal: 2 } });
     expect(capture.markTerminalClosure(10.75)).toEqual({ terminalClosureEnd: 10.75 });
     await expect(capture.sampleTerminalClosure()).resolves.toMatchObject({ sample: { ordinal: 3, readStart: 11 } });
@@ -683,8 +683,28 @@ describe('createExternalMetricRunCapture', () => {
       terminalSample: { sample: { ordinal: 3 } },
       transcript: { samples: [{ sample: { ordinal: 1 } }, { sample: { ordinal: 2 } }, { sample: { ordinal: 3 } }] }
     });
-    expect(detached.nextSampleTargetAt).toBeCloseTo(11.505);
+    expect(detached.nextSampleTargetAt).toBeCloseTo(11.48);
     expect(capture.getAudit()).toMatchObject({ state: 'closed', terminalSample: { sample: { ordinal: 3 } } });
+  });
+
+  it.each([10.451, 10.549])('accepts cadence near the policy boundary at read start %s', async (secondReadStart) => {
+    const session = {
+      attach: vi.fn(async (input) => input),
+      prime: vi.fn(async () => metricRead(0, 1, { cpuTime: '00:01' }, 9.5)),
+      sample: vi.fn()
+        .mockResolvedValueOnce(metricRead(1, 2, { cpuTime: '00:02' }, 10))
+        .mockResolvedValueOnce(metricRead(2, 3, { cpuTime: '00:03' }, secondReadStart)),
+      detach: vi.fn(),
+      abort: vi.fn(async () => ({ aborted: true }))
+    };
+    const cadence = createExternalMetricCadenceCapture({
+      capture: createExternalMetricRunCapture({ session, target })
+    });
+
+    await cadence.attachAndPrime();
+    await cadence.beginWindow();
+    await expect(cadence.sampleInWindow()).resolves.toMatchObject({ sample: { ordinal: 2 } });
+    await expect(cadence.abort()).resolves.toEqual({ aborted: true });
   });
 
   it('fails closed on out-of-cadence and pre-closure terminal reads', async () => {
@@ -704,6 +724,23 @@ describe('createExternalMetricRunCapture', () => {
     await cadence.beginWindow();
     await expect(cadence.sampleInWindow()).rejects.toThrow(/cadence is outside/);
     await expect(cadence.abort()).resolves.toEqual({ aborted: true });
+
+    const lateSession = {
+      attach: vi.fn(async (input) => input),
+      prime: vi.fn(async () => metricRead(0, 1, { cpuTime: '00:01' }, 9.5)),
+      sample: vi.fn()
+        .mockResolvedValueOnce(metricRead(1, 2, { cpuTime: '00:02' }, 10))
+        .mockResolvedValueOnce(metricRead(2, 3, { cpuTime: '00:03' }, 10.551)),
+      detach: vi.fn(),
+      abort: vi.fn(async () => ({ aborted: true }))
+    };
+    const lateCadence = createExternalMetricCadenceCapture({
+      capture: createExternalMetricRunCapture({ session: lateSession, target })
+    });
+    await lateCadence.attachAndPrime();
+    await lateCadence.beginWindow();
+    await expect(lateCadence.sampleInWindow()).rejects.toThrow(/cadence is outside/);
+    await expect(lateCadence.abort()).resolves.toEqual({ aborted: true });
 
     const terminalSession = {
       attach: vi.fn(async (input) => input),

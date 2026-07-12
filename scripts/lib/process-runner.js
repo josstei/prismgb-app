@@ -10,6 +10,7 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const MEBIBYTE_BYTES = 1024 * 1024;
+const EXTERNAL_METRIC_READ_START_DELAY_MS = 475;
 export const WINDOWS_POWERSHELL_METRIC_SAMPLER_PROTOCOL_VERSION = 1;
 
 export const WINDOWS_POWERSHELL_METRIC_SAMPLER_SCRIPT = String.raw`
@@ -1207,7 +1208,7 @@ function metricSampleMidpoint(read, label) {
  */
 export function createExternalMetricCadenceCapture({
   capture,
-  cadenceMs = 500,
+  cadenceMs = EXTERNAL_METRIC_READ_START_DELAY_MS,
   minimumCadenceMs = 450,
   maximumCadenceMs = 550
 } = {}) {
