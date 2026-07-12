@@ -92,8 +92,10 @@ describe('codebase source baseline', () => {
     const ownedPaths = [
       'scripts/lib/performance-metric-session-capture.js',
       'scripts/lib/performance-pair-plan.js',
+      'scripts/lib/performance-raw-capture-manifest.js',
       'tests/unit/scripts/performance-metric-session-capture.test.ts',
-      'tests/unit/scripts/performance-pair-plan.test.ts'
+      'tests/unit/scripts/performance-pair-plan.test.ts',
+      'tests/unit/scripts/performance-raw-capture-manifest.test.ts'
     ];
     for (const relativePath of ownedPaths) {
       const outputPath = path.join(root, relativePath);

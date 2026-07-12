@@ -25,6 +25,7 @@ import { createPerformanceSentinelCapture } from '../../../scripts/lib/performan
 import { createPerformanceExternalMetricCapture } from '../../../scripts/lib/performance-external-metric-capture.js';
 import { createPerformanceMetricSessionCapture } from '../../../scripts/lib/performance-metric-session-capture.js';
 import { createPerformanceWorkloadCapture } from '../../../scripts/lib/performance-workload-capture.js';
+import { readPerformanceRawCaptureManifest } from '../../../scripts/lib/performance-raw-capture-manifest.js';
 
 const tempDirectories: string[] = [];
 
@@ -1151,12 +1152,27 @@ describe('runPerformanceBaseline', () => {
     expect(result.metricSessionCapture.index.captures).toEqual(
       expect.arrayContaining([expect.objectContaining({ adapterId: 'linux-procfs-v1' })])
     );
+    expect(result.rawCaptureManifest.manifest).toMatchObject({
+      sourceSha: 'a'.repeat(40),
+      role: 'ci-integrity',
+      selectedHost: false,
+      experiment: { id: result.experimentId, backend: 'canvas2d' },
+      indexes: {
+        sentinel: { captureCount: 6 },
+        externalMetric: { captureCount: 18 },
+        workload: { captureCount: 6 },
+        metricSession: { captureCount: 9 }
+      }
+    });
     expect(result.pairPlan).toMatchObject({ backend: 'canvas2d', pairs: expect.any(Array) });
     await expect(fs.readFile(result.pairPlanPath, 'utf8')).resolves.toContain('instrumentation-overhead');
     await expect(fs.readFile(result.workloadCapture.indexPath, 'utf8')).resolves.toContain('raw-workload-captures/');
     await expect(fs.readFile(result.sentinelCapture.indexPath, 'utf8')).resolves.toContain('raw-sentinel-captures/');
     await expect(fs.readFile(result.externalMetricCapture.indexPath, 'utf8')).resolves.toContain('raw-external-metric-captures/');
     await expect(fs.readFile(result.metricSessionCapture.indexPath, 'utf8')).resolves.toContain('raw-metric-session-captures/');
+    await expect(readPerformanceRawCaptureManifest({ outputDirectory: path.join(cwd, 'performance-output') })).resolves.toMatchObject({
+      manifest: result.rawCaptureManifest.manifest
+    });
   });
 
   it('rejects a passing Playwright lane that does not persist its workload capture', async () => {

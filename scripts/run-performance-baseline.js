@@ -15,6 +15,10 @@ import {
   resolvePerformancePairPlanLaunch,
   validatePerformancePairPlan
 } from './lib/performance-pair-plan.js';
+import {
+  readPerformanceRawCaptureManifest,
+  writePerformanceRawCaptureManifest
+} from './lib/performance-raw-capture-manifest.js';
 import { readPerformanceSentinelCaptures } from './lib/performance-sentinel-capture.js';
 import { readPerformanceWorkloadCaptures } from './lib/performance-workload-capture.js';
 
@@ -1166,6 +1170,31 @@ export async function runPerformanceBaseline({
     externalMetricCaptures: externalMetricCapture.captures,
     pairPlan
   });
+  const rawCaptureManifest = await writePerformanceRawCaptureManifest({
+    outputDirectory: options.outputDirectory,
+    sourceSha: build.manifest.sourceSha,
+    role: options.role,
+    selectedHost: options.selectedHost,
+    experimentId,
+    experimentDeadlineSeconds,
+    experimentElapsedSeconds,
+    pairPlan,
+    pairPlanRelativePath: PERFORMANCE_PAIR_PLAN,
+    buildManifest: build.manifest,
+    buildManifestRelativePath: PERFORMANCE_BUILD_MANIFEST,
+    productionBundleEvidence: build.productionBundleEvidence,
+    productionBundleEvidenceRelativePath: PERFORMANCE_PRODUCTION_BUNDLE_EVIDENCE,
+    indexes: {
+      sentinel: { relativePath: PERFORMANCE_SENTINEL_CAPTURE_INDEX, index: sentinelCapture.index },
+      externalMetric: { relativePath: PERFORMANCE_EXTERNAL_METRIC_CAPTURE_INDEX, index: externalMetricCapture.index },
+      workload: { relativePath: PERFORMANCE_WORKLOAD_CAPTURE_INDEX, index: workloadCapture.index },
+      metricSession: { relativePath: PERFORMANCE_METRIC_SESSION_CAPTURE_INDEX, index: metricSessionCapture.index }
+    }
+  });
+  const rawCaptureReplay = await readPerformanceRawCaptureManifest({ outputDirectory: options.outputDirectory });
+  if (rawCaptureReplay.manifest.checksum !== rawCaptureManifest.manifest.checksum) {
+    fail('raw capture manifest replay changed its sealed checksum');
+  }
 
   return Object.freeze({
     ...build,
@@ -1180,7 +1209,8 @@ export async function runPerformanceBaseline({
     workloadCapture,
     sentinelCapture,
     externalMetricCapture,
-    metricSessionCapture
+    metricSessionCapture,
+    rawCaptureManifest
   });
 }
 
