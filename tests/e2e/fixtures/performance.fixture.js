@@ -95,21 +95,20 @@ export function createPerformanceElectronLaunchOptions({
     ELECTRON_IS_DEV: '0',
     DISABLE_AUTO_UPDATER: 'true',
     DISABLE_CRASH_REPORTER: 'true',
-    DISABLE_TRAY: 'true'
+    DISABLE_TRAY: 'true',
+    PRISMGB_E2E_TEST_CONTROL: '1'
   };
   if (build.harness) {
     Object.assign(environment, {
       PRISMGB_PERF_MEASUREMENT: '1',
       PRISMGB_PERF_LAUNCH_ID: launchId,
       PRISMGB_E2E_DIAGNOSTICS: build.instrumentation && performanceDiagnostics ? '1' : '0',
-      PRISMGB_E2E_TEST_CONTROL: '1',
       PRISMGB_PERF_ROOT_EXIT_AUDIT_PATH: rootExitAuditPath
     });
   } else {
     delete environment.PRISMGB_PERF_MEASUREMENT;
     delete environment.PRISMGB_PERF_LAUNCH_ID;
     delete environment.PRISMGB_E2E_DIAGNOSTICS;
-    delete environment.PRISMGB_E2E_TEST_CONTROL;
     delete environment.PRISMGB_PERF_ROOT_EXIT_AUDIT_PATH;
   }
   return Object.freeze({

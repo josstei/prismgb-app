@@ -8,6 +8,7 @@ import {
   resolvePerformanceRendererMetricTarget,
   waitForObservedProcessTermination
 } from '../../e2e/fixtures/performance.fixture.js';
+import { hasClassToken } from '../../e2e/fixtures/chromatic-device.fixture.js';
 import { createPerformanceControllerAuditFixture } from './performance-controller-audit.fixture.js';
 
 describe('createPerformanceElectronLaunchOptions', () => {
@@ -19,7 +20,7 @@ describe('createPerformanceElectronLaunchOptions', () => {
     PRISMGB_E2E_TEST_CONTROL: '1'
   };
 
-  it('removes inherited harness state from a production sentinel launch', () => {
+  it('retains generic device control while removing performance harness state from production', () => {
     const launch = createPerformanceElectronLaunchOptions({
       build: { directory: '/fixture/production', harness: false, instrumentation: false },
       launchId: null,
@@ -41,14 +42,20 @@ describe('createPerformanceElectronLaunchOptions', () => {
       ELECTRON_IS_DEV: '0',
       DISABLE_AUTO_UPDATER: 'true',
       DISABLE_CRASH_REPORTER: 'true',
-      DISABLE_TRAY: 'true'
+      DISABLE_TRAY: 'true',
+      PRISMGB_E2E_TEST_CONTROL: '1'
     });
     expect(launch.env).not.toHaveProperty('PRISMGB_PERF_MEASUREMENT');
     expect(launch.env).not.toHaveProperty('PRISMGB_PERF_LAUNCH_ID');
     expect(launch.env).not.toHaveProperty('PRISMGB_E2E_DIAGNOSTICS');
-    expect(launch.env).not.toHaveProperty('PRISMGB_E2E_TEST_CONTROL');
     expect(launch.env).not.toHaveProperty('PRISMGB_PERF_ROOT_EXIT_AUDIT_PATH');
     expect(launch.rootExitAuditPath).toBeNull();
+  });
+
+  it('requires an exact connected class token', () => {
+    expect(hasClassToken('status-indicator connected', 'connected')).toBe(true);
+    expect(hasClassToken('status-indicator disconnected', 'connected')).toBe(false);
+    expect(hasClassToken(null, 'connected')).toBe(false);
   });
 
   it('adds the marker and harness-only environment for a harness launch', () => {

@@ -117,6 +117,63 @@ describe('codebase source baseline', () => {
     expect(report.metrics.phase0ToolingOverhead.unknownNewPaths).toEqual([]);
   });
 
+  it('classifies the reconciled Phase 0.3 additions and modifications as owned', () => {
+    const root = createRoot();
+    const addedPaths = [
+      'scripts/lib/performance-controller-audit.js',
+      'tests/unit/scripts/gpu-performance-baseline-helper.test.ts',
+      'tests/unit/scripts/performance-controller-audit.fixture.ts',
+      'tests/unit/scripts/performance.fixture.test.ts'
+    ];
+    const modifiedPaths = [
+      'src/platform/gpu/application/renderer.service.ts',
+      'tests/e2e/fixtures/chromatic-device.fixture.js'
+    ];
+    for (const relativePath of [...addedPaths, ...modifiedPaths]) {
+      const outputPath = path.join(root, relativePath);
+      fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+      fs.writeFileSync(outputPath, 'export const phase0Owned = true;\n');
+    }
+    const diffPaths = ['package.json', 'src/a.ts', ...modifiedPaths];
+    const report = createSourceBaseline({
+      cwd: root,
+      spawn: createFakeGitSpawn({
+        originFiles: ['package.json', 'src/a.ts', ...modifiedPaths],
+        trackedFiles: [
+          'CODEBASE_NORMALIZATION_AND_REDUCTION_ANALYSIS.md',
+          'package.json',
+          'src/a.ts',
+          ...modifiedPaths,
+          ...addedPaths
+        ],
+        originContents: Object.fromEntries(modifiedPaths.map((relativePath) => [
+          relativePath,
+          'export const phase0Owned = false;\n'
+        ])),
+        numstat: diffPaths.map((relativePath) => `1\t1\t${relativePath}\n`).join(''),
+        hunks: diffPaths.map((relativePath) => (
+          `diff --git a/${relativePath} b/${relativePath}\n@@ -1 +1 @@\n`
+        )).join('')
+      }) as never,
+      policy: loadBaselinePolicy(),
+      now: () => '2026-07-11T00:00:00.000Z'
+    });
+    const overhead = report.metrics.phase0ToolingOverhead;
+    expect(overhead.phase0OwnedPaths).toEqual([
+      'CODEBASE_NORMALIZATION_AND_REDUCTION_ANALYSIS.md',
+      ...addedPaths
+    ].sort());
+    expect(overhead.unknownNewPaths).toEqual([]);
+    expect(overhead.originToWorkspace.phase0OwnedModifiedPaths.map(({ path: relativePath }) => relativePath)).toEqual(
+      [...modifiedPaths].sort()
+    );
+    for (const relativePath of modifiedPaths) {
+      expect(overhead.originToWorkspace.nonPhase0ModifiedPaths).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ path: relativePath })
+      ]));
+    }
+  });
+
   it('keeps line semantics and command parsing deterministic', () => {
     expect(countPhysicalLines(Buffer.from('one\n\n'))).toBe(2);
     expect(countNonblankLines(Buffer.from('one\n \n'))).toBe(1);
