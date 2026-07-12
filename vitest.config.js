@@ -79,6 +79,29 @@ export default defineConfig({
             'tests/unit/scripts/**/*.{test,spec}.{js,ts}',
             'tests/unit/support/**/*.{test,spec}.{js,ts}'
           ],
+          exclude: [
+            'tests/e2e/**',
+            'tests/unit/scripts/validate-baseline-evidence-capacity.test.ts'
+          ],
+          setupFiles: [
+            path.resolve(__dirname, 'tests/setup.js'),
+            path.resolve(__dirname, 'tests/support/mocks/node-browser-mocks.setup.js')
+          ]
+        }
+      },
+      {
+        define: standardPerformanceDefines,
+        test: {
+          alias: sharedAlias,
+          name: 'baseline-capacity-node',
+          globals: true,
+          clearMocks: true,
+          restoreMocks: true,
+          environment: 'node',
+          maxWorkers: 1,
+          fileParallelism: false,
+          sequence: { groupOrder: 1 },
+          include: ['tests/unit/scripts/validate-baseline-evidence-capacity.test.ts'],
           setupFiles: [
             path.resolve(__dirname, 'tests/setup.js'),
             path.resolve(__dirname, 'tests/support/mocks/node-browser-mocks.setup.js')
