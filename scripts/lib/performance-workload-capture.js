@@ -4,7 +4,7 @@ import path from 'node:path';
 import { stableStringify } from './baseline-report.js';
 import { validatePerformancePairBinding } from './performance-pair-plan.js';
 
-export const PERFORMANCE_WORKLOAD_CAPTURE_SCHEMA_VERSION = 2;
+export const PERFORMANCE_WORKLOAD_CAPTURE_SCHEMA_VERSION = 3;
 export const PERFORMANCE_WORKLOAD_CAPTURE_DIRECTORY = 'raw-workload-captures';
 
 const BUILD_VARIANTS = Object.freeze({

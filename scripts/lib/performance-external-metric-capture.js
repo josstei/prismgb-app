@@ -9,7 +9,7 @@ import {
 } from './process-runner.js';
 import { validatePerformancePairBinding } from './performance-pair-plan.js';
 
-export const PERFORMANCE_EXTERNAL_METRIC_CAPTURE_SCHEMA_VERSION = 2;
+export const PERFORMANCE_EXTERNAL_METRIC_CAPTURE_SCHEMA_VERSION = 3;
 export const PERFORMANCE_EXTERNAL_METRIC_CAPTURE_DIRECTORY = 'raw-external-metric-captures';
 
 const BUILD_VARIANTS = Object.freeze({

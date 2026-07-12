@@ -56,6 +56,7 @@ function baseCapture() {
     observationBoundaryId: 'external-sentinel-window:123e4567-e89b-42d3-a456-426614174000',
     pair: {
       experimentId: '123e4567-e89b-42d3-a456-426614174001',
+      pairPlanChecksum: 'c'.repeat(64),
       metricSessionId: 'harness-pair-1-attempt-1',
       comparisonKind: 'harness-overhead',
       backend: 'canvas2d',
@@ -91,7 +92,7 @@ describe('performance external metric capture', () => {
     const capture = createPerformanceExternalMetricCapture(baseCapture());
 
     expect(capture).toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 3,
       adapterId: 'macos-ps-v1',
       window: { start: 10, terminalClosureEnd: 10.75 },
       inWindowSamples: [

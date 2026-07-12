@@ -5,6 +5,7 @@ import {
   validatePerformancePairBinding,
   validatePerformancePairPlan
 } from '../../../scripts/lib/performance-pair-plan.js';
+import { canonicalSha256 } from '../../../scripts/lib/baseline-report.js';
 
 const experimentId = '123e4567-e89b-42d3-a456-426614174000';
 
@@ -15,6 +16,11 @@ function createPlan() {
     backend: 'canvas2d',
     createSessionId: () => `session-${++session}`
   });
+}
+
+function rechecksum(plan: ReturnType<typeof createPerformancePairPlan>) {
+  const { checksum: _checksum, ...body } = plan;
+  return canonicalSha256(body);
 }
 
 describe('performance pair plans', () => {
@@ -32,7 +38,7 @@ describe('performance pair plans', () => {
     expect(Object.isFrozen(plan.pairs[0].launches[0])).toBe(true);
   });
 
-  it('rejects duplicated session tokens and any reordered or retried initial pair', () => {
+  it('rejects duplicated session tokens, plan mutations, and any reordered or retried initial pair', () => {
     expect(() => createPerformancePairPlan({
       experimentId,
       backend: 'canvas2d',
@@ -40,15 +46,21 @@ describe('performance pair plans', () => {
     })).toThrow(/session IDs must be unique/);
 
     const plan = createPlan();
+    const tampered = structuredClone(plan);
+    tampered.pairs[0].metricSessionId = `${tampered.pairs[0].metricSessionId}-tampered`;
+    expect(() => validatePerformancePairPlan(tampered)).toThrow(/checksum/);
+
     const reordered = structuredClone(plan);
     [reordered.pairs[0].launches[0], reordered.pairs[0].launches[1]] = [
       reordered.pairs[0].launches[1],
       reordered.pairs[0].launches[0]
     ];
+    reordered.checksum = rechecksum(reordered);
     expect(() => validatePerformancePairPlan(reordered)).toThrow(/launch side|launch order/);
 
     const retried = structuredClone(plan);
     retried.pairs[0].attemptIndex = 2;
+    retried.checksum = rechecksum(retried);
     expect(() => validatePerformancePairPlan(retried)).toThrow(/initial attempts/);
   });
 
@@ -57,6 +69,7 @@ describe('performance pair plans', () => {
     const pair = plan.pairs[1];
     const binding = {
       experimentId,
+      pairPlanChecksum: plan.checksum,
       metricSessionId: pair.metricSessionId,
       comparisonKind: pair.comparisonKind,
       backend: pair.backend,
@@ -68,6 +81,7 @@ describe('performance pair plans', () => {
     expect(validatePerformancePairBinding(binding, { buildVariant: 'harness-control' })).toEqual(binding);
     expect(resolvePerformancePairPlanLaunch(plan, binding)).toEqual({
       pair: {
+        pairPlanChecksum: plan.checksum,
         comparisonKind: 'harness-overhead',
         backend: 'canvas2d',
         pairIndex: 2,
@@ -78,5 +92,6 @@ describe('performance pair plans', () => {
     });
     expect(() => validatePerformancePairBinding(binding, { buildVariant: 'instrumented' })).toThrow(/does not permit build variant/);
     expect(() => resolvePerformancePairPlanLaunch(plan, { ...binding, metricSessionId: 'wrong-session' })).toThrow(/planned metric session/);
+    expect(() => resolvePerformancePairPlanLaunch(plan, { ...binding, pairPlanChecksum: 'f'.repeat(64) })).toThrow(/immutable plan checksum/);
   });
 });

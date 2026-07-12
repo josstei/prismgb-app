@@ -41,6 +41,7 @@ const BUILD_VARIANT_FLAGS = Object.freeze({
 });
 const DEFAULT_HARNESS_PAIR = Object.freeze({
   experimentId: '123e4567-e89b-42d3-a456-426614174001',
+  pairPlanChecksum: 'b'.repeat(64),
   metricSessionId: 'harness-pair-1-attempt-1',
   comparisonKind: 'harness-overhead',
   backend: 'canvas2d',
@@ -50,6 +51,7 @@ const DEFAULT_HARNESS_PAIR = Object.freeze({
 });
 const DEFAULT_INSTRUMENTATION_PAIR = Object.freeze({
   experimentId: '123e4567-e89b-42d3-a456-426614174002',
+  pairPlanChecksum: 'c'.repeat(64),
   metricSessionId: 'instrumentation-pair-1-attempt-1',
   comparisonKind: 'instrumentation-overhead',
   backend: 'canvas2d',
@@ -78,6 +80,7 @@ function buildMetadata(id: keyof typeof BUILD_VARIANT_FLAGS, bundleSha256: strin
 function createPairBinding(plan: ReturnType<typeof createPerformancePairPlan>, pair: any, launch: any) {
   return {
     experimentId: plan.experimentId,
+    pairPlanChecksum: plan.checksum,
     metricSessionId: pair.metricSessionId,
     comparisonKind: pair.comparisonKind,
     backend: pair.backend,
@@ -392,7 +395,7 @@ describe('createPerformancePairPlan', () => {
       createSessionId: () => `session-${++session}`
     });
 
-    expect(plan).toMatchObject({ schemaVersion: 1, backend: 'canvas2d' });
+    expect(plan).toMatchObject({ schemaVersion: 2, backend: 'canvas2d', checksum: expect.stringMatching(/^[a-f0-9]{64}$/) });
     expect(plan.pairs.map((pair) => ({
       comparisonKind: pair.comparisonKind,
       pairIndex: pair.pairIndex,
@@ -633,14 +636,14 @@ describe('planned raw capture collection', () => {
     });
 
     expect(sentinel.index).toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 3,
       sourceSha,
       captures: expect.arrayContaining([
         expect.objectContaining({ buildId: 'production', backend: 'canvas2d', pair: expect.objectContaining({ comparisonSide: 'A' }) })
       ])
     });
     expect(sentinel.index.captures).toHaveLength(6);
-    expect(externalMetric.index).toMatchObject({ schemaVersion: 2, sourceSha });
+    expect(externalMetric.index).toMatchObject({ schemaVersion: 3, sourceSha });
     expect(externalMetric.index.captures).toHaveLength(18);
     expect(externalMetric.index.captures.filter((capture) => capture.buildId === 'instrumented')).toHaveLength(6);
     expect(fixtures.workloads).toHaveLength(6);

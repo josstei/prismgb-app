@@ -53,6 +53,7 @@ async function loadPerformancePairPlanFromEnvironment() {
 function createPairBinding(plan, pair, launch) {
   const binding = {
     experimentId: plan.experimentId,
+    pairPlanChecksum: plan.checksum,
     metricSessionId: pair.metricSessionId,
     comparisonKind: pair.comparisonKind,
     backend: pair.backend,

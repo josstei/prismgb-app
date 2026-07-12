@@ -508,7 +508,7 @@ export async function buildPerformanceVariants({
 }
 
 function performancePairCaptureKey(pair) {
-  return `${pair.metricSessionId}\u0000${pair.comparisonSide}`;
+  return `${pair.pairPlanChecksum}\u0000${pair.metricSessionId}\u0000${pair.comparisonSide}`;
 }
 
 function expectedPerformancePairLaunches(pairPlan, predicate) {
@@ -519,6 +519,7 @@ function expectedPerformancePairLaunches(pairPlan, predicate) {
       expected.push(Object.freeze({
         pair: Object.freeze({
           experimentId: pairPlan.experimentId,
+          pairPlanChecksum: pairPlan.checksum,
           metricSessionId: pair.metricSessionId,
           comparisonKind: pair.comparisonKind,
           backend: pair.backend,
@@ -629,7 +630,7 @@ export async function collectPerformanceWorkloadCaptures({ outputDirectory, sour
     };
   });
   const body = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     sourceSha,
     captures: entries
   };
@@ -698,7 +699,7 @@ export async function collectPerformanceSentinelCaptures({ outputDirectory, sour
     };
   });
   const body = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     sourceSha,
     captures: entries
   };
@@ -815,7 +816,7 @@ export async function collectPerformanceExternalMetricCaptures({
     };
   });
   const body = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     sourceSha,
     captures: entries
   };

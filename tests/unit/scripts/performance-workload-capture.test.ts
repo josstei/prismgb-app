@@ -18,6 +18,7 @@ function captureInput() {
     launchId: '123e4567-e89b-42d3-a456-426614174000',
     pair: {
       experimentId: '123e4567-e89b-42d3-a456-426614174001',
+      pairPlanChecksum: 'c'.repeat(64),
       metricSessionId: 'instrumentation-pair-1-attempt-1',
       comparisonKind: 'instrumentation-overhead',
       backend: 'canvas2d',
@@ -73,7 +74,7 @@ describe('performance workload capture', () => {
     const capture = createPerformanceWorkloadCapture(captureInput());
 
     expect(capture).toMatchObject({
-      schemaVersion: 2,
+      schemaVersion: 3,
       checksum: expect.stringMatching(/^[a-f0-9]{64}$/),
       window: { closureReason: 'minimum-reached', deliveredCallbackCount: 2 },
       sourceSequences: [41, 42]

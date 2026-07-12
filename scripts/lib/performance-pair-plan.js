@@ -1,4 +1,7 @@
 import crypto from 'node:crypto';
+import { canonicalSha256 } from './baseline-report.js';
+
+export const PERFORMANCE_PAIR_PLAN_SCHEMA_VERSION = 2;
 
 export const PERFORMANCE_PAIR_CARDINALITIES = Object.freeze({
   'harness-overhead': 3,
@@ -53,6 +56,12 @@ function assertPositiveInteger(value, label) {
   }
 }
 
+function assertSha256(value, label) {
+  if (typeof value !== 'string' || !/^[a-f0-9]{64}$/.test(value)) {
+    fail(`${label} must be a lowercase SHA-256`);
+  }
+}
+
 function expectedLaunchVariants(comparisonKind, pairIndex) {
   const canonicalVariants = PERFORMANCE_PAIR_BUILD_VARIANTS[comparisonKind];
   if (!canonicalVariants) fail(`pair comparison kind ${comparisonKind} is invalid`);
@@ -67,6 +76,15 @@ function freezePairPlan(value) {
       launches: Object.freeze(pair.launches.map((launch) => Object.freeze({ ...launch })))
     })))
   });
+}
+
+function performancePairPlanBody({ experimentId, backend, pairs }) {
+  return {
+    schemaVersion: PERFORMANCE_PAIR_PLAN_SCHEMA_VERSION,
+    experimentId,
+    backend,
+    pairs
+  };
 }
 
 /**
@@ -116,11 +134,10 @@ export function createPerformancePairPlan({
       });
     }
   }
+  const body = performancePairPlanBody({ experimentId, backend, pairs });
   return freezePairPlan({
-    schemaVersion: 1,
-    experimentId,
-    backend,
-    pairs
+    ...body,
+    checksum: canonicalSha256(body)
   });
 }
 
@@ -130,10 +147,11 @@ export function createPerformancePairPlan({
  * they are added only by the evidence owner after a terminal abort.
  */
 export function validatePerformancePairPlan(value) {
-  assertExactKeys(value, ['schemaVersion', 'experimentId', 'backend', 'pairs'], 'performance pair plan');
-  if (value.schemaVersion !== 1) fail('performance pair plan schema version is invalid');
+  assertExactKeys(value, ['schemaVersion', 'experimentId', 'backend', 'pairs', 'checksum'], 'performance pair plan');
+  if (value.schemaVersion !== PERFORMANCE_PAIR_PLAN_SCHEMA_VERSION) fail('performance pair plan schema version is invalid');
   assertUuid(value.experimentId, 'performance pair plan experimentId');
   if (!BACKENDS.has(value.backend)) fail('performance pair plan backend is invalid');
+  assertSha256(value.checksum, 'performance pair plan checksum');
   if (!Array.isArray(value.pairs)) fail('performance pair plan pairs must be an array');
 
   const expectedPairCount = Object.values(PERFORMANCE_PAIR_CARDINALITIES).reduce((total, count) => total + count, 0);
@@ -183,12 +201,15 @@ export function validatePerformancePairPlan(value) {
       });
     }
   }
-  return freezePairPlan({
-    schemaVersion: 1,
+  const body = performancePairPlanBody({
     experimentId: value.experimentId,
     backend: value.backend,
     pairs
   });
+  if (value.checksum !== canonicalSha256(body)) {
+    fail('performance pair plan checksum does not match its canonical body');
+  }
+  return freezePairPlan({ ...body, checksum: value.checksum });
 }
 
 /**
@@ -201,10 +222,11 @@ export function validatePerformancePairBinding(value, {
   buildVariant = null
 } = {}) {
   assertExactKeys(value, [
-    'experimentId', 'metricSessionId', 'comparisonKind', 'backend',
+    'experimentId', 'pairPlanChecksum', 'metricSessionId', 'comparisonKind', 'backend',
     'pairIndex', 'attemptIndex', 'comparisonSide'
   ], label);
   assertUuid(value.experimentId, `${label}.experimentId`);
+  assertSha256(value.pairPlanChecksum, `${label}.pairPlanChecksum`);
   assertNonemptyString(value.metricSessionId, `${label}.metricSessionId`);
   if (!Object.hasOwn(PERFORMANCE_PAIR_CARDINALITIES, value.comparisonKind)) {
     fail(`${label}.comparisonKind is invalid`);
@@ -218,6 +240,7 @@ export function validatePerformancePairBinding(value, {
   }
   return Object.freeze({
     experimentId: value.experimentId,
+    pairPlanChecksum: value.pairPlanChecksum,
     metricSessionId: value.metricSessionId,
     comparisonKind: value.comparisonKind,
     backend: value.backend,
@@ -233,6 +256,9 @@ export function resolvePerformancePairPlanLaunch(planInput, bindingInput) {
   if (binding.experimentId !== plan.experimentId || binding.backend !== plan.backend) {
     fail('performance pair binding does not match the plan experiment or backend');
   }
+  if (binding.pairPlanChecksum !== plan.checksum) {
+    fail('performance pair binding does not match the immutable plan checksum');
+  }
   const pair = plan.pairs.find((candidate) => (
     candidate.comparisonKind === binding.comparisonKind
     && candidate.pairIndex === binding.pairIndex
@@ -245,6 +271,7 @@ export function resolvePerformancePairPlanLaunch(planInput, bindingInput) {
   if (!launch) fail('performance pair binding does not match one planned launch side');
   return Object.freeze({
     pair: Object.freeze({
+      pairPlanChecksum: plan.checksum,
       comparisonKind: pair.comparisonKind,
       backend: pair.backend,
       pairIndex: pair.pairIndex,
