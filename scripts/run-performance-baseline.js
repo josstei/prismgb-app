@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { stableStringify } from './lib/baseline-report.js';
 import { loadBaselinePolicy } from './lib/performance-evidence.js';
 import { readPerformanceExternalMetricCaptures } from './lib/performance-external-metric-capture.js';
+import { readPerformanceMetricSessionCaptures } from './lib/performance-metric-session-capture.js';
 import {
   createPerformancePairPlan,
   PERFORMANCE_PAIR_CARDINALITIES,
@@ -27,6 +28,7 @@ const PERFORMANCE_BUILD_MANIFEST = 'performance-build-manifest.json';
 const PERFORMANCE_COMMAND_LEDGER = 'performance-command-ledger.json';
 const PERFORMANCE_PAIR_PLAN = 'performance-pair-plan.json';
 const PERFORMANCE_EXTERNAL_METRIC_CAPTURE_INDEX = 'performance-external-metric-captures.json';
+const PERFORMANCE_METRIC_SESSION_CAPTURE_INDEX = 'performance-metric-session-captures.json';
 const PERFORMANCE_SENTINEL_CAPTURE_INDEX = 'performance-sentinel-captures.json';
 const PERFORMANCE_WORKLOAD_CAPTURE_INDEX = 'performance-workload-captures.json';
 const PERFORMANCE_PRODUCTION_BUNDLE_EVIDENCE = 'performance-production-bundle-evidence.json';
@@ -531,6 +533,22 @@ function performancePairCaptureKey(pair) {
   return `${pair.pairPlanChecksum}\u0000${pair.metricSessionId}\u0000${pair.comparisonSide}`;
 }
 
+function performanceMetricSessionCaptureKey(pair) {
+  return `${pair.pairPlanChecksum}\u0000${pair.metricSessionId}`;
+}
+
+function performanceMetricSessionPair(pairPlan, pair) {
+  return {
+    experimentId: pairPlan.experimentId,
+    pairPlanChecksum: pairPlan.checksum,
+    metricSessionId: pair.metricSessionId,
+    comparisonKind: pair.comparisonKind,
+    backend: pair.backend,
+    pairIndex: pair.pairIndex,
+    attemptIndex: pair.attemptIndex
+  };
+}
+
 function expectedPerformancePairLaunches(pairPlan, predicate) {
   const expected = [];
   for (const pair of pairPlan.pairs) {
@@ -849,6 +867,166 @@ export async function collectPerformanceExternalMetricCaptures({
   return Object.freeze({ index, indexPath, captures: plannedCaptures.captures });
 }
 
+/**
+ * Joins one checksum-bound external metric adapter session to the two planned
+ * raw metric transcripts it owned. This is intentionally raw session evidence:
+ * later evidence assembly remains responsible for semantic experiment closure.
+ *
+ * @param {{
+ *   outputDirectory: string,
+ *   sourceSha: string,
+ *   externalMetricCaptures: ReadonlyArray<{ capture: object }>,
+ *   pairPlan: object
+ * }} options
+ */
+export async function collectPerformanceMetricSessionCaptures({
+  outputDirectory,
+  sourceSha,
+  externalMetricCaptures,
+  pairPlan: pairPlanInput
+} = {}) {
+  if (typeof outputDirectory !== 'string' || outputDirectory.length === 0) {
+    fail('metric session capture outputDirectory is required');
+  }
+  if (typeof sourceSha !== 'string' || !/^[a-f0-9]{40}$/.test(sourceSha)) {
+    fail('metric session capture sourceSha is invalid');
+  }
+  if (!Array.isArray(externalMetricCaptures)) {
+    fail('metric session capture requires the completed external metric captures');
+  }
+
+  let pairPlan;
+  try {
+    pairPlan = validatePerformancePairPlan(pairPlanInput);
+  } catch (error) {
+    fail(`metric session capture pair plan is invalid: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  const expectedExternalBySide = new Map();
+  for (const pair of pairPlan.pairs) {
+    for (const launch of pair.launches) {
+      const binding = {
+        ...performanceMetricSessionPair(pairPlan, pair),
+        comparisonSide: launch.comparisonSide
+      };
+      expectedExternalBySide.set(performancePairCaptureKey(binding), {
+        pair,
+        launch,
+        binding
+      });
+    }
+  }
+  if (externalMetricCaptures.length !== expectedExternalBySide.size) {
+    fail(`metric session capture requires exactly ${expectedExternalBySide.size} external metric captures`);
+  }
+
+  const externalBySide = new Map();
+  for (const entry of externalMetricCaptures) {
+    if (!entry || typeof entry !== 'object' || !entry.capture || typeof entry.capture !== 'object') {
+      fail('metric session capture external metric entry is invalid');
+    }
+    const capture = entry.capture;
+    if (capture.sourceSha !== sourceSha) {
+      fail('metric session capture external metric source SHA does not match the clean build');
+    }
+    let planned;
+    try {
+      planned = resolvePerformancePairPlanLaunch(pairPlan, capture.pair);
+    } catch (error) {
+      fail(`metric session capture external metric does not bind one planned launch: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    const key = performancePairCaptureKey(capture.pair);
+    const expected = expectedExternalBySide.get(key);
+    if (!expected || planned.launch.buildVariant !== expected.launch.buildVariant
+      || capture.build.id !== expected.launch.buildVariant) {
+      fail('metric session capture external metric does not match its planned launch side');
+    }
+    if (externalBySide.has(key)) fail('metric session capture external metrics duplicate one planned launch side');
+    externalBySide.set(key, capture);
+  }
+  if (externalBySide.size !== expectedExternalBySide.size) {
+    fail('metric session capture external metrics do not cover every planned launch side');
+  }
+
+  const rawCaptures = await readPerformanceMetricSessionCaptures({ outputDirectory });
+  if (rawCaptures.length !== pairPlan.pairs.length) {
+    fail(`expected exactly ${pairPlan.pairs.length} metric session captures, found ${rawCaptures.length}`);
+  }
+  const sessionsByKey = new Map();
+  for (const entry of rawCaptures) {
+    const capture = entry.capture;
+    if (capture.sourceSha !== sourceSha) {
+      fail('metric session capture source SHA does not match the clean build');
+    }
+    const key = performanceMetricSessionCaptureKey(capture.pair);
+    const plannedPair = pairPlan.pairs.find((pair) => (
+      pair.metricSessionId === capture.pair.metricSessionId
+      && pair.comparisonKind === capture.pair.comparisonKind
+      && pair.pairIndex === capture.pair.pairIndex
+      && pair.attemptIndex === capture.pair.attemptIndex
+    ));
+    if (!plannedPair || stableStringify(capture.pair) !== stableStringify(performanceMetricSessionPair(pairPlan, plannedPair))) {
+      fail('metric session capture does not bind one planned metric session');
+    }
+    if (sessionsByKey.has(key)) fail('metric session captures duplicate one planned metric session');
+
+    for (const side of capture.sides) {
+      const binding = { ...capture.pair, comparisonSide: side.comparisonSide };
+      const planned = resolvePerformancePairPlanLaunch(pairPlan, binding);
+      const external = externalBySide.get(performancePairCaptureKey(binding));
+      if (!external) fail('metric session capture has no external metric transcript for one side');
+      if (side.buildVariant !== planned.launch.buildVariant || external.build.id !== planned.launch.buildVariant) {
+        fail('metric session capture side build does not match the planned launch');
+      }
+      if (capture.adapterId !== external.adapterId) {
+        fail('metric session capture adapter does not match its raw external metric transcript');
+      }
+      if (side.externalExecutionId !== external.externalExecutionId
+        || side.metricCaptureChecksum !== external.checksum
+        || stableStringify(side.target) !== stableStringify(external.target)) {
+        fail('metric session capture side does not bind its raw external metric transcript');
+      }
+      if (stableStringify(external.pair) !== stableStringify(binding)) {
+        fail('metric session capture side pair binding does not match its raw external metric transcript');
+      }
+    }
+    sessionsByKey.set(key, entry);
+  }
+
+  const entries = pairPlan.pairs.map((pair) => {
+    const sessionPair = performanceMetricSessionPair(pairPlan, pair);
+    const entry = sessionsByKey.get(performanceMetricSessionCaptureKey(sessionPair));
+    if (!entry) fail('metric session captures do not cover every planned metric session');
+    const capture = entry.capture;
+    return {
+      relativePath: entry.relativePath,
+      checksum: capture.checksum,
+      pair: capture.pair,
+      adapterId: capture.adapterId,
+      sides: capture.sides.map((side) => ({
+        comparisonSide: side.comparisonSide,
+        buildVariant: side.buildVariant,
+        externalExecutionId: side.externalExecutionId,
+        metricCaptureChecksum: side.metricCaptureChecksum,
+        rendererPid: side.target.pid,
+        processIdentity: side.target.processIdentity
+      }))
+    };
+  });
+  const body = {
+    schemaVersion: 1,
+    sourceSha,
+    captures: entries
+  };
+  const index = Object.freeze({
+    ...body,
+    checksum: crypto.createHash('sha256').update(stableStringify(body), 'utf8').digest('hex')
+  });
+  const indexPath = path.join(outputDirectory, PERFORMANCE_METRIC_SESSION_CAPTURE_INDEX);
+  await fs.writeFile(indexPath, `${stableStringify(index)}\n`, { encoding: 'utf8', flag: 'wx' });
+  return Object.freeze({ index, indexPath, captures: Object.freeze(entries.map((entry) => sessionsByKey.get(performanceMetricSessionCaptureKey(entry.pair)))) });
+}
+
 export async function runPerformanceBaseline({
   cwd = PROJECT_ROOT,
   argv = process.argv.slice(2),
@@ -932,6 +1110,12 @@ export async function runPerformanceBaseline({
     sentinelCaptures: sentinelCapture.captures,
     pairPlan
   });
+  const metricSessionCapture = await collectPerformanceMetricSessionCaptures({
+    outputDirectory: options.outputDirectory,
+    sourceSha: build.manifest.sourceSha,
+    externalMetricCaptures: externalMetricCapture.captures,
+    pairPlan
+  });
 
   return Object.freeze({
     ...build,
@@ -945,7 +1129,8 @@ export async function runPerformanceBaseline({
     playwrightExecuted: true,
     workloadCapture,
     sentinelCapture,
-    externalMetricCapture
+    externalMetricCapture,
+    metricSessionCapture
   });
 }
 

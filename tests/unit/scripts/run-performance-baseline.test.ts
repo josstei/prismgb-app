@@ -13,6 +13,7 @@ import {
   createPerformanceBuildEnvironment,
   createProductionBundleEvidence,
   collectPerformanceExternalMetricCaptures,
+  collectPerformanceMetricSessionCaptures,
   collectPerformanceSentinelCaptures,
   parsePerformanceBaselineArgs,
   resolvePerformanceExperimentDeadline,
@@ -21,6 +22,7 @@ import {
 } from '../../../scripts/run-performance-baseline.js';
 import { createPerformanceSentinelCapture } from '../../../scripts/lib/performance-sentinel-capture.js';
 import { createPerformanceExternalMetricCapture } from '../../../scripts/lib/performance-external-metric-capture.js';
+import { createPerformanceMetricSessionCapture } from '../../../scripts/lib/performance-metric-session-capture.js';
 import { createPerformanceWorkloadCapture } from '../../../scripts/lib/performance-workload-capture.js';
 
 const tempDirectories: string[] = [];
@@ -291,9 +293,11 @@ function writePlannedCaptureFixturesSync({
 }) {
   const sentinels: Array<{ capture: any; relativePath: string }> = [];
   const metrics: Array<{ capture: any; relativePath: string }> = [];
+  const metricSessions: Array<{ capture: any; relativePath: string }> = [];
   const workloads: Array<{ capture: any; relativePath: string }> = [];
   let execution = 0;
   for (const pair of pairPlan.pairs) {
+    const pairMetrics: Array<{ capture: any; relativePath: string }> = [];
     for (const launch of pair.launches) {
       execution += 1;
       const externalExecutionId = fixtureUuid(100 + execution);
@@ -331,6 +335,7 @@ function writePlannedCaptureFixturesSync({
         capture: metric,
         relativePath: writeRawCaptureSync(outputDirectory, 'raw-external-metric-captures', metric.externalExecutionId, metric)
       });
+      pairMetrics.push(metrics.at(-1)!);
       if (launch.buildVariant === 'instrumented') {
         const workload = createInstrumentedWorkloadCapture({
           sourceSha,
@@ -344,8 +349,54 @@ function writePlannedCaptureFixturesSync({
         });
       }
     }
+    let sequence = 0;
+    let at = 0;
+    const transition = (operation: string, target?: Record<string, unknown>) => ({
+      sequence: ++sequence,
+      operation,
+      at: ++at,
+      ...(target ? { target } : {})
+    });
+    const metricSession = createPerformanceMetricSessionCapture({
+      sourceSha,
+      pair: {
+        experimentId: pairPlan.experimentId,
+        pairPlanChecksum: pairPlan.checksum,
+        metricSessionId: pair.metricSessionId,
+        comparisonKind: pair.comparisonKind,
+        backend: pair.backend,
+        pairIndex: pair.pairIndex,
+        attemptIndex: pair.attemptIndex
+      },
+      adapterId: 'linux-procfs-v1',
+      sides: pairMetrics.map(({ capture }) => ({
+        comparisonSide: capture.pair.comparisonSide,
+        buildVariant: capture.build.id,
+        externalExecutionId: capture.externalExecutionId,
+        metricCaptureChecksum: capture.checksum,
+        target: capture.target
+      })),
+      closure: {
+        adapterId: 'linux-procfs-v1',
+        transitions: [
+          transition('open'),
+          ...pairMetrics.flatMap(({ capture }) => [
+            transition('attach', capture.target),
+            transition('prime', capture.target),
+            transition('sample', capture.target),
+            transition('detach', capture.target)
+          ]),
+          transition('close')
+        ]
+      }
+    });
+    const directory = 'raw-metric-session-captures';
+    const relativePath = `${directory}/${metricSession.checksum}.json`;
+    fsSync.mkdirSync(path.join(outputDirectory, directory), { recursive: true });
+    fsSync.writeFileSync(path.join(outputDirectory, relativePath), JSON.stringify(metricSession));
+    metricSessions.push({ capture: metricSession, relativePath });
   }
-  return { sentinels, metrics, workloads };
+  return { sentinels, metrics, metricSessions, workloads };
 }
 
 describe('parsePerformanceBaselineArgs', () => {
@@ -628,7 +679,7 @@ describe('createPerformanceCommandLedger', () => {
 });
 
 describe('planned raw capture collection', () => {
-  it('indexes the exact six sentinel, six workload, and eighteen external metric sides', async () => {
+  it('indexes the exact six sentinel, six workload, eighteen external metric sides, and nine adapter sessions', async () => {
     const outputDirectory = await createTemporaryWorkspace();
     const sourceSha = 'a'.repeat(40);
     const pairPlan = createFixturePairPlan();
@@ -643,6 +694,12 @@ describe('planned raw capture collection', () => {
       sentinelCaptures: sentinel.captures,
       pairPlan
     });
+    const metricSession = await collectPerformanceMetricSessionCaptures({
+      outputDirectory,
+      sourceSha,
+      externalMetricCaptures: externalMetric.captures,
+      pairPlan
+    });
 
     expect(sentinel.index).toMatchObject({
       schemaVersion: 3,
@@ -655,7 +712,17 @@ describe('planned raw capture collection', () => {
     expect(externalMetric.index).toMatchObject({ schemaVersion: 3, sourceSha });
     expect(externalMetric.index.captures).toHaveLength(18);
     expect(externalMetric.index.captures.filter((capture) => capture.buildId === 'instrumented')).toHaveLength(6);
+    expect(metricSession.index).toMatchObject({ schemaVersion: 1, sourceSha });
+    expect(metricSession.index.captures).toHaveLength(9);
+    expect(metricSession.index.captures[0]).toMatchObject({
+      adapterId: 'linux-procfs-v1',
+      sides: [
+        { comparisonSide: 'A' },
+        { comparisonSide: 'B' }
+      ]
+    });
     expect(fixtures.workloads).toHaveLength(6);
+    expect(fixtures.metricSessions).toHaveLength(9);
     await expect(fs.readFile(sentinel.indexPath, 'utf8')).resolves.toContain(fixtures.sentinels[0].relativePath);
   });
 
@@ -701,6 +768,46 @@ describe('planned raw capture collection', () => {
       pairPlan
     })).rejects.toThrow(/sentinel run and observation boundary/);
     expect(fixtures.metrics).toHaveLength(18);
+  });
+
+  it('rejects a metric session side that does not bind its raw external metric transcript', async () => {
+    const outputDirectory = await createTemporaryWorkspace();
+    const pairPlan = createFixturePairPlan();
+    const manifest = createFixtureManifest();
+    const fixtures = writePlannedCaptureFixturesSync({ outputDirectory, pairPlan, manifest });
+    const sentinel = await collectPerformanceSentinelCaptures({
+      outputDirectory,
+      sourceSha: 'a'.repeat(40),
+      manifest,
+      pairPlan
+    });
+    const externalMetric = await collectPerformanceExternalMetricCaptures({
+      outputDirectory,
+      sourceSha: 'a'.repeat(40),
+      manifest,
+      sentinelCaptures: sentinel.captures,
+      pairPlan
+    });
+    const original = fixtures.metricSessions[0];
+    const malformed = createPerformanceMetricSessionCapture({
+      sourceSha: original.capture.sourceSha,
+      pair: original.capture.pair,
+      adapterId: original.capture.adapterId,
+      sides: original.capture.sides.map((side: any, index: number) => index === 0
+        ? { ...side, metricCaptureChecksum: 'f'.repeat(64) }
+        : side),
+      closure: original.capture.closure
+    });
+    await fs.rm(path.join(outputDirectory, original.relativePath));
+    const relativePath = `raw-metric-session-captures/${malformed.checksum}.json`;
+    await fs.writeFile(path.join(outputDirectory, relativePath), JSON.stringify(malformed));
+
+    await expect(collectPerformanceMetricSessionCaptures({
+      outputDirectory,
+      sourceSha: 'a'.repeat(40),
+      externalMetricCaptures: externalMetric.captures,
+      pairPlan
+    })).rejects.toThrow(/does not bind its raw external metric transcript/);
   });
 });
 
@@ -965,11 +1072,19 @@ describe('runPerformanceBaseline', () => {
     expect(result.externalMetricCapture.index.captures).toEqual(
       expect.arrayContaining([expect.objectContaining({ buildId: 'harness-control', adapterId: 'linux-procfs-v1' })])
     );
+    expect(result.metricSessionCapture.index).toMatchObject({
+      sourceSha: 'a'.repeat(40)
+    });
+    expect(result.metricSessionCapture.index.captures).toHaveLength(9);
+    expect(result.metricSessionCapture.index.captures).toEqual(
+      expect.arrayContaining([expect.objectContaining({ adapterId: 'linux-procfs-v1' })])
+    );
     expect(result.pairPlan).toMatchObject({ backend: 'canvas2d', pairs: expect.any(Array) });
     await expect(fs.readFile(result.pairPlanPath, 'utf8')).resolves.toContain('instrumentation-overhead');
     await expect(fs.readFile(result.workloadCapture.indexPath, 'utf8')).resolves.toContain('raw-workload-captures/');
     await expect(fs.readFile(result.sentinelCapture.indexPath, 'utf8')).resolves.toContain('raw-sentinel-captures/');
     await expect(fs.readFile(result.externalMetricCapture.indexPath, 'utf8')).resolves.toContain('raw-external-metric-captures/');
+    await expect(fs.readFile(result.metricSessionCapture.indexPath, 'utf8')).resolves.toContain('raw-metric-session-captures/');
   });
 
   it('rejects a passing Playwright lane that does not persist its workload capture', async () => {

@@ -14,6 +14,7 @@ import {
 import { StreamPage } from './pages/stream.page.js';
 import { loadBaselinePolicy } from '../../scripts/lib/performance-evidence.js';
 import { writePerformanceExternalMetricCapture } from '../../scripts/lib/performance-external-metric-capture.js';
+import { writePerformanceMetricSessionCapture } from '../../scripts/lib/performance-metric-session-capture.js';
 import {
   resolvePerformancePairPlanLaunch,
   validatePerformancePairPlan
@@ -277,7 +278,7 @@ async function persistExternalSentinelCapture({ performanceLaunch, performanceCh
 
 async function persistExternalMetricCapture({ performanceLaunch, transcript, pair }) {
   if (!process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT) return;
-  await writePerformanceExternalMetricCapture({
+  return writePerformanceExternalMetricCapture({
     outputDirectory: process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT,
     sourceSha: performanceLaunch.sourceSha,
     runId: `external-sentinel:${performanceLaunch.externalExecutionId}`,
@@ -520,6 +521,19 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
       rendererPid: performanceLaunch.rendererPid,
       externalExecutionId: performanceLaunch.externalExecutionId
     });
+    const persistPlannedMetricCapture = async (transcript) => {
+      const written = await persistExternalMetricCapture({ performanceLaunch, transcript, pair: binding });
+      if (!written) {
+        throw new Error('planned performance launch did not persist its external metric capture');
+      }
+      return Object.freeze({
+        sourceSha: performanceLaunch.sourceSha,
+        pair: binding,
+        buildVariant: launch.buildVariant,
+        externalExecutionId: performanceLaunch.externalExecutionId,
+        metricCapture: written.capture
+      });
+    };
     const performanceChromaticDevice = new ChromaticDeviceFixture(performanceLaunch.app, performanceLaunch.window);
     try {
       if (pair.comparisonKind === 'harness-overhead') {
@@ -535,8 +549,7 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
           gate: measured.gate,
           pair: binding
         });
-        await persistExternalMetricCapture({ performanceLaunch, transcript: measured.transcript, pair: binding });
-        return;
+        return persistPlannedMetricCapture(measured.transcript);
       }
 
       if (launch.buildVariant === 'instrumented') {
@@ -546,8 +559,7 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
           metricCapture,
           pair: binding
         });
-        await persistExternalMetricCapture({ performanceLaunch, transcript: measured.transcript, pair: binding });
-        return;
+        return persistPlannedMetricCapture(measured.transcript);
       }
 
       const measured = await executeExternalSentinelMeasurement({
@@ -555,7 +567,7 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
         performanceChromaticDevice,
         metricCapture
       });
-      await persistExternalMetricCapture({ performanceLaunch, transcript: measured.transcript, pair: binding });
+      return persistPlannedMetricCapture(measured.transcript);
     } finally {
       await performanceChromaticDevice.cleanup();
     }
@@ -568,19 +580,54 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
 }
 
 async function executePlannedPair({ manifest, plan, pair }) {
+  const captureOutput = process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT;
+  if (!captureOutput) {
+    throw new Error('planned performance pair execution requires PRISMGB_PERFORMANCE_CAPTURE_OUTPUT');
+  }
   const metricSession = await openPerformanceRendererMetricPairSession();
   let completed = false;
   try {
+    const completedLaunches = [];
     for (const launch of pair.launches) {
-      await runWithinPerformanceLaunchDeadline(
+      completedLaunches.push(await runWithinPerformanceLaunchDeadline(
         `${pair.comparisonKind} pair ${pair.pairIndex} side ${launch.comparisonSide}`,
         () => executePlannedLaunch({ manifest, plan, pair, launch, metricSession })
-      );
+      ));
     }
     const closure = await metricSession.close();
     if (closure.adapterId !== metricSession.adapterId) {
       throw new Error('performance metric pair session closure changed its adapter identity');
     }
+    const sourceSha = completedLaunches[0]?.sourceSha;
+    if (typeof sourceSha !== 'string' || completedLaunches.length !== pair.launches.length
+      || completedLaunches.some((launch) => launch.sourceSha !== sourceSha)) {
+      throw new Error('performance metric pair sides do not retain one source identity');
+    }
+    await writePerformanceMetricSessionCapture({
+      outputDirectory: captureOutput,
+      sourceSha,
+      pair: {
+        experimentId: plan.experimentId,
+        pairPlanChecksum: plan.checksum,
+        metricSessionId: pair.metricSessionId,
+        comparisonKind: pair.comparisonKind,
+        backend: pair.backend,
+        pairIndex: pair.pairIndex,
+        attemptIndex: pair.attemptIndex
+      },
+      adapterId: metricSession.adapterId,
+      sides: completedLaunches.map((launch) => ({
+        comparisonSide: launch.pair.comparisonSide,
+        buildVariant: launch.buildVariant,
+        externalExecutionId: launch.externalExecutionId,
+        metricCaptureChecksum: launch.metricCapture.checksum,
+        target: launch.metricCapture.target
+      })),
+      closure: {
+        adapterId: closure.adapterId,
+        transitions: closure.transitions
+      }
+    });
     completed = true;
   } finally {
     if (!completed) await metricSession.abort().catch(() => {});
