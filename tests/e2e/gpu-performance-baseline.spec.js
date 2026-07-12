@@ -31,7 +31,7 @@ const measurementWindowLimits = Object.freeze({
 });
 const performancePairPlanPath = process.env.PRISMGB_PERFORMANCE_PAIR_PLAN ?? null;
 const usesPerformancePairPlan = performancePairPlanPath !== null;
-const PERFORMANCE_LAUNCH_DEADLINE_MS = 300_000;
+const PERFORMANCE_LAUNCH_DEADLINE_MS = performancePolicy.performanceLimits.oneLaunchSeconds * 1000;
 
 async function loadPerformancePairPlanFromEnvironment() {
   if (performancePairPlanPath === null) {

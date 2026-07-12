@@ -15,6 +15,7 @@ import {
   collectPerformanceExternalMetricCaptures,
   collectPerformanceSentinelCaptures,
   parsePerformanceBaselineArgs,
+  resolvePerformanceExperimentDeadline,
   resolvePerformancePlaywrightCommand,
   runPerformanceBaseline
 } from '../../../scripts/run-performance-baseline.js';
@@ -369,6 +370,14 @@ describe('parsePerformanceBaselineArgs', () => {
       selectedHost: true,
       buildOnly: false
     });
+  });
+});
+
+describe('resolvePerformanceExperimentDeadline', () => {
+  it('uses the closed role-specific policy deadline', () => {
+    expect(resolvePerformanceExperimentDeadline('ci-integrity')).toBe(10_800);
+    expect(resolvePerformanceExperimentDeadline('reference-comparison')).toBe(28_800);
+    expect(() => resolvePerformanceExperimentDeadline('unknown' as never)).toThrow(/unsupported experiment role/);
   });
 });
 
@@ -804,6 +813,81 @@ describe('runPerformanceBaseline', () => {
     })).rejects.toThrow(/playwright assertion detail[\s\S]*playwright warning/);
   });
 
+  it('fails the performance lane when the runner deadline terminates Playwright', async () => {
+    const cwd = await createTemporaryWorkspace();
+    const spawn = vi.fn((command: string, args: readonly string[], options: { cwd: string }) => {
+      if (command === 'git' && args[0] === 'status') return { status: 0, stdout: '', stderr: '' };
+      if (command === 'git' && args[0] === 'rev-parse') return { status: 0, stdout: `${'a'.repeat(40)}\n`, stderr: '' };
+      if (command === 'npm') {
+        const dist = path.join(options.cwd, 'dist');
+        fsSync.mkdirSync(path.join(dist, 'main'), { recursive: true });
+        fsSync.mkdirSync(path.join(dist, 'preload'), { recursive: true });
+        fsSync.mkdirSync(path.join(dist, 'renderer'), { recursive: true });
+        fsSync.mkdirSync(path.join(dist, 'renderer', 'assets'), { recursive: true });
+        fsSync.writeFileSync(path.join(dist, 'main', 'index.js'), 'main');
+        fsSync.writeFileSync(path.join(dist, 'preload', 'index.js'), 'preload');
+        fsSync.writeFileSync(path.join(dist, 'renderer', 'index.js'), 'renderer');
+        fsSync.writeFileSync(path.join(dist, 'renderer', 'assets', 'main-fixture.js'), 'renderer-entry');
+        fsSync.writeFileSync(path.join(dist, 'renderer', 'assets', 'worker-entry-fixture.js'), 'worker');
+        return { status: 0, stdout: '', stderr: '' };
+      }
+      if (command === 'npx') {
+        const error = Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' });
+        return { error, status: null, stdout: '', stderr: '' };
+      }
+      throw new Error(`unexpected command ${command}`);
+    });
+
+    await expect(runPerformanceBaseline({
+      cwd,
+      argv: ['--output', 'performance-output', '--role', 'ci-integrity'],
+      baseEnvironment: { PATH: '/bin', DISPLAY: ':99' },
+      spawn: spawn as unknown as typeof spawnSync,
+      platform: 'linux'
+    })).rejects.toThrow(/exceeded its 10800-second deadline/);
+  });
+
+  it('rejects a Playwright command that returns after the role deadline', async () => {
+    const cwd = await createTemporaryWorkspace();
+    const clock = vi.fn()
+      .mockReturnValueOnce(1)
+      .mockReturnValueOnce(2)
+      .mockReturnValueOnce(3)
+      .mockReturnValueOnce(4)
+      .mockReturnValueOnce(5)
+      .mockReturnValueOnce(6)
+      .mockReturnValueOnce(7)
+      .mockReturnValueOnce(10_808);
+    const spawn = vi.fn((command: string, args: readonly string[], options: { cwd: string }) => {
+      if (command === 'git' && args[0] === 'status') return { status: 0, stdout: '', stderr: '' };
+      if (command === 'git' && args[0] === 'rev-parse') return { status: 0, stdout: `${'a'.repeat(40)}\n`, stderr: '' };
+      if (command === 'npm') {
+        const dist = path.join(options.cwd, 'dist');
+        fsSync.mkdirSync(path.join(dist, 'main'), { recursive: true });
+        fsSync.mkdirSync(path.join(dist, 'preload'), { recursive: true });
+        fsSync.mkdirSync(path.join(dist, 'renderer'), { recursive: true });
+        fsSync.mkdirSync(path.join(dist, 'renderer', 'assets'), { recursive: true });
+        fsSync.writeFileSync(path.join(dist, 'main', 'index.js'), 'main');
+        fsSync.writeFileSync(path.join(dist, 'preload', 'index.js'), 'preload');
+        fsSync.writeFileSync(path.join(dist, 'renderer', 'index.js'), 'renderer');
+        fsSync.writeFileSync(path.join(dist, 'renderer', 'assets', 'main-fixture.js'), 'renderer-entry');
+        fsSync.writeFileSync(path.join(dist, 'renderer', 'assets', 'worker-entry-fixture.js'), 'worker');
+        return { status: 0, stdout: '', stderr: '' };
+      }
+      if (command === 'npx') return { status: 0, stdout: '', stderr: '' };
+      throw new Error(`unexpected command ${command}`);
+    });
+
+    await expect(runPerformanceBaseline({
+      cwd,
+      argv: ['--output', 'performance-output', '--role', 'ci-integrity'],
+      baseEnvironment: { PATH: '/bin', DISPLAY: ':99' },
+      spawn: spawn as unknown as typeof spawnSync,
+      platform: 'linux',
+      clock
+    })).rejects.toThrow(/ci-integrity performance experiment exceeded its 10800-second deadline/);
+  });
+
   it('indexes the exact planned raw capture set produced by the Playwright lane', async () => {
     const cwd = await createTemporaryWorkspace();
     const spawn = vi.fn((command: string, args: readonly string[], options: { cwd: string; env: NodeJS.ProcessEnv }) => {
@@ -850,6 +934,16 @@ describe('runPerformanceBaseline', () => {
     });
 
     if (result.playwrightExecuted !== true) throw new Error('expected the Playwright lane to execute');
+    expect(result.experimentDeadlineSeconds).toBe(10_800);
+    expect(result.experimentElapsedSeconds).toBeGreaterThanOrEqual(0);
+    const playwrightCall = spawn.mock.calls.find(([command]) => command === 'npx');
+    expect(playwrightCall?.[2]).toMatchObject({
+      timeout: 10_800_000,
+      env: {
+        PRISMGB_PERFORMANCE_ROLE: 'ci-integrity',
+        PRISMGB_PERFORMANCE_EXPERIMENT_DEADLINE_SECONDS: '10800'
+      }
+    });
     expect(result.workloadCapture.index).toMatchObject({
       sourceSha: 'a'.repeat(40)
     });

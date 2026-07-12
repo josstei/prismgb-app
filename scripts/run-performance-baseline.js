@@ -32,7 +32,9 @@ const PERFORMANCE_WORKLOAD_CAPTURE_INDEX = 'performance-workload-captures.json';
 const PERFORMANCE_PRODUCTION_BUNDLE_EVIDENCE = 'performance-production-bundle-evidence.json';
 const PRODUCTION_CODE_ROOTS = Object.freeze(['main', 'preload', 'renderer', 'worker']);
 const PERFORMANCE_PLAYWRIGHT_ARGS = Object.freeze(['playwright', 'test', '--config', 'playwright.performance.config.js']);
-const PERFORMANCE_METRIC_POLICY = loadBaselinePolicy().policy.performanceMetricPolicy;
+const PERFORMANCE_BASELINE_POLICY = loadBaselinePolicy().policy;
+const PERFORMANCE_METRIC_POLICY = PERFORMANCE_BASELINE_POLICY.performanceMetricPolicy;
+const PERFORMANCE_LIMITS = PERFORMANCE_BASELINE_POLICY.performanceLimits;
 
 export const PERFORMANCE_BUILD_VARIANTS = Object.freeze([
   Object.freeze({ id: 'production', harness: false, instrumentation: false }),
@@ -109,8 +111,11 @@ function commandOutput(value) {
   return Buffer.isBuffer(value) ? value.toString('utf8') : String(value ?? '');
 }
 
-function readCommandOutput(result, label) {
+function readCommandOutput(result, label, { timeoutMilliseconds = null } = {}) {
   if (result.error) {
+    if (result.error.code === 'ETIMEDOUT' && timeoutMilliseconds !== null) {
+      fail(`${label} exceeded its ${timeoutMilliseconds / 1000}-second deadline`);
+    }
     fail(`${label} could not start: ${result.error.message}`);
   }
   const stdout = commandOutput(result.stdout);
@@ -122,15 +127,19 @@ function readCommandOutput(result, label) {
   return stdout;
 }
 
-function runCommand(command, args, { cwd, env, spawn = spawnSync }) {
+function runCommand(command, args, { cwd, env, spawn = spawnSync, timeoutMilliseconds = null }) {
+  if (timeoutMilliseconds !== null && (!Number.isSafeInteger(timeoutMilliseconds) || timeoutMilliseconds <= 0)) {
+    fail('command timeout must be a positive safe integer in milliseconds');
+  }
   const result = spawn(command, args, {
     cwd,
     env,
     encoding: 'utf8',
     stdio: 'pipe',
-    windowsHide: true
+    windowsHide: true,
+    ...(timeoutMilliseconds === null ? {} : { timeout: timeoutMilliseconds })
   });
-  return readCommandOutput(result, `${command} ${args.join(' ')}`);
+  return readCommandOutput(result, `${command} ${args.join(' ')}`, { timeoutMilliseconds });
 }
 
 function monotonicSeconds() {
@@ -216,6 +225,17 @@ function parseRole(value) {
     return value;
   }
   fail(`unsupported experiment role ${value}`);
+}
+
+export function resolvePerformanceExperimentDeadline(role) {
+  const parsedRole = parseRole(role);
+  const seconds = parsedRole === 'ci-integrity'
+    ? PERFORMANCE_LIMITS.ciExperimentSeconds
+    : PERFORMANCE_LIMITS.referenceExperimentSeconds;
+  if (!Number.isSafeInteger(seconds) || seconds <= 0) {
+    fail(`performance experiment deadline is invalid for ${parsedRole}`);
+  }
+  return seconds;
 }
 
 export function parsePerformanceBaselineArgs(argv, { cwd = PROJECT_ROOT } = {}) {
@@ -857,6 +877,7 @@ export async function runPerformanceBaseline({
   }
 
   const experimentId = crypto.randomUUID();
+  const experimentDeadlineSeconds = resolvePerformanceExperimentDeadline(options.role);
   const pairPlan = createPerformancePairPlan({ experimentId, backend: 'canvas2d' });
   const pairPlanPath = path.join(options.outputDirectory, PERFORMANCE_PAIR_PLAN);
   await fs.writeFile(pairPlanPath, `${stableStringify(pairPlan)}\n`, { encoding: 'utf8', flag: 'wx' });
@@ -866,6 +887,7 @@ export async function runPerformanceBaseline({
     platform,
     environment: baseEnvironment
   });
+  const experimentStartedAt = readClock(clock);
   runCommand(playwright.command, playwright.args, {
     cwd,
     env: {
@@ -877,10 +899,19 @@ export async function runPerformanceBaseline({
       PRISMGB_PERFORMANCE_ROLE: options.role,
       PRISMGB_PERFORMANCE_EXPERIMENT_ID: experimentId,
       PRISMGB_PERFORMANCE_PAIR_PLAN: pairPlanPath,
-      PRISMGB_PERF_SELECTED_HOST: options.selectedHost ? '1' : '0'
+      PRISMGB_PERF_SELECTED_HOST: options.selectedHost ? '1' : '0',
+      PRISMGB_PERFORMANCE_EXPERIMENT_DEADLINE_SECONDS: String(experimentDeadlineSeconds)
     },
-    spawn
+    spawn,
+    timeoutMilliseconds: experimentDeadlineSeconds * 1000
   });
+  const experimentElapsedSeconds = readClock(clock) - experimentStartedAt;
+  if (experimentElapsedSeconds < 0) {
+    fail('performance experiment clock regressed during the Playwright lane');
+  }
+  if (experimentElapsedSeconds > experimentDeadlineSeconds) {
+    fail(`${options.role} performance experiment exceeded its ${experimentDeadlineSeconds}-second deadline`);
+  }
 
   const workloadCapture = await collectPerformanceWorkloadCaptures({
     outputDirectory: options.outputDirectory,
@@ -907,6 +938,8 @@ export async function runPerformanceBaseline({
     role: options.role,
     selectedHost: options.selectedHost,
     experimentId,
+    experimentDeadlineSeconds,
+    experimentElapsedSeconds,
     pairPlan,
     pairPlanPath,
     playwrightExecuted: true,
