@@ -24,6 +24,66 @@ import {
   resetPerformanceDiagnostics
 } from '../helpers/gpu-performance-baseline.helper.js';
 
+export function createPerformanceElectronLaunchOptions({
+  build,
+  launchId,
+  userDataDirectory,
+  baseEnvironment = process.env,
+  performanceDiagnostics
+} = {}) {
+  if (!build || typeof build !== 'object' || typeof build.directory !== 'string' || build.directory.length === 0) {
+    throw new Error('performance launch requires a build directory');
+  }
+  if (typeof build.harness !== 'boolean' || typeof build.instrumentation !== 'boolean') {
+    throw new Error('performance launch build flags are invalid');
+  }
+  if (typeof userDataDirectory !== 'string' || userDataDirectory.length === 0) {
+    throw new Error('performance launch requires a user-data directory');
+  }
+  if (!baseEnvironment || typeof baseEnvironment !== 'object') {
+    throw new Error('performance launch environment is invalid');
+  }
+  if (typeof performanceDiagnostics !== 'boolean') {
+    throw new Error('performance diagnostics flag is invalid');
+  }
+  if (build.harness && (typeof launchId !== 'string' || launchId.length === 0)) {
+    throw new Error('harness performance launch requires a launch ID');
+  }
+  if (!build.harness && launchId !== null) {
+    throw new Error('production performance launch must not receive a launch ID');
+  }
+  const args = [
+    path.join(build.directory, 'main', 'index.js'),
+    '--test-mode',
+    `--user-data-dir=${userDataDirectory}`,
+    '--no-sandbox',
+    '--disable-dev-shm-usage'
+  ];
+  if (launchId !== null) args.splice(2, 0, `--prismgb-performance-launch-id=${launchId}`);
+  const environment = {
+    ...baseEnvironment,
+    NODE_ENV: 'test',
+    ELECTRON_IS_DEV: '0',
+    DISABLE_AUTO_UPDATER: 'true',
+    DISABLE_CRASH_REPORTER: 'true',
+    DISABLE_TRAY: 'true'
+  };
+  if (build.harness) {
+    Object.assign(environment, {
+      PRISMGB_PERF_MEASUREMENT: '1',
+      PRISMGB_PERF_LAUNCH_ID: launchId,
+      PRISMGB_E2E_DIAGNOSTICS: build.instrumentation && performanceDiagnostics ? '1' : '0',
+      PRISMGB_E2E_TEST_CONTROL: '1'
+    });
+  } else {
+    delete environment.PRISMGB_PERF_MEASUREMENT;
+    delete environment.PRISMGB_PERF_LAUNCH_ID;
+    delete environment.PRISMGB_E2E_DIAGNOSTICS;
+    delete environment.PRISMGB_E2E_TEST_CONTROL;
+  }
+  return Object.freeze({ args: Object.freeze(args), env: Object.freeze(environment) });
+}
+
 export const test = base.extend({
   performanceVariant: ['instrumented', { option: true }],
   performanceDiagnostics: [true, { option: true }],
@@ -33,38 +93,14 @@ export const test = base.extend({
     const build = getPerformanceBuild(loadedManifest, performanceVariant);
     const launchId = build.harness ? createPerformanceLaunchId() : null;
     const userDataDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'prismgb-performance-'));
-    const args = [
-      path.join(build.directory, 'main', 'index.js'),
-      '--test-mode',
-      `--user-data-dir=${userDataDirectory}`,
-      '--no-sandbox',
-      '--disable-dev-shm-usage'
-    ];
-    if (launchId !== null) args.splice(2, 0, `--prismgb-performance-launch-id=${launchId}`);
-    const environment = {
-      ...process.env,
-      NODE_ENV: 'test',
-      ELECTRON_IS_DEV: '0',
-      DISABLE_AUTO_UPDATER: 'true',
-      DISABLE_CRASH_REPORTER: 'true',
-      DISABLE_TRAY: 'true'
-    };
-    if (build.harness) {
-      Object.assign(environment, {
-        PRISMGB_PERF_MEASUREMENT: '1',
-        PRISMGB_PERF_LAUNCH_ID: launchId,
-        PRISMGB_E2E_DIAGNOSTICS: build.instrumentation && performanceDiagnostics ? '1' : '0',
-        PRISMGB_E2E_TEST_CONTROL: '1'
-      });
-    } else {
-      delete environment.PRISMGB_PERF_MEASUREMENT;
-      delete environment.PRISMGB_PERF_LAUNCH_ID;
-      delete environment.PRISMGB_E2E_DIAGNOSTICS;
-      delete environment.PRISMGB_E2E_TEST_CONTROL;
-    }
+    const launch = createPerformanceElectronLaunchOptions({
+      build,
+      launchId,
+      userDataDirectory,
+      performanceDiagnostics
+    });
     const app = await electron.launch({
-      args,
-      env: environment,
+      ...launch,
       timeout: 60000
     });
 
