@@ -352,6 +352,198 @@ export function createMacosPsSnapshotReader({ runCommand = runMacosPs } = {}) {
   };
 }
 
+function normalizeMetricSessionTarget(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    failExternalMetric('metric session target must be an object');
+  }
+  const keys = Object.keys(value).sort();
+  if (keys.join('\u0000') !== ['counterQuantumSeconds', 'creationIdentity', 'pid', 'processIdentity'].join('\u0000')) {
+    failExternalMetric('metric session target must contain only pid, creationIdentity, processIdentity, and counterQuantumSeconds');
+  }
+  assertPositiveSafeInteger(value.pid, 'metric session target PID');
+  assertNonemptyString(value.creationIdentity, 'metric session target creation identity');
+  assertNonemptyString(value.processIdentity, 'metric session target process identity');
+  if (!Number.isFinite(value.counterQuantumSeconds) || value.counterQuantumSeconds <= 0 || value.counterQuantumSeconds > 0.01) {
+    failExternalMetric('metric session target counter quantum must be finite, positive, and at most 0.01');
+  }
+  return Object.freeze({
+    pid: value.pid,
+    creationIdentity: value.creationIdentity,
+    processIdentity: value.processIdentity,
+    counterQuantumSeconds: value.counterQuantumSeconds
+  });
+}
+
+function metricSessionTargetKey(target) {
+  return JSON.stringify([target.pid, target.creationIdentity, target.processIdentity]);
+}
+
+function cloneMetricSessionTransitions(transitions) {
+  return Object.freeze(transitions.map((transition) => Object.freeze({
+    ...transition,
+    ...(transition.target ? { target: Object.freeze({ ...transition.target }) } : {})
+  })));
+}
+
+/**
+ * Owns one pair-scoped external metric session. Platform adapters provide a
+ * reader only after a target is attached; this state machine ensures a side
+ * cannot overlap another target, restart an already-used target, or claim a
+ * completed close while an adapter remains attached.
+ *
+ * @param {{
+ *   adapterId: string,
+ *   createReader: (context: Readonly<{ adapterId: string, resource: unknown, target: Readonly<{ pid: number, creationIdentity: string, processIdentity: string, counterQuantumSeconds: number }> }>) => Promise<Readonly<{ sample: () => Promise<unknown> | unknown, close: () => Promise<unknown> | unknown }>> | Readonly<{ sample: () => Promise<unknown> | unknown, close: () => Promise<unknown> | unknown }>,
+ *   openResource?: (context: Readonly<{ adapterId: string }>) => Promise<unknown> | unknown,
+ *   closeResource?: (resource: unknown, context: Readonly<{ adapterId: string }>) => Promise<unknown> | unknown,
+ *   clock?: () => number
+ * }} options
+ */
+export function createExternalMetricAdapterSession({
+  adapterId,
+  createReader,
+  openResource = () => undefined,
+  closeResource = () => undefined,
+  clock = () => performance.now() / 1000
+} = {}) {
+  assertNonemptyString(adapterId, 'metric adapter ID');
+  if (typeof createReader !== 'function') failExternalMetric('createReader must be a function');
+  if (typeof openResource !== 'function') failExternalMetric('openResource must be a function');
+  if (typeof closeResource !== 'function') failExternalMetric('closeResource must be a function');
+  if (typeof clock !== 'function') failExternalMetric('metric session clock must be a function');
+
+  let state = 'new';
+  let resource;
+  let active = null;
+  let sampling = false;
+  let transitionSequence = 0;
+  let lastTransitionAt = -Infinity;
+  const transitions = [];
+  const seenTargetKeys = new Set();
+  const targetKeyByPid = new Map();
+  const targetKeyByProcessIdentity = new Map();
+
+  const recordTransition = (operation, target = null) => {
+    const at = clock();
+    assertFiniteNonnegativeNumber(at, `metric session ${operation} time`);
+    if (at < lastTransitionAt) failExternalMetric('metric session clock regressed between transitions');
+    lastTransitionAt = at;
+    const transition = Object.freeze({
+      sequence: ++transitionSequence,
+      operation,
+      at,
+      ...(target === null ? {} : { target })
+    });
+    transitions.push(transition);
+    return transition;
+  };
+
+  const requireOpen = (operation) => {
+    if (state !== 'open') failExternalMetric(`cannot ${operation} when the metric session is ${state}`);
+  };
+
+  const requireActive = (operation) => {
+    requireOpen(operation);
+    if (active === null) failExternalMetric(`cannot ${operation} without an attached metric target`);
+  };
+
+  const readFromActiveTarget = async (operation) => {
+    requireActive(operation);
+    if (sampling) failExternalMetric('metric session does not permit overlapping samples');
+    sampling = true;
+    try {
+      const value = await active.reader.sample();
+      recordTransition(operation, active.target);
+      return value;
+    } catch (error) {
+      recordTransition(`${operation}-failed`, active.target);
+      throw error;
+    } finally {
+      sampling = false;
+    }
+  };
+
+  return Object.freeze({
+    async open() {
+      if (state !== 'new') failExternalMetric(`cannot open the metric session when it is ${state}`);
+      resource = await openResource(Object.freeze({ adapterId }));
+      state = 'open';
+      recordTransition('open');
+      return Object.freeze({ adapterId });
+    },
+
+    async attach(targetInput) {
+      requireOpen('attach a metric target');
+      if (active !== null) failExternalMetric('metric session already has an attached target');
+      const target = normalizeMetricSessionTarget(targetInput);
+      const targetKey = metricSessionTargetKey(target);
+      const previousPidTargetKey = targetKeyByPid.get(target.pid);
+      if (previousPidTargetKey !== undefined && previousPidTargetKey !== targetKey) {
+        failExternalMetric('metric session detected PID replacement');
+      }
+      const previousProcessIdentityTargetKey = targetKeyByProcessIdentity.get(target.processIdentity);
+      if (previousProcessIdentityTargetKey !== undefined && previousProcessIdentityTargetKey !== targetKey) {
+        failExternalMetric('metric session detected process identity replacement');
+      }
+      if (seenTargetKeys.has(targetKey)) failExternalMetric('metric session cannot reuse a detached target');
+      const reader = await createReader(Object.freeze({ adapterId, resource, target }));
+      if (!reader || typeof reader !== 'object' || typeof reader.sample !== 'function' || typeof reader.close !== 'function') {
+        failExternalMetric('createReader must return sample and close functions');
+      }
+      targetKeyByPid.set(target.pid, targetKey);
+      targetKeyByProcessIdentity.set(target.processIdentity, targetKey);
+      seenTargetKeys.add(targetKey);
+      active = Object.freeze({ target, reader });
+      recordTransition('attach', target);
+      return target;
+    },
+
+    async prime() {
+      return readFromActiveTarget('prime');
+    },
+
+    async sample() {
+      return readFromActiveTarget('sample');
+    },
+
+    async detach() {
+      requireActive('detach the metric target');
+      if (sampling) failExternalMetric('cannot detach a metric target during a sample');
+      const closing = active;
+      try {
+        const result = await closing.reader.close();
+        active = null;
+        recordTransition('detach', closing.target);
+        return result;
+      } catch (error) {
+        recordTransition('detach-failed', closing.target);
+        throw error;
+      }
+    },
+
+    async close() {
+      requireOpen('close the metric session');
+      if (active !== null) failExternalMetric('cannot close a metric session with an attached target');
+      const result = await closeResource(resource, Object.freeze({ adapterId }));
+      state = 'closed';
+      recordTransition('close');
+      return Object.freeze({
+        adapterId,
+        result,
+        transitions: cloneMetricSessionTransitions(transitions)
+      });
+    },
+
+    getAudit() {
+      return Object.freeze({
+        adapterId,
+        state,
+        transitions: cloneMetricSessionTransitions(transitions)
+      });
+    }
+  });
+}
+
 function compareProcessIdentities(left, right) {
   if (left.pid !== right.pid) return left.pid - right.pid;
   if (left.creationTime !== right.creationTime) return left.creationTime - right.creationTime;

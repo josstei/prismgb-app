@@ -2,6 +2,7 @@ import { exec } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  createExternalMetricAdapterSession,
   createExternalMetricSampleReader,
   createLinuxProcfsSnapshotReader,
   createMacosPsSnapshotReader,
@@ -226,6 +227,100 @@ describe('external process metric snapshots', () => {
     const macosReader = createMacosPsSnapshotReader({ runCommand });
     await expect(macosReader(42)).resolves.toMatchObject({ cumulativeCpuSeconds: 1, workingSetMiB: 1 });
     expect(runCommand).toHaveBeenCalledWith('/bin/ps', ['-o', 'time=', '-o', 'rss=', '-p', '42']);
+  });
+});
+
+describe('createExternalMetricAdapterSession', () => {
+  const target = {
+    pid: 42,
+    creationIdentity: 'creation-42',
+    processIdentity: 'renderer-42',
+    counterQuantumSeconds: 0.01
+  };
+
+  it('enforces the open, attach, sample, detach, and close lifecycle for distinct targets', async () => {
+    const readers = new Map<string, { sample: ReturnType<typeof vi.fn>, close: ReturnType<typeof vi.fn> }>();
+    const createReader = vi.fn(({ target: attachedTarget }) => {
+      const reader = {
+        sample: vi.fn(() => ({ target: attachedTarget.processIdentity })),
+        close: vi.fn(() => ({ closed: attachedTarget.processIdentity }))
+      };
+      readers.set(attachedTarget.processIdentity, reader);
+      return reader;
+    });
+    const openResource = vi.fn(() => ({ sampler: 'resource' }));
+    const closeResource = vi.fn(() => ({ released: true }));
+    let now = 0;
+    const session = createExternalMetricAdapterSession({
+      adapterId: 'macos-ps-v1',
+      createReader,
+      openResource,
+      closeResource,
+      clock: () => ++now
+    });
+
+    await expect(session.attach(target)).rejects.toThrow(/session is new/);
+    await expect(session.open()).resolves.toEqual({ adapterId: 'macos-ps-v1' });
+    await expect(session.attach(target)).resolves.toEqual(target);
+    await expect(session.prime()).resolves.toEqual({ target: 'renderer-42' });
+    await expect(session.sample()).resolves.toEqual({ target: 'renderer-42' });
+    await expect(session.detach()).resolves.toEqual({ closed: 'renderer-42' });
+
+    const secondTarget = {
+      pid: 43,
+      creationIdentity: 'creation-43',
+      processIdentity: 'renderer-43',
+      counterQuantumSeconds: 0.01
+    };
+    await session.attach(secondTarget);
+    await session.detach();
+    await expect(session.close()).resolves.toMatchObject({
+      adapterId: 'macos-ps-v1',
+      result: { released: true },
+      transitions: [
+        { operation: 'open' },
+        { operation: 'attach', target },
+        { operation: 'prime', target },
+        { operation: 'sample', target },
+        { operation: 'detach', target },
+        { operation: 'attach', target: secondTarget },
+        { operation: 'detach', target: secondTarget },
+        { operation: 'close' }
+      ]
+    });
+    expect(openResource).toHaveBeenCalledWith({ adapterId: 'macos-ps-v1' });
+    expect(closeResource).toHaveBeenCalledWith({ sampler: 'resource' }, { adapterId: 'macos-ps-v1' });
+    expect(readers.get('renderer-42')?.sample).toHaveBeenCalledTimes(2);
+    await expect(session.sample()).rejects.toThrow(/session is closed/);
+  });
+
+  it('rejects target reuse, PID replacement, active close, and overlapping samples', async () => {
+    let resolveSample: (value: unknown) => void = () => {};
+    const pendingSample = new Promise((resolve) => { resolveSample = resolve; });
+    const session = createExternalMetricAdapterSession({
+      adapterId: 'linux-procfs-v1',
+      clock: (() => {
+        let value = 0;
+        return () => ++value;
+      })(),
+      createReader: () => ({
+        sample: () => pendingSample,
+        close: () => ({ closed: true })
+      })
+    });
+
+    await session.open();
+    await expect(session.sample()).rejects.toThrow(/without an attached metric target/);
+    await session.attach(target);
+    await expect(session.close()).rejects.toThrow(/attached target/);
+    const firstSample = session.sample();
+    await expect(session.sample()).rejects.toThrow(/overlapping samples/);
+    resolveSample({ sample: 'complete' });
+    await expect(firstSample).resolves.toEqual({ sample: 'complete' });
+    await session.detach();
+    await expect(session.attach(target)).rejects.toThrow(/reuse a detached target/);
+    await expect(session.attach({ ...target, creationIdentity: 'replacement' })).rejects.toThrow(/PID replacement/);
+    await expect(session.attach({ ...target, processIdentity: 'replacement' })).rejects.toThrow(/PID replacement/);
   });
 });
 
