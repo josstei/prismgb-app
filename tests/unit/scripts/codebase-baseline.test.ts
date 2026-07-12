@@ -87,6 +87,34 @@ describe('codebase source baseline', () => {
     expect(report.inputs.paths).not.toContain('dist/ignored.js');
   });
 
+  it('accounts for paired metric capture tooling as Phase 0-owned evidence', () => {
+    const root = createRoot();
+    const ownedPaths = [
+      'scripts/lib/performance-metric-session-capture.js',
+      'scripts/lib/performance-pair-plan.js',
+      'tests/unit/scripts/performance-metric-session-capture.test.ts',
+      'tests/unit/scripts/performance-pair-plan.test.ts'
+    ];
+    for (const relativePath of ownedPaths) {
+      const outputPath = path.join(root, relativePath);
+      fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+      fs.writeFileSync(outputPath, 'export const phase0Owned = true;\n');
+    }
+    const report = createSourceBaseline({
+      cwd: root,
+      spawn: createFakeGitSpawn({
+        trackedFiles: ['CODEBASE_NORMALIZATION_AND_REDUCTION_ANALYSIS.md', 'package.json', 'src/a.ts', ...ownedPaths]
+      }) as never,
+      policy: loadBaselinePolicy(),
+      now: () => '2026-07-11T00:00:00.000Z'
+    });
+    expect(report.metrics.phase0ToolingOverhead.phase0OwnedPaths).toEqual([
+      'CODEBASE_NORMALIZATION_AND_REDUCTION_ANALYSIS.md',
+      ...ownedPaths
+    ].sort());
+    expect(report.metrics.phase0ToolingOverhead.unknownNewPaths).toEqual([]);
+  });
+
   it('keeps line semantics and command parsing deterministic', () => {
     expect(countPhysicalLines(Buffer.from('one\n\n'))).toBe(2);
     expect(countNonblankLines(Buffer.from('one\n \n'))).toBe(1);
