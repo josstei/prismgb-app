@@ -1,7 +1,7 @@
 import type { PipelineState, RenderDriver } from './pipeline-controller';
 import { loadWebGpuShaders } from './shaders';
 import { RecoverableBackendInitializationError } from '../domain/errors';
-import type { FrameRenderResult } from '../domain/types';
+import type { FrameRenderResult, WebGpuQueueSubmitTimingObserver } from '../domain/types';
 import type { PipelineUniforms } from '../domain/uniforms';
 import {
   compileRenderPasses,
@@ -362,7 +362,11 @@ export class WebGpuDriver implements RenderDriver {
     this.uniformBuffers = uniformBuffers;
   }
 
-  renderFrame(source: TexImageSource, state: PipelineState): FrameRenderResult {
+  renderFrame(
+    source: TexImageSource,
+    state: PipelineState,
+    timingObserver?: WebGpuQueueSubmitTimingObserver
+  ): FrameRenderResult {
     if (!state.isActive || !this.device || !this.context) {
       if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
         return { outcome: 'skipped-inactive' };
@@ -428,7 +432,16 @@ export class WebGpuDriver implements RenderDriver {
         this.context.getCurrentTexture()
       );
 
+      const queueSubmitStartedAt = performance.now();
       this.device.queue.submit([commandEncoder.finish()]);
+      if (
+        typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+        __PRISMGB_PERF_HARNESS__ &&
+        typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+        __PRISMGB_PERF_INSTRUMENTATION__
+      ) {
+        timingObserver?.recordWebGpuQueueSubmitTiming(queueSubmitStartedAt, performance.now());
+      }
       state.recordFrame(performance.now() - startTime);
       if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
         return { outcome: 'webgpu-queue-submit-completed' };

@@ -1,4 +1,4 @@
-import type { FrameRenderResult } from '../domain/types';
+import type { FrameRenderResult, WebGpuQueueSubmitTimingObserver } from '../domain/types';
 import type { PipelineState, RenderDriver } from './pipeline-controller';
 
 export class CanvasDriver implements RenderDriver {
@@ -19,7 +19,11 @@ export class CanvasDriver implements RenderDriver {
     this.disableImageSmoothing();
   }
 
-  renderFrame(source: TexImageSource, state: PipelineState): FrameRenderResult {
+  renderFrame(
+    source: TexImageSource,
+    state: PipelineState,
+    _timingObserver?: WebGpuQueueSubmitTimingObserver
+  ): FrameRenderResult {
     if (!state.isActive || !this.ctx) {
       if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
         return { outcome: 'skipped-inactive' };

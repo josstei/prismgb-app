@@ -48,6 +48,7 @@ describe('worker protocol', () => {
     const frameMessage = createWorkerMessage(WorkerMessageType.FRAME, { imageBitmap: frameBitmap });
 
     expect(isFramePayload({ imageBitmap: frameBitmap })).toBe(true);
+    expect(isFramePayload({ imageBitmap: frameBitmap, diagnosticFrameId: 1 })).toBe(false);
     expect(isFramePayload({})).toBe(false);
     expect(isFrameMessage(frameMessage)).toBe(true);
     expect(isFrameMessage({ type: WorkerMessageType.FRAME, payload: {} })).toBe(false);

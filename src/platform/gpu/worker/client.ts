@@ -8,6 +8,7 @@ import {
   isFrameToken,
   isFrameErrorResponse,
   isFrameRenderedResponse,
+  isWorkerPerformanceFrameTimingResponse,
   isPerformanceHarnessBuild,
   isStatsResponse,
   type PresetPayload,
@@ -15,7 +16,8 @@ import {
   type WorkerRendererConfig,
   type WorkerResponsePayloadMap,
   type WorkerResponseTypeValue,
-  type WorkerStatsPayload
+  type WorkerStatsPayload,
+  type WorkerPerformanceFrameTimingPayload
 } from './protocol';
 
 export type WorkerClientLogger = Pick<Console, 'debug' | 'error' | 'info'>;
@@ -43,7 +45,10 @@ export class WorkerRendererClient {
   private readonly messageHandlers = new Map<WorkerResponseTypeValue, AnyHandler>();
   private controlPortPromise: Promise<Comlink.Remote<WorkerControlApi>> | null = null;
   private readonly pendingHarnessFrameTokens = new Set<number>();
+  private readonly pendingHarnessDiagnosticFrameTokens = new Set<number>();
+  private readonly observedHarnessTimingTokens = new Set<number>();
   private lastHarnessFrameToken = 0;
+  private performanceFrameTimingHandler: ((payload: WorkerPerformanceFrameTimingPayload) => void) | null = null;
 
   constructor({ createWorker, logger = console }: WorkerRendererClientDependencies) {
     this.createWorker = createWorker;
@@ -123,6 +128,8 @@ export class WorkerRendererClient {
 
   private resetHarnessFrameTokens(): void {
     this.pendingHarnessFrameTokens.clear();
+    this.pendingHarnessDiagnosticFrameTokens.clear();
+    this.observedHarnessTimingTokens.clear();
     this.lastHarnessFrameToken = 0;
   }
 
@@ -134,6 +141,33 @@ export class WorkerRendererClient {
       this.resolveControlPort = null;
       return;
     }
+    if (
+      typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+      __PRISMGB_PERF_HARNESS__ &&
+      typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+      __PRISMGB_PERF_INSTRUMENTATION__
+    ) {
+      if (isWorkerPerformanceFrameTimingResponse(data)) {
+        if (
+          !this.pendingHarnessDiagnosticFrameTokens.has(data.payload.frameToken) ||
+          this.observedHarnessTimingTokens.has(data.payload.frameToken)
+        ) {
+          this.logger.error('Worker frame timing used an unknown or duplicate frame token');
+          return;
+        }
+        this.observedHarnessTimingTokens.add(data.payload.frameToken);
+        this.performanceFrameTimingHandler?.(data.payload);
+        return;
+      }
+      if (
+        typeof data === 'object' &&
+        data !== null &&
+        (data as { type?: unknown }).type === 'performance-frame-timing'
+      ) {
+        this.logger.error('Worker frame timing did not match the instrumented protocol');
+        return;
+      }
+    }
     if (isFrameRenderedResponse(data)) {
       if (isPerformanceHarnessBuild) {
         const acknowledgement = data.payload;
@@ -141,6 +175,8 @@ export class WorkerRendererClient {
           this.logger.error('Worker frame acknowledgement used an unknown frame token');
           return;
         }
+        this.pendingHarnessDiagnosticFrameTokens.delete(acknowledgement.frameToken);
+        this.observedHarnessTimingTokens.delete(acknowledgement.frameToken);
         this.dispatch(WorkerResponseType.FRAME_RENDERED, acknowledgement);
         return;
       }
@@ -183,7 +219,7 @@ export class WorkerRendererClient {
     });
   }
 
-  renderFrame(imageBitmap: ImageBitmap, frameToken?: number): boolean {
+  renderFrame(imageBitmap: ImageBitmap, frameToken?: number, diagnosticFrameId?: number): boolean {
     if (!this.isWorkerReady || !this.worker) {
       return false;
     }
@@ -197,15 +233,37 @@ export class WorkerRendererClient {
         this.logger.error('Worker frame token must be a new positive monotonic value');
         return false;
       }
-
       this.pendingHarnessFrameTokens.add(frameToken);
       try {
+        let payload: { imageBitmap: ImageBitmap; frameToken: number; diagnosticFrameId?: number };
+        if (
+          typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+          __PRISMGB_PERF_HARNESS__ &&
+          typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+          __PRISMGB_PERF_INSTRUMENTATION__
+        ) {
+          if (diagnosticFrameId !== undefined && !isFrameToken(diagnosticFrameId)) {
+            this.logger.error('Worker diagnostic frame ID must be a positive monotonic value');
+            this.pendingHarnessFrameTokens.delete(frameToken);
+            return false;
+          }
+          payload = diagnosticFrameId === undefined
+            ? { imageBitmap, frameToken }
+            : { imageBitmap, frameToken, diagnosticFrameId };
+          if (diagnosticFrameId !== undefined) {
+            this.pendingHarnessDiagnosticFrameTokens.add(frameToken);
+          }
+        } else {
+          payload = { imageBitmap, frameToken };
+        }
         this.worker.postMessage(
-          createWorkerMessage(WorkerMessageType.FRAME, { imageBitmap, frameToken }),
+          createWorkerMessage(WorkerMessageType.FRAME, payload),
           [imageBitmap]
         );
       } catch (error) {
         this.pendingHarnessFrameTokens.delete(frameToken);
+        this.pendingHarnessDiagnosticFrameTokens.delete(frameToken);
+        this.observedHarnessTimingTokens.delete(frameToken);
         const message = error instanceof Error ? error.message : String(error);
         this.logger.error('Worker frame post failed:', message);
         return false;
@@ -293,6 +351,17 @@ export class WorkerRendererClient {
     return this.onMessage(WorkerResponseType.DESTROYED, handler);
   }
 
+  onPerformanceFrameTiming(
+    handler: (payload: WorkerPerformanceFrameTimingPayload) => void
+  ): () => void {
+    this.performanceFrameTimingHandler = handler;
+    return () => {
+      if (this.performanceFrameTimingHandler === handler) {
+        this.performanceFrameTimingHandler = null;
+      }
+    };
+  }
+
   releaseResources(): void {
     if (!this.control) {
       this.logger.debug('releaseResources: No worker to release');
@@ -319,6 +388,7 @@ export class WorkerRendererClient {
     this.isWorkerReady = false;
     this.resetHarnessFrameTokens();
     this.messageHandlers.clear();
+    this.performanceFrameTimingHandler = null;
     this.canvas = null;
     this.offscreenCanvas = null;
     this.wasCanvasTransferred = false;

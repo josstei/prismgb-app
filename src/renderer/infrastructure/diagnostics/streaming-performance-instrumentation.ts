@@ -180,6 +180,26 @@ class RendererPerformanceInstrumentation implements StreamingPerformanceInstrume
       case 'worker-frame-submitted':
         this.recordSource(observation.context, 'workerFrameSubmitted');
         return;
+      case 'worker-frame-timing':
+        this.recordTiming(
+          observation.context,
+          'webgpu-worker-render',
+          'webgpu-worker-rendered',
+          observation.workerRender.startedAt,
+          observation.workerRender.endedAt,
+          observation.frameToken,
+          'worker-performance-now-v1'
+        );
+        this.recordTiming(
+          observation.context,
+          'webgpu-worker-queue-submit',
+          'webgpu-queue-submit-completed',
+          observation.queueSubmit.startedAt,
+          observation.queueSubmit.endedAt,
+          observation.frameToken,
+          'worker-performance-now-v1'
+        );
+        return;
       case 'worker-frame-acknowledged': {
         const outcome = observation.outcome === 'webgpu-queue-submit-completed'
           ? 'queueSubmitCompleted'

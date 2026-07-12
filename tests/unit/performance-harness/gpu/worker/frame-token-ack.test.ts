@@ -4,9 +4,11 @@ import { startWorkerRendererService } from '../../../../../src/platform/gpu/work
 import {
   WorkerMessageType,
   WorkerResponseType,
+  createWorkerPerformanceFrameTimingResponse,
   createWorkerMessage,
   isFrameMessage,
   isFrameRenderedResponse,
+  isWorkerPerformanceFrameTimingResponse,
   isPerformanceHarnessBuild
 } from '../../../../../src/platform/gpu/worker/protocol';
 import {
@@ -82,14 +84,27 @@ describe('harness worker frame-token acknowledgement', () => {
 
     await client.initialize(mockCanvas(), config());
     const frame = makeDeterministicFrame(1);
-    expect(client.renderFrame(frame, 1)).toBe(true);
+    expect(client.renderFrame(frame, 1, 1)).toBe(true);
     await flush(3);
 
     const frameMessage = rawOutbound.find(
       (message) => (message as { type?: string }).type === WorkerMessageType.FRAME
-    ) as { payload: { imageBitmap: ImageBitmap; frameToken: number } } | undefined;
-    expect(frameMessage?.payload).toEqual({ imageBitmap: frame, frameToken: 1 });
-    expect(Object.keys(frameMessage!.payload)).toEqual(['imageBitmap', 'frameToken']);
+    ) as { payload: { imageBitmap: ImageBitmap; frameToken: number; diagnosticFrameId: number } } | undefined;
+    expect(frameMessage?.payload).toEqual({ imageBitmap: frame, frameToken: 1, diagnosticFrameId: 1 });
+    expect(Object.keys(frameMessage!.payload)).toEqual(['imageBitmap', 'frameToken', 'diagnosticFrameId']);
+
+    const timing = rawInbound.find(isWorkerPerformanceFrameTimingResponse);
+    expect(timing).toMatchObject({
+      type: 'performance-frame-timing',
+      payload: {
+        frameToken: 1,
+        diagnosticFrameId: 1,
+        outcome: 'webgpu-queue-submit-completed',
+        workerRender: { startedAt: expect.any(Number), endedAt: expect.any(Number) },
+        queueSubmit: { startedAt: expect.any(Number), endedAt: expect.any(Number) }
+      },
+      timestamp: expect.any(Number)
+    });
 
     const acknowledgement = rawInbound.find(
       (message) => (message as { type?: string }).type === WorkerResponseType.FRAME_RENDERED
@@ -103,6 +118,7 @@ describe('harness worker frame-token acknowledgement', () => {
       frameToken: 1,
       outcome: 'webgpu-queue-submit-completed'
     });
+    expect(rawInbound.indexOf(timing!)).toBeLessThan(rawInbound.indexOf(acknowledgement!));
     expect(driver.record.some((entry) => entry.startsWith('render:'))).toBe(true);
     client.dispose();
   });
@@ -128,6 +144,18 @@ describe('harness worker frame-token acknowledgement', () => {
       type: WorkerResponseType.FRAME_RENDERED,
       payload: { frameToken: 1, outcome: 'webgpu-queue-submit-completed', timestamp: 0 },
       timestamp: 0
+    })).toBe(false);
+
+    expect(isWorkerPerformanceFrameTimingResponse({
+      type: 'performance-frame-timing',
+      payload: {
+        frameToken: 1,
+        diagnosticFrameId: 1,
+        outcome: 'webgpu-queue-submit-completed',
+        workerRender: { startedAt: 2, endedAt: 3 },
+        queueSubmit: { startedAt: 1, endedAt: 1.5 }
+      },
+      timestamp: 3
     })).toBe(false);
   });
 
@@ -169,6 +197,36 @@ describe('harness worker frame-token acknowledgement', () => {
     expect(onFrameRendered).not.toHaveBeenCalled();
     expect(logger.error).toHaveBeenCalledWith('Worker frame acknowledgement used an unknown frame token');
     expect(logger.error).toHaveBeenCalledWith('Worker frame acknowledgement did not match the harness protocol');
+    client.dispose();
+  });
+
+  it('accepts one timing payload only for a diagnostic token and rejects duplicates', async () => {
+    let worker!: FakeWorker;
+    const logger = { debug: vi.fn(), error: vi.fn(), info: vi.fn() };
+    const client = new WorkerRendererClient({
+      createWorker: () => {
+        worker = stubControlWorker();
+        return worker as unknown as Worker;
+      },
+      logger
+    });
+    const onPerformanceFrameTiming = vi.fn();
+    client.onPerformanceFrameTiming(onPerformanceFrameTiming);
+    await client.initialize(mockCanvas(), config());
+    expect(client.renderFrame(makeDeterministicFrame(10), 1, 1)).toBe(true);
+
+    const timing = createWorkerPerformanceFrameTimingResponse({
+      frameToken: 1,
+      diagnosticFrameId: 1,
+      outcome: 'webgpu-queue-submit-completed',
+      workerRender: { startedAt: 1, endedAt: 3 },
+      queueSubmit: { startedAt: 1.5, endedAt: 2 }
+    });
+    worker.onmessage?.({ data: timing } as MessageEvent);
+    worker.onmessage?.({ data: timing } as MessageEvent);
+
+    expect(onPerformanceFrameTiming).toHaveBeenCalledOnce();
+    expect(logger.error).toHaveBeenCalledWith('Worker frame timing used an unknown or duplicate frame token');
     client.dispose();
   });
 

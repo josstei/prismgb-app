@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createGpuVideoRendererSession } from '../../../../../src/platform/gpu/application/video-session';
-import { WorkerMessageType, WorkerResponseType } from '../../../../../src/platform/gpu/worker/protocol';
+import {
+  WorkerMessageType,
+  WorkerResponseType,
+  createWorkerPerformanceFrameTimingResponse
+} from '../../../../../src/platform/gpu/worker/protocol';
 import { flush, makeDeterministicFrame, stubControlWorker } from '../../../platform/gpu/worker/golden-harness';
 
 describe('harness video-session performance observations', () => {
@@ -58,7 +62,7 @@ describe('harness video-session performance observations', () => {
     const frameMessage = rawMessages.find(
       (message) => (message as { type?: string }).type === WorkerMessageType.FRAME
     ) as { payload?: unknown } | undefined;
-    expect(frameMessage?.payload).toEqual({ imageBitmap: bitmap, frameToken: 1 });
+    expect(frameMessage?.payload).toEqual({ imageBitmap: bitmap, frameToken: 1, diagnosticFrameId: 1 });
     expect(observations).toEqual([
       expect.objectContaining({ kind: 'bitmap-creation', context: { sourceSequence: 1, measurementEpochId: 'epoch-1' } }),
       { kind: 'worker-frame-submitted', context: { sourceSequence: 1, measurementEpochId: 'epoch-1' }, frameToken: 1 }
@@ -75,6 +79,27 @@ describe('harness video-session performance observations', () => {
         frameToken: 1
       }
     ]);
+
+    worker.onmessage?.({
+      data: createWorkerPerformanceFrameTimingResponse({
+        frameToken: 1,
+        diagnosticFrameId: 1,
+        outcome: 'webgpu-queue-submit-completed',
+        workerRender: { startedAt: 10, endedAt: 12 },
+        queueSubmit: { startedAt: 11, endedAt: 11.5 }
+      })
+    } as MessageEvent);
+    await flush();
+
+    expect(observations.at(-1)).toEqual({
+      kind: 'worker-frame-timing',
+      context: { sourceSequence: 1, measurementEpochId: 'epoch-1' },
+      frameToken: 1,
+      diagnosticFrameId: 1,
+      outcome: 'webgpu-queue-submit-completed',
+      workerRender: { startedAt: 10, endedAt: 12 },
+      queueSubmit: { startedAt: 11, endedAt: 11.5 }
+    });
 
     worker.onmessage?.({
       data: {

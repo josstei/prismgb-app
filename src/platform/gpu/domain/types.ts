@@ -134,6 +134,14 @@ export interface FrameDisposition {
   readonly outcome: FrameDispositionOutcome;
 }
 
+/**
+ * Optional in-process hook for the instrumented worker build. It observes the
+ * CPU boundary around WebGPU queue submission without claiming GPU completion.
+ */
+export interface WebGpuQueueSubmitTimingObserver {
+  recordWebGpuQueueSubmitTiming(startedAt: number, endedAt: number): void;
+}
+
 export type FrameRenderResult = FrameDisposition | undefined;
 
 export interface RenderPipeline {
@@ -142,7 +150,7 @@ export interface RenderPipeline {
   readonly isActive: boolean;
 
   initialize(): Promise<void>;
-  renderFrame(source: TexImageSource): FrameRenderResult;
+  renderFrame(source: TexImageSource, timingObserver?: WebGpuQueueSubmitTimingObserver): FrameRenderResult;
   resize(width: number, height: number): void;
 
   setPreset(preset: RenderPreset): void;

@@ -2,15 +2,24 @@ import * as Comlink from 'comlink';
 import { resolvePreset } from '../application/catalog';
 import { createGpuRenderer } from '../application/renderer.service';
 import { detectWorkerGpuCapabilities } from '../infrastructure/capabilities.worker';
-import type { FrameRenderResult, RenderCanvas, RenderPipeline, RenderPreset, RenderStats } from '../domain/types';
+import type {
+  FrameRenderResult,
+  RenderCanvas,
+  RenderPipeline,
+  RenderPreset,
+  RenderStats,
+  WebGpuQueueSubmitTimingObserver
+} from '../domain/types';
 import {
   CONTROL_PORT_MESSAGE,
   WorkerResponseType,
+  createWorkerPerformanceFrameTimingResponse,
   createWorkerResponse,
   isCanvasHandoffMessage,
   isFrameDispositionOutcome,
   isFrameMessage,
   isFrameToken,
+  isInstrumentedFramePayload,
   isPerformanceHarnessBuild,
   isWorkerRenderBackend,
   type FrameErrorResponse,
@@ -32,7 +41,7 @@ export type WorkerRendererServiceScope = {
 
 type WorkerRendererPipeline = {
   backend: WorkerRenderBackend;
-  render: (source: TexImageSource) => FrameRenderResult;
+  render: (source: TexImageSource, timingObserver?: WebGpuQueueSubmitTimingObserver) => FrameRenderResult;
   resize: (width: number, height: number) => void;
   captureFrame: () => Promise<ImageBitmap>;
   getStats: () => RenderStats & { uploadTime?: number };
@@ -74,7 +83,9 @@ async function createWorkerRendererPipeline(options: {
 
   return {
     backend: renderer.backend,
-    render: (source) => renderer.renderFrame(source),
+    render: (source, timingObserver) => timingObserver === undefined
+      ? renderer.renderFrame(source)
+      : renderer.renderFrame(source, timingObserver),
     resize: (width, height) => renderer.resize(width, height),
     captureFrame: () => renderer.captureFrame(),
     getStats: () => renderer.getStats(),
@@ -209,7 +220,34 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
     const frameStart = performance.now();
     const { imageBitmap } = payload;
     try {
-      const renderResult = pipeline.render(imageBitmap);
+      let hasDiagnosticFrame = false;
+      let diagnosticFrameId: number | null = null;
+      let queueSubmitTiming: { startedAt: number; endedAt: number } | null = null;
+      let workerRenderStartedAt = 0;
+      let workerRenderEndedAt = 0;
+      let renderResult: FrameRenderResult;
+      if (
+        typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+        __PRISMGB_PERF_HARNESS__ &&
+        typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+        __PRISMGB_PERF_INSTRUMENTATION__ &&
+        isInstrumentedFramePayload(payload)
+      ) {
+        hasDiagnosticFrame = true;
+        diagnosticFrameId = payload.diagnosticFrameId;
+        workerRenderStartedAt = performance.now();
+        renderResult = pipeline.render(imageBitmap, {
+          recordWebGpuQueueSubmitTiming(startedAt, endedAt): void {
+            if (queueSubmitTiming !== null) {
+              throw new Error('Instrumented worker frame emitted more than one queue-submit span');
+            }
+            queueSubmitTiming = { startedAt, endedAt };
+          }
+        });
+        workerRenderEndedAt = performance.now();
+      } else {
+        renderResult = pipeline.render(imageBitmap);
+      }
 
       if (captureRequested) {
         capturedFrame = await pipeline.captureFrame();
@@ -226,6 +264,27 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
         const outcome = renderResult?.outcome;
         if (!isFrameToken(frameToken) || !isFrameDispositionOutcome(outcome)) {
           throw new Error('Harness worker frame acknowledgement requires a valid token and pipeline outcome');
+        }
+        if (
+          typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+          __PRISMGB_PERF_HARNESS__ &&
+          typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+          __PRISMGB_PERF_INSTRUMENTATION__ &&
+          hasDiagnosticFrame
+        ) {
+          if (outcome !== 'webgpu-queue-submit-completed' || queueSubmitTiming === null || diagnosticFrameId === null) {
+            throw new Error('Instrumented worker frame requires one queue-submit span before acknowledgement');
+          }
+          workerScope.postMessage(createWorkerPerformanceFrameTimingResponse({
+            frameToken,
+            diagnosticFrameId,
+            outcome,
+            workerRender: {
+              startedAt: workerRenderStartedAt,
+              endedAt: workerRenderEndedAt
+            },
+            queueSubmit: queueSubmitTiming
+          }));
         }
         workerScope.postMessage(createWorkerResponse(WorkerResponseType.FRAME_RENDERED, { frameToken, outcome }));
       } else {

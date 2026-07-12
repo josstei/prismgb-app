@@ -31,6 +31,15 @@ export type GpuVideoPerformanceObservation =
     readonly frameToken: number;
   }>
   | Readonly<{
+    readonly kind: 'worker-frame-timing';
+    readonly context: GpuVideoFrameMeasurementContext;
+    readonly frameToken: number;
+    readonly diagnosticFrameId: number;
+    readonly outcome: 'webgpu-queue-submit-completed';
+    readonly workerRender: Readonly<{ readonly startedAt: number; readonly endedAt: number }>;
+    readonly queueSubmit: Readonly<{ readonly startedAt: number; readonly endedAt: number }>;
+  }>
+  | Readonly<{
     readonly kind: 'worker-frame-acknowledged';
     readonly context: GpuVideoFrameMeasurementContext;
     readonly frameToken: number;
@@ -389,6 +398,33 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
         this.resolvePendingCapture(payload.bitmap, null);
       })
     ];
+
+    if (
+      typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+      __PRISMGB_PERF_HARNESS__ &&
+      typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+      __PRISMGB_PERF_INSTRUMENTATION__
+    ) {
+      this.messageUnsubscribers.push(this.workerClient.onPerformanceFrameTiming((payload) => {
+        const context = this.pendingHarnessFrameContexts.get(payload.frameToken);
+        if (context === undefined) {
+          return;
+        }
+        if (context.sourceSequence !== payload.diagnosticFrameId) {
+          this.logger.error('Worker frame timing used a mismatched diagnostic frame ID');
+          return;
+        }
+        this.recordPerformanceObservation({
+          kind: 'worker-frame-timing',
+          context,
+          frameToken: payload.frameToken,
+          diagnosticFrameId: payload.diagnosticFrameId,
+          outcome: payload.outcome,
+          workerRender: { ...payload.workerRender },
+          queueSubmit: { ...payload.queueSubmit }
+        });
+      }));
+    }
   }
 
   private unregisterMessageHandlers(): void {
@@ -565,7 +601,11 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
     const frameToken = isPerformanceHarnessBuild() ? ++this.nextHarnessFrameToken : undefined;
     this.pendingFrames++;
     try {
-      const submitted = this.workerClient.renderFrame(imageBitmap, frameToken);
+      const submitted = (
+        measurement && isPerformanceInstrumentationBuild()
+          ? this.workerClient.renderFrame(imageBitmap, frameToken, measurement.sourceSequence)
+          : this.workerClient.renderFrame(imageBitmap, frameToken)
+      );
       if (!submitted) {
         this.pendingFrames = Math.max(0, this.pendingFrames - 1);
         imageBitmap.close();

@@ -84,4 +84,57 @@ describe('StreamingPerformanceInstrumentation', () => {
 
     expect(instrumentation.getSnapshot().pipeline.renderStats).toHaveLength(1);
   });
+
+  it('maps marker-bound worker spans to their source and token without cross-clock derivation', () => {
+    const eventBus = createEventBus();
+    const instrumentation = createStreamingPerformanceInstrumentation('launch-1', { error: vi.fn() }, eventBus);
+    const context = instrumentation.beginSourceOpportunity(1);
+
+    instrumentation.observe({
+      kind: 'worker-frame-submitted',
+      context,
+      frameToken: 7
+    });
+    instrumentation.observe({
+      kind: 'worker-frame-timing',
+      context,
+      frameToken: 7,
+      diagnosticFrameId: 1,
+      outcome: 'webgpu-queue-submit-completed',
+      workerRender: { startedAt: 10, endedAt: 12 },
+      queueSubmit: { startedAt: 11, endedAt: 11.5 }
+    });
+
+    const snapshot = instrumentation.getSnapshot();
+    expect(snapshot.timingSamples['webgpu-worker-render']).toEqual([{
+      measurementEpochId: 'launch-1',
+      sourceSequence: 1,
+      firstSourceSequence: 1,
+      lastSourceSequence: 1,
+      frameToken: 7,
+      metricId: 'webgpu-worker-render',
+      unit: 'milliseconds',
+      clock: 'worker-performance-now-v1',
+      outcome: 'webgpu-worker-rendered',
+      startedAt: 10,
+      endedAt: 12
+    }]);
+    expect(snapshot.timingSamples['webgpu-worker-queue-submit']).toEqual([{
+      measurementEpochId: 'launch-1',
+      sourceSequence: 1,
+      firstSourceSequence: 1,
+      lastSourceSequence: 1,
+      frameToken: 7,
+      metricId: 'webgpu-worker-queue-submit',
+      unit: 'milliseconds',
+      clock: 'worker-performance-now-v1',
+      outcome: 'webgpu-queue-submit-completed',
+      startedAt: 11,
+      endedAt: 11.5
+    }]);
+    expect(snapshot.source).toMatchObject({
+      workerFramesSubmitted: 1,
+      reconciliation: { isConserved: true }
+    });
+  });
 });

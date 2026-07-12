@@ -5,7 +5,8 @@ import type {
   RenderCanvas,
   RenderPipeline,
   RenderPreset,
-  RenderStats
+  RenderStats,
+  WebGpuQueueSubmitTimingObserver
 } from '../domain/types';
 import { buildUniforms } from '../application/uniform-builder';
 
@@ -40,7 +41,11 @@ export interface PipelineState {
 export interface RenderDriver {
   readonly backend: RenderBackend;
   initialize(state: PipelineState): Promise<void>;
-  renderFrame(source: TexImageSource, state: PipelineState): FrameRenderResult;
+  renderFrame(
+    source: TexImageSource,
+    state: PipelineState,
+    timingObserver?: WebGpuQueueSubmitTimingObserver
+  ): FrameRenderResult;
   resize(state: PipelineState): void;
   clearFrame(state: PipelineState): void;
   captureFrame(state: PipelineState): Promise<ImageBitmap>;
@@ -114,8 +119,8 @@ export class PipelineController implements RenderPipeline, PipelineState {
     this._isActive = true;
   }
 
-  renderFrame(source: TexImageSource): FrameRenderResult {
-    return this.driver.renderFrame(source, this);
+  renderFrame(source: TexImageSource, timingObserver?: WebGpuQueueSubmitTimingObserver): FrameRenderResult {
+    return this.driver.renderFrame(source, this, timingObserver);
   }
 
   setPreset(preset: RenderPreset): void {

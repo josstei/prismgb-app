@@ -25,8 +25,13 @@ export function createRecordingDriver(mockCreateGpuRenderer: ReturnType<typeof v
     record.push(`create:${opts.nativeWidth}x${opts.nativeHeight}`);
     return {
       backend: 'webgpu',
-      renderFrame: (src: unknown) => {
+      renderFrame: (
+        src: unknown,
+        timingObserver?: { recordWebGpuQueueSubmitTiming(startedAt: number, endedAt: number): void }
+      ) => {
         record.push(`render:${(src as { sig?: string }).sig ?? '?'}`);
+        const queueSubmitStartedAt = performance.now();
+        timingObserver?.recordWebGpuQueueSubmitTiming(queueSubmitStartedAt, performance.now());
         return { outcome: 'webgpu-queue-submit-completed' as const };
       },
       resize: (w: number, h: number) => {

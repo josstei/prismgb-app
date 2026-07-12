@@ -60,8 +60,9 @@ export type WorkerRendererConfig = {
   presetId: string;
 };
 
-export type FramePayload = { imageBitmap: ImageBitmap; frameToken?: number };
+export type FramePayload = { imageBitmap: ImageBitmap; frameToken?: number; diagnosticFrameId?: number };
 type HarnessFramePayload = { imageBitmap: ImageBitmap; frameToken: number };
+type InstrumentedFramePayload = HarnessFramePayload & { diagnosticFrameId: number };
 export type ResizePayload = { width: number; height: number; scaleFactor: number };
 export type PresetPayload = { presetId: string; preset: RenderPreset };
 export type WorkerReadyPayload = { backend: WorkerRenderBackend };
@@ -71,6 +72,20 @@ export type WorkerCaptureReadyPayload = { bitmap: ImageBitmap };
 
 export type EmptyWorkerPayload = undefined | Record<string, never>;
 type FrameAcknowledgementPayload = { frameToken: number; outcome: FrameDispositionOutcome };
+
+export type WorkerPerformanceFrameTimingPayload = Readonly<{
+  readonly frameToken: number;
+  readonly diagnosticFrameId: number;
+  readonly outcome: 'webgpu-queue-submit-completed';
+  readonly workerRender: Readonly<{ readonly startedAt: number; readonly endedAt: number }>;
+  readonly queueSubmit: Readonly<{ readonly startedAt: number; readonly endedAt: number }>;
+}>;
+
+export type WorkerPerformanceFrameTimingResponse = Readonly<{
+  readonly type: 'performance-frame-timing';
+  readonly payload: WorkerPerformanceFrameTimingPayload;
+  readonly timestamp: number;
+}>;
 
 export type WorkerResponsePayloadMap = {
   [WorkerResponseType.READY]: WorkerReadyPayload;
@@ -119,6 +134,21 @@ export type FrameErrorResponse = { type: typeof WorkerResponseType.ERROR; payloa
 
 export function createWorkerMessage(type: typeof WorkerMessageType.FRAME, payload: FramePayload): FrameMessage {
   if (isPerformanceHarnessBuild) {
+    if (
+      typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+      __PRISMGB_PERF_INSTRUMENTATION__ &&
+      isInstrumentedFramePayload(payload)
+    ) {
+      return {
+        type,
+        payload: {
+          imageBitmap: payload.imageBitmap,
+          frameToken: payload.frameToken,
+          diagnosticFrameId: payload.diagnosticFrameId
+        },
+        timestamp: performance.now()
+      };
+    }
     if (!isHarnessFramePayload(payload)) {
       throw new TypeError('Harness FRAME payload requires exactly one positive frame token');
     }
@@ -160,6 +190,10 @@ export function isFrameToken(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 }
 
+function isNonnegativeFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
 export function isFrameDispositionOutcome(value: unknown): value is FrameDispositionOutcome {
   return (
     value === 'canvas-draw-completed' ||
@@ -178,6 +212,16 @@ function isHarnessFramePayload(value: unknown): value is HarnessFramePayload {
   );
 }
 
+export function isInstrumentedFramePayload(value: unknown): value is InstrumentedFramePayload {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['imageBitmap', 'frameToken', 'diagnosticFrameId']) &&
+    isImageBitmapLike(value.imageBitmap) &&
+    isFrameToken(value.frameToken) &&
+    isFrameToken(value.diagnosticFrameId)
+  );
+}
+
 function isFrameAcknowledgementPayload(value: unknown): value is FrameAcknowledgementPayload {
   return (
     isRecord(value) &&
@@ -188,11 +232,19 @@ function isFrameAcknowledgementPayload(value: unknown): value is FrameAcknowledg
 }
 
 export function isFramePayload(value: unknown): value is FramePayload {
-  return (
-    isRecord(value) &&
-    isImageBitmapLike(value.imageBitmap) &&
-    (!isPerformanceHarnessBuild || isHarnessFramePayload(value))
-  );
+  if (!isRecord(value) || !isImageBitmapLike(value.imageBitmap)) {
+    return false;
+  }
+  if (isPerformanceHarnessBuild) {
+    if (
+      typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+      __PRISMGB_PERF_INSTRUMENTATION__
+    ) {
+      return isHarnessFramePayload(value) || isInstrumentedFramePayload(value);
+    }
+    return isHarnessFramePayload(value);
+  }
+  return hasExactKeys(value, ['imageBitmap']);
 }
 
 export function isFrameMessage(message: unknown): message is FrameMessage {
@@ -211,6 +263,66 @@ export function isFrameRenderedResponse(value: unknown): value is FrameRenderedR
   if (!isRecord(value) || value.type !== WorkerResponseType.FRAME_RENDERED) return false;
   if (isPerformanceHarnessBuild) return isFrameAcknowledgementPayload(value.payload);
   return value.payload === undefined || (isRecord(value.payload) && Object.keys(value.payload).length === 0);
+}
+
+function isWorkerPerformanceFrameTimingPayload(value: unknown): value is WorkerPerformanceFrameTimingPayload {
+  if (!isRecord(value) || !hasExactKeys(value, [
+    'frameToken',
+    'diagnosticFrameId',
+    'outcome',
+    'workerRender',
+    'queueSubmit'
+  ])) {
+    return false;
+  }
+  const isTimingSpan = (span: unknown): span is { startedAt: number; endedAt: number } => (
+    isRecord(span) &&
+    hasExactKeys(span, ['startedAt', 'endedAt']) &&
+    isNonnegativeFiniteNumber(span.startedAt) &&
+    isNonnegativeFiniteNumber(span.endedAt) &&
+    span.endedAt >= span.startedAt
+  );
+
+  if (!isTimingSpan(value.workerRender) || !isTimingSpan(value.queueSubmit)) {
+    return false;
+  }
+
+  return isFrameToken(value.frameToken) &&
+    isFrameToken(value.diagnosticFrameId) &&
+    value.outcome === 'webgpu-queue-submit-completed' &&
+    value.workerRender.startedAt <= value.queueSubmit.startedAt &&
+    value.queueSubmit.endedAt <= value.workerRender.endedAt;
+}
+
+export function createWorkerPerformanceFrameTimingResponse(
+  payload: WorkerPerformanceFrameTimingPayload
+): WorkerPerformanceFrameTimingResponse {
+  if (!isWorkerPerformanceFrameTimingPayload(payload)) {
+    throw new TypeError('Instrumented worker timing requires one valid diagnostic frame payload');
+  }
+  return {
+    type: 'performance-frame-timing',
+    payload: {
+      frameToken: payload.frameToken,
+      diagnosticFrameId: payload.diagnosticFrameId,
+      outcome: payload.outcome,
+      workerRender: { ...payload.workerRender },
+      queueSubmit: { ...payload.queueSubmit }
+    },
+    timestamp: performance.now()
+  };
+}
+
+export function isWorkerPerformanceFrameTimingResponse(
+  value: unknown
+): value is WorkerPerformanceFrameTimingResponse {
+  return (
+    isRecord(value) &&
+    hasExactKeys(value, ['type', 'payload', 'timestamp']) &&
+    value.type === 'performance-frame-timing' &&
+    isWorkerPerformanceFrameTimingPayload(value.payload) &&
+    isNonnegativeFiniteNumber(value.timestamp)
+  );
 }
 
 export function isStatsResponse(value: unknown): value is StatsResponse {
