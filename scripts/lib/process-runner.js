@@ -860,6 +860,7 @@ function cloneMetricSessionTransitions(transitions) {
  *   createReader: (context: Readonly<{ adapterId: string, resource: unknown, target: Readonly<{ pid: number, creationIdentity: string, processIdentity: string, counterQuantumSeconds: number }> }>) => Promise<Readonly<{ prime: () => Promise<unknown> | unknown, sample: () => Promise<unknown> | unknown, close: () => Promise<unknown> | unknown }>> | Readonly<{ prime: () => Promise<unknown> | unknown, sample: () => Promise<unknown> | unknown, close: () => Promise<unknown> | unknown }>,
  *   openResource?: (context: Readonly<{ adapterId: string }>) => Promise<unknown> | unknown,
  *   closeResource?: (resource: unknown, context: Readonly<{ adapterId: string }>) => Promise<unknown> | unknown,
+ *   abortResource?: (resource: unknown, context: Readonly<{ adapterId: string }>) => Promise<unknown> | unknown,
  *   clock?: () => number
  * }} options
  */
@@ -868,12 +869,14 @@ export function createExternalMetricAdapterSession({
   createReader,
   openResource = () => undefined,
   closeResource = () => undefined,
+  abortResource = closeResource,
   clock = () => performance.now() / 1000
 } = {}) {
   assertNonemptyString(adapterId, 'metric adapter ID');
   if (typeof createReader !== 'function') failExternalMetric('createReader must be a function');
   if (typeof openResource !== 'function') failExternalMetric('openResource must be a function');
   if (typeof closeResource !== 'function') failExternalMetric('closeResource must be a function');
+  if (typeof abortResource !== 'function') failExternalMetric('abortResource must be a function');
   if (typeof clock !== 'function') failExternalMetric('metric session clock must be a function');
 
   let state = 'new';
@@ -1001,6 +1004,39 @@ export function createExternalMetricAdapterSession({
       });
     },
 
+    async abort() {
+      requireOpen('abort the metric session');
+      if (sampling) failExternalMetric('cannot abort a metric session during a sample');
+      const closing = active;
+      let detachError = null;
+      if (closing !== null) {
+        try {
+          await closing.reader.close();
+          active = null;
+          recordTransition('detach-aborted', closing.target);
+        } catch (error) {
+          detachError = error;
+          recordTransition('detach-aborted-failed', closing.target);
+        }
+      }
+      let result;
+      try {
+        result = await abortResource(resource, Object.freeze({ adapterId }));
+      } catch (error) {
+        recordTransition('abort-failed');
+        throw error;
+      }
+      active = null;
+      state = 'aborted';
+      recordTransition('abort');
+      if (detachError !== null) throw detachError;
+      return Object.freeze({
+        adapterId,
+        result,
+        transitions: cloneMetricSessionTransitions(transitions)
+      });
+    },
+
     getAudit() {
       return Object.freeze({
         adapterId,
@@ -1086,7 +1122,8 @@ function assertWindowsMetricSampler(resource) {
     || typeof resource.prime !== 'function'
     || typeof resource.sample !== 'function'
     || typeof resource.detach !== 'function'
-    || typeof resource.close !== 'function') {
+    || typeof resource.close !== 'function'
+    || typeof resource.abort !== 'function') {
     failExternalMetric('Windows metric sampler does not implement the closed session protocol');
   }
 }
@@ -1130,6 +1167,10 @@ export function createWindowsPowerShellMetricAdapterSession({
     async closeResource(resource) {
       assertWindowsMetricSampler(resource);
       return resource.close();
+    },
+    async abortResource(resource) {
+      assertWindowsMetricSampler(resource);
+      return resource.abort();
     },
     async createReader({ resource, target }) {
       assertWindowsMetricSampler(resource);

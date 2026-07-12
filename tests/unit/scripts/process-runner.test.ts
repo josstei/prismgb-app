@@ -395,6 +395,69 @@ describe('createExternalMetricAdapterSession', () => {
     await expect(session.attach({ ...target, creationIdentity: 'replacement' })).rejects.toThrow(/PID replacement/);
     await expect(session.attach({ ...target, processIdentity: 'replacement' })).rejects.toThrow(/PID replacement/);
   });
+
+  it('aborts an attached target through the adapter cleanup resource', async () => {
+    const reader = {
+      prime: vi.fn(),
+      sample: vi.fn(),
+      close: vi.fn(() => ({ detached: true }))
+    };
+    const abortResource = vi.fn(() => ({ terminated: true }));
+    const session = createExternalMetricAdapterSession({
+      adapterId: 'linux-procfs-v1',
+      createReader: () => reader,
+      abortResource,
+      clock: (() => {
+        let value = 0;
+        return () => ++value;
+      })()
+    });
+
+    await session.open();
+    await session.attach(target);
+    await expect(session.abort()).resolves.toMatchObject({
+      adapterId: 'linux-procfs-v1',
+      result: { terminated: true },
+      transitions: [
+        { operation: 'open' },
+        { operation: 'attach', target },
+        { operation: 'detach-aborted', target },
+        { operation: 'abort' }
+      ]
+    });
+    expect(reader.close).toHaveBeenCalledTimes(1);
+    expect(abortResource).toHaveBeenCalledWith(undefined, { adapterId: 'linux-procfs-v1' });
+    expect(session.getAudit()).toMatchObject({ state: 'aborted' });
+    await expect(session.close()).rejects.toThrow(/session is aborted/);
+  });
+
+  it('still terminates the adapter resource when target detachment fails', async () => {
+    const abortResource = vi.fn(() => ({ terminated: true }));
+    const session = createExternalMetricAdapterSession({
+      adapterId: 'linux-procfs-v1',
+      createReader: () => ({
+        prime: () => undefined,
+        sample: () => undefined,
+        close: () => { throw new Error('detachment failed'); }
+      }),
+      abortResource,
+      clock: (() => {
+        let value = 0;
+        return () => ++value;
+      })()
+    });
+
+    await session.open();
+    await session.attach(target);
+    await expect(session.abort()).rejects.toThrow('detachment failed');
+    expect(abortResource).toHaveBeenCalledWith(undefined, { adapterId: 'linux-procfs-v1' });
+    const audit = session.getAudit();
+    expect(audit.state).toBe('aborted');
+    expect(audit.transitions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ operation: 'detach-aborted-failed' }),
+      expect.objectContaining({ operation: 'abort' })
+    ]));
+  });
 });
 
 describe('platform external metric adapter sessions', () => {
