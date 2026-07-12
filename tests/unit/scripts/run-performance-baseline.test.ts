@@ -10,6 +10,7 @@ import {
   createBundleManifest,
   createPerformanceCommandLedger,
   createPerformanceBuildEnvironment,
+  createProductionBundleEvidence,
   parsePerformanceBaselineArgs,
   runPerformanceBaseline
 } from '../../../scripts/run-performance-baseline.js';
@@ -80,6 +81,40 @@ describe('createBundleManifest', () => {
       bytes: 1,
       sha256: crypto.createHash('sha256').update('a').digest('hex')
     });
+  });
+
+  it('derives a separate checksummed production code manifest for all four bundle roots', async () => {
+    const directory = await createTemporaryWorkspace();
+    await fs.mkdir(path.join(directory, 'main'), { recursive: true });
+    await fs.mkdir(path.join(directory, 'preload'), { recursive: true });
+    await fs.mkdir(path.join(directory, 'renderer', 'assets'), { recursive: true });
+    await fs.writeFile(path.join(directory, 'main', 'index.js'), 'main');
+    await fs.writeFile(path.join(directory, 'preload', 'index.js'), 'preload');
+    await fs.writeFile(path.join(directory, 'renderer', 'assets', 'main-fixture.js'), 'renderer');
+    await fs.writeFile(path.join(directory, 'renderer', 'assets', 'worker-entry-fixture.js'), 'worker');
+    const bundle = await createBundleManifest(directory);
+    const evidence = createProductionBundleEvidence({
+      sourceSha: 'a'.repeat(40),
+      variant: { id: 'production', harness: false, instrumentation: false, bundle }
+    });
+
+    expect(evidence).toMatchObject({
+      schemaVersion: 1,
+      sourceSha: 'a'.repeat(40),
+      build: { id: 'production', bundleSha256: bundle.sha256 },
+      codeByteTotal: 25,
+      codeRoots: [
+        { id: 'main', entrypoint: { path: 'main/index.js' } },
+        { id: 'preload', entrypoint: { path: 'preload/index.js' } },
+        { id: 'renderer', entrypoint: { path: 'renderer/assets/main-fixture.js' } },
+        { id: 'worker', entrypoint: { path: 'renderer/assets/worker-entry-fixture.js' } }
+      ],
+      checksum: expect.stringMatching(/^[a-f0-9]{64}$/)
+    });
+    expect(() => createProductionBundleEvidence({
+      sourceSha: 'a'.repeat(40),
+      variant: { id: 'production', harness: false, instrumentation: false, bundle: { ...bundle, entries: bundle.entries.filter((entry) => entry.path !== 'renderer/assets/worker-entry-fixture.js') } }
+    })).toThrow(/worker code root is empty/);
   });
 });
 
@@ -153,9 +188,12 @@ describe('runPerformanceBaseline', () => {
         fsSync.mkdirSync(path.join(dist, 'main'), { recursive: true });
         fsSync.mkdirSync(path.join(dist, 'preload'), { recursive: true });
         fsSync.mkdirSync(path.join(dist, 'renderer'), { recursive: true });
+        fsSync.mkdirSync(path.join(dist, 'renderer', 'assets'), { recursive: true });
         fsSync.writeFileSync(path.join(dist, 'main', 'index.js'), `main:${variant}`);
         fsSync.writeFileSync(path.join(dist, 'preload', 'index.js'), `preload:${variant}`);
         fsSync.writeFileSync(path.join(dist, 'renderer', 'index.js'), `renderer:${variant}`);
+        fsSync.writeFileSync(path.join(dist, 'renderer', 'assets', 'main-fixture.js'), `renderer-entry:${variant}`);
+        fsSync.writeFileSync(path.join(dist, 'renderer', 'assets', 'worker-entry-fixture.js'), `worker:${variant}`);
         return { status: 0, stdout: '', stderr: '' };
       }
 
@@ -189,6 +227,17 @@ describe('runPerformanceBaseline', () => {
     await expect(fs.readFile(path.join(result.buildsDirectory, 'instrumented', 'main', 'index.js'), 'utf8'))
       .resolves.toBe('main:1:1');
     await expect(fs.readFile(result.manifestPath, 'utf8')).resolves.toContain('"harness-control"');
+    expect(result.productionBundleEvidence).toMatchObject({
+      sourceSha: 'a'.repeat(40),
+      build: { id: 'production', harness: false, instrumentation: false },
+      codeRoots: [
+        { id: 'main' },
+        { id: 'preload' },
+        { id: 'renderer' },
+        { id: 'worker' }
+      ]
+    });
+    await expect(fs.readFile(result.productionBundleEvidencePath, 'utf8')).resolves.toContain('worker-entry-fixture.js');
     await expect(fs.readFile(result.commandLedgerPath, 'utf8')).resolves.toContain('"build-spawn"');
     expect(result.commandLedger.entries.map((entry) => entry.buildId)).toEqual([
       'production',
@@ -207,9 +256,12 @@ describe('runPerformanceBaseline', () => {
         fsSync.mkdirSync(path.join(dist, 'main'), { recursive: true });
         fsSync.mkdirSync(path.join(dist, 'preload'), { recursive: true });
         fsSync.mkdirSync(path.join(dist, 'renderer'), { recursive: true });
+        fsSync.mkdirSync(path.join(dist, 'renderer', 'assets'), { recursive: true });
         fsSync.writeFileSync(path.join(dist, 'main', 'index.js'), 'main');
         fsSync.writeFileSync(path.join(dist, 'preload', 'index.js'), 'preload');
         fsSync.writeFileSync(path.join(dist, 'renderer', 'index.js'), 'renderer');
+        fsSync.writeFileSync(path.join(dist, 'renderer', 'assets', 'main-fixture.js'), 'renderer-entry');
+        fsSync.writeFileSync(path.join(dist, 'renderer', 'assets', 'worker-entry-fixture.js'), 'worker');
         return { status: 0, stdout: '', stderr: '' };
       }
       if (command === 'npx') return { status: 1, stdout: 'playwright assertion detail', stderr: 'playwright warning' };
@@ -235,9 +287,12 @@ describe('runPerformanceBaseline', () => {
         fsSync.mkdirSync(path.join(dist, 'main'), { recursive: true });
         fsSync.mkdirSync(path.join(dist, 'preload'), { recursive: true });
         fsSync.mkdirSync(path.join(dist, 'renderer'), { recursive: true });
+        fsSync.mkdirSync(path.join(dist, 'renderer', 'assets'), { recursive: true });
         fsSync.writeFileSync(path.join(dist, 'main', 'index.js'), `main:${options.env.PRISMGB_PERF_INSTRUMENTATION_BUILD}`);
         fsSync.writeFileSync(path.join(dist, 'preload', 'index.js'), `preload:${options.env.PRISMGB_PERF_INSTRUMENTATION_BUILD}`);
         fsSync.writeFileSync(path.join(dist, 'renderer', 'index.js'), `renderer:${options.env.PRISMGB_PERF_INSTRUMENTATION_BUILD}`);
+        fsSync.writeFileSync(path.join(dist, 'renderer', 'assets', 'main-fixture.js'), `renderer-entry:${options.env.PRISMGB_PERF_INSTRUMENTATION_BUILD}`);
+        fsSync.writeFileSync(path.join(dist, 'renderer', 'assets', 'worker-entry-fixture.js'), `worker:${options.env.PRISMGB_PERF_INSTRUMENTATION_BUILD}`);
         return { status: 0, stdout: '', stderr: '' };
       }
       if (command === 'npx') {
@@ -305,9 +360,12 @@ describe('runPerformanceBaseline', () => {
         fsSync.mkdirSync(path.join(dist, 'main'), { recursive: true });
         fsSync.mkdirSync(path.join(dist, 'preload'), { recursive: true });
         fsSync.mkdirSync(path.join(dist, 'renderer'), { recursive: true });
+        fsSync.mkdirSync(path.join(dist, 'renderer', 'assets'), { recursive: true });
         fsSync.writeFileSync(path.join(dist, 'main', 'index.js'), 'main');
         fsSync.writeFileSync(path.join(dist, 'preload', 'index.js'), 'preload');
         fsSync.writeFileSync(path.join(dist, 'renderer', 'index.js'), 'renderer');
+        fsSync.writeFileSync(path.join(dist, 'renderer', 'assets', 'main-fixture.js'), 'renderer-entry');
+        fsSync.writeFileSync(path.join(dist, 'renderer', 'assets', 'worker-entry-fixture.js'), 'worker');
         return { status: 0, stdout: '', stderr: '' };
       }
       if (command === 'npx') return { status: 0, stdout: '', stderr: '' };

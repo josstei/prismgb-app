@@ -11,6 +11,8 @@ const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 
 const PERFORMANCE_BUILD_MANIFEST = 'performance-build-manifest.json';
 const PERFORMANCE_COMMAND_LEDGER = 'performance-command-ledger.json';
 const PERFORMANCE_WORKLOAD_CAPTURE_INDEX = 'performance-workload-captures.json';
+const PERFORMANCE_PRODUCTION_BUNDLE_EVIDENCE = 'performance-production-bundle-evidence.json';
+const PRODUCTION_CODE_ROOTS = Object.freeze(['main', 'preload', 'renderer', 'worker']);
 
 export const PERFORMANCE_BUILD_VARIANTS = Object.freeze([
   Object.freeze({ id: 'production', harness: false, instrumentation: false }),
@@ -243,6 +245,91 @@ export async function createBundleManifest(directory) {
   });
 }
 
+function createSha256(value) {
+  return crypto.createHash('sha256').update(stableStringify(value), 'utf8').digest('hex');
+}
+
+function classifyProductionCodeRoot(entryPath) {
+  if (entryPath.startsWith('main/')) return 'main';
+  if (entryPath.startsWith('preload/')) return 'preload';
+  if (/^renderer\/assets\/worker-entry-[A-Za-z0-9_-]+\.js$/.test(entryPath)) return 'worker';
+  if (entryPath.startsWith('renderer/')) return 'renderer';
+  fail(`production code entry ${entryPath} does not belong to a registered bundle root`);
+}
+
+function selectProductionEntrypoint(entries, rootId) {
+  const predicate = rootId === 'main'
+    ? (entry) => entry.path === 'main/index.js'
+    : rootId === 'preload'
+      ? (entry) => entry.path === 'preload/index.js'
+      : rootId === 'renderer'
+        ? (entry) => /^renderer\/assets\/main-[A-Za-z0-9_-]+\.js$/.test(entry.path)
+        : (entry) => /^renderer\/assets\/worker-entry-[A-Za-z0-9_-]+\.js$/.test(entry.path);
+  const matches = entries.filter(predicate);
+  if (matches.length !== 1) {
+    fail(`production ${rootId} code root must contain exactly one canonical entrypoint`);
+  }
+  return matches[0];
+}
+
+/**
+ * Builds the production-only bundle evidence domain. It intentionally records
+ * built code provenance separately from source/dependency reduction metrics.
+ *
+ * @param {{
+ *   sourceSha: string,
+ *   variant: Readonly<{ id: string, harness: boolean, instrumentation: boolean, bundle: Readonly<{ sha256: string, entries: readonly Readonly<{ path: string, bytes: number, sha256: string }>[] }> }>
+ * }} input
+ */
+export function createProductionBundleEvidence({ sourceSha, variant } = {}) {
+  if (typeof sourceSha !== 'string' || !/^[a-f0-9]{40}$/.test(sourceSha)) {
+    fail('production bundle evidence sourceSha is invalid');
+  }
+  if (!variant || variant.id !== 'production' || variant.harness !== false || variant.instrumentation !== false) {
+    fail('production bundle evidence requires the production build variant');
+  }
+  if (!variant.bundle || !/^[a-f0-9]{64}$/.test(variant.bundle.sha256) || !Array.isArray(variant.bundle.entries)) {
+    fail('production bundle evidence requires a canonical production bundle manifest');
+  }
+
+  const codeEntries = variant.bundle.entries.filter((entry) => /\.(?:cjs|mjs|js)$/.test(entry.path));
+  if (codeEntries.length === 0) fail('production bundle evidence contains no JavaScript code entries');
+  const entriesByRoot = new Map(PRODUCTION_CODE_ROOTS.map((rootId) => [rootId, []]));
+  for (const entry of codeEntries) {
+    const rootId = classifyProductionCodeRoot(entry.path);
+    entriesByRoot.get(rootId).push(entry);
+  }
+
+  const codeRoots = PRODUCTION_CODE_ROOTS.map((id) => {
+    const entries = entriesByRoot.get(id);
+    if (!entries || entries.length === 0) fail(`production ${id} code root is empty`);
+    const byteTotal = entries.reduce((total, entry) => total + entry.bytes, 0);
+    if (!Number.isSafeInteger(byteTotal)) fail(`production ${id} code byte total exceeds safe integer precision`);
+    return Object.freeze({
+      id,
+      entrypoint: Object.freeze({ ...selectProductionEntrypoint(entries, id) }),
+      byteTotal,
+      entries: Object.freeze(entries.map((entry) => Object.freeze({ ...entry }))),
+      sha256: createSha256(entries)
+    });
+  });
+  const codeByteTotal = codeRoots.reduce((total, root) => total + root.byteTotal, 0);
+  if (!Number.isSafeInteger(codeByteTotal)) fail('production code byte total exceeds safe integer precision');
+  const body = {
+    schemaVersion: 1,
+    sourceSha,
+    build: {
+      id: variant.id,
+      harness: variant.harness,
+      instrumentation: variant.instrumentation,
+      bundleSha256: variant.bundle.sha256
+    },
+    codeByteTotal,
+    codeRoots
+  };
+  return Object.freeze({ ...body, checksum: createSha256(body) });
+}
+
 async function assertBuiltVariant(distDirectory) {
   const requiredPaths = [
     'main/index.js',
@@ -338,6 +425,10 @@ export async function buildPerformanceVariants({
   });
   const manifestPath = path.join(outputDirectory, PERFORMANCE_BUILD_MANIFEST);
   await fs.writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+  const productionVariant = variants.find((variant) => variant.id === 'production');
+  const productionBundleEvidence = createProductionBundleEvidence({ sourceSha, variant: productionVariant });
+  const productionBundleEvidencePath = path.join(outputDirectory, PERFORMANCE_PRODUCTION_BUNDLE_EVIDENCE);
+  await fs.writeFile(productionBundleEvidencePath, `${stableStringify(productionBundleEvidence)}\n`, { encoding: 'utf8', flag: 'wx' });
   const commandLedgerPath = path.join(outputDirectory, PERFORMANCE_COMMAND_LEDGER);
   const commandLedgerSnapshot = commandLedger.snapshot();
   await fs.writeFile(commandLedgerPath, `${JSON.stringify(commandLedgerSnapshot, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
@@ -345,6 +436,8 @@ export async function buildPerformanceVariants({
     manifest,
     manifestPath,
     buildsDirectory,
+    productionBundleEvidence,
+    productionBundleEvidencePath,
     commandLedger: commandLedgerSnapshot,
     commandLedgerPath
   });
