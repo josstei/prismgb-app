@@ -4,10 +4,13 @@ import fs from 'node:fs/promises';
 import { performance } from 'node:perf_hooks';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { stableStringify } from './lib/baseline-report.js';
+import { readPerformanceWorkloadCaptures } from './lib/performance-workload-capture.js';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PERFORMANCE_BUILD_MANIFEST = 'performance-build-manifest.json';
 const PERFORMANCE_COMMAND_LEDGER = 'performance-command-ledger.json';
+const PERFORMANCE_WORKLOAD_CAPTURE_INDEX = 'performance-workload-captures.json';
 
 export const PERFORMANCE_BUILD_VARIANTS = Object.freeze([
   Object.freeze({ id: 'production', harness: false, instrumentation: false }),
@@ -347,6 +350,58 @@ export async function buildPerformanceVariants({
   });
 }
 
+export async function collectPerformanceWorkloadCaptures({ outputDirectory, sourceSha, manifest } = {}) {
+  if (typeof outputDirectory !== 'string' || outputDirectory.length === 0) {
+    fail('workload capture outputDirectory is required');
+  }
+  if (typeof sourceSha !== 'string' || !/^[a-f0-9]{40}$/.test(sourceSha)) {
+    fail('workload capture sourceSha is invalid');
+  }
+  if (!manifest || typeof manifest !== 'object' || !Array.isArray(manifest.variants)) {
+    fail('workload capture build manifest is invalid');
+  }
+
+  const captures = await readPerformanceWorkloadCaptures({ outputDirectory });
+  if (captures.length !== 1) {
+    fail(`expected exactly one instrumented workload capture, found ${captures.length}`);
+  }
+  const [{ capture, relativePath }] = captures;
+  if (capture.sourceSha !== sourceSha) {
+    fail('workload capture source SHA does not match the clean build');
+  }
+  if (capture.build.id !== 'instrumented' || capture.build.harness !== true || capture.build.instrumentation !== true) {
+    fail('workload capture must come from the instrumented build');
+  }
+  const variant = manifest.variants.find((entry) => entry.id === capture.build.id);
+  if (!variant || variant.harness !== capture.build.harness || variant.instrumentation !== capture.build.instrumentation) {
+    fail('workload capture build variant does not match the build manifest');
+  }
+  if (variant.bundle?.sha256 !== capture.build.bundleSha256) {
+    fail('workload capture bundle hash does not match the build manifest');
+  }
+
+  const body = {
+    schemaVersion: 1,
+    sourceSha,
+    captures: [{
+      relativePath,
+      checksum: capture.checksum,
+      launchId: capture.launchId,
+      buildId: capture.build.id,
+      sourceOpportunityCount: capture.window.deliveredCallbackCount,
+      firstSourceSequence: capture.sourceSequences[0],
+      lastSourceSequence: capture.sourceSequences.at(-1)
+    }]
+  };
+  const index = Object.freeze({
+    ...body,
+    checksum: crypto.createHash('sha256').update(stableStringify(body), 'utf8').digest('hex')
+  });
+  const indexPath = path.join(outputDirectory, PERFORMANCE_WORKLOAD_CAPTURE_INDEX);
+  await fs.writeFile(indexPath, `${stableStringify(index)}\n`, { encoding: 'utf8', flag: 'wx' });
+  return Object.freeze({ index, indexPath, captures });
+}
+
 export async function runPerformanceBaseline({
   cwd = PROJECT_ROOT,
   argv = process.argv.slice(2),
@@ -381,17 +436,25 @@ export async function runPerformanceBaseline({
       PRISMGB_PERFORMANCE_BUILD_MANIFEST: build.manifestPath,
       PRISMGB_PERFORMANCE_BUILDS_DIRECTORY: build.buildsDirectory,
       PRISMGB_PERFORMANCE_OUTPUT: options.outputDirectory,
+      PRISMGB_PERFORMANCE_CAPTURE_OUTPUT: options.outputDirectory,
       PRISMGB_PERFORMANCE_ROLE: options.role,
       PRISMGB_PERF_SELECTED_HOST: options.selectedHost ? '1' : '0'
     },
     spawn
   });
 
+  const workloadCapture = await collectPerformanceWorkloadCaptures({
+    outputDirectory: options.outputDirectory,
+    sourceSha: build.manifest.sourceSha,
+    manifest: build.manifest
+  });
+
   return Object.freeze({
     ...build,
     role: options.role,
     selectedHost: options.selectedHost,
-    playwrightExecuted: true
+    playwrightExecuted: true,
+    workloadCapture
   });
 }
 

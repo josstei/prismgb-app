@@ -76,6 +76,7 @@ export const test = base.extend({
         app,
         window,
         launchId,
+        sourceSha: loadedManifest.manifest.sourceSha,
         build,
         readPerformanceControlProbe: () => readPerformanceControlProbe(window),
         pausePerformanceCallbacks: () => pausePerformanceCallbacks(window, launchId),

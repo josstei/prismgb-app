@@ -6,6 +6,7 @@ import {
 } from './helpers/gpu-performance-baseline.helper.js';
 import { StreamPage } from './pages/stream.page.js';
 import { loadBaselinePolicy } from '../../scripts/lib/performance-evidence.js';
+import { writePerformanceWorkloadCapture } from '../../scripts/lib/performance-workload-capture.js';
 
 const performancePolicy = loadBaselinePolicy().policy;
 const { warmup: warmupLimits, window: windowLimits } = performancePolicy.performanceLimits;
@@ -213,6 +214,45 @@ test('the instrumented harness delimits the policy-bound renderer cohort after w
   const cohortSourceWrites = sourceOpportunityWrites(writes);
   const diagnostics = await performanceLaunch.readPerformanceDiagnostics();
   const measurementWindow = closedGate.measurementWindow;
+  const sourceSequences = cohortSourceWrites.map((write) => write.sourceSequence);
+
+  if (process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT) {
+    await writePerformanceWorkloadCapture({
+      outputDirectory: process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT,
+      sourceSha: performanceLaunch.sourceSha,
+      launchId: performanceLaunch.launchId,
+      build: {
+        id: performanceLaunch.build.id,
+        harness: performanceLaunch.build.harness,
+        instrumentation: performanceLaunch.build.instrumentation,
+        bundleSha256: performanceLaunch.build.bundle.sha256
+      },
+      workload: {
+        id: performancePolicy.performanceMetricPolicy.workloadId,
+        pattern: 'animated',
+        width: performanceChromaticDevice.fixture.display.nativeWidth,
+        height: performanceChromaticDevice.fixture.display.nativeHeight,
+        frameRate: performanceChromaticDevice.fixture.stream.defaultFrameRate
+      },
+      warmup: {
+        sourceOpportunityCount: warmup.sourceWrites.length,
+        elapsedMs: warmup.elapsedMs
+      },
+      window: {
+        minimumCallbacks: measurementWindow.minimumCallbacks,
+        minimumDurationMs: measurementWindow.minimumDurationMs,
+        maximumCallbacks: measurementWindow.maximumCallbacks,
+        maximumDurationMs: measurementWindow.maximumDurationMs,
+        deliveredCallbackCount: measurementWindow.deliveredCallbackCount,
+        startedAt: measurementWindow.startedAt,
+        closedAt: measurementWindow.closedAt,
+        closureReason: measurementWindow.closureReason
+      },
+      sourceSequences,
+      controlWrites: writes,
+      diagnostics
+    });
+  }
 
   expect(cohortSourceWrites.length).toBeGreaterThanOrEqual(measurementWindowLimits.minimumCallbacks);
   expect(cohortSourceWrites.length).toBeLessThanOrEqual(measurementWindowLimits.maximumCallbacks);
@@ -223,7 +263,7 @@ test('the instrumented harness delimits the policy-bound renderer cohort after w
   expect(measurementWindow.closedAt - measurementWindow.startedAt).toBeLessThanOrEqual(
     measurementWindowLimits.maximumDurationMs
   );
-  expect(cohortSourceWrites.map((write) => write.sourceSequence)).toEqual(
+  expect(sourceSequences).toEqual(
     cohortSourceWrites.map((write, index) => cohortSourceWrites[0].sourceSequence + index)
   );
   expect(diagnostics).toMatchObject({

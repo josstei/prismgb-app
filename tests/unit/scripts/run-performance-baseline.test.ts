@@ -13,6 +13,7 @@ import {
   parsePerformanceBaselineArgs,
   runPerformanceBaseline
 } from '../../../scripts/run-performance-baseline.js';
+import { createPerformanceWorkloadCapture } from '../../../scripts/lib/performance-workload-capture.js';
 
 const tempDirectories: string[] = [];
 
@@ -222,6 +223,104 @@ describe('runPerformanceBaseline', () => {
       spawn: spawn as unknown as typeof spawnSync,
       platform: 'linux'
     })).rejects.toThrow(/playwright assertion detail[\s\S]*playwright warning/);
+  });
+
+  it('indexes the checksum-bound instrumented workload capture produced by the Playwright lane', async () => {
+    const cwd = await createTemporaryWorkspace();
+    const spawn = vi.fn((command: string, args: readonly string[], options: { cwd: string; env: NodeJS.ProcessEnv }) => {
+      if (command === 'git' && args[0] === 'status') return { status: 0, stdout: '', stderr: '' };
+      if (command === 'git' && args[0] === 'rev-parse') return { status: 0, stdout: `${'a'.repeat(40)}\n`, stderr: '' };
+      if (command === 'npm') {
+        const dist = path.join(options.cwd, 'dist');
+        fsSync.mkdirSync(path.join(dist, 'main'), { recursive: true });
+        fsSync.mkdirSync(path.join(dist, 'preload'), { recursive: true });
+        fsSync.mkdirSync(path.join(dist, 'renderer'), { recursive: true });
+        fsSync.writeFileSync(path.join(dist, 'main', 'index.js'), `main:${options.env.PRISMGB_PERF_INSTRUMENTATION_BUILD}`);
+        fsSync.writeFileSync(path.join(dist, 'preload', 'index.js'), `preload:${options.env.PRISMGB_PERF_INSTRUMENTATION_BUILD}`);
+        fsSync.writeFileSync(path.join(dist, 'renderer', 'index.js'), `renderer:${options.env.PRISMGB_PERF_INSTRUMENTATION_BUILD}`);
+        return { status: 0, stdout: '', stderr: '' };
+      }
+      if (command === 'npx') {
+        const manifestPath = options.env.PRISMGB_PERFORMANCE_BUILD_MANIFEST;
+        const outputDirectory = options.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT;
+        if (!manifestPath || !outputDirectory) throw new Error('expected performance output environment');
+        const manifest = JSON.parse(fsSync.readFileSync(manifestPath, 'utf8'));
+        const instrumented = manifest.variants.find((variant: { id: string }) => variant.id === 'instrumented');
+        const capture = createPerformanceWorkloadCapture({
+          sourceSha: 'a'.repeat(40),
+          launchId: '123e4567-e89b-42d3-a456-426614174000',
+          build: {
+            id: instrumented.id,
+            harness: instrumented.harness,
+            instrumentation: instrumented.instrumentation,
+            bundleSha256: instrumented.bundle.sha256
+          },
+          workload: { id: 'phase0-animated-160x144-v1', pattern: 'animated', width: 160, height: 144, frameRate: 60 },
+          warmup: { sourceOpportunityCount: 600, elapsedMs: 10_000 },
+          window: {
+            minimumCallbacks: 2,
+            minimumDurationMs: 30_000,
+            maximumCallbacks: 4,
+            maximumDurationMs: 45_000,
+            deliveredCallbackCount: 2,
+            startedAt: 100,
+            closedAt: 30_100,
+            closureReason: 'minimum-reached'
+          },
+          sourceSequences: [1, 2],
+          controlWrites: [],
+          diagnostics: { source: { sourceOpportunities: 2 } }
+        });
+        const directory = path.join(outputDirectory, 'raw-workload-captures');
+        fsSync.mkdirSync(directory, { recursive: true });
+        fsSync.writeFileSync(path.join(directory, `${capture.launchId}-${capture.checksum}.json`), JSON.stringify(capture));
+        return { status: 0, stdout: '', stderr: '' };
+      }
+      throw new Error(`unexpected command ${command}`);
+    });
+
+    const result = await runPerformanceBaseline({
+      cwd,
+      argv: ['--output', 'performance-output', '--role', 'ci-integrity'],
+      baseEnvironment: { PATH: '/bin' },
+      spawn: spawn as unknown as typeof spawnSync,
+      platform: 'linux'
+    });
+
+    if (result.playwrightExecuted !== true) throw new Error('expected the Playwright lane to execute');
+    expect(result.workloadCapture.index).toMatchObject({
+      sourceSha: 'a'.repeat(40),
+      captures: [expect.objectContaining({ buildId: 'instrumented', sourceOpportunityCount: 2 })]
+    });
+    await expect(fs.readFile(result.workloadCapture.indexPath, 'utf8')).resolves.toContain('raw-workload-captures/');
+  });
+
+  it('rejects a passing Playwright lane that does not persist its workload capture', async () => {
+    const cwd = await createTemporaryWorkspace();
+    const spawn = vi.fn((command: string, args: readonly string[], options: { cwd: string }) => {
+      if (command === 'git' && args[0] === 'status') return { status: 0, stdout: '', stderr: '' };
+      if (command === 'git' && args[0] === 'rev-parse') return { status: 0, stdout: `${'a'.repeat(40)}\n`, stderr: '' };
+      if (command === 'npm') {
+        const dist = path.join(options.cwd, 'dist');
+        fsSync.mkdirSync(path.join(dist, 'main'), { recursive: true });
+        fsSync.mkdirSync(path.join(dist, 'preload'), { recursive: true });
+        fsSync.mkdirSync(path.join(dist, 'renderer'), { recursive: true });
+        fsSync.writeFileSync(path.join(dist, 'main', 'index.js'), 'main');
+        fsSync.writeFileSync(path.join(dist, 'preload', 'index.js'), 'preload');
+        fsSync.writeFileSync(path.join(dist, 'renderer', 'index.js'), 'renderer');
+        return { status: 0, stdout: '', stderr: '' };
+      }
+      if (command === 'npx') return { status: 0, stdout: '', stderr: '' };
+      throw new Error(`unexpected command ${command}`);
+    });
+
+    await expect(runPerformanceBaseline({
+      cwd,
+      argv: ['--output', 'performance-output', '--role', 'ci-integrity'],
+      baseEnvironment: { PATH: '/bin' },
+      spawn: spawn as unknown as typeof spawnSync,
+      platform: 'linux'
+    })).rejects.toThrow(/expected exactly one instrumented workload capture/);
   });
 
   it('rejects a dirty source tree before building any variant', async () => {
