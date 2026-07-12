@@ -68,6 +68,27 @@ test('the production build excludes the harness-only performance surface', async
   await assertProductionBundleIsolation(await loadPerformanceBuildManifest());
 });
 
+test.describe('production sentinel fixture', () => {
+  test.use({ performanceVariant: 'production', performanceDiagnostics: false });
+
+  test('launches without the harness marker, control probe, or diagnostics bridge', async ({ performanceLaunch }) => {
+    expect(performanceLaunch.build).toMatchObject({
+      id: 'production',
+      harness: false,
+      instrumentation: false
+    });
+    await expect(performanceLaunch.window.evaluate(() => ({
+      hasMarker: window.prismgbPerformanceLaunchMarker !== undefined,
+      hasControlProbe: window.prismgbPerformanceControlProbe !== undefined,
+      hasDiagnostics: window[Symbol.for('prismgb.performance.rendererDiagnostics')] !== undefined
+    }))).resolves.toEqual({
+      hasMarker: false,
+      hasControlProbe: false,
+      hasDiagnostics: false
+    });
+  });
+});
+
 test('the instrumented harness echoes one marker identity through main and renderer', async ({ performanceLaunch }) => {
   expect(performanceLaunch.build.id).toBe('instrumented');
   expect(performanceLaunch.launchId).toMatch(/^[0-9a-f-]{36}$/);

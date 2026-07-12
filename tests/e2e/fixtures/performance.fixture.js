@@ -31,33 +31,40 @@ export const test = base.extend({
   performanceLaunch: async ({ performanceVariant, performanceDiagnostics }, use) => {
     const loadedManifest = await loadPerformanceBuildManifest();
     const build = getPerformanceBuild(loadedManifest, performanceVariant);
-    if (!build.harness) {
-      throw new Error('performanceLaunch requires a harness build');
-    }
-
-    const launchId = createPerformanceLaunchId();
+    const launchId = build.harness ? createPerformanceLaunchId() : null;
     const userDataDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'prismgb-performance-'));
-    const app = await electron.launch({
-      args: [
-        path.join(build.directory, 'main', 'index.js'),
-        '--test-mode',
-        `--prismgb-performance-launch-id=${launchId}`,
-        `--user-data-dir=${userDataDirectory}`,
-        '--no-sandbox',
-        '--disable-dev-shm-usage'
-      ],
-      env: {
-        ...process.env,
-        NODE_ENV: 'test',
-        ELECTRON_IS_DEV: '0',
+    const args = [
+      path.join(build.directory, 'main', 'index.js'),
+      '--test-mode',
+      `--user-data-dir=${userDataDirectory}`,
+      '--no-sandbox',
+      '--disable-dev-shm-usage'
+    ];
+    if (launchId !== null) args.splice(2, 0, `--prismgb-performance-launch-id=${launchId}`);
+    const environment = {
+      ...process.env,
+      NODE_ENV: 'test',
+      ELECTRON_IS_DEV: '0',
+      DISABLE_AUTO_UPDATER: 'true',
+      DISABLE_CRASH_REPORTER: 'true',
+      DISABLE_TRAY: 'true'
+    };
+    if (build.harness) {
+      Object.assign(environment, {
         PRISMGB_PERF_MEASUREMENT: '1',
         PRISMGB_PERF_LAUNCH_ID: launchId,
         PRISMGB_E2E_DIAGNOSTICS: build.instrumentation && performanceDiagnostics ? '1' : '0',
-        PRISMGB_E2E_TEST_CONTROL: '1',
-        DISABLE_AUTO_UPDATER: 'true',
-        DISABLE_CRASH_REPORTER: 'true',
-        DISABLE_TRAY: 'true'
-      },
+        PRISMGB_E2E_TEST_CONTROL: '1'
+      });
+    } else {
+      delete environment.PRISMGB_PERF_MEASUREMENT;
+      delete environment.PRISMGB_PERF_LAUNCH_ID;
+      delete environment.PRISMGB_E2E_DIAGNOSTICS;
+      delete environment.PRISMGB_E2E_TEST_CONTROL;
+    }
+    const app = await electron.launch({
+      args,
+      env: environment,
       timeout: 60000
     });
 
@@ -65,19 +72,24 @@ export const test = base.extend({
     try {
       window = await app.firstWindow();
       await new AppShellPage(window).waitForReady();
-      const marker = await window.evaluate(() => window.prismgbPerformanceLaunchMarker);
-      if (marker?.launchId !== launchId) {
-        throw new Error('renderer marker does not match the launch controller identity');
+      const commonLaunch = {
+        app,
+        window,
+        sourceSha: loadedManifest.manifest.sourceSha,
+        build
+      };
+      if (!build.harness) {
+        await use(commonLaunch);
+        return;
       }
+      const marker = await window.evaluate(() => window.prismgbPerformanceLaunchMarker);
+      if (marker?.launchId !== launchId) throw new Error('renderer marker does not match the launch controller identity');
       await assertPerformanceController(app, launchId);
       await installPerformanceControlProbe(window, launchId);
       await installPerformanceCallbackGate(window, launchId);
       await use({
-        app,
-        window,
+        ...commonLaunch,
         launchId,
-        sourceSha: loadedManifest.manifest.sourceSha,
-        build,
         readPerformanceControlProbe: () => readPerformanceControlProbe(window),
         pausePerformanceCallbacks: () => pausePerformanceCallbacks(window, launchId),
         pausePerformanceCallbacksAt: (callbackCount) => pausePerformanceCallbacksAt(window, launchId, callbackCount),
@@ -99,7 +111,7 @@ export const test = base.extend({
         }
       });
     } finally {
-      if (window) {
+      if (window && build.harness && launchId !== null) {
         await removePerformanceCallbackGate(window, launchId).catch(() => {});
         await removePerformanceControlProbe(window).catch(() => {});
       }
