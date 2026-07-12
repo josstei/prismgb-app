@@ -789,6 +789,36 @@ describe('platform external metric adapter sessions', () => {
     expect(child.stdin.write.mock.calls.map(([line]) => JSON.parse(line).operation)).toEqual(['attach', 'prime', 'sample', 'detach']);
   });
 
+  it('brackets synchronous macOS ps acquisition without unrelated microtask delay', async () => {
+    let now = 0;
+    const runCommand = vi.fn((_command: string, args: string[]) => (
+      args.includes('time=') ? macosPsMetricIdentityRow() : macosPsIdentityRow()
+    ));
+    const session = createMacosPsMetricAdapterSession({ runCommand, clock: () => now });
+
+    await session.open();
+    await session.attach({ ...target, creationIdentity: macosCreationIdentity });
+    now = 0.1;
+    await session.prime();
+    now = 0.5;
+    queueMicrotask(() => { now = 0.56; });
+    await expect(session.sample()).resolves.toMatchObject({
+      sample: { readStart: 0.5, readEnd: 0.5 }
+    });
+    await session.abort();
+
+    now = 1;
+    const slowCommand = vi.fn((_command: string, args: string[]) => {
+      if (args.includes('time=')) now += 0.051;
+      return args.includes('time=') ? macosPsMetricIdentityRow() : macosPsIdentityRow();
+    });
+    const slowSession = createMacosPsMetricAdapterSession({ runCommand: slowCommand, clock: () => now });
+    await slowSession.open();
+    await slowSession.attach({ ...target, creationIdentity: macosCreationIdentity });
+    await expect(slowSession.prime()).rejects.toThrow(/exceeds its maximum duration/);
+    await slowSession.abort();
+  });
+
   it('fails closed when Linux or macOS observes a reused PID after attachment', async () => {
     let linuxStartTicks = 30;
     const linuxReadFile = vi.fn(async (file: string) => {

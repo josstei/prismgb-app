@@ -2,7 +2,7 @@
  * Shared child-process lifecycle helpers for gate scripts: headless electron
  * environment, close-awaiting, and platform-aware process-tree termination.
  */
-import { exec, execFile, spawn } from 'node:child_process';
+import { exec, execFile, execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import { performance } from 'node:perf_hooks';
 import path from 'node:path';
@@ -128,6 +128,12 @@ function assertFiniteNonnegativeNumber(value, label) {
   if (!Number.isFinite(value) || value < 0) {
     failExternalMetric(`${label} must be a nonnegative finite number`);
   }
+}
+
+function mapMaybePromise(value, transform) {
+  return value && typeof value.then === 'function'
+    ? Promise.resolve(value).then(transform)
+    : transform(value);
 }
 
 function parseDecimalInteger(value, label) {
@@ -344,7 +350,10 @@ export function createExternalMetricSampleReader({
     const nextSequence = operation === 'prime' ? 0 : sequence + 1;
     const readStart = readClock('metric read start');
     if (readStart < lastReadEnd) failExternalMetric('metric read start regressed behind the prior read end');
-    const snapshot = await readSnapshot(Object.freeze({ sequence: nextSequence, processIdentity, operation }));
+    const snapshotResult = readSnapshot(Object.freeze({ sequence: nextSequence, processIdentity, operation }));
+    const snapshot = snapshotResult && typeof snapshotResult.then === 'function'
+      ? await snapshotResult
+      : snapshotResult;
     const readEnd = readClock('metric read end');
     if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
       failExternalMetric('readSnapshot must return a metric snapshot object');
@@ -482,13 +491,13 @@ export async function readLinuxProcfsMetricConfiguration({ runCommand = runGetco
   return Object.freeze({ pageSize, clockTicks, counterQuantumSeconds });
 }
 
-async function runMacosPs(command, args) {
-  const { stdout } = await execFileAsync(command, args, {
+function runMacosPs(command, args) {
+  return execFileSync(command, args, {
     encoding: 'utf8',
     windowsHide: true,
-    maxBuffer: 64 * 1024
+    maxBuffer: 64 * 1024,
+    timeout: 50
   });
-  return stdout;
 }
 
 async function runWindowsPowerShell(command, args) {
@@ -587,12 +596,14 @@ export function createMacosPsProcessIdentityReader({ runCommand = runMacosPs } =
  */
 export function createMacosPsMetricIdentitySnapshotReader({ runCommand = runMacosPs } = {}) {
   if (typeof runCommand !== 'function') failExternalMetric('runCommand must be a function');
-  return async (pid) => {
+  return (pid) => {
     assertPositiveSafeInteger(pid, 'macOS process PID');
-    const output = await runCommand('/bin/ps', ['-o', 'pid=', '-o', 'lstart=', '-o', 'time=', '-o', 'rss=', '-p', String(pid)]);
-    const snapshot = parseMacosPsMetricIdentitySnapshot(output);
-    if (snapshot.raw.pid !== pid) failExternalMetric('macOS ps PID does not match the requested process');
-    return snapshot;
+    const output = runCommand('/bin/ps', ['-o', 'pid=', '-o', 'lstart=', '-o', 'time=', '-o', 'rss=', '-p', String(pid)]);
+    return mapMaybePromise(output, (resolvedOutput) => {
+      const snapshot = parseMacosPsMetricIdentitySnapshot(resolvedOutput);
+      if (snapshot.raw.pid !== pid) failExternalMetric('macOS ps PID does not match the requested process');
+      return snapshot;
+    });
   };
 }
 
@@ -1656,14 +1667,13 @@ export function createMacosPsMetricAdapterSession({ runCommand = runMacosPs, clo
         target,
         counterQuantumSeconds: 0.01,
         clock,
-        readSnapshot: async () => {
-          const snapshot = await readSnapshot(target.pid);
+        readSnapshot: () => mapMaybePromise(readSnapshot(target.pid), (snapshot) => {
           assertAttachedMetricTargetIdentity({
             pid: snapshot.raw.pid,
             creationIdentity: snapshot.raw.creationIdentity
           }, target, 'macOS ps metric sample');
           return snapshot;
-        }
+        })
       });
     }
   });
