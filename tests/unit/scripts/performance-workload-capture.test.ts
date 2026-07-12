@@ -81,7 +81,7 @@ describe('performance workload capture', () => {
     const capture = createPerformanceWorkloadCapture(captureInput());
 
     expect(capture).toMatchObject({
-      schemaVersion: 6,
+      schemaVersion: 7,
       externalExecutionId: '123e4567-e89b-42d3-a456-426614174010',
       observationBoundaryId: 'external-sentinel-window:123e4567-e89b-42d3-a456-426614174010',
       checksum: expect.stringMatching(/^[a-f0-9]{64}$/),
@@ -118,6 +118,33 @@ describe('performance workload capture', () => {
         }
       }
     })).toThrow(/precedes its fixture deadline/);
+    expect(() => createPerformanceWorkloadCapture({
+      ...captureInput(),
+      controllerAudit: {
+        ...captureInput().controllerAudit,
+        sourceFinalSequences: { app: 1 }
+      }
+    })).toThrow(/source final sequence/);
+    expect(() => createPerformanceWorkloadCapture({
+      ...captureInput(),
+      controllerAudit: {
+        ...captureInput().controllerAudit,
+        lastBrokerCall: {
+          ...captureInput().controllerAudit.lastBrokerCall,
+          callSequence: 1
+        }
+      }
+    })).toThrow(/last broker call/);
+    expect(() => createPerformanceWorkloadCapture({
+      ...captureInput(),
+      controllerAudit: {
+        ...captureInput().controllerAudit,
+        finalTokenState: {
+          ...captureInput().controllerAudit.finalTokenState,
+          issuedEpochTokenCount: 0
+        }
+      }
+    })).toThrow(/epoch token count/);
   });
 
   it('persists only no-clobber checksum-bound capture files and reads them back', async () => {

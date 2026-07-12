@@ -91,6 +91,15 @@ describe('PerformanceMeasurementController', () => {
       sampledFixtureAt: 1_100,
       brokerCallSequence: expect.any(Number)
     });
+    expect(audit.sourceFinalSequences).toEqual({ power: 1, screen: 2 });
+    expect(audit.lastBrokerCall).toEqual(audit.brokerSamples.at(-1));
+    expect(audit.finalTokenState).toEqual({
+      operation: 'finalized',
+      phase: 'pre-exit',
+      activeNumericEpoch: null,
+      issuedPhaseTokenCount: 9,
+      issuedEpochTokenCount: 1
+    });
     expect(audit.environmentEvents).toHaveLength(2);
     expect(audit.listenerEvidence).toEqual([
       { eventType: 'power:on-ac', removed: true },
@@ -124,6 +133,23 @@ describe('PerformanceMeasurementController', () => {
     expect(() => controller.closeNumericEpoch(epoch)).toThrow(/no measurement numeric epoch is open/);
     expect(() => controller.sample(qualification, 'measurement')).toThrow(/sampling token/);
     expect(() => controller.sample(warmup, 'measurement')).toThrow(/sampling token/);
+  });
+
+  it('rejects invalid or duplicate environment event source names before listener installation', () => {
+    const emitter = new EventEmitter();
+    expect(() => installPerformanceMeasurementGuard(launchId, {
+      globalTarget: {},
+      getAppMetrics: () => [],
+      eventSources: [createEventSource('invalid:source', emitter, ['event'])]
+    })).toThrow(/source name is invalid/);
+    expect(() => installPerformanceMeasurementGuard(launchId, {
+      globalTarget: {},
+      getAppMetrics: () => [],
+      eventSources: [
+        createEventSource('source', emitter, ['first']),
+        createEventSource('source', emitter, ['second'])
+      ]
+    })).toThrow(/source name is duplicated/);
   });
 
   it('requires the release-dispatched receipt and one-second fixture settle before descendant closure', () => {
@@ -178,7 +204,8 @@ describe('PerformanceMeasurementController', () => {
     controller.recordReleaseDispatched(shutdown, 0);
     controller.samplePostReleaseSettle(shutdown, 1_000);
     controller.beginPhase(operationToken, 'application-descendant-closure');
-    controller.beginPhase(operationToken, 'pre-exit');
+    const preExit = controller.beginPhase(operationToken, 'pre-exit').phaseToken;
+    controller.sample(preExit, 'pre-exit');
 
     expect(controller.finalize(operationToken).fatalReasons).toEqual(['unleased-public-metrics-interference']);
   });

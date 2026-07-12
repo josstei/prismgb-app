@@ -735,7 +735,7 @@ describe('planned raw capture collection', () => {
     });
 
     expect(sentinel.index).toMatchObject({
-      schemaVersion: 5,
+      schemaVersion: 6,
       sourceSha,
       captures: expect.arrayContaining([
         expect.objectContaining({ buildId: 'production', backend: 'canvas2d', pair: expect.objectContaining({ comparisonSide: 'A' }) })
@@ -745,7 +745,7 @@ describe('planned raw capture collection', () => {
     expect(externalMetric.index).toMatchObject({ schemaVersion: 3, sourceSha });
     expect(externalMetric.index.captures).toHaveLength(18);
     expect(externalMetric.index.captures.filter((capture) => capture.buildId === 'instrumented')).toHaveLength(6);
-    expect(workload.index).toMatchObject({ schemaVersion: 7, sourceSha });
+    expect(workload.index).toMatchObject({ schemaVersion: 8, sourceSha });
     expect(workload.index.captures).toHaveLength(12);
     expect(workload.index.captures).toEqual(expect.arrayContaining([
       expect.objectContaining({

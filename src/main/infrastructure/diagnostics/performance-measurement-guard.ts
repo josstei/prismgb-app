@@ -74,15 +74,26 @@ export type PostReleaseSettleAudit = Readonly<{
   readonly brokerCallSequence: number;
 }>;
 
+export type MeasurementFinalTokenState = Readonly<{
+  readonly operation: 'finalized';
+  readonly phase: PerformanceMeasurementPhase;
+  readonly activeNumericEpoch: null;
+  readonly issuedPhaseTokenCount: number;
+  readonly issuedEpochTokenCount: number;
+}>;
+
 export type MeasurementAudit = Readonly<{
   readonly launchId: string;
   readonly requestLog: readonly Readonly<Record<string, unknown>>[];
   readonly brokerSamples: readonly BrokerSample[];
   readonly environmentSamples: readonly EnvironmentSample[];
   readonly environmentEvents: readonly EnvironmentEvent[];
+  readonly sourceFinalSequences: Readonly<Record<string, number>>;
+  readonly lastBrokerCall: BrokerSample;
   readonly postReleaseSettle: PostReleaseSettleAudit;
   readonly fatalReasons: readonly string[];
   readonly finalPhase: PerformanceMeasurementPhase;
+  readonly finalTokenState: MeasurementFinalTokenState;
   readonly listenerEvidence: readonly Readonly<{ readonly eventType: string; readonly removed: boolean }>[];
   readonly restorationOutcome: 'restored';
   readonly disposedAt: number;
@@ -177,8 +188,10 @@ export class PerformanceMeasurementController {
   private readonly brokerSamples: BrokerSample[] = [];
   private readonly environmentSamples: EnvironmentSample[] = [];
   private readonly environmentEvents: EnvironmentEvent[] = [];
+  private readonly sourceFinalSequences = new Map<string, number>();
   private readonly fatalReasons: string[] = [];
   private lastBrokerSample: BrokerSample | null = null;
+  private issuedEpochTokenCount = 0;
   private environmentListenersInstalled = false;
   private pendingPostReleaseSettle: PendingPostReleaseSettle | null = null;
   private postReleaseSettle: PostReleaseSettleAudit | null = null;
@@ -191,6 +204,15 @@ export class PerformanceMeasurementController {
     this.clock = options.clock ?? (() => performance.now());
     this.globalTarget = options.globalTarget ?? (globalThis as Record<PropertyKey, unknown>);
     this.eventSources = options.eventSources ?? [];
+    for (const source of this.eventSources) {
+      if (typeof source.name !== 'string' || !/^[a-z][a-z0-9-]*$/.test(source.name)) {
+        fail('environment event source name is invalid');
+      }
+      if (this.sourceFinalSequences.has(source.name)) {
+        fail(`environment event source name is duplicated: ${source.name}`);
+      }
+      this.sourceFinalSequences.set(source.name, 0);
+    }
   }
 
   installEnvironmentListeners(): void {
@@ -200,8 +222,10 @@ export class PerformanceMeasurementController {
     for (const source of this.eventSources) {
       for (const eventType of source.events) {
         const listener = (...args: unknown[]) => {
+          const sourceSequence = ++this.sourceSequence;
+          this.sourceFinalSequences.set(source.name, sourceSequence);
           this.environmentEvents.push(Object.freeze({
-            sourceSequence: ++this.sourceSequence,
+            sourceSequence,
             clockDomain: 'electron-main',
             observedAt: this.clock(),
             eventType: `${source.name}:${eventType}`,
@@ -268,6 +292,7 @@ export class PerformanceMeasurementController {
     if (measurementEpochId.length === 0) fail('measurement epoch ID must be nonempty');
     const token = freezeToken(makeNonce(`epoch:${measurementEpochId}`, ++this.sequence));
     this.epochTokens.set(token.nonce, { phaseToken: phaseToken.nonce, measurementEpochId });
+    this.issuedEpochTokenCount += 1;
     operation.activeEpoch = { token, measurementEpochId };
     this.record('open-numeric-epoch', { measurementEpochId });
     return Object.freeze({ epochToken: token });
@@ -408,9 +433,21 @@ export class PerformanceMeasurementController {
     const operation = this.requireOperation(operationToken);
     if (operation.activeEpoch !== null) fail('cannot finalize with a numeric epoch open');
     if (currentPhase(operation) !== 'pre-exit') fail('controller must reach pre-exit before finalization');
-    if (this.pendingPostReleaseSettle !== null || this.postReleaseSettle === null) {
+    const postReleaseSettle = this.postReleaseSettle;
+    const lastBrokerCall = this.lastBrokerSample;
+    if (this.pendingPostReleaseSettle !== null || postReleaseSettle === null) {
       fail('controller must complete the post-release settle sample before finalization');
     }
+    if (lastBrokerCall === null || lastBrokerCall.phase !== 'pre-exit' || lastBrokerCall.purpose !== 'pre-exit') {
+      fail('controller must retain a leased pre-exit broker call before finalization');
+    }
+    const finalTokenState = Object.freeze({
+      operation: 'finalized' as const,
+      phase: currentPhase(operation),
+      activeNumericEpoch: null,
+      issuedPhaseTokenCount: this.phaseTokens.size,
+      issuedEpochTokenCount: this.issuedEpochTokenCount
+    });
     this.finalized = true;
     for (const registration of this.listeners) {
       registration.source.off(registration.eventType.slice(registration.eventType.indexOf(':') + 1), registration.listener);
@@ -423,16 +460,25 @@ export class PerformanceMeasurementController {
       fail('measurement controller global could not be restored');
     }
     const disposedAt = this.clock();
+    if (lastBrokerCall.capturedAt > disposedAt) {
+      fail('broker disposal cannot precede the last broker call');
+    }
     this.record('finalize', { disposedAt });
+    const sourceFinalSequences = Object.freeze(Object.fromEntries(
+      [...this.sourceFinalSequences.entries()].sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+    ));
     const audit = Object.freeze({
       launchId: this.launchId,
       requestLog: Object.freeze([...this.requestLog]),
       brokerSamples: Object.freeze([...this.brokerSamples]),
       environmentSamples: Object.freeze([...this.environmentSamples]),
       environmentEvents: Object.freeze([...this.environmentEvents]),
-      postReleaseSettle: this.postReleaseSettle,
+      sourceFinalSequences,
+      lastBrokerCall,
+      postReleaseSettle,
       fatalReasons: Object.freeze([...this.fatalReasons]),
       finalPhase: currentPhase(operation),
+      finalTokenState,
       listenerEvidence: Object.freeze(this.listeners.map(({ eventType, removed }) => Object.freeze({ eventType, removed }))),
       restorationOutcome: 'restored' as const,
       disposedAt

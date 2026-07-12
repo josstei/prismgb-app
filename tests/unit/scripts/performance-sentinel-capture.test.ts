@@ -132,7 +132,7 @@ describe('performance sentinel capture', () => {
     const capture = createPerformanceSentinelCapture(baseCapture());
 
     expect(capture).toMatchObject({
-      schemaVersion: 5,
+      schemaVersion: 6,
       build: { id: 'production', harness: false, instrumentation: false },
       backend: 'canvas2d',
       observations: {

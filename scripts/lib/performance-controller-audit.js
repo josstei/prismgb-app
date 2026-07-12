@@ -245,6 +245,76 @@ function validateEnvironmentEvents(value) {
   });
 }
 
+function validateSourceFinalSequences(value, { listenerEvidence, environmentEvents }) {
+  const expectedBySource = new Map();
+  for (const listener of listenerEvidence) {
+    const separator = listener.eventType.indexOf(':');
+    if (separator <= 0) fail('controller audit listener evidence event type has no source prefix');
+    const source = listener.eventType.slice(0, separator);
+    if (!expectedBySource.has(source)) expectedBySource.set(source, 0);
+  }
+  for (const event of environmentEvents) {
+    const separator = event.eventType.indexOf(':');
+    if (separator <= 0) fail('controller audit environment event has no source prefix');
+    const source = event.eventType.slice(0, separator);
+    if (!expectedBySource.has(source)) {
+      fail('controller audit environment event source has no listener evidence');
+    }
+    expectedBySource.set(source, event.sourceSequence);
+  }
+  const sources = [...expectedBySource.keys()].sort();
+  exact(value, sources, 'controllerAudit.sourceFinalSequences');
+  for (const source of sources) {
+    integer(value[source], `controllerAudit.sourceFinalSequences.${source}`);
+    if (value[source] !== expectedBySource.get(source)) {
+      fail('controller audit source final sequence does not match its final observed event');
+    }
+  }
+  return Object.fromEntries(sources.map((source) => [source, value[source]]));
+}
+
+function validateLastBrokerCall(value, { brokerSamples, disposedAt }) {
+  const label = 'controllerAudit.lastBrokerCall';
+  exact(value, ['launchId', 'callSequence', 'phase', 'purpose', 'capturedAt', 'rawAppMetrics', 'servedFromCache'], label);
+  const normalized = cloneJson(value, label);
+  const expected = brokerSamples.at(-1);
+  if (!expected || stableStringify(normalized) !== stableStringify(expected)) {
+    fail('controller audit last broker call does not match the final leased broker sample');
+  }
+  if (normalized.capturedAt > disposedAt) {
+    fail('controller audit broker disposal precedes its last broker call');
+  }
+  return expected;
+}
+
+function validateFinalTokenState(value, { instrumentation }) {
+  exact(value, [
+    'operation',
+    'phase',
+    'activeNumericEpoch',
+    'issuedPhaseTokenCount',
+    'issuedEpochTokenCount'
+  ], 'controllerAudit.finalTokenState');
+  if (value.operation !== 'finalized' || value.phase !== 'pre-exit' || value.activeNumericEpoch !== null) {
+    fail('controllerAudit.finalTokenState does not retain the finalized operation state');
+  }
+  integer(value.issuedPhaseTokenCount, 'controllerAudit.finalTokenState issued phase token count');
+  integer(value.issuedEpochTokenCount, 'controllerAudit.finalTokenState issued epoch token count');
+  if (value.issuedPhaseTokenCount !== PERFORMANCE_CONTROLLER_PHASES.length) {
+    fail('controllerAudit.finalTokenState phase token count is invalid');
+  }
+  if (value.issuedEpochTokenCount !== (instrumentation ? 1 : 0)) {
+    fail('controllerAudit.finalTokenState epoch token count does not match instrumentation mode');
+  }
+  return {
+    operation: 'finalized',
+    phase: 'pre-exit',
+    activeNumericEpoch: null,
+    issuedPhaseTokenCount: value.issuedPhaseTokenCount,
+    issuedEpochTokenCount: value.issuedEpochTokenCount
+  };
+}
+
 function validatePostReleaseSettle(value, { requestLog, brokerSamples }) {
   exact(value, [
     'purpose',
@@ -358,9 +428,12 @@ export function validatePerformanceControllerAudit(value, {
     'brokerSamples',
     'environmentSamples',
     'environmentEvents',
+    'sourceFinalSequences',
+    'lastBrokerCall',
     'postReleaseSettle',
     'fatalReasons',
     'finalPhase',
+    'finalTokenState',
     'listenerEvidence',
     'restorationOutcome',
     'disposedAt'
@@ -376,8 +449,15 @@ export function validatePerformanceControllerAudit(value, {
   const requestLog = validateRequestLog(value.requestLog, { launchId, instrumentation });
   const brokerSamples = validateBrokerSamples(value.brokerSamples, launchId);
   const environmentSamples = validateEnvironmentSamples(value.environmentSamples, launchId);
-  const postReleaseSettle = validatePostReleaseSettle(value.postReleaseSettle, { requestLog, brokerSamples });
   const listenerEvidence = validateListenerEvidence(value.listenerEvidence);
+  const environmentEvents = validateEnvironmentEvents(value.environmentEvents);
+  const sourceFinalSequences = validateSourceFinalSequences(value.sourceFinalSequences, {
+    listenerEvidence,
+    environmentEvents
+  });
+  const lastBrokerCall = validateLastBrokerCall(value.lastBrokerCall, { brokerSamples, disposedAt: value.disposedAt });
+  const postReleaseSettle = validatePostReleaseSettle(value.postReleaseSettle, { requestLog, brokerSamples });
+  const finalTokenState = validateFinalTokenState(value.finalTokenState, { instrumentation });
   const requestSamples = requestLog.filter((entry) => entry.event === 'sample');
   const requestEnvironmentSamples = requestLog.filter((entry) => entry.event === 'sample-environment');
   requestSamples.forEach((entry, index) => {
@@ -400,10 +480,13 @@ export function validatePerformanceControllerAudit(value, {
     requestLog,
     brokerSamples,
     environmentSamples,
-    environmentEvents: validateEnvironmentEvents(value.environmentEvents),
+    environmentEvents,
+    sourceFinalSequences,
+    lastBrokerCall,
     postReleaseSettle,
     fatalReasons: [],
     finalPhase: 'pre-exit',
+    finalTokenState,
     listenerEvidence,
     restorationOutcome: 'restored',
     disposedAt: value.disposedAt

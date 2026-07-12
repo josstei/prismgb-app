@@ -107,6 +107,8 @@ export function createPerformanceControllerAuditFixture({
   }
   record('finalize', { disposedAt: sequence + 1 });
   if (postReleaseSettle === null) throw new Error('performance controller audit fixture did not record post-release settle evidence');
+  const lastBrokerCall = brokerSamples.at(-1);
+  if (!lastBrokerCall) throw new Error('performance controller audit fixture did not record a final broker call');
 
   return {
     launchId,
@@ -114,9 +116,18 @@ export function createPerformanceControllerAuditFixture({
     brokerSamples,
     environmentSamples,
     environmentEvents: [],
+    sourceFinalSequences: { app: 0 },
+    lastBrokerCall,
     postReleaseSettle,
     fatalReasons: [],
     finalPhase: 'pre-exit',
+    finalTokenState: {
+      operation: 'finalized',
+      phase: 'pre-exit',
+      activeNumericEpoch: null,
+      issuedPhaseTokenCount: phases.length,
+      issuedEpochTokenCount: instrumentation ? 1 : 0
+    },
     listenerEvidence: [{ eventType: 'app:gpu-info-update', removed: true }],
     restorationOutcome: 'restored',
     disposedAt: 100

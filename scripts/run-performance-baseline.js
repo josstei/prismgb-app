@@ -721,7 +721,7 @@ export async function collectPerformanceWorkloadCaptures({
     };
   });
   const body = {
-    schemaVersion: 7,
+    schemaVersion: 8,
     sourceSha,
     captures: entries
   };
@@ -790,7 +790,7 @@ export async function collectPerformanceSentinelCaptures({ outputDirectory, sour
     };
   });
   const body = {
-    schemaVersion: 5,
+    schemaVersion: 6,
     sourceSha,
     captures: entries
   };

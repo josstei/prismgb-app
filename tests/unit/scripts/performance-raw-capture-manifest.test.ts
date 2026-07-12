@@ -81,9 +81,9 @@ function fixture() {
     }))
   };
   const indexes = {
-    sentinel: { relativePath: 'performance-sentinel-captures.json', index: index(5, 6) },
+    sentinel: { relativePath: 'performance-sentinel-captures.json', index: index(6, 6) },
     externalMetric: { relativePath: 'performance-external-metric-captures.json', index: index(3, 18) },
-    workload: { relativePath: 'performance-workload-captures.json', index: index(7, 12) },
+    workload: { relativePath: 'performance-workload-captures.json', index: index(8, 12) },
     metricSession: { relativePath: 'performance-metric-session-captures.json', index: index(1, 9) }
   };
   return {
