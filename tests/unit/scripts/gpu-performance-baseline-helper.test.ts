@@ -94,6 +94,8 @@ describe('GPU performance baseline helper', () => {
       sampleEnvironment: vi.fn(async () => ({ currentState: {} })),
       openNumericEpoch: vi.fn(() => ({ epochToken: { nonce: 'epoch:measurement' } })),
       closeNumericEpoch: vi.fn(() => ({ closedAt: 1, callSequence: 1 })),
+      recordReleaseDispatched: vi.fn(() => ({ notBeforeFixtureAt: 1_000 })),
+      samplePostReleaseSettle: vi.fn(() => ({ rawAppMetrics: [] })),
       finalize: vi.fn(() => ({ launchId, finalPhase: 'pre-exit' }))
     };
     Object.defineProperty(globalThis, controllerSymbol, {
@@ -115,6 +117,8 @@ describe('GPU performance baseline helper', () => {
     await lease.advance('submission-seal');
     await lease.advance('drain');
     await lease.advance('shutdown');
+    await expect(lease.recordReleaseDispatched(0)).resolves.toEqual({ notBeforeFixtureAt: 1_000 });
+    await lease.samplePostReleaseSettle(1_000);
     await lease.advance('application-descendant-closure');
     await lease.advance('pre-exit');
 
@@ -145,6 +149,8 @@ describe('GPU performance baseline helper', () => {
     ]);
     expect(controller.openNumericEpoch).toHaveBeenCalledWith({ nonce: 'phase:measurement' }, launchId);
     expect(controller.closeNumericEpoch).toHaveBeenCalledWith({ nonce: 'epoch:measurement' });
+    expect(controller.recordReleaseDispatched).toHaveBeenCalledWith({ nonce: 'phase:shutdown' }, 0);
+    expect(controller.samplePostReleaseSettle).toHaveBeenCalledWith({ nonce: 'phase:shutdown' }, 1_000);
     expect(controller.sampleEnvironment).toHaveBeenCalledTimes(2);
   });
 

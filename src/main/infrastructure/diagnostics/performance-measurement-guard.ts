@@ -66,12 +66,21 @@ export type EnvironmentSample = Readonly<{
   readonly eventBoundary: Readonly<Record<string, number>>;
 }>;
 
+export type PostReleaseSettleAudit = Readonly<{
+  readonly purpose: 'post-release-settle';
+  readonly releaseDispatchedReceiptAt: number;
+  readonly notBeforeFixtureAt: number;
+  readonly sampledFixtureAt: number;
+  readonly brokerCallSequence: number;
+}>;
+
 export type MeasurementAudit = Readonly<{
   readonly launchId: string;
   readonly requestLog: readonly Readonly<Record<string, unknown>>[];
   readonly brokerSamples: readonly BrokerSample[];
   readonly environmentSamples: readonly EnvironmentSample[];
   readonly environmentEvents: readonly EnvironmentEvent[];
+  readonly postReleaseSettle: PostReleaseSettleAudit;
   readonly fatalReasons: readonly string[];
   readonly finalPhase: PerformanceMeasurementPhase;
   readonly listenerEvidence: readonly Readonly<{ readonly eventType: string; readonly removed: boolean }>[];
@@ -100,11 +109,16 @@ type OperationState = {
   activeEpoch: { readonly token: PerformanceEpochToken; readonly measurementEpochId: string } | null;
 };
 
+type PendingPostReleaseSettle = Readonly<{
+  readonly releaseDispatchedReceiptAt: number;
+  readonly notBeforeFixtureAt: number;
+}>;
+
 const purposesByPhase: Readonly<Record<PerformanceMeasurementPhase, readonly PerformanceMeasurementPurpose[]>> = {
   startup: ['startup-identity'],
   'qualification-probe': ['qualification'],
   warmup: ['warmup', 'prime'],
-  measurement: ['measurement', 'post-release-settle'],
+  measurement: ['measurement'],
   'submission-seal': ['submission-seal'],
   drain: ['drain'],
   shutdown: ['shutdown'],
@@ -126,6 +140,12 @@ function freezeToken(nonce: string): OpaqueToken {
 
 function currentPhase(state: OperationState): PerformanceMeasurementPhase {
   return PHASES[state.phaseIndex];
+}
+
+function requireFixtureClockTimestamp(value: number, label: string): void {
+  if (!Number.isFinite(value) || value < 0) {
+    fail(`${label} must be a finite monotonic timestamp`);
+  }
 }
 
 /**
@@ -160,6 +180,8 @@ export class PerformanceMeasurementController {
   private readonly fatalReasons: string[] = [];
   private lastBrokerSample: BrokerSample | null = null;
   private environmentListenersInstalled = false;
+  private pendingPostReleaseSettle: PendingPostReleaseSettle | null = null;
+  private postReleaseSettle: PostReleaseSettleAudit | null = null;
 
   constructor(launchId: string, options: PerformanceMeasurementGuardOptions) {
     if (launchId.length === 0) fail('launch ID must be nonempty');
@@ -227,6 +249,9 @@ export class PerformanceMeasurementController {
     if (PHASES[expectedIndex] !== phase) {
       fail(`expected phase ${PHASES[expectedIndex] ?? 'none'}, received ${phase}`);
     }
+    if (phase === 'application-descendant-closure' && this.postReleaseSettle === null) {
+      fail('application descendant closure requires a completed post-release settle sample');
+    }
     operation.phaseIndex = expectedIndex;
     const token = freezeToken(makeNonce(`phase:${phase}`, ++this.sequence));
     this.phaseTokens.set(token.nonce, phase);
@@ -254,6 +279,62 @@ export class PerformanceMeasurementController {
     if (!purposesByPhase[phase].includes(purpose)) {
       fail(`purpose ${purpose} is not valid during ${phase}`);
     }
+    return this.captureBrokerSample(phase, purpose);
+  }
+
+  recordReleaseDispatched(
+    phaseToken: PerformancePhaseToken,
+    releaseDispatchedReceiptAt: number
+  ): Readonly<{ readonly notBeforeFixtureAt: number }> {
+    this.requireOperationForPhaseToken(phaseToken, 'shutdown');
+    if (this.pendingPostReleaseSettle !== null || this.postReleaseSettle !== null) {
+      fail('release-dispatched boundary has already been recorded');
+    }
+    requireFixtureClockTimestamp(releaseDispatchedReceiptAt, 'release-dispatched fixture receipt');
+    const notBeforeFixtureAt = releaseDispatchedReceiptAt + 1_000;
+    if (!Number.isFinite(notBeforeFixtureAt)) {
+      fail('release-dispatched fixture receipt is too large to derive a settle deadline');
+    }
+    this.pendingPostReleaseSettle = Object.freeze({ releaseDispatchedReceiptAt, notBeforeFixtureAt });
+    this.record('record-release-dispatched', { releaseDispatchedReceiptAt, notBeforeFixtureAt });
+    return Object.freeze({ notBeforeFixtureAt });
+  }
+
+  samplePostReleaseSettle(
+    phaseToken: PerformancePhaseToken,
+    sampledFixtureAt: number
+  ): BrokerSample {
+    this.requireOperationForPhaseToken(phaseToken, 'shutdown');
+    const pending = this.pendingPostReleaseSettle;
+    if (pending === null || this.postReleaseSettle !== null) {
+      fail('post-release settle requires one recorded release-dispatched boundary');
+    }
+    requireFixtureClockTimestamp(sampledFixtureAt, 'post-release settle fixture sample');
+    if (sampledFixtureAt < pending.notBeforeFixtureAt) {
+      fail('post-release settle sample arrived before its one-second fixture deadline');
+    }
+    const sample = this.captureBrokerSample('shutdown', 'post-release-settle');
+    const postReleaseSettle = Object.freeze({
+      purpose: 'post-release-settle' as const,
+      releaseDispatchedReceiptAt: pending.releaseDispatchedReceiptAt,
+      notBeforeFixtureAt: pending.notBeforeFixtureAt,
+      sampledFixtureAt,
+      brokerCallSequence: sample.callSequence
+    });
+    this.pendingPostReleaseSettle = null;
+    this.postReleaseSettle = postReleaseSettle;
+    this.record('sample-post-release-settle', {
+      purpose: postReleaseSettle.purpose,
+      sampledFixtureAt: postReleaseSettle.sampledFixtureAt,
+      brokerCallSequence: postReleaseSettle.brokerCallSequence
+    });
+    return sample;
+  }
+
+  private captureBrokerSample(
+    phase: PerformanceMeasurementPhase,
+    purpose: PerformanceMeasurementPurpose
+  ): BrokerSample {
     const capturedAt = this.clock();
     const rawAppMetrics = this.getAppMetrics();
     const sample = Object.freeze({
@@ -327,6 +408,9 @@ export class PerformanceMeasurementController {
     const operation = this.requireOperation(operationToken);
     if (operation.activeEpoch !== null) fail('cannot finalize with a numeric epoch open');
     if (currentPhase(operation) !== 'pre-exit') fail('controller must reach pre-exit before finalization');
+    if (this.pendingPostReleaseSettle !== null || this.postReleaseSettle === null) {
+      fail('controller must complete the post-release settle sample before finalization');
+    }
     this.finalized = true;
     for (const registration of this.listeners) {
       registration.source.off(registration.eventType.slice(registration.eventType.indexOf(':') + 1), registration.listener);
@@ -346,6 +430,7 @@ export class PerformanceMeasurementController {
       brokerSamples: Object.freeze([...this.brokerSamples]),
       environmentSamples: Object.freeze([...this.environmentSamples]),
       environmentEvents: Object.freeze([...this.environmentEvents]),
+      postReleaseSettle: this.postReleaseSettle,
       fatalReasons: Object.freeze([...this.fatalReasons]),
       finalPhase: currentPhase(operation),
       listenerEvidence: Object.freeze(this.listeners.map(({ eventType, removed }) => Object.freeze({ eventType, removed }))),

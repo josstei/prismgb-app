@@ -200,6 +200,12 @@ async function runPerformanceMeasurementControllerCommand(electronApp, command) 
     if (input.kind === 'close-numeric-epoch') {
       return controller.closeNumericEpoch(input.epochToken);
     }
+    if (input.kind === 'record-release-dispatched') {
+      return controller.recordReleaseDispatched(input.phaseToken, input.releaseDispatchedReceiptAt);
+    }
+    if (input.kind === 'sample-post-release-settle') {
+      return controller.samplePostReleaseSettle(input.phaseToken, input.sampledFixtureAt);
+    }
     if (input.kind === 'finalize') {
       return controller.finalize(input.operationToken);
     }
@@ -232,6 +238,9 @@ export async function openPerformanceMeasurementLease(electronApp, launchId) {
   let startupEnvironmentRecorded = false;
   let warmupIdentityRecorded = false;
   let primeRecorded = false;
+  let releaseDispatchedRecorded = false;
+  let postReleaseSettleRecorded = false;
+  let postReleaseSettleNotBeforeFixtureAt = null;
   const requireLive = (operation) => {
     if (finalized) fail(`cannot ${operation} after the performance measurement lease is finalized`);
   };
@@ -260,6 +269,9 @@ export async function openPerformanceMeasurementLease(electronApp, launchId) {
       }
       if (phase === 'qualification-probe' && !startupEnvironmentRecorded) {
         fail('performance measurement must record the startup environment before qualification');
+      }
+      if (phase === 'application-descendant-closure' && !postReleaseSettleRecorded) {
+        fail('performance measurement must record the post-release settle sample before application descendant closure');
       }
       const advanced = await runPerformanceMeasurementControllerCommand(electronApp, {
         kind: 'advance-phase',
@@ -343,10 +355,61 @@ export async function openPerformanceMeasurementLease(electronApp, launchId) {
       epochToken = null;
     },
 
+    async recordReleaseDispatched(releaseDispatchedReceiptAt) {
+      requireLive('record the release-dispatched performance boundary');
+      if (
+        currentPhase !== 'shutdown'
+        || releaseDispatchedRecorded
+        || postReleaseSettleRecorded
+        || !Number.isFinite(releaseDispatchedReceiptAt)
+        || releaseDispatchedReceiptAt < 0
+      ) {
+        fail('performance measurement release-dispatched boundary is invalid');
+      }
+      const recorded = await runPerformanceMeasurementControllerCommand(electronApp, {
+        kind: 'record-release-dispatched',
+        launchId,
+        phaseToken,
+        releaseDispatchedReceiptAt
+      });
+      if (
+        !recorded
+        || typeof recorded !== 'object'
+        || !Number.isFinite(recorded.notBeforeFixtureAt)
+        || recorded.notBeforeFixtureAt !== releaseDispatchedReceiptAt + 1_000
+      ) {
+        fail('performance measurement release-dispatched boundary did not return its settle deadline');
+      }
+      releaseDispatchedRecorded = true;
+      postReleaseSettleNotBeforeFixtureAt = recorded.notBeforeFixtureAt;
+      return Object.freeze({ notBeforeFixtureAt: postReleaseSettleNotBeforeFixtureAt });
+    },
+
+    async samplePostReleaseSettle(sampledFixtureAt) {
+      requireLive('sample the post-release performance settle boundary');
+      if (
+        currentPhase !== 'shutdown'
+        || !releaseDispatchedRecorded
+        || postReleaseSettleRecorded
+        || postReleaseSettleNotBeforeFixtureAt === null
+        || !Number.isFinite(sampledFixtureAt)
+        || sampledFixtureAt < postReleaseSettleNotBeforeFixtureAt
+      ) {
+        fail('performance measurement post-release settle sample is invalid');
+      }
+      await runPerformanceMeasurementControllerCommand(electronApp, {
+        kind: 'sample-post-release-settle',
+        launchId,
+        phaseToken,
+        sampledFixtureAt
+      });
+      postReleaseSettleRecorded = true;
+    },
+
     async finalize() {
       requireLive('finalize the performance measurement lease');
-      if (currentPhase !== 'pre-exit' || epochToken !== null) {
-        fail('performance measurement lease must reach pre-exit with no open numeric epoch before finalization');
+      if (currentPhase !== 'pre-exit' || epochToken !== null || !postReleaseSettleRecorded) {
+        fail('performance measurement lease must reach pre-exit after post-release settling with no open numeric epoch before finalization');
       }
       const audit = await runPerformanceMeasurementControllerCommand(electronApp, {
         kind: 'finalize',

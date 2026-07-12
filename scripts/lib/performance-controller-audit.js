@@ -21,6 +21,7 @@ const EXPECTED_BROKER_SAMPLES = Object.freeze([
   Object.freeze({ phase: 'submission-seal', purpose: 'submission-seal' }),
   Object.freeze({ phase: 'drain', purpose: 'drain' }),
   Object.freeze({ phase: 'shutdown', purpose: 'shutdown' }),
+  Object.freeze({ phase: 'shutdown', purpose: 'post-release-settle' }),
   Object.freeze({ phase: 'application-descendant-closure', purpose: 'application-descendant-closure' }),
   Object.freeze({ phase: 'pre-exit', purpose: 'pre-exit' })
 ]);
@@ -33,6 +34,8 @@ const REQUEST_LOG_EVENTS = new Set([
   'sample',
   'sample-environment',
   'close-numeric-epoch',
+  'record-release-dispatched',
+  'sample-post-release-settle',
   'finalize'
 ]);
 
@@ -107,6 +110,8 @@ function validateRequestLogEntry(entry, index, previousSequence) {
     sample: ['purpose', 'phase', 'callSequence'],
     'sample-environment': ['phase', 'callSequence'],
     'close-numeric-epoch': ['closedAt', 'callSequence'],
+    'record-release-dispatched': ['releaseDispatchedReceiptAt', 'notBeforeFixtureAt'],
+    'sample-post-release-settle': ['purpose', 'sampledFixtureAt', 'brokerCallSequence'],
     finalize: ['disposedAt']
   };
   exact(entry, ['sequence', 'event', 'at', ...detailsByEvent[entry.event]], label);
@@ -240,6 +245,82 @@ function validateEnvironmentEvents(value) {
   });
 }
 
+function validatePostReleaseSettle(value, { requestLog, brokerSamples }) {
+  exact(value, [
+    'purpose',
+    'releaseDispatchedReceiptAt',
+    'notBeforeFixtureAt',
+    'sampledFixtureAt',
+    'brokerCallSequence'
+  ], 'controllerAudit.postReleaseSettle');
+  if (value.purpose !== 'post-release-settle') {
+    fail('controllerAudit.postReleaseSettle purpose is invalid');
+  }
+  finite(value.releaseDispatchedReceiptAt, 'controllerAudit.postReleaseSettle release-dispatched receipt');
+  finite(value.notBeforeFixtureAt, 'controllerAudit.postReleaseSettle not-before deadline');
+  finite(value.sampledFixtureAt, 'controllerAudit.postReleaseSettle sample time');
+  integer(value.brokerCallSequence, 'controllerAudit.postReleaseSettle broker call sequence', 1);
+  if (value.notBeforeFixtureAt !== value.releaseDispatchedReceiptAt + 1_000) {
+    fail('controllerAudit.postReleaseSettle does not retain its one-second fixture deadline');
+  }
+  if (value.sampledFixtureAt < value.notBeforeFixtureAt) {
+    fail('controllerAudit.postReleaseSettle sample precedes its fixture deadline');
+  }
+
+  const releaseRequests = requestLog.filter((entry) => entry.event === 'record-release-dispatched');
+  const settleRequests = requestLog.filter((entry) => entry.event === 'sample-post-release-settle');
+  if (releaseRequests.length !== 1 || settleRequests.length !== 1) {
+    fail('controller audit must retain one release-dispatched receipt and one post-release settle request');
+  }
+  const [releaseRequest] = releaseRequests;
+  const [settleRequest] = settleRequests;
+  if (
+    releaseRequest.releaseDispatchedReceiptAt !== value.releaseDispatchedReceiptAt
+    || releaseRequest.notBeforeFixtureAt !== value.notBeforeFixtureAt
+  ) {
+    fail('controller audit release-dispatched request does not bind the settle deadline');
+  }
+  if (
+    settleRequest.purpose !== value.purpose
+    || settleRequest.sampledFixtureAt !== value.sampledFixtureAt
+    || settleRequest.brokerCallSequence !== value.brokerCallSequence
+  ) {
+    fail('controller audit post-release settle request does not bind its audit evidence');
+  }
+
+  const brokerSample = brokerSamples.find((sample) => sample.callSequence === value.brokerCallSequence);
+  if (!brokerSample || brokerSample.phase !== 'shutdown' || brokerSample.purpose !== value.purpose) {
+    fail('controller audit post-release settle does not bind the shutdown broker sample');
+  }
+  const shutdownSampleIndex = requestLog.findIndex((entry) => (
+    entry.event === 'sample' && entry.phase === 'shutdown' && entry.purpose === 'shutdown'
+  ));
+  const releaseRequestIndex = requestLog.indexOf(releaseRequest);
+  const settleSampleIndex = requestLog.findIndex((entry) => (
+    entry.event === 'sample'
+    && entry.phase === 'shutdown'
+    && entry.purpose === 'post-release-settle'
+    && entry.callSequence === value.brokerCallSequence
+  ));
+  const settleRequestIndex = requestLog.indexOf(settleRequest);
+  if (
+    shutdownSampleIndex === -1
+    || !(shutdownSampleIndex < releaseRequestIndex
+      && releaseRequestIndex < settleSampleIndex
+      && settleSampleIndex < settleRequestIndex)
+  ) {
+    fail('controller audit post-release settle request order is invalid');
+  }
+
+  return {
+    purpose: value.purpose,
+    releaseDispatchedReceiptAt: value.releaseDispatchedReceiptAt,
+    notBeforeFixtureAt: value.notBeforeFixtureAt,
+    sampledFixtureAt: value.sampledFixtureAt,
+    brokerCallSequence: value.brokerCallSequence
+  };
+}
+
 function validateListenerEvidence(value) {
   if (!Array.isArray(value) || value.length === 0) {
     fail('controllerAudit.listenerEvidence must retain installed listener removal evidence');
@@ -260,6 +341,9 @@ function validateListenerEvidence(value) {
  * Normalizes the only accepted completed harness controller audit. The capture
  * remains raw evidence, but rejects missing lease phases, cached public metric
  * interference, numeric-epoch drift, and incomplete listener restoration.
+ *
+ * @param {unknown} value
+ * @param {{ launchId: string, instrumentation: boolean, label?: string }} options
  */
 export function validatePerformanceControllerAudit(value, {
   launchId,
@@ -274,6 +358,7 @@ export function validatePerformanceControllerAudit(value, {
     'brokerSamples',
     'environmentSamples',
     'environmentEvents',
+    'postReleaseSettle',
     'fatalReasons',
     'finalPhase',
     'listenerEvidence',
@@ -291,6 +376,7 @@ export function validatePerformanceControllerAudit(value, {
   const requestLog = validateRequestLog(value.requestLog, { launchId, instrumentation });
   const brokerSamples = validateBrokerSamples(value.brokerSamples, launchId);
   const environmentSamples = validateEnvironmentSamples(value.environmentSamples, launchId);
+  const postReleaseSettle = validatePostReleaseSettle(value.postReleaseSettle, { requestLog, brokerSamples });
   const listenerEvidence = validateListenerEvidence(value.listenerEvidence);
   const requestSamples = requestLog.filter((entry) => entry.event === 'sample');
   const requestEnvironmentSamples = requestLog.filter((entry) => entry.event === 'sample-environment');
@@ -315,6 +401,7 @@ export function validatePerformanceControllerAudit(value, {
     brokerSamples,
     environmentSamples,
     environmentEvents: validateEnvironmentEvents(value.environmentEvents),
+    postReleaseSettle,
     fatalReasons: [],
     finalPhase: 'pre-exit',
     listenerEvidence,

@@ -87,8 +87,45 @@ function sourceOpportunityWrites(writes) {
   return writes.filter((write) => write.kind === 'source-opportunity');
 }
 
+function requireReleaseDispatchedControlBoundary(writes, launchId) {
+  if (!Array.isArray(writes)) {
+    throw new Error('performance control probe did not return its shutdown boundary writes');
+  }
+  const beforeReleaseIndex = writes.findIndex((write) => (
+    write?.kind === 'shutdown-boundary'
+    && write.boundary === 'before-release'
+    && write.launchId === launchId
+  ));
+  const releaseDispatchedIndex = writes.findIndex((write) => (
+    write?.kind === 'shutdown-boundary'
+    && write.boundary === 'release-dispatched'
+    && write.launchId === launchId
+  ));
+  if (beforeReleaseIndex === -1 || releaseDispatchedIndex === -1 || beforeReleaseIndex >= releaseDispatchedIndex) {
+    throw new Error('performance control probe did not retain ordered before-release and release-dispatched boundaries');
+  }
+  const releaseDispatched = writes[releaseDispatchedIndex];
+  if (!Number.isFinite(releaseDispatched.observedAt)) {
+    throw new Error('performance control probe release-dispatched boundary has no observation timestamp');
+  }
+  return releaseDispatched;
+}
+
 function waitFor(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function recordPostReleaseSettle(performanceLaunch, measurement, writes) {
+  if (measurement === null) return null;
+  requireReleaseDispatchedControlBoundary(writes, performanceLaunch.launchId);
+  const releaseDispatchedReceiptAt = performance.now();
+  const { notBeforeFixtureAt } = await measurement.recordReleaseDispatched(releaseDispatchedReceiptAt);
+  while (performance.now() < notBeforeFixtureAt) {
+    await waitFor(Math.ceil(notBeforeFixtureAt - performance.now()));
+  }
+  const sampledFixtureAt = performance.now();
+  await measurement.samplePostReleaseSettle(sampledFixtureAt);
+  return Object.freeze({ releaseDispatchedReceiptAt, notBeforeFixtureAt, sampledFixtureAt });
 }
 
 function monotonicSeconds() {
@@ -466,7 +503,11 @@ async function executeExternalSentinelMeasurement({
     if (measurement !== null) await measurement.advance('shutdown');
     await streamPage.stop();
     streamStopped = true;
-    if (measurement !== null) await measurement.advance('application-descendant-closure');
+    if (measurement !== null) {
+      const writes = await performanceLaunch.readPerformanceControlProbe();
+      await recordPostReleaseSettle(performanceLaunch, measurement, writes);
+      await measurement.advance('application-descendant-closure');
+    }
     return Object.freeze({ warmup, gate: sealedGate, transcript: measured.transcript });
   } finally {
     if (!streamStopped) await streamPage.stop().catch(() => {});
@@ -554,8 +595,9 @@ async function executeHarnessWorkloadMeasurement({
     await measurement.advance('shutdown');
     await streamPage.stop();
     streamStopped = true;
-    await measurement.advance('application-descendant-closure');
     const writes = await performanceLaunch.readPerformanceControlProbe();
+    await recordPostReleaseSettle(performanceLaunch, measurement, writes);
+    await measurement.advance('application-descendant-closure');
     const cohortSourceWrites = sourceOpportunityWrites(writes);
     const diagnostics = instrumentation ? await performanceLaunch.readPerformanceDiagnostics() : {};
     const measurementWindow = sealedGate.measurementWindow;

@@ -5,7 +5,7 @@ import { stableStringify } from './baseline-report.js';
 import { validatePerformanceControllerAudit } from './performance-controller-audit.js';
 import { validatePerformancePairBinding } from './performance-pair-plan.js';
 
-export const PERFORMANCE_SENTINEL_CAPTURE_SCHEMA_VERSION = 4;
+export const PERFORMANCE_SENTINEL_CAPTURE_SCHEMA_VERSION = 5;
 export const PERFORMANCE_SENTINEL_CAPTURE_DIRECTORY = 'raw-sentinel-captures';
 
 const BUILD_VARIANTS = Object.freeze({

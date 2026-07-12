@@ -81,7 +81,7 @@ describe('performance workload capture', () => {
     const capture = createPerformanceWorkloadCapture(captureInput());
 
     expect(capture).toMatchObject({
-      schemaVersion: 5,
+      schemaVersion: 6,
       externalExecutionId: '123e4567-e89b-42d3-a456-426614174010',
       observationBoundaryId: 'external-sentinel-window:123e4567-e89b-42d3-a456-426614174010',
       checksum: expect.stringMatching(/^[a-f0-9]{64}$/),
@@ -108,6 +108,16 @@ describe('performance workload capture', () => {
         fatalReasons: ['unleased-public-metrics-interference']
       }
     })).toThrow(/fatalReasons/);
+    expect(() => createPerformanceWorkloadCapture({
+      ...captureInput(),
+      controllerAudit: {
+        ...captureInput().controllerAudit,
+        postReleaseSettle: {
+          ...captureInput().controllerAudit.postReleaseSettle,
+          sampledFixtureAt: 1_099
+        }
+      }
+    })).toThrow(/precedes its fixture deadline/);
   });
 
   it('persists only no-clobber checksum-bound capture files and reads them back', async () => {

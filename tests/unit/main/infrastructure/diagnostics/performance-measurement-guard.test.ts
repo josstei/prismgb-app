@@ -7,6 +7,7 @@ import {
   type MeasurementEventSource,
   type PerformanceOperationToken
 } from '@main/infrastructure/diagnostics/performance-measurement-guard';
+import { validatePerformanceControllerAudit } from '../../../../../scripts/lib/performance-controller-audit.js';
 
 const launchId = '6e3cc1a1-c341-4e20-9737-56ac2c4bd192';
 
@@ -27,8 +28,9 @@ function completeOperationAfterStartup(
   controller.sample(qualification, 'qualification');
   const warmup = controller.beginPhase(operationToken, 'warmup').phaseToken;
   controller.sample(warmup, 'warmup');
+  controller.sample(warmup, 'prime');
   const measurement = controller.beginPhase(operationToken, 'measurement').phaseToken;
-  const epoch = controller.openNumericEpoch(measurement, 'epoch-1').epochToken;
+  const epoch = controller.openNumericEpoch(measurement, launchId).epochToken;
   controller.sample(epoch, 'measurement');
   controller.closeNumericEpoch(epoch);
   const submissionSeal = controller.beginPhase(operationToken, 'submission-seal').phaseToken;
@@ -37,10 +39,13 @@ function completeOperationAfterStartup(
   controller.sample(drain, 'drain');
   const shutdown = controller.beginPhase(operationToken, 'shutdown').phaseToken;
   controller.sample(shutdown, 'shutdown');
+  controller.recordReleaseDispatched(shutdown, 100);
+  controller.samplePostReleaseSettle(shutdown, 1_100);
   const closure = controller.beginPhase(operationToken, 'application-descendant-closure').phaseToken;
   controller.sample(closure, 'application-descendant-closure');
   const preExit = controller.beginPhase(operationToken, 'pre-exit').phaseToken;
   controller.sample(preExit, 'pre-exit');
+  return preExit;
 }
 
 describe('PerformanceMeasurementController', () => {
@@ -74,10 +79,18 @@ describe('PerformanceMeasurementController', () => {
     expect(environment.currentState).toEqual({ power: 'ac', display: 'single' });
     expect(environment.eventBoundary).toEqual({ 'power:on-ac': 1, 'screen:display-added': 2 });
 
-    completeOperationAfterStartup(controller, operationToken);
+    const preExit = completeOperationAfterStartup(controller, operationToken);
+    await controller.sampleEnvironment(preExit);
 
     const audit = controller.finalize(operationToken);
-    expect(audit.brokerSamples).toHaveLength(9);
+    expect(audit.brokerSamples).toHaveLength(11);
+    expect(audit.postReleaseSettle).toMatchObject({
+      purpose: 'post-release-settle',
+      releaseDispatchedReceiptAt: 100,
+      notBeforeFixtureAt: 1_100,
+      sampledFixtureAt: 1_100,
+      brokerCallSequence: expect.any(Number)
+    });
     expect(audit.environmentEvents).toHaveLength(2);
     expect(audit.listenerEvidence).toEqual([
       { eventType: 'power:on-ac', removed: true },
@@ -87,6 +100,7 @@ describe('PerformanceMeasurementController', () => {
     expect(globalTarget[PERFORMANCE_MEASUREMENT_CONTROLLER_SYMBOL]).toBeUndefined();
     expect(power.listenerCount('on-ac')).toBe(0);
     expect(screen.listenerCount('display-added')).toBe(0);
+    expect(validatePerformanceControllerAudit(audit, { launchId, instrumentation: true })).toEqual(audit);
   });
 
   it('rejects wrong launch IDs, skipped phases, stale epoch tokens, and phase-incompatible purposes', () => {
@@ -112,6 +126,34 @@ describe('PerformanceMeasurementController', () => {
     expect(() => controller.sample(warmup, 'measurement')).toThrow(/sampling token/);
   });
 
+  it('requires the release-dispatched receipt and one-second fixture settle before descendant closure', () => {
+    const globalTarget: Record<PropertyKey, unknown> = {};
+    const controller = installPerformanceMeasurementGuard(launchId, {
+      globalTarget,
+      getAppMetrics: () => []
+    });
+    const { operationToken } = controller.beginOperation(launchId);
+    controller.beginPhase(operationToken, 'startup');
+    controller.beginPhase(operationToken, 'qualification-probe');
+    controller.beginPhase(operationToken, 'warmup');
+    controller.beginPhase(operationToken, 'measurement');
+    controller.beginPhase(operationToken, 'submission-seal');
+    controller.beginPhase(operationToken, 'drain');
+    const shutdown = controller.beginPhase(operationToken, 'shutdown').phaseToken;
+
+    expect(() => controller.sample(shutdown, 'post-release-settle')).toThrow(/not valid during shutdown/);
+    expect(() => controller.samplePostReleaseSettle(shutdown, 1_000)).toThrow(/release-dispatched boundary/);
+    const { notBeforeFixtureAt } = controller.recordReleaseDispatched(shutdown, 50);
+    expect(notBeforeFixtureAt).toBe(1_050);
+    expect(() => controller.samplePostReleaseSettle(shutdown, 1_049)).toThrow(/before its one-second fixture deadline/);
+    expect(() => controller.beginPhase(operationToken, 'application-descendant-closure')).toThrow(/post-release settle/);
+
+    const sample = controller.samplePostReleaseSettle(shutdown, 1_050);
+    expect(sample).toMatchObject({ phase: 'shutdown', purpose: 'post-release-settle', servedFromCache: false });
+    expect(() => controller.samplePostReleaseSettle(shutdown, 1_051)).toThrow(/release-dispatched boundary/);
+    expect(() => controller.recordReleaseDispatched(shutdown, 1_051)).toThrow(/already been recorded/);
+  });
+
   it('returns cached metrics without calling Electron and records the required fatal interference reason', () => {
     const globalTarget: Record<PropertyKey, unknown> = {};
     const getAppMetrics = vi.fn(() => [{ pid: 1 }]);
@@ -132,7 +174,9 @@ describe('PerformanceMeasurementController', () => {
     controller.closeNumericEpoch(epoch);
     controller.beginPhase(operationToken, 'submission-seal');
     controller.beginPhase(operationToken, 'drain');
-    controller.beginPhase(operationToken, 'shutdown');
+    const shutdown = controller.beginPhase(operationToken, 'shutdown').phaseToken;
+    controller.recordReleaseDispatched(shutdown, 0);
+    controller.samplePostReleaseSettle(shutdown, 1_000);
     controller.beginPhase(operationToken, 'application-descendant-closure');
     controller.beginPhase(operationToken, 'pre-exit');
 
