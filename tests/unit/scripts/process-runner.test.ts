@@ -2,8 +2,14 @@ import { exec } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  createExternalMetricSampleReader,
+  createLinuxProcfsSnapshotReader,
+  createMacosPsSnapshotReader,
   createProcessIdentityTracker,
   headlessElectronEnv,
+  parseLinuxProcfsMetricSnapshot,
+  parseMacosPsMetricSnapshot,
+  parseWindowsPowerShellMetricSnapshot,
   terminateProcessTree,
   waitForProcessClose
 } from '../../../scripts/lib/process-runner.js';
@@ -99,6 +105,127 @@ describe('createProcessIdentityTracker', () => {
     });
     await ownershipTracker.observe();
     await expect(ownershipTracker.observe()).rejects.toThrow(/ownership identity changed/);
+  });
+});
+
+describe('external process metric snapshots', () => {
+  it('decodes Linux procfs CPU ticks and resident pages without losing the process name boundary', () => {
+    const fields = Array.from({ length: 50 }, (_, index) => String(index));
+    fields[0] = 'S';
+    fields[11] = '120';
+    fields[12] = '30';
+    const snapshot = parseLinuxProcfsMetricSnapshot({
+      stat: `42 (Chromium Helper (GPU)) ${fields.join(' ')}`,
+      statm: '500 25 0 0 0 0 0',
+      clockTicks: 100,
+      pageSize: 4096
+    });
+
+    expect(snapshot).toEqual({
+      cumulativeCpuSeconds: 1.5,
+      workingSetMiB: 25 * 4096 / (1024 * 1024),
+      counterQuantumSeconds: 0.01,
+      raw: {
+        pid: 42,
+        userTicks: 120,
+        systemTicks: 30,
+        residentPages: 25,
+        pageSize: 4096,
+        clockTicks: 100
+      }
+    });
+    expect(() => parseLinuxProcfsMetricSnapshot({
+      stat: '42 (broken) S 1', statm: '500 25 0 0 0 0 0', clockTicks: 100, pageSize: 4096
+    })).toThrow(/missing CPU fields/);
+    expect(() => parseLinuxProcfsMetricSnapshot({
+      stat: `42 (Browser) ${fields.join(' ')}`, statm: '500 25', clockTicks: 100, pageSize: 4096
+    })).toThrow(/seven fields/);
+  });
+
+  it('decodes macOS ps and Windows PowerShell raw values with explicit units', () => {
+    expect(parseMacosPsMetricSnapshot('1-02:03:04.5 2048\n')).toMatchObject({
+      cumulativeCpuSeconds: 93784.5,
+      workingSetMiB: 2,
+      counterQuantumSeconds: 0.01,
+      raw: { cpuTime: '1-02:03:04.5', residentSetKiB: 2048 }
+    });
+    expect(parseWindowsPowerShellMetricSnapshot({
+      totalProcessorTimeTicks: '123456789',
+      workingSetBytes: '10485760'
+    })).toMatchObject({
+      cumulativeCpuSeconds: 12.3456789,
+      workingSetMiB: 10,
+      counterQuantumSeconds: 0.0000001,
+      raw: { totalProcessorTimeTicks: '123456789', workingSetBytes: '10485760' }
+    });
+    expect(() => parseMacosPsMetricSnapshot('00:01 2\n00:02 3\n')).toThrow(/exactly one process row/);
+    expect(() => parseWindowsPowerShellMetricSnapshot({ totalProcessorTimeTicks: '1.5', workingSetBytes: '1' })).toThrow(/decimal integer/);
+  });
+
+  it('brackets monotonic raw samples and rejects regression, slow reads, and post-close access', async () => {
+    const snapshots = [
+      parseMacosPsMetricSnapshot('00:01 1024\n'),
+      parseMacosPsMetricSnapshot('00:02 2048\n')
+    ];
+    const clock = vi.fn()
+      .mockReturnValueOnce(10)
+      .mockReturnValueOnce(10.01)
+      .mockReturnValueOnce(10.5)
+      .mockReturnValueOnce(10.52)
+      .mockReturnValueOnce(10.53);
+    const reader = createExternalMetricSampleReader({
+      processIdentity: 'renderer-42',
+      counterQuantumSeconds: 0.01,
+      clock,
+      readSnapshot: vi.fn(() => snapshots.shift())
+    });
+
+    await expect(reader.sample()).resolves.toMatchObject({
+      sample: { ordinal: 1, readStart: 10, readEnd: 10.01, processIdentity: 'renderer-42', cumulativeCpuSeconds: 1, workingSetMiB: 1 }
+    });
+    await expect(reader.sample()).resolves.toMatchObject({
+      sample: { ordinal: 2, readStart: 10.5, readEnd: 10.52, cumulativeCpuSeconds: 2, workingSetMiB: 2 }
+    });
+    expect(reader.close()).toEqual({ samplesRead: 2, closedAt: 10.53 });
+    await expect(reader.sample()).rejects.toThrow(/closed metric reader/);
+
+    const slowReader = createExternalMetricSampleReader({
+      processIdentity: 'renderer-42',
+      counterQuantumSeconds: 0.01,
+      clock: vi.fn().mockReturnValueOnce(1).mockReturnValueOnce(1.051),
+      readSnapshot: () => parseMacosPsMetricSnapshot('00:01 1\n')
+    });
+    await expect(slowReader.sample()).rejects.toThrow(/exceeds its maximum duration/);
+
+    const regressingReader = createExternalMetricSampleReader({
+      processIdentity: 'renderer-42',
+      counterQuantumSeconds: 0.01,
+      clock: vi.fn().mockReturnValueOnce(1).mockReturnValueOnce(1.01).mockReturnValueOnce(2).mockReturnValueOnce(2.01),
+      readSnapshot: vi.fn()
+        .mockReturnValueOnce(parseMacosPsMetricSnapshot('00:02 1\n'))
+        .mockReturnValueOnce(parseMacosPsMetricSnapshot('00:01 1\n'))
+    });
+    await regressingReader.sample();
+    await expect(regressingReader.sample()).rejects.toThrow(/cumulative CPU regressed/);
+  });
+
+  it('reads Linux procfs and macOS ps through injectable external readers', async () => {
+    const readFile = vi.fn(async (file: string) => {
+      if (file.endsWith('/stat')) return '42 (Browser) S 0 0 0 0 0 0 0 0 0 0 10 20';
+      if (file.endsWith('/statm')) return '500 25 0 0 0 0 0';
+      throw new Error(`unexpected file ${file}`);
+    });
+    const linuxReader = createLinuxProcfsSnapshotReader({
+      procfsRoot: '/fixture/proc', pageSize: 4096, clockTicks: 100, readFile
+    });
+    await expect(linuxReader(42)).resolves.toMatchObject({ cumulativeCpuSeconds: 0.3, workingSetMiB: 25 * 4096 / (1024 * 1024) });
+    expect(readFile).toHaveBeenNthCalledWith(1, '/fixture/proc/42/stat', 'utf8');
+    expect(readFile).toHaveBeenNthCalledWith(2, '/fixture/proc/42/statm', 'utf8');
+
+    const runCommand = vi.fn(async () => '00:01 1024\n');
+    const macosReader = createMacosPsSnapshotReader({ runCommand });
+    await expect(macosReader(42)).resolves.toMatchObject({ cumulativeCpuSeconds: 1, workingSetMiB: 1 });
+    expect(runCommand).toHaveBeenCalledWith('/bin/ps', ['-o', 'time=', '-o', 'rss=', '-p', '42']);
   });
 });
 

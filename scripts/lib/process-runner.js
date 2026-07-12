@@ -2,11 +2,354 @@
  * Shared child-process lifecycle helpers for gate scripts: headless electron
  * environment, close-awaiting, and platform-aware process-tree termination.
  */
-import { exec } from 'node:child_process';
+import { exec, execFile } from 'node:child_process';
+import fs from 'node:fs/promises';
 import { performance } from 'node:perf_hooks';
+import path from 'node:path';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
+const MEBIBYTE_BYTES = 1024 * 1024;
 
 function failProcessIdentity(message) {
   throw new TypeError(`Process identity tracker failed: ${message}`);
+}
+
+function failExternalMetric(message) {
+  throw new TypeError(`External process metric failed: ${message}`);
+}
+
+function assertNonemptyString(value, label) {
+  if (typeof value !== 'string' || value.length === 0) {
+    failExternalMetric(`${label} must be a nonempty string`);
+  }
+}
+
+function assertPositiveSafeInteger(value, label) {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    failExternalMetric(`${label} must be a positive safe integer`);
+  }
+}
+
+function assertNonnegativeSafeInteger(value, label) {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    failExternalMetric(`${label} must be a nonnegative safe integer`);
+  }
+}
+
+function assertFiniteNonnegativeNumber(value, label) {
+  if (!Number.isFinite(value) || value < 0) {
+    failExternalMetric(`${label} must be a nonnegative finite number`);
+  }
+}
+
+function parseDecimalInteger(value, label) {
+  if (typeof value !== 'string' || !/^\d+$/.test(value)) {
+    failExternalMetric(`${label} must be an unsigned decimal integer`);
+  }
+  const parsed = Number(value);
+  assertNonnegativeSafeInteger(parsed, label);
+  return parsed;
+}
+
+function parseBigDecimalInteger(value, label) {
+  if (typeof value === 'number') {
+    assertNonnegativeSafeInteger(value, label);
+    return BigInt(value);
+  }
+  if (typeof value !== 'string' || !/^\d+$/.test(value)) {
+    failExternalMetric(`${label} must be an unsigned decimal integer`);
+  }
+  return BigInt(value);
+}
+
+function freezeSnapshot({ cumulativeCpuSeconds, workingSetMiB, counterQuantumSeconds, raw }) {
+  assertFiniteNonnegativeNumber(cumulativeCpuSeconds, 'cumulative CPU seconds');
+  assertFiniteNonnegativeNumber(workingSetMiB, 'working set MiB');
+  if (!Number.isFinite(counterQuantumSeconds) || counterQuantumSeconds <= 0 || counterQuantumSeconds > 0.01) {
+    failExternalMetric('counter quantum seconds must be finite, positive, and at most 0.01');
+  }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    failExternalMetric('raw metric values must be an object');
+  }
+  return Object.freeze({
+    cumulativeCpuSeconds,
+    workingSetMiB,
+    counterQuantumSeconds,
+    raw: Object.freeze({ ...raw })
+  });
+}
+
+function parseLinuxStatFields(stat) {
+  if (typeof stat !== 'string') failExternalMetric('Linux /proc stat contents must be a string');
+  const match = /^\s*(\d+)\s+\((.*)\)\s+(.*)$/s.exec(stat.trim());
+  if (!match) failExternalMetric('Linux /proc stat contents are malformed');
+  const pid = parseDecimalInteger(match[1], 'Linux /proc stat PID');
+  const fields = match[3].trim().split(/\s+/);
+  if (fields.length < 13) failExternalMetric('Linux /proc stat is missing CPU fields');
+  if (!/^[A-Za-z]$/.test(fields[0])) failExternalMetric('Linux /proc stat process state is malformed');
+  return {
+    pid,
+    userTicks: parseDecimalInteger(fields[11], 'Linux /proc stat user ticks'),
+    systemTicks: parseDecimalInteger(fields[12], 'Linux /proc stat system ticks')
+  };
+}
+
+function parseLinuxStatmFields(statm) {
+  if (typeof statm !== 'string') failExternalMetric('Linux /proc statm contents must be a string');
+  const fields = statm.trim().split(/\s+/);
+  if (fields.length !== 7) failExternalMetric('Linux /proc statm must contain exactly seven fields');
+  const values = fields.map((field, index) => parseDecimalInteger(field, `Linux /proc statm field ${index}`));
+  return { residentPages: values[1] };
+}
+
+function parseMacosCpuTime(value) {
+  assertNonemptyString(value, 'macOS ps CPU time');
+  const dayParts = value.split('-');
+  if (dayParts.length > 2 || dayParts.some((part) => part.length === 0)) {
+    failExternalMetric('macOS ps CPU time has an invalid day separator');
+  }
+  const days = dayParts.length === 2 ? parseDecimalInteger(dayParts[0], 'macOS ps CPU days') : 0;
+  const clockParts = dayParts.at(-1).split(':');
+  if (clockParts.length !== 2 && clockParts.length !== 3) {
+    failExternalMetric('macOS ps CPU time must be MM:SS or HH:MM:SS');
+  }
+  const hours = clockParts.length === 3 ? parseDecimalInteger(clockParts[0], 'macOS ps CPU hours') : 0;
+  const minutes = parseDecimalInteger(clockParts.at(-2), 'macOS ps CPU minutes');
+  if (minutes >= 60) failExternalMetric('macOS ps CPU minutes must be less than 60');
+  const seconds = Number(clockParts.at(-1));
+  if (!Number.isFinite(seconds) || seconds < 0 || seconds >= 60 || !/^\d+(?:\.\d+)?$/.test(clockParts.at(-1))) {
+    failExternalMetric('macOS ps CPU seconds are malformed');
+  }
+  const totalSeconds = (((days * 24) + hours) * 60 + minutes) * 60 + seconds;
+  assertFiniteNonnegativeNumber(totalSeconds, 'macOS ps cumulative CPU seconds');
+  return totalSeconds;
+}
+
+/**
+ * Decodes the Linux metric authority without inferring an acquisition instant.
+ *
+ * @param {{ stat: string, statm: string, clockTicks: number, pageSize: number }} input
+ */
+export function parseLinuxProcfsMetricSnapshot({ stat, statm, clockTicks, pageSize } = {}) {
+  assertPositiveSafeInteger(clockTicks, 'Linux clock ticks per second');
+  assertPositiveSafeInteger(pageSize, 'Linux page size');
+  const parsedStat = parseLinuxStatFields(stat);
+  const { residentPages } = parseLinuxStatmFields(statm);
+  const totalTicks = parsedStat.userTicks + parsedStat.systemTicks;
+  if (!Number.isSafeInteger(totalTicks)) failExternalMetric('Linux cumulative CPU ticks exceed safe integer precision');
+  const residentBytes = residentPages * pageSize;
+  if (!Number.isSafeInteger(residentBytes)) failExternalMetric('Linux resident byte count exceeds safe integer precision');
+  return freezeSnapshot({
+    cumulativeCpuSeconds: totalTicks / clockTicks,
+    workingSetMiB: residentBytes / MEBIBYTE_BYTES,
+    counterQuantumSeconds: 1 / clockTicks,
+    raw: {
+      pid: parsedStat.pid,
+      userTicks: parsedStat.userTicks,
+      systemTicks: parsedStat.systemTicks,
+      residentPages,
+      pageSize,
+      clockTicks
+    }
+  });
+}
+
+/**
+ * Decodes one `ps -o time= -o rss=` response. Its RSS input is KiB.
+ *
+ * @param {string} output
+ */
+export function parseMacosPsMetricSnapshot(output) {
+  if (typeof output !== 'string') failExternalMetric('macOS ps output must be a string');
+  const lines = output.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.length !== 1) failExternalMetric('macOS ps output must contain exactly one process row');
+  const fields = lines[0].split(/\s+/);
+  if (fields.length !== 2) failExternalMetric('macOS ps output must contain CPU time and RSS only');
+  const cumulativeCpuSeconds = parseMacosCpuTime(fields[0]);
+  const residentSetKiB = parseDecimalInteger(fields[1], 'macOS ps RSS KiB');
+  return freezeSnapshot({
+    cumulativeCpuSeconds,
+    workingSetMiB: residentSetKiB / 1024,
+    counterQuantumSeconds: 0.01,
+    raw: { cpuTime: fields[0], residentSetKiB }
+  });
+}
+
+/**
+ * Decodes the closed Windows persistent-sampler payload. Integer strings avoid
+ * precision loss before cumulative CPU and working-set conversion.
+ *
+ * @param {{ totalProcessorTimeTicks: string | number, workingSetBytes: string | number }} payload
+ */
+export function parseWindowsPowerShellMetricSnapshot(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    failExternalMetric('Windows sampler payload must be an object');
+  }
+  const keys = Object.keys(payload).sort();
+  if (keys.join('\u0000') !== ['totalProcessorTimeTicks', 'workingSetBytes'].join('\u0000')) {
+    failExternalMetric('Windows sampler payload must contain only totalProcessorTimeTicks and workingSetBytes');
+  }
+  const totalProcessorTimeTicks = parseBigDecimalInteger(payload.totalProcessorTimeTicks, 'Windows total processor time ticks');
+  const workingSetBytes = parseBigDecimalInteger(payload.workingSetBytes, 'Windows working set bytes');
+  if (workingSetBytes > BigInt(Number.MAX_SAFE_INTEGER)) {
+    failExternalMetric('Windows working set bytes exceed safe integer precision');
+  }
+  const cumulativeCpuSeconds = Number(totalProcessorTimeTicks) / 10_000_000;
+  if (!Number.isFinite(cumulativeCpuSeconds)) failExternalMetric('Windows cumulative CPU seconds are not finite');
+  return freezeSnapshot({
+    cumulativeCpuSeconds,
+    workingSetMiB: Number(workingSetBytes) / MEBIBYTE_BYTES,
+    counterQuantumSeconds: 0.0000001,
+    raw: {
+      totalProcessorTimeTicks: totalProcessorTimeTicks.toString(),
+      workingSetBytes: workingSetBytes.toString()
+    }
+  });
+}
+
+/**
+ * Creates the bracketed sample primitive shared by all external metric
+ * adapters. The caller owns platform acquisition and records the raw source
+ * alongside the projection used by the evaluator.
+ *
+ * @param {{
+ *   readSnapshot: (context: Readonly<{ sequence: number, processIdentity: string }>) => Promise<Readonly<{ cumulativeCpuSeconds: number, workingSetMiB: number, counterQuantumSeconds: number, raw: object }>> | Readonly<{ cumulativeCpuSeconds: number, workingSetMiB: number, counterQuantumSeconds: number, raw: object }>,
+ *   processIdentity: string,
+ *   counterQuantumSeconds: number,
+ *   clock?: () => number,
+ *   maximumReadSeconds?: number
+ * }} options
+ */
+export function createExternalMetricSampleReader({
+  readSnapshot,
+  processIdentity,
+  counterQuantumSeconds,
+  clock = () => performance.now() / 1000,
+  maximumReadSeconds = 0.05
+} = {}) {
+  if (typeof readSnapshot !== 'function') failExternalMetric('readSnapshot must be a function');
+  assertNonemptyString(processIdentity, 'process identity');
+  if (!Number.isFinite(counterQuantumSeconds) || counterQuantumSeconds <= 0 || counterQuantumSeconds > 0.01) {
+    failExternalMetric('counterQuantumSeconds must be finite, positive, and at most 0.01');
+  }
+  if (typeof clock !== 'function') failExternalMetric('clock must be a function');
+  if (!Number.isFinite(maximumReadSeconds) || maximumReadSeconds <= 0 || maximumReadSeconds > 0.05) {
+    failExternalMetric('maximumReadSeconds must be finite, positive, and at most 0.05');
+  }
+
+  let closed = false;
+  let sequence = 0;
+  let lastReadEnd = -Infinity;
+  let lastCumulativeCpuSeconds = -Infinity;
+
+  const readClock = (label) => {
+    const value = clock();
+    assertFiniteNonnegativeNumber(value, label);
+    return value;
+  };
+
+  return Object.freeze({
+    async sample() {
+      if (closed) failExternalMetric('cannot sample a closed metric reader');
+      const nextSequence = sequence + 1;
+      const readStart = readClock('metric read start');
+      if (readStart < lastReadEnd) failExternalMetric('metric read start regressed behind the prior read end');
+      const snapshot = await readSnapshot(Object.freeze({ sequence: nextSequence, processIdentity }));
+      const readEnd = readClock('metric read end');
+      if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+        failExternalMetric('readSnapshot must return a metric snapshot object');
+      }
+      const normalizedSnapshot = freezeSnapshot(snapshot);
+      if (normalizedSnapshot.counterQuantumSeconds !== counterQuantumSeconds) {
+        failExternalMetric('metric snapshot counter quantum does not match its reader');
+      }
+      if (readEnd < readStart || readEnd - readStart > maximumReadSeconds) {
+        failExternalMetric('metric read bracket is invalid or exceeds its maximum duration');
+      }
+      if (normalizedSnapshot.cumulativeCpuSeconds < lastCumulativeCpuSeconds) {
+        failExternalMetric('metric cumulative CPU regressed');
+      }
+
+      sequence = nextSequence;
+      lastReadEnd = readEnd;
+      lastCumulativeCpuSeconds = normalizedSnapshot.cumulativeCpuSeconds;
+      return Object.freeze({
+        sample: Object.freeze({
+          ordinal: sequence,
+          readStart,
+          readEnd,
+          cumulativeCpuSeconds: normalizedSnapshot.cumulativeCpuSeconds,
+          counterQuantumSeconds,
+          processIdentity,
+          workingSetMiB: normalizedSnapshot.workingSetMiB
+        }),
+        raw: normalizedSnapshot.raw
+      });
+    },
+
+    close() {
+      if (closed) failExternalMetric('metric reader is already closed');
+      closed = true;
+      return Object.freeze({ samplesRead: sequence, closedAt: readClock('metric reader close time') });
+    }
+  });
+}
+
+/**
+ * @param {{
+ *   procfsRoot?: string,
+ *   pageSize: number,
+ *   clockTicks: number,
+ *   readFile?: (file: string, encoding: 'utf8') => Promise<string> | string
+ * }} options
+ */
+export function createLinuxProcfsSnapshotReader({
+  procfsRoot = '/proc',
+  pageSize,
+  clockTicks,
+  readFile = fs.readFile
+} = {}) {
+  assertNonemptyString(procfsRoot, 'procfs root');
+  assertPositiveSafeInteger(pageSize, 'Linux page size');
+  assertPositiveSafeInteger(clockTicks, 'Linux clock ticks per second');
+  if (typeof readFile !== 'function') failExternalMetric('readFile must be a function');
+  const resolvedRoot = path.resolve(procfsRoot);
+
+  return async (pid) => {
+    assertPositiveSafeInteger(pid, 'Linux process PID');
+    const processDirectory = path.resolve(resolvedRoot, String(pid));
+    const relativeProcessDirectory = path.relative(resolvedRoot, processDirectory);
+    if (relativeProcessDirectory.startsWith('..') || path.isAbsolute(relativeProcessDirectory)) {
+      failExternalMetric('Linux process path escapes the procfs root');
+    }
+    const stat = await readFile(path.join(processDirectory, 'stat'), 'utf8');
+    const statm = await readFile(path.join(processDirectory, 'statm'), 'utf8');
+    const snapshot = parseLinuxProcfsMetricSnapshot({ stat, statm, clockTicks, pageSize });
+    if (snapshot.raw.pid !== pid) failExternalMetric('Linux /proc stat PID does not match the requested process');
+    return snapshot;
+  };
+}
+
+async function runMacosPs(command, args) {
+  const { stdout } = await execFileAsync(command, args, {
+    encoding: 'utf8',
+    windowsHide: true,
+    maxBuffer: 64 * 1024
+  });
+  return stdout;
+}
+
+/**
+ * @param {{ runCommand?: (command: string, args: string[]) => Promise<string> | string }} options
+ */
+export function createMacosPsSnapshotReader({ runCommand = runMacosPs } = {}) {
+  if (typeof runCommand !== 'function') failExternalMetric('runCommand must be a function');
+  return async (pid) => {
+    assertPositiveSafeInteger(pid, 'macOS process PID');
+    const output = await runCommand('/bin/ps', ['-o', 'time=', '-o', 'rss=', '-p', String(pid)]);
+    return parseMacosPsMetricSnapshot(output);
+  };
 }
 
 function compareProcessIdentities(left, right) {
