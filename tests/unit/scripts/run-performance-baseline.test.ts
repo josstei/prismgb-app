@@ -26,6 +26,7 @@ import { createPerformanceExternalMetricCapture } from '../../../scripts/lib/per
 import { createPerformanceMetricSessionCapture } from '../../../scripts/lib/performance-metric-session-capture.js';
 import { createPerformanceWorkloadCapture } from '../../../scripts/lib/performance-workload-capture.js';
 import { readPerformanceRawCaptureManifest } from '../../../scripts/lib/performance-raw-capture-manifest.js';
+import { createPerformanceControllerAuditFixture } from './performance-controller-audit.fixture.js';
 
 const tempDirectories: string[] = [];
 
@@ -161,7 +162,13 @@ function createCanvasSentinelCapture({
       postPauseCanvasDrawCount: 0,
       callbackOverlapCount: 0,
       outstandingWorkerFrames: 0
-    }
+    },
+    controllerAudit: buildId === 'production'
+      ? null
+      : createPerformanceControllerAuditFixture({
+        launchId: externalExecutionId,
+        instrumentation: false
+      })
   });
 }
 
@@ -266,7 +273,11 @@ function createInstrumentationWorkloadCapture({
     },
     sourceSequences: [1, 2],
     controlWrites: [],
-    diagnostics
+    diagnostics,
+    controllerAudit: createPerformanceControllerAuditFixture({
+      launchId,
+      instrumentation: buildId === 'instrumented'
+    })
   });
 }
 
@@ -724,7 +735,7 @@ describe('planned raw capture collection', () => {
     });
 
     expect(sentinel.index).toMatchObject({
-      schemaVersion: 3,
+      schemaVersion: 4,
       sourceSha,
       captures: expect.arrayContaining([
         expect.objectContaining({ buildId: 'production', backend: 'canvas2d', pair: expect.objectContaining({ comparisonSide: 'A' }) })
@@ -734,7 +745,7 @@ describe('planned raw capture collection', () => {
     expect(externalMetric.index).toMatchObject({ schemaVersion: 3, sourceSha });
     expect(externalMetric.index.captures).toHaveLength(18);
     expect(externalMetric.index.captures.filter((capture) => capture.buildId === 'instrumented')).toHaveLength(6);
-    expect(workload.index).toMatchObject({ schemaVersion: 5, sourceSha });
+    expect(workload.index).toMatchObject({ schemaVersion: 6, sourceSha });
     expect(workload.index.captures).toHaveLength(12);
     expect(workload.index.captures).toEqual(expect.arrayContaining([
       expect.objectContaining({
@@ -838,7 +849,8 @@ describe('planned raw capture collection', () => {
       window: original.capture.window,
       sourceSequences: original.capture.sourceSequences,
       controlWrites: original.capture.controlWrites,
-      diagnostics: original.capture.diagnostics
+      diagnostics: original.capture.diagnostics,
+      controllerAudit: original.capture.controllerAudit
     });
     await fs.rm(path.join(outputDirectory, original.relativePath));
     await fs.writeFile(

@@ -9,6 +9,7 @@ import {
   validatePerformanceWorkloadCapture,
   writePerformanceWorkloadCapture
 } from '../../../scripts/lib/performance-workload-capture.js';
+import { createPerformanceControllerAuditFixture } from './performance-controller-audit.fixture.js';
 
 const temporaryDirectories: string[] = [];
 
@@ -57,7 +58,11 @@ function captureInput() {
     },
     sourceSequences: [41, 42],
     controlWrites: [{ kind: 'source-opportunity', sourceSequence: 41 }],
-    diagnostics: { source: { sourceOpportunities: 2 } }
+    diagnostics: { source: { sourceOpportunities: 2 } },
+    controllerAudit: createPerformanceControllerAuditFixture({
+      launchId: '123e4567-e89b-42d3-a456-426614174000',
+      instrumentation: true
+    })
   };
 }
 
@@ -76,7 +81,7 @@ describe('performance workload capture', () => {
     const capture = createPerformanceWorkloadCapture(captureInput());
 
     expect(capture).toMatchObject({
-      schemaVersion: 4,
+      schemaVersion: 5,
       externalExecutionId: '123e4567-e89b-42d3-a456-426614174010',
       observationBoundaryId: 'external-sentinel-window:123e4567-e89b-42d3-a456-426614174010',
       checksum: expect.stringMatching(/^[a-f0-9]{64}$/),
@@ -96,6 +101,13 @@ describe('performance workload capture', () => {
       ...captureInput(),
       externalExecutionId: 'not-a-uuid'
     })).toThrow(/externalExecutionId/);
+    expect(() => createPerformanceWorkloadCapture({
+      ...captureInput(),
+      controllerAudit: {
+        ...captureInput().controllerAudit,
+        fatalReasons: ['unleased-public-metrics-interference']
+      }
+    })).toThrow(/fatalReasons/);
   });
 
   it('persists only no-clobber checksum-bound capture files and reads them back', async () => {
@@ -123,7 +135,11 @@ describe('performance workload capture', () => {
         instrumentation: false,
         bundleSha256: input.build.bundleSha256
       },
-      diagnostics: {}
+      diagnostics: {},
+      controllerAudit: createPerformanceControllerAuditFixture({
+        launchId: input.launchId,
+        instrumentation: false
+      })
     });
 
     expect(capture).toMatchObject({

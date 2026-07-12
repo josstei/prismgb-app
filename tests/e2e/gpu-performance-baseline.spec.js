@@ -232,7 +232,14 @@ function externalSentinelBackend(observations) {
   throw new Error('external sentinel observations do not identify one supported backend');
 }
 
-async function persistExternalSentinelCapture({ performanceLaunch, performanceChromaticDevice, warmup, gate, pair }) {
+async function persistExternalSentinelCapture({
+  performanceLaunch,
+  performanceChromaticDevice,
+  warmup,
+  gate,
+  pair,
+  controllerAudit
+}) {
   if (!process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT) return;
   const measurementWindow = gate.measurementWindow;
   if (!measurementWindow || measurementWindow.terminalClosureEnd === null) {
@@ -272,7 +279,8 @@ async function persistExternalSentinelCapture({ performanceLaunch, performanceCh
       terminalClosureEnd: measurementWindow.terminalClosureEnd,
       closureReason: measurementWindow.closureReason
     },
-    observations: gate.observations
+    observations: gate.observations,
+    controllerAudit
   });
 }
 
@@ -308,7 +316,8 @@ async function persistPerformanceWorkloadCapture({
   writes,
   sourceSequences,
   diagnostics,
-  pair
+  pair,
+  controllerAudit
 }) {
   if (!process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT) return;
   if (!pair) throw new Error('harness workload capture requires its planned pair binding');
@@ -352,7 +361,8 @@ async function persistPerformanceWorkloadCapture({
     },
     sourceSequences,
     controlWrites: writes,
-    diagnostics
+    diagnostics,
+    controllerAudit
   });
 }
 
@@ -375,14 +385,49 @@ function performanceLaunchMetricTarget(transcript) {
   return transcript.transcript.target;
 }
 
-async function executeExternalSentinelMeasurement({ performanceLaunch, performanceChromaticDevice, metricCapture }) {
+function requireHarnessPerformanceMeasurement(performanceLaunch) {
+  if (!performanceLaunch.build.harness) return null;
+  if (!performanceLaunch.performanceMeasurement) {
+    throw new Error('planned harness launch did not acquire its measurement controller lease');
+  }
+  return performanceLaunch.performanceMeasurement;
+}
+
+async function beginPerformanceWarmup(performanceLaunch) {
+  const measurement = requireHarnessPerformanceMeasurement(performanceLaunch);
+  if (measurement !== null) await measurement.advance('warmup');
+  return measurement;
+}
+
+async function beginPerformanceMeasurementWindow(performanceLaunch, instrumentation) {
+  const measurement = requireHarnessPerformanceMeasurement(performanceLaunch);
+  if (measurement !== null) {
+    await measurement.beginMeasurement(instrumentation ? performanceLaunch.launchId : null);
+  }
+  return measurement;
+}
+
+async function finalizeHarnessPerformanceMeasurement(performanceLaunch) {
+  const measurement = requireHarnessPerformanceMeasurement(performanceLaunch);
+  if (measurement === null) return null;
+  await measurement.advance('pre-exit');
+  return measurement.finalize();
+}
+
+async function executeExternalSentinelMeasurement({
+  performanceLaunch,
+  performanceChromaticDevice,
+  openMetricCapture
+}) {
   const streamPage = new StreamPage(performanceLaunch.window);
+  const measurement = await beginPerformanceWarmup(performanceLaunch);
   let streamStopped = false;
   try {
     await performanceChromaticDevice.connect({ testPattern: 'animated' });
     await streamPage.start();
 
     const warmup = await waitForExternalWarmupEligibility(performanceLaunch);
+    if (measurement !== null) await measurement.recordWarmupIdentity();
     await performanceLaunch.pausePerformanceCallbacks();
     await expect.poll(
       () => performanceLaunch.readPerformanceCallbackGate(),
@@ -390,15 +435,18 @@ async function executeExternalSentinelMeasurement({ performanceLaunch, performan
     ).toMatchObject({ paused: true, heldCallbackCount: 1 });
     await performanceLaunch.resetPerformanceCallbacks();
     await performanceLaunch.armPerformanceCallbackWindow(measurementWindowLimits);
+    const metricCapture = await openMetricCapture();
+    if (measurement !== null) await measurement.recordPrime();
+    await beginPerformanceMeasurementWindow(performanceLaunch, false);
     const executeWindow = async () => {
       await performanceLaunch.resumePerformanceCallbacks();
       await waitForMeasurementWindowClosure(performanceLaunch);
+      if (measurement !== null) await measurement.advance('submission-seal');
       await waitForExternalSentinelDrain(performanceLaunch);
+      if (measurement !== null) await measurement.advance('drain');
       return performanceLaunch.sealPerformanceCallbacks();
     };
-    const measured = metricCapture
-      ? await collectExternalMetricTranscript({ metricCapture, executeWindow })
-      : Object.freeze({ result: await executeWindow(), transcript: null });
+    const measured = await collectExternalMetricTranscript({ metricCapture, executeWindow });
     const sealedGate = measured.result;
     expect(sealedGate).toMatchObject({
       paused: true,
@@ -415,8 +463,10 @@ async function executeExternalSentinelMeasurement({ performanceLaunch, performan
       }
     });
 
+    if (measurement !== null) await measurement.advance('shutdown');
     await streamPage.stop();
     streamStopped = true;
+    if (measurement !== null) await measurement.advance('application-descendant-closure');
     return Object.freeze({ warmup, gate: sealedGate, transcript: measured.transcript });
   } finally {
     if (!streamStopped) await streamPage.stop().catch(() => {});
@@ -426,8 +476,7 @@ async function executeExternalSentinelMeasurement({ performanceLaunch, performan
 async function executeHarnessWorkloadMeasurement({
   performanceLaunch,
   performanceChromaticDevice,
-  metricCapture,
-  pair,
+  openMetricCapture,
   instrumentation
 }) {
   if (!performanceLaunch.build.harness || performanceLaunch.build.instrumentation !== instrumentation) {
@@ -435,6 +484,7 @@ async function executeHarnessWorkloadMeasurement({
     throw new Error(`${expectedBuild} workload execution requires its matching harness performance build`);
   }
   const streamPage = new StreamPage(performanceLaunch.window);
+  const measurement = await beginPerformanceWarmup(performanceLaunch);
   let streamStopped = false;
   try {
     expect(performancePolicy.performanceMetricPolicy.workloadId).toBe('phase0-animated-160x144-v1');
@@ -447,6 +497,7 @@ async function executeHarnessWorkloadMeasurement({
     expect(warmup.sourceWrites.length).toBeLessThanOrEqual(warmupLimits.maximumCallbacks);
     expect(warmup.elapsedMs).toBeGreaterThanOrEqual(warmupLimits.minimumSeconds * 1000);
     expect(warmup.elapsedMs).toBeLessThanOrEqual(warmupLimits.maximumSeconds * 1000);
+    await measurement.recordWarmupIdentity();
 
     await performanceLaunch.pausePerformanceCallbacks();
     await expect.poll(
@@ -475,15 +526,19 @@ async function executeHarnessWorkloadMeasurement({
       heldCallbackCount: 1,
       measurementWindow: { status: 'armed', ...measurementWindowLimits }
     });
+    const metricCapture = await openMetricCapture();
+    await measurement.recordPrime();
+    await beginPerformanceMeasurementWindow(performanceLaunch, instrumentation);
     const executeWindow = async () => {
       await performanceLaunch.resumePerformanceCallbacks();
       await waitForMeasurementWindowClosure(performanceLaunch);
+      if (instrumentation) await measurement.closeNumericEpoch();
+      await measurement.advance('submission-seal');
       await waitForExternalSentinelDrain(performanceLaunch);
+      await measurement.advance('drain');
       return performanceLaunch.sealPerformanceCallbacks();
     };
-    const measured = metricCapture
-      ? await collectExternalMetricTranscript({ metricCapture, executeWindow })
-      : Object.freeze({ result: await executeWindow(), transcript: null });
+    const measured = await collectExternalMetricTranscript({ metricCapture, executeWindow });
     const sealedGate = measured.result;
     expect(sealedGate).toMatchObject({
       paused: true,
@@ -496,8 +551,10 @@ async function executeHarnessWorkloadMeasurement({
       }
     });
 
+    await measurement.advance('shutdown');
     await streamPage.stop();
     streamStopped = true;
+    await measurement.advance('application-descendant-closure');
     const writes = await performanceLaunch.readPerformanceControlProbe();
     const cohortSourceWrites = sourceOpportunityWrites(writes);
     const diagnostics = instrumentation ? await performanceLaunch.readPerformanceDiagnostics() : {};
@@ -529,17 +586,14 @@ async function executeHarnessWorkloadMeasurement({
       });
       expect(diagnostics.timingSamples['source-callback']).toHaveLength(cohortSourceWrites.length);
     }
-    await persistPerformanceWorkloadCapture({
-      performanceLaunch,
-      performanceChromaticDevice,
+    return Object.freeze({
       warmup,
       gate: sealedGate,
+      transcript: measured.transcript,
       writes,
       sourceSequences,
-      diagnostics,
-      pair
+      diagnostics
     });
-    return Object.freeze({ warmup, gate: sealedGate, transcript: measured.transcript });
   } finally {
     if (!streamStopped) await streamPage.stop().catch(() => {});
   }
@@ -562,10 +616,14 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
   });
   let metricCapture = null;
   try {
-    metricCapture = await metricSession.openSide({
-      rendererPid: performanceLaunch.rendererPid,
-      externalExecutionId: performanceLaunch.externalExecutionId
-    });
+    const openMetricCapture = async () => {
+      if (metricCapture !== null) throw new Error('planned performance launch opened its metric capture more than once');
+      metricCapture = await metricSession.openSide({
+        rendererPid: performanceLaunch.rendererPid,
+        externalExecutionId: performanceLaunch.externalExecutionId
+      });
+      return metricCapture;
+    };
     const persistPlannedMetricCapture = async (transcript) => {
       const written = await persistExternalMetricCapture({ performanceLaunch, transcript, pair: binding });
       if (!written) {
@@ -580,24 +638,17 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
       });
     };
     const performanceChromaticDevice = new ChromaticDeviceFixture(performanceLaunch.app, performanceLaunch.window);
+    let measured;
+    let measurementKind;
     try {
       if (pair.comparisonKind === 'harness-overhead') {
-        const measured = await executeExternalSentinelMeasurement({
+        measured = await executeExternalSentinelMeasurement({
           performanceLaunch,
           performanceChromaticDevice,
-          metricCapture
+          openMetricCapture
         });
-        await persistExternalSentinelCapture({
-          performanceLaunch,
-          performanceChromaticDevice,
-          warmup: measured.warmup,
-          gate: measured.gate,
-          pair: binding
-        });
-        return persistPlannedMetricCapture(measured.transcript);
-      }
-
-      if (pair.comparisonKind === 'instrumentation-overhead') {
+        measurementKind = 'harness-overhead';
+      } else if (pair.comparisonKind === 'instrumentation-overhead') {
         const executeMeasurement = launch.buildVariant === 'instrumented'
           ? executeInstrumentedMeasurement
           : launch.buildVariant === 'harness-control'
@@ -606,19 +657,42 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
         if (!executeMeasurement) {
           throw new Error(`instrumentation pair launch uses an unsupported build variant: ${launch.buildVariant}`);
         }
-        const measured = await executeMeasurement({
+        measured = await executeMeasurement({
           performanceLaunch,
           performanceChromaticDevice,
-          metricCapture,
-          pair: binding
+          openMetricCapture
         });
-        return persistPlannedMetricCapture(measured.transcript);
+        measurementKind = 'instrumentation-overhead';
+      } else {
+        throw new Error(`unsupported planned performance comparison kind: ${pair.comparisonKind}`);
       }
-
-      throw new Error(`unsupported planned performance comparison kind: ${pair.comparisonKind}`);
     } finally {
       await performanceChromaticDevice.cleanup();
     }
+    const controllerAudit = await finalizeHarnessPerformanceMeasurement(performanceLaunch);
+    if (measurementKind === 'harness-overhead') {
+      await persistExternalSentinelCapture({
+        performanceLaunch,
+        performanceChromaticDevice,
+        warmup: measured.warmup,
+        gate: measured.gate,
+        pair: binding,
+        controllerAudit
+      });
+    } else {
+      await persistPerformanceWorkloadCapture({
+        performanceLaunch,
+        performanceChromaticDevice,
+        warmup: measured.warmup,
+        gate: measured.gate,
+        writes: measured.writes,
+        sourceSequences: measured.sourceSequences,
+        diagnostics: measured.diagnostics,
+        pair: binding,
+        controllerAudit
+      });
+    }
+    return persistPlannedMetricCapture(measured.transcript);
   } catch (error) {
     if (metricCapture) await metricCapture.abort().catch(() => {});
     throw error;

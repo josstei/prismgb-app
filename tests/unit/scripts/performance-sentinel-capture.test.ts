@@ -8,6 +8,7 @@ import {
   validatePerformanceSentinelCapture,
   writePerformanceSentinelCapture
 } from '../../../scripts/lib/performance-sentinel-capture.js';
+import { createPerformanceControllerAuditFixture } from './performance-controller-audit.fixture.js';
 
 const temporaryDirectories: string[] = [];
 
@@ -116,7 +117,13 @@ function baseCapture(backend: 'canvas2d' | 'webgpu' = 'canvas2d') {
       postPauseCanvasDrawCount: 0,
       callbackOverlapCount: 0,
       outstandingWorkerFrames: 0
-    }
+    },
+    controllerAudit: backend === 'canvas2d'
+      ? null
+      : createPerformanceControllerAuditFixture({
+        launchId: '123e4567-e89b-42d3-a456-426614174003',
+        instrumentation: false
+      })
   };
 }
 
@@ -125,7 +132,7 @@ describe('performance sentinel capture', () => {
     const capture = createPerformanceSentinelCapture(baseCapture());
 
     expect(capture).toMatchObject({
-      schemaVersion: 3,
+      schemaVersion: 4,
       build: { id: 'production', harness: false, instrumentation: false },
       backend: 'canvas2d',
       observations: {

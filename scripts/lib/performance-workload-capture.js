@@ -2,9 +2,10 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { stableStringify } from './baseline-report.js';
+import { validatePerformanceControllerAudit } from './performance-controller-audit.js';
 import { validatePerformancePairBinding } from './performance-pair-plan.js';
 
-export const PERFORMANCE_WORKLOAD_CAPTURE_SCHEMA_VERSION = 4;
+export const PERFORMANCE_WORKLOAD_CAPTURE_SCHEMA_VERSION = 5;
 export const PERFORMANCE_WORKLOAD_CAPTURE_DIRECTORY = 'raw-workload-captures';
 
 const BUILD_VARIANTS = Object.freeze({
@@ -181,7 +182,8 @@ function captureBody(input) {
     'window',
     'sourceSequences',
     'controlWrites',
-    'diagnostics'
+    'diagnostics',
+    'controllerAudit'
   ], 'capture input');
   assertSha(input.sourceSha, 'capture.sourceSha', 40);
   assertUuid(input.launchId, 'capture.launchId');
@@ -202,6 +204,11 @@ function captureBody(input) {
   if (build.id === 'harness-control' && Object.keys(diagnostics).length !== 0) {
     fail('capture.diagnostics must be empty for the harness-control build');
   }
+  const controllerAudit = validatePerformanceControllerAudit(input.controllerAudit, {
+    launchId: input.launchId,
+    instrumentation: build.instrumentation,
+    label: 'capture.controllerAudit'
+  });
 
   return {
     schemaVersion: PERFORMANCE_WORKLOAD_CAPTURE_SCHEMA_VERSION,
@@ -216,7 +223,8 @@ function captureBody(input) {
     window,
     sourceSequences,
     controlWrites: cloneJson(input.controlWrites, 'capture.controlWrites'),
-    diagnostics
+    diagnostics,
+    controllerAudit
   };
 }
 
@@ -240,6 +248,7 @@ export function validatePerformanceWorkloadCapture(value) {
     'sourceSequences',
     'controlWrites',
     'diagnostics',
+    'controllerAudit',
     'checksum'
   ], 'capture');
   if (value.schemaVersion !== PERFORMANCE_WORKLOAD_CAPTURE_SCHEMA_VERSION) {
@@ -258,7 +267,8 @@ export function validatePerformanceWorkloadCapture(value) {
     window: value.window,
     sourceSequences: value.sourceSequences,
     controlWrites: value.controlWrites,
-    diagnostics: value.diagnostics
+    diagnostics: value.diagnostics,
+    controllerAudit: value.controllerAudit
   });
   if (checksum(body) !== value.checksum) fail('capture checksum does not match its body');
   return deepFreeze({ ...body, checksum: value.checksum });

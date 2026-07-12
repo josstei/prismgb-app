@@ -21,6 +21,7 @@ import {
   installExternalPerformanceSentinelGate,
   installPerformanceControlProbe,
   loadPerformanceBuildManifest,
+  openPerformanceMeasurementLease,
   pauseExternalPerformanceSentinelCallbacks,
   pauseExternalPerformanceSentinelCallbacksAt,
   readElectronRendererProcessId,
@@ -526,6 +527,7 @@ export async function openPerformanceLaunch({
   });
   let app = null;
   let window = null;
+  let performanceMeasurement = null;
   let closed = false;
   const close = async () => {
     if (closed) return;
@@ -542,6 +544,9 @@ export async function openPerformanceLaunch({
 
   try {
     app = await launchElectron({ ...launch, timeout: 60000 });
+    if (build.harness && process.env.PRISMGB_PERFORMANCE_PAIR_PLAN) {
+      performanceMeasurement = await openPerformanceMeasurementLease(app, launchId);
+    }
     window = await app.firstWindow();
     await new AppShellPage(window).waitForReady();
     await installExternalPerformanceSentinelGate(window, externalExecutionId);
@@ -584,9 +589,14 @@ export async function openPerformanceLaunch({
     if (marker?.launchId !== launchId) throw new Error('renderer marker does not match the launch controller identity');
     await assertPerformanceController(app, launchId);
     await installPerformanceControlProbe(window, launchId);
+    if (performanceMeasurement !== null) {
+      await performanceMeasurement.recordStartupEnvironment();
+      await performanceMeasurement.advance('qualification-probe');
+    }
     return Object.freeze({
       ...commonLaunch,
       launchId,
+      performanceMeasurement,
       readPerformanceControlProbe: () => readPerformanceControlProbe(window),
       resetPerformanceControlProbe: () => resetPerformanceControlProbe(window),
       readPerformanceDiagnostics: () => {

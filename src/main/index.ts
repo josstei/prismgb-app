@@ -39,13 +39,19 @@ const performanceMeasurementController =
     ? (() => {
         const launchId = installPerformanceLaunchMarker(app, process.argv, process.env);
         if (launchId === null) return null;
+        const gpuInfoReady = new Promise<void>((resolve) => {
+          app.once('gpu-info-update', () => resolve());
+        });
         return installPerformanceMeasurementGuard(launchId, {
           getAppMetrics: () => app.getAppMetrics(),
-          getEnvironmentSnapshot: async () => ({
-            gpuFeatureStatus: app.getGPUFeatureStatus(),
-            gpuInfo: await app.getGPUInfo('complete'),
-            commandLine: [...process.argv]
-          }),
+          getEnvironmentSnapshot: async () => {
+            await gpuInfoReady;
+            return {
+              gpuFeatureStatus: app.getGPUFeatureStatus(),
+              gpuInfo: await app.getGPUInfo('complete'),
+              commandLine: [...process.argv]
+            };
+          },
           eventSources: [
             createMeasurementEventSource('power', powerMonitor, [
               'on-ac',

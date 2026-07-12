@@ -24,9 +24,9 @@ const BUILD_VARIANT_IDS = Object.freeze(Object.keys(BUILD_VARIANTS));
 const PAIR_COUNT = Object.values(PERFORMANCE_PAIR_CARDINALITIES)
   .reduce((total, count) => total + count, 0);
 const INDEX_SPECS = Object.freeze({
-  sentinel: Object.freeze({ schemaVersion: 3, captureCount: PERFORMANCE_PAIR_CARDINALITIES['harness-overhead'] * 2 }),
+  sentinel: Object.freeze({ schemaVersion: 4, captureCount: PERFORMANCE_PAIR_CARDINALITIES['harness-overhead'] * 2 }),
   externalMetric: Object.freeze({ schemaVersion: 3, captureCount: PAIR_COUNT * 2 }),
-  workload: Object.freeze({ schemaVersion: 5, captureCount: PERFORMANCE_PAIR_CARDINALITIES['instrumentation-overhead'] * 2 }),
+  workload: Object.freeze({ schemaVersion: 6, captureCount: PERFORMANCE_PAIR_CARDINALITIES['instrumentation-overhead'] * 2 }),
   metricSession: Object.freeze({ schemaVersion: 1, captureCount: PAIR_COUNT })
 });
 const RAW_CAPTURE_READERS = Object.freeze({

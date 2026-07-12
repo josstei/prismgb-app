@@ -6,6 +6,7 @@ import {
   createExternalPerformanceExecutionId,
   installExternalPerformanceSentinelGate,
   installPerformanceControlProbe,
+  openPerformanceMeasurementLease,
   pausePerformanceCallbacks,
   pausePerformanceCallbacksAt,
   pauseExternalPerformanceSentinelCallbacks,
@@ -73,6 +74,78 @@ describe('GPU performance baseline helper', () => {
 
     await expect(assertPerformanceController(electronApp, 'launch-id')).resolves.toEqual({ mainPid: process.pid });
     expect(assertLaunchId).toHaveBeenCalledWith('launch-id');
+  });
+
+  it('owns the complete marker-bound controller lifecycle through named main-process evaluation', async () => {
+    const launchId = '123e4567-e89b-42d3-a456-426614174000';
+    const phases: string[] = [];
+    const samples: Array<{ phase: string; purpose: string }> = [];
+    const controller = {
+      assertLaunchId: vi.fn(),
+      beginOperation: vi.fn(() => ({ operationToken: { nonce: 'operation' } })),
+      beginPhase: vi.fn((_operationToken: unknown, phase: string) => {
+        phases.push(phase);
+        return { phaseToken: { nonce: `phase:${phase}` } };
+      }),
+      sample: vi.fn((token: { nonce: string }, purpose: string) => {
+        samples.push({ phase: token.nonce.replace('phase:', '').replace('epoch:', ''), purpose });
+        return { rawAppMetrics: [] };
+      }),
+      sampleEnvironment: vi.fn(async () => ({ currentState: {} })),
+      openNumericEpoch: vi.fn(() => ({ epochToken: { nonce: 'epoch:measurement' } })),
+      closeNumericEpoch: vi.fn(() => ({ closedAt: 1, callSequence: 1 })),
+      finalize: vi.fn(() => ({ launchId, finalPhase: 'pre-exit' }))
+    };
+    Object.defineProperty(globalThis, controllerSymbol, {
+      configurable: true,
+      value: controller
+    });
+    const electronApp = {
+      evaluate: async (callback: (electronModule: object, argument: any) => unknown, argument: any) => callback({}, argument)
+    };
+
+    const lease = await openPerformanceMeasurementLease(electronApp, launchId);
+    await lease.recordStartupEnvironment();
+    await lease.advance('qualification-probe');
+    await lease.advance('warmup');
+    await lease.recordWarmupIdentity();
+    await lease.recordPrime();
+    await lease.beginMeasurement(launchId);
+    await lease.closeNumericEpoch();
+    await lease.advance('submission-seal');
+    await lease.advance('drain');
+    await lease.advance('shutdown');
+    await lease.advance('application-descendant-closure');
+    await lease.advance('pre-exit');
+
+    await expect(lease.finalize()).resolves.toEqual({ launchId, finalPhase: 'pre-exit' });
+    expect(controller.assertLaunchId).toHaveBeenCalledWith(launchId);
+    expect(phases).toEqual([
+      'startup',
+      'qualification-probe',
+      'warmup',
+      'measurement',
+      'submission-seal',
+      'drain',
+      'shutdown',
+      'application-descendant-closure',
+      'pre-exit'
+    ]);
+    expect(samples.map(({ purpose }) => purpose)).toEqual([
+      'startup-identity',
+      'qualification',
+      'warmup',
+      'prime',
+      'measurement',
+      'submission-seal',
+      'drain',
+      'shutdown',
+      'application-descendant-closure',
+      'pre-exit'
+    ]);
+    expect(controller.openNumericEpoch).toHaveBeenCalledWith({ nonce: 'phase:measurement' }, launchId);
+    expect(controller.closeNumericEpoch).toHaveBeenCalledWith({ nonce: 'epoch:measurement' });
+    expect(controller.sampleEnvironment).toHaveBeenCalledTimes(2);
   });
 
   it('reads a live renderer OS process ID through Electron main-process evaluation', async () => {

@@ -27,6 +27,27 @@ const PERFORMANCE_CONTROL_PROBE_SYMBOL = 'prismgb.performance.controlProbe';
 const PERFORMANCE_CALLBACK_GATE_SYMBOL = 'prismgb.performance.callbackGate';
 const PERFORMANCE_EXTERNAL_SENTINEL_GATE_SYMBOL = 'prismgb.performance.externalSentinelGate';
 const PERFORMANCE_RENDERER_DIAGNOSTICS_SYMBOL = 'prismgb.performance.rendererDiagnostics';
+const PERFORMANCE_MEASUREMENT_PHASES = Object.freeze([
+  'startup',
+  'qualification-probe',
+  'warmup',
+  'measurement',
+  'submission-seal',
+  'drain',
+  'shutdown',
+  'application-descendant-closure',
+  'pre-exit'
+]);
+const PERFORMANCE_PHASE_PURPOSES = Object.freeze({
+  startup: 'startup-identity',
+  'qualification-probe': 'qualification',
+  warmup: 'warmup',
+  'submission-seal': 'submission-seal',
+  drain: 'drain',
+  shutdown: 'shutdown',
+  'application-descendant-closure': 'application-descendant-closure',
+  'pre-exit': 'pre-exit'
+});
 
 function fail(message) {
   throw new Error(`GPU performance baseline helper failed: ${message}`);
@@ -122,6 +143,222 @@ export async function assertPerformanceController(electronApp, launchId) {
     controller.assertLaunchId(expectedLaunchId);
     return { mainPid: process.pid };
   }, launchId);
+}
+
+function assertPerformanceMeasurementToken(value, label) {
+  if (!value || typeof value !== 'object' || typeof value.nonce !== 'string' || value.nonce.length === 0) {
+    fail(`${label} is invalid`);
+  }
+}
+
+/**
+ * Runs one marker-bound controller command in Electron's main process. The
+ * fixture never receives the controller itself, and every command reasserts
+ * the launch ID before using its opaque lease tokens.
+ */
+async function runPerformanceMeasurementControllerCommand(electronApp, command) {
+  return electronApp.evaluate(async (_electron, input) => {
+    const controller = globalThis[Symbol.for('prismgb.performance.measurementController')];
+    if (!controller || typeof controller.assertLaunchId !== 'function') {
+      throw new Error('measurement controller is not installed');
+    }
+    controller.assertLaunchId(input.launchId);
+    if (input.kind === 'begin-operation') {
+      const { operationToken } = controller.beginOperation(input.launchId);
+      const { phaseToken } = controller.beginPhase(operationToken, 'startup');
+      controller.sample(phaseToken, 'startup-identity');
+      return { operationToken, phaseToken };
+    }
+    if (input.kind === 'sample-startup-environment') {
+      await controller.sampleEnvironment(input.phaseToken);
+      return null;
+    }
+    if (input.kind === 'advance-phase') {
+      const { phaseToken } = controller.beginPhase(input.operationToken, input.phase);
+      if (input.purpose !== null) controller.sample(phaseToken, input.purpose);
+      if (input.phase === 'pre-exit') await controller.sampleEnvironment(phaseToken);
+      return { phaseToken };
+    }
+    if (input.kind === 'record-warmup-identity') {
+      controller.sample(input.phaseToken, 'warmup');
+      return null;
+    }
+    if (input.kind === 'record-prime') {
+      controller.sample(input.phaseToken, 'prime');
+      return null;
+    }
+    if (input.kind === 'begin-measurement') {
+      const { phaseToken } = controller.beginPhase(input.operationToken, 'measurement');
+      if (input.measurementEpochId === null) {
+        controller.sample(phaseToken, 'measurement');
+        return { phaseToken, epochToken: null };
+      }
+      const { epochToken } = controller.openNumericEpoch(phaseToken, input.measurementEpochId);
+      controller.sample(epochToken, 'measurement');
+      return { phaseToken, epochToken };
+    }
+    if (input.kind === 'close-numeric-epoch') {
+      return controller.closeNumericEpoch(input.epochToken);
+    }
+    if (input.kind === 'finalize') {
+      return controller.finalize(input.operationToken);
+    }
+    throw new Error('performance measurement controller command is unsupported');
+  }, command);
+}
+
+/**
+ * Opens the fixture-owned controller lease before the first renderer or child
+ * observation. The returned façade carries only opaque tokens and named
+ * lifecycle commands; it never exposes the main-process controller object.
+ */
+export async function openPerformanceMeasurementLease(electronApp, launchId) {
+  if (typeof launchId !== 'string' || !/^[0-9a-f-]{36}$/.test(launchId)) {
+    fail('performance measurement lease requires a launch UUID');
+  }
+  const opened = await runPerformanceMeasurementControllerCommand(electronApp, {
+    kind: 'begin-operation',
+    launchId
+  });
+  if (!opened || typeof opened !== 'object') fail('performance measurement operation did not return its tokens');
+  assertPerformanceMeasurementToken(opened.operationToken, 'performance measurement operation token');
+  assertPerformanceMeasurementToken(opened.phaseToken, 'performance measurement startup phase token');
+
+  let operationToken = opened.operationToken;
+  let phaseToken = opened.phaseToken;
+  let currentPhase = 'startup';
+  let epochToken = null;
+  let finalized = false;
+  let startupEnvironmentRecorded = false;
+  let warmupIdentityRecorded = false;
+  let primeRecorded = false;
+  const requireLive = (operation) => {
+    if (finalized) fail(`cannot ${operation} after the performance measurement lease is finalized`);
+  };
+
+  return Object.freeze({
+    async recordStartupEnvironment() {
+      requireLive('record the startup performance environment');
+      if (currentPhase !== 'startup' || startupEnvironmentRecorded) {
+        fail('performance measurement startup environment must be recorded exactly once during startup');
+      }
+      await runPerformanceMeasurementControllerCommand(electronApp, {
+        kind: 'sample-startup-environment',
+        launchId,
+        phaseToken
+      });
+      startupEnvironmentRecorded = true;
+    },
+
+    async advance(phase) {
+      requireLive('advance the performance measurement phase');
+      if (phase === 'measurement') {
+        fail('performance measurement phase must enter measurement through beginMeasurement');
+      }
+      if (!PERFORMANCE_MEASUREMENT_PHASES.includes(phase) || !PERFORMANCE_PHASE_PURPOSES[phase]) {
+        fail('performance measurement phase is invalid');
+      }
+      if (phase === 'qualification-probe' && !startupEnvironmentRecorded) {
+        fail('performance measurement must record the startup environment before qualification');
+      }
+      const advanced = await runPerformanceMeasurementControllerCommand(electronApp, {
+        kind: 'advance-phase',
+        launchId,
+        operationToken,
+        phase,
+        purpose: phase === 'warmup' ? null : PERFORMANCE_PHASE_PURPOSES[phase]
+      });
+      if (!advanced || typeof advanced !== 'object') fail('performance measurement phase did not return a token');
+      assertPerformanceMeasurementToken(advanced.phaseToken, 'performance measurement phase token');
+      phaseToken = advanced.phaseToken;
+      currentPhase = phase;
+      if (phase === 'warmup') {
+        warmupIdentityRecorded = false;
+        primeRecorded = false;
+      }
+      return Object.freeze({ phase });
+    },
+
+    async recordWarmupIdentity() {
+      requireLive('record the warmup performance identity');
+      if (currentPhase !== 'warmup' || warmupIdentityRecorded) {
+        fail('performance measurement warmup identity must be recorded exactly once during warmup');
+      }
+      await runPerformanceMeasurementControllerCommand(electronApp, {
+        kind: 'record-warmup-identity',
+        launchId,
+        phaseToken
+      });
+      warmupIdentityRecorded = true;
+    },
+
+    async recordPrime() {
+      requireLive('record a performance measurement prime');
+      if (currentPhase !== 'warmup' || !warmupIdentityRecorded || primeRecorded) {
+        fail('performance measurement prime requires the completed warmup identity');
+      }
+      await runPerformanceMeasurementControllerCommand(electronApp, {
+        kind: 'record-prime',
+        launchId,
+        phaseToken
+      });
+      primeRecorded = true;
+    },
+
+    async beginMeasurement(measurementEpochId = null) {
+      requireLive('begin performance measurement');
+      if (currentPhase !== 'warmup' || !warmupIdentityRecorded || !primeRecorded) {
+        fail('performance measurement must complete warmup identity and prime before measurement');
+      }
+      if (!(measurementEpochId === null || (typeof measurementEpochId === 'string' && measurementEpochId.length > 0))) {
+        fail('performance measurement epoch ID is invalid');
+      }
+      const begun = await runPerformanceMeasurementControllerCommand(electronApp, {
+        kind: 'begin-measurement',
+        launchId,
+        operationToken,
+        measurementEpochId
+      });
+      if (!begun || typeof begun !== 'object') fail('performance measurement did not return its phase token');
+      assertPerformanceMeasurementToken(begun.phaseToken, 'performance measurement phase token');
+      if (measurementEpochId === null) {
+        if (begun.epochToken !== null) fail('non-instrumented measurement unexpectedly opened a numeric epoch');
+      } else {
+        assertPerformanceMeasurementToken(begun.epochToken, 'performance measurement epoch token');
+      }
+      phaseToken = begun.phaseToken;
+      epochToken = begun.epochToken;
+      currentPhase = 'measurement';
+      return Object.freeze({ measurementEpochId });
+    },
+
+    async closeNumericEpoch() {
+      requireLive('close the performance measurement numeric epoch');
+      if (epochToken === null) fail('performance measurement has no open numeric epoch');
+      await runPerformanceMeasurementControllerCommand(electronApp, {
+        kind: 'close-numeric-epoch',
+        launchId,
+        epochToken
+      });
+      epochToken = null;
+    },
+
+    async finalize() {
+      requireLive('finalize the performance measurement lease');
+      if (currentPhase !== 'pre-exit' || epochToken !== null) {
+        fail('performance measurement lease must reach pre-exit with no open numeric epoch before finalization');
+      }
+      const audit = await runPerformanceMeasurementControllerCommand(electronApp, {
+        kind: 'finalize',
+        launchId,
+        operationToken
+      });
+      finalized = true;
+      operationToken = null;
+      phaseToken = null;
+      return audit;
+    }
+  });
 }
 
 /**
