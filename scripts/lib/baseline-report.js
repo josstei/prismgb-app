@@ -102,7 +102,41 @@ export function stableStringify(value) {
 }
 
 export function canonicalSha256(value) {
-  return crypto.createHash('sha256').update(stableStringify(value), 'utf8').digest('hex');
+  assertJsonValue(value, 'canonical value');
+  const hash = crypto.createHash('sha256');
+  const update = (entry) => {
+    if (entry === null) {
+      hash.update('null', 'utf8');
+      return;
+    }
+    if (typeof entry === 'string' || typeof entry === 'boolean') {
+      hash.update(JSON.stringify(entry), 'utf8');
+      return;
+    }
+    if (typeof entry === 'number') {
+      hash.update(JSON.stringify(Object.is(entry, -0) ? 0 : entry), 'utf8');
+      return;
+    }
+    if (Array.isArray(entry)) {
+      hash.update('[', 'utf8');
+      entry.forEach((item, index) => {
+        if (index > 0) hash.update(',', 'utf8');
+        update(item);
+      });
+      hash.update(']', 'utf8');
+      return;
+    }
+    hash.update('{', 'utf8');
+    Object.keys(entry).sort().forEach((key, index) => {
+      if (index > 0) hash.update(',', 'utf8');
+      hash.update(JSON.stringify(key), 'utf8');
+      hash.update(':', 'utf8');
+      update(entry[key]);
+    });
+    hash.update('}', 'utf8');
+  };
+  update(value);
+  return hash.digest('hex');
 }
 
 function validateRepository(repository) {

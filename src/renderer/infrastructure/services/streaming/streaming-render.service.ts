@@ -213,7 +213,8 @@ export class StreamingRenderService extends BaseService {
           window.prismgbPerformanceControlProbe?.write({
             kind: 'shutdown-boundary',
             boundary,
-            launchId
+            launchId,
+            observedAt: performance.now()
           });
 
           if (
@@ -400,6 +401,22 @@ export class StreamingRenderService extends BaseService {
         this.logger.info(`Session ready (backend: ${event.backend})`);
         this.eventBus.publish(EventChannels.RENDER.PIPELINE_READY, event);
         if (
+          typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+          __PRISMGB_PERF_HARNESS__ &&
+          window.prismgbPerformanceLaunchMarker !== undefined &&
+          window.prismgbPerformanceControlProbe !== undefined
+        ) {
+          window.prismgbPerformanceControlProbe.write({
+            kind: 'backend-ready',
+            launchId: window.prismgbPerformanceLaunchMarker.launchId,
+            observedAt: performance.now(),
+            requestedBackend,
+            selectedBackend: event.backend,
+            selectionReason,
+            backendExecutionIdentity: event.backendExecutionIdentity ?? null
+          });
+        }
+        if (
           (event.backend === 'canvas2d' || event.backend === 'webgpu') &&
           typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
           __PRISMGB_PERF_HARNESS__ &&
@@ -430,13 +447,30 @@ export class StreamingRenderService extends BaseService {
         if (launchId === undefined) return;
 
         switch (observation.kind) {
+          case 'session-branch':
+            window.prismgbPerformanceControlProbe?.write({
+              kind: 'frame-branch',
+              launchId,
+              sourceSequence: observation.context.sourceSequence,
+              branch: 'session-branch',
+              observedAt: performance.now(),
+              workerPresent: observation.workerPresent,
+              workerReady: observation.workerReady,
+              outstandingFrameCount: observation.outstandingFrameCount,
+              outstandingFrameLimit: observation.outstandingFrameLimit,
+              bitmapOutcome: observation.bitmapOutcome,
+              canvasDrawOutcome: observation.canvasDrawOutcome,
+              framePostOutcome: observation.framePostOutcome
+            });
+            return;
           case 'canvas-disposition':
             window.prismgbPerformanceControlProbe?.write({
               kind: 'frame-branch',
               launchId,
               sourceSequence: observation.context.sourceSequence,
               branch: 'canvas-disposition',
-              outcome: observation.outcome
+              outcome: observation.outcome,
+              observedAt: performance.now()
             });
             return;
           case 'bitmap-creation':
@@ -445,7 +479,8 @@ export class StreamingRenderService extends BaseService {
               launchId,
               sourceSequence: observation.context.sourceSequence,
               branch: 'bitmap-creation',
-              outcome: observation.outcome
+              outcome: observation.outcome,
+              observedAt: performance.now()
             });
             return;
           case 'worker-frame-submitted':
@@ -454,7 +489,8 @@ export class StreamingRenderService extends BaseService {
               launchId,
               sourceSequence: observation.context.sourceSequence,
               branch: 'worker-frame-submitted',
-              frameToken: observation.frameToken
+              frameToken: observation.frameToken,
+              observedAt: performance.now()
             });
             return;
           case 'worker-frame-acknowledged':
@@ -464,6 +500,7 @@ export class StreamingRenderService extends BaseService {
               sourceSequence: observation.context.sourceSequence,
               branch: 'worker-frame-acknowledged',
               frameToken: observation.frameToken,
+              observedAt: performance.now(),
               outcome: observation.outcome
             });
             return;
@@ -473,7 +510,8 @@ export class StreamingRenderService extends BaseService {
               launchId,
               sourceSequence: observation.context.sourceSequence,
               branch: 'worker-terminal-error',
-              frameToken: observation.frameToken
+              frameToken: observation.frameToken,
+              observedAt: performance.now()
             });
             return;
           case 'session-disposition':
@@ -482,6 +520,7 @@ export class StreamingRenderService extends BaseService {
               launchId,
               sourceSequence: observation.context.sourceSequence,
               branch: 'session-disposition',
+              observedAt: performance.now(),
               disposition: observation.disposition
             });
         }
@@ -790,6 +829,7 @@ export class StreamingRenderService extends BaseService {
           kind: 'source-opportunity',
           launchId: window.prismgbPerformanceLaunchMarker.launchId,
           sourceSequence: controlSourceSequence,
+          observedAt: performance.now(),
           mediaTime,
           sessionPresent: session !== null,
           sessionActive: session?.isActive === true,
@@ -814,12 +854,14 @@ export class StreamingRenderService extends BaseService {
             launchId: window.prismgbPerformanceLaunchMarker.launchId,
             sourceSequence: controlSourceSequence,
             branch: 'session-disposition',
+            observedAt: performance.now(),
             disposition: 'session-inactive'
           });
           window.prismgbPerformanceControlProbe?.write({
             kind: 'advisory-frame-disposition',
             launchId: window.prismgbPerformanceLaunchMarker.launchId,
             sourceSequence: controlSourceSequence,
+            observedAt: performance.now(),
             outcome: 'skipped-inactive',
             frameToken: null
           });
@@ -915,6 +957,7 @@ export class StreamingRenderService extends BaseService {
           kind: 'advisory-frame-disposition',
           launchId: window.prismgbPerformanceLaunchMarker.launchId,
           sourceSequence: controlSourceSequence,
+          observedAt: performance.now(),
           outcome: advisoryOutcome,
           frameToken: null
         });

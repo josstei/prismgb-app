@@ -80,8 +80,42 @@ export type BrowserCapabilityProbeError = Readonly<{
   message: string;
 }>;
 
+export type BrowserGpuAdapterIdentity = Readonly<{
+  vendor: string | null;
+  architecture: string | null;
+  device: string | null;
+  description: string | null;
+}>;
+
+export type BrowserGpuQualificationLimits = Readonly<{
+  maxTextureDimension2D: number;
+  maxBindGroups: number;
+}>;
+
+export type BrowserGpuStrictSelection = Readonly<{
+  requestedBackend: 'webgpu';
+  powerPreference: 'low-power';
+  forceFallbackAdapter: false;
+}>;
+
+export type WebGpuBackendExecutionIdentity = Readonly<{
+  backend: 'webgpu';
+  driver: 'webgpu-driver-v1';
+  workerProtocol: 'webgpu-worker-ready-v1';
+  adapterIdentity: BrowserGpuAdapterIdentity;
+  limits: BrowserGpuQualificationLimits;
+  isFallbackAdapter: boolean;
+  powerPreference: 'low-power' | 'high-performance';
+}>;
+
 export type WebGpuCapabilityProbeResult =
-  | Readonly<{ status: 'available' }>
+  | Readonly<{
+    status: 'available';
+    adapterIdentity: BrowserGpuAdapterIdentity;
+    limits: BrowserGpuQualificationLimits;
+    isFallbackAdapter: boolean;
+    strictSelection: BrowserGpuStrictSelection;
+  }>
   | Readonly<{ status: 'api-unavailable' }>
   | Readonly<{ status: 'adapter-unavailable' }>
   | Readonly<{ status: 'adapter-error'; error: BrowserCapabilityProbeError }>
@@ -210,6 +244,7 @@ export interface RenderPipeline {
   readonly backend: RenderBackend;
   readonly isInitialized: boolean;
   readonly isActive: boolean;
+  getBackendExecutionIdentity(): WebGpuBackendExecutionIdentity | null;
 
   initialize(lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver): Promise<void>;
   renderFrame(source: TexImageSource, instrumentationObserver?: WebGpuFrameInstrumentationObserver): FrameRenderResult;

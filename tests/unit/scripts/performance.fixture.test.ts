@@ -16,6 +16,10 @@ describe('createPerformanceElectronLaunchOptions', () => {
     PATH: '/bin',
     PRISMGB_PERF_MEASUREMENT: '1',
     PRISMGB_PERF_LAUNCH_ID: 'stale-launch',
+    PRISMGB_PERF_ROOT_EXIT_AUDIT_PATH: '/tmp/stale-root-audit.json',
+    PRISMGB_PERF_HARNESS_BUILD: '1',
+    PRISMGB_PERF_INSTRUMENTATION_BUILD: '1',
+    PRISMGB_PERF_SELECTED_HOST: '1',
     PRISMGB_E2E_DIAGNOSTICS: '1',
     PRISMGB_E2E_TEST_CONTROL: '1'
   };
@@ -49,6 +53,7 @@ describe('createPerformanceElectronLaunchOptions', () => {
     expect(launch.env).not.toHaveProperty('PRISMGB_PERF_LAUNCH_ID');
     expect(launch.env).not.toHaveProperty('PRISMGB_E2E_DIAGNOSTICS');
     expect(launch.env).not.toHaveProperty('PRISMGB_PERF_ROOT_EXIT_AUDIT_PATH');
+    expect(Object.keys(launch.env).filter((key) => key.startsWith('PRISMGB_PERF_'))).toEqual([]);
     expect(launch.rootExitAuditPath).toBeNull();
   });
 
@@ -397,6 +402,55 @@ describe('createPerformanceElectronLaunchOptions', () => {
     expect((failure as AggregateError).errors).toEqual([finalizeError, cleanupError]);
     expect(session.abort).toHaveBeenCalledTimes(1);
     expect(pair.getState()).toBe('failed');
+  });
+
+  it('classifies a metric pair factory failure as proven zero-spawned', async () => {
+    const factoryFailure = new Error('factory rejected configuration');
+    let failure: any;
+    try {
+      await openPerformanceRendererMetricPairSession({
+        platform: 'darwin',
+        createSession: async () => { throw factoryFailure; }
+      });
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure.performanceMetricZeroSpawned).toBe(true);
+    expect(failure.cause).toBe(factoryFailure);
+  });
+
+  it('retains canonical abort evidence when metric pair close fails', async () => {
+    const closeFailure = new Error('adapter close failed');
+    const closure = {
+      adapterId: 'macos-ps-v1',
+      transitions: [{ operation: 'abort', status: 'completed' }]
+    };
+    const session = {
+      open: vi.fn(async () => ({ adapterId: 'macos-ps-v1' })),
+      close: vi.fn(async () => { throw closeFailure; }),
+      abort: vi.fn(async () => closure)
+    };
+    const pair = await openPerformanceRendererMetricPairSession({
+      platform: 'darwin',
+      createSession: async () => ({ adapterId: 'macos-ps-v1', session })
+    });
+    let failure: any;
+    try {
+      await pair.close();
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure.cause).toBe(closeFailure);
+    expect(failure.performanceMetricAbortEvidence).toMatchObject({
+      adapterId: 'macos-ps-v1',
+      closure
+    });
+    expect(failure.performanceMetricAbortEvidence.endedAt)
+      .toBeGreaterThanOrEqual(failure.performanceMetricAbortEvidence.startedAt);
+    expect(pair.getTerminalAbortEvidence()).toEqual(failure.performanceMetricAbortEvidence);
+    expect(pair.getState()).toBe('aborted');
   });
 
   it('retains one metric adapter session across two detached renderer sides', async () => {

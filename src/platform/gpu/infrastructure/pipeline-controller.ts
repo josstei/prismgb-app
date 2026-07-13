@@ -7,6 +7,7 @@ import type {
   RenderPreset,
   RenderStats,
   WebGpuFrameInstrumentationObserver,
+  WebGpuBackendExecutionIdentity,
   WebGpuLifecycleInstrumentationObserver
 } from '../domain/types';
 import { buildUniforms } from '../application/uniform-builder';
@@ -41,6 +42,7 @@ export interface PipelineState {
  */
 export interface RenderDriver {
   readonly backend: RenderBackend;
+  getBackendExecutionIdentity?(): WebGpuBackendExecutionIdentity | null;
   initialize(state: PipelineState, lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver): Promise<void>;
   renderFrame(
     source: TexImageSource,
@@ -99,6 +101,13 @@ export class PipelineController implements RenderPipeline, PipelineState {
 
   get isActive(): boolean {
     return this._isActive;
+  }
+
+  getBackendExecutionIdentity(): WebGpuBackendExecutionIdentity | null {
+    if (typeof __PRISMGB_PERF_HARNESS__ === 'undefined' || !__PRISMGB_PERF_HARNESS__) {
+      return null;
+    }
+    return this.driver.getBackendExecutionIdentity?.() ?? null;
   }
 
   private rebuildUniforms(): PipelineUniforms {

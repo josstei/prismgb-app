@@ -42,7 +42,9 @@ export function createStreamingPerformanceInstrumentation(
 class RendererPerformanceInstrumentation implements StreamingPerformanceInstrumentation {
   private readonly diagnostics: PerformanceDiagnostics;
   private sourceSequence = 0;
-  private readonly lifecycleRequestSequences = new Map<string, number>();
+  private readonly frameRequestSequences = new Map<string, number>();
+  private readonly lifecyclePhaseSequences = new Map<string, number>();
+  private readonly lifecycleOperationSequences = new Map<string, number>();
   private readonly unsubscribers: Array<() => void>;
 
   constructor(
@@ -204,9 +206,12 @@ class RendererPerformanceInstrumentation implements StreamingPerformanceInstrume
           const result = this.diagnostics.recordWebGpuAllocationRequestProxy({
             backend: 'webgpu',
             carrier: 'frame-request',
+            measurementWindowId: this.launchId,
             measurementEpochId: observation.context.measurementEpochId,
             sourceSequence: observation.context.sourceSequence,
-            requestOrdinal: observation.context.sourceSequence,
+            diagnosticFrameId: observation.diagnosticFrameId,
+            frameToken: observation.frameToken,
+            requestOrdinal: this.nextFrameRequestOrdinal(observation.context),
             ...request
           });
           if (result.accepted === false) {
@@ -216,15 +221,18 @@ class RendererPerformanceInstrumentation implements StreamingPerformanceInstrume
         return;
       case 'worker-lifecycle-requests':
         for (const request of observation.lifecycleRequestProxies) {
-          const requestKey = [request.lifecyclePhase, request.operationId, request.sourceLocationId].join(String.fromCharCode(0));
-          const phaseSequence = (this.lifecycleRequestSequences.get(requestKey) ?? 0) + 1;
-          this.lifecycleRequestSequences.set(requestKey, phaseSequence);
+          const phaseKey = request.lifecyclePhase;
+          const phaseSequence = (this.lifecyclePhaseSequences.get(phaseKey) ?? 0) + 1;
+          this.lifecyclePhaseSequences.set(phaseKey, phaseSequence);
+          const operationKey = [request.lifecyclePhase, request.operationId, request.sourceLocationId].join(String.fromCharCode(0));
+          const requestOrdinal = (this.lifecycleOperationSequences.get(operationKey) ?? 0) + 1;
+          this.lifecycleOperationSequences.set(operationKey, requestOrdinal);
           const result = this.diagnostics.recordWebGpuAllocationRequestProxy({
             backend: 'webgpu',
             carrier: 'lifecycle-request',
             executionId: this.launchId,
             phaseSequence,
-            requestOrdinal: phaseSequence,
+            requestOrdinal,
             ...request
           });
           if (result.accepted === false) {
@@ -242,19 +250,32 @@ class RendererPerformanceInstrumentation implements StreamingPerformanceInstrume
         if (result.accepted === false) {
           this.logger.error(`Performance worker acknowledgement rejected: ${result.reason}`);
         }
+        if (observation.outcome === 'webgpu-queue-submit-completed') {
+          this.recordTiming(
+            observation.context,
+            'webgpu-enqueue-to-ack',
+            'enqueue-acknowledged',
+            observation.submittedAt,
+            observation.acknowledgedAt,
+            observation.frameToken
+          );
+        }
         return;
       }
       case 'worker-terminal-error':
         this.diagnostics.recordWorkerTerminalError();
         return;
       case 'bitmap-creation': {
-        this.recordTiming(
-          observation.context,
-          'webgpu-bitmap-creation',
-          'bitmap-created',
-          observation.startedAt,
-          observation.endedAt
-        );
+        if (observation.outcome === 'success') {
+          this.recordTiming(
+            observation.context,
+            'webgpu-bitmap-creation',
+            'bitmap-created',
+            observation.startedAt,
+            observation.endedAt,
+            observation.frameToken
+          );
+        }
         const byteValue = observation.sourceWidth * observation.sourceHeight * 4;
         if (
           Number.isSafeInteger(observation.sourceWidth) && observation.sourceWidth > 0 &&
@@ -264,12 +285,15 @@ class RendererPerformanceInstrumentation implements StreamingPerformanceInstrume
           const result = this.diagnostics.recordWebGpuAllocationRequestProxy({
             backend: 'webgpu',
             carrier: 'frame-request',
+            measurementWindowId: this.launchId,
             measurementEpochId: observation.context.measurementEpochId,
             sourceSequence: observation.context.sourceSequence,
+            diagnosticFrameId: observation.context.sourceSequence,
+            frameToken: observation.frameToken,
             operationId: 'video-frame-image-bitmap-request',
             sourceLocationId: 'video-session:create-image-bitmap',
-            requestOrdinal: observation.context.sourceSequence,
-            outcome: 'success',
+            requestOrdinal: this.nextFrameRequestOrdinal(observation.context),
+            outcome: observation.outcome,
             byteKind: 'rgba-transfer-footprint',
             byteValue,
             sourceWidth: observation.sourceWidth,
@@ -364,5 +388,12 @@ class RendererPerformanceInstrumentation implements StreamingPerformanceInstrume
     if (result.accepted === false) {
       this.logger.error(`Performance timing observation rejected: ${result.reason}`);
     }
+  }
+
+  private nextFrameRequestOrdinal(context: GpuVideoFrameMeasurementContext): number {
+    const key = [context.measurementEpochId, context.sourceSequence].join(String.fromCharCode(0));
+    const ordinal = (this.frameRequestSequences.get(key) ?? 0) + 1;
+    this.frameRequestSequences.set(key, ordinal);
+    return ordinal;
   }
 }

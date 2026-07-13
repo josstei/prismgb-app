@@ -73,6 +73,7 @@ scripts/*.log
 docs/superpowers/
 docs/maestro/
 .gemini/
+.superpowers/
 
 # Scratch directories
 scratch/

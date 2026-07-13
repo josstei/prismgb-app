@@ -64,6 +64,17 @@ describe('instrumented StreamingRenderService', () => {
             context: measurement,
             outcome: 'canvas-draw-completed'
           });
+          options.onHarnessObservation?.({
+            kind: 'session-branch',
+            context: measurement,
+            workerPresent: false,
+            workerReady: false,
+            outstandingFrameCount: 0,
+            outstandingFrameLimit: 2,
+            bitmapOutcome: 'not-applicable',
+            canvasDrawOutcome: 'canvas-draw-completed',
+            framePostOutcome: 'not-applicable'
+          });
           options.onPerformanceObservation?.({
             kind: 'canvas-disposition',
             context: measurement,
@@ -140,7 +151,15 @@ describe('instrumented StreamingRenderService', () => {
     });
     expect(diagnostics?.timingSamples['source-callback']).toHaveLength(1);
     expect(diagnostics?.timingSamples['canvas-draw-call']).toHaveLength(1);
-    expect(write).toHaveBeenNthCalledWith(1, {
+    expect(write).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      kind: 'backend-ready',
+      launchId: '6e3cc1a1-c341-4e20-9737-56ac2c4bd192',
+      requestedBackend: 'webgpu',
+      selectedBackend: 'canvas2d',
+      backendExecutionIdentity: null,
+      observedAt: expect.any(Number)
+    }));
+    expect(write).toHaveBeenNthCalledWith(2, expect.objectContaining({
       kind: 'source-opportunity',
       launchId: '6e3cc1a1-c341-4e20-9737-56ac2c4bd192',
       sourceSequence: 1,
@@ -149,22 +168,39 @@ describe('instrumented StreamingRenderService', () => {
       sessionActive: true,
       duplicateMediaTime: false,
       readyState: 4,
-      hasCurrentData: true
-    });
-    expect(write).toHaveBeenNthCalledWith(2, {
+      hasCurrentData: true,
+      observedAt: expect.any(Number)
+    }));
+    expect(write).toHaveBeenNthCalledWith(3, expect.objectContaining({
       kind: 'frame-branch',
       launchId: '6e3cc1a1-c341-4e20-9737-56ac2c4bd192',
       sourceSequence: 1,
       branch: 'canvas-disposition',
-      outcome: 'canvas-draw-completed'
-    });
-    expect(write).toHaveBeenNthCalledWith(3, {
+      outcome: 'canvas-draw-completed',
+      observedAt: expect.any(Number)
+    }));
+    expect(write).toHaveBeenNthCalledWith(4, expect.objectContaining({
+      kind: 'frame-branch',
+      launchId: '6e3cc1a1-c341-4e20-9737-56ac2c4bd192',
+      sourceSequence: 1,
+      branch: 'session-branch',
+      workerPresent: false,
+      workerReady: false,
+      outstandingFrameCount: 0,
+      outstandingFrameLimit: 2,
+      bitmapOutcome: 'not-applicable',
+      canvasDrawOutcome: 'canvas-draw-completed',
+      framePostOutcome: 'not-applicable',
+      observedAt: expect.any(Number)
+    }));
+    expect(write).toHaveBeenNthCalledWith(5, expect.objectContaining({
       kind: 'advisory-frame-disposition',
       launchId: '6e3cc1a1-c341-4e20-9737-56ac2c4bd192',
       sourceSequence: 1,
       outcome: 'canvas-draw-completed',
-      frameToken: null
-    });
+      frameToken: null,
+      observedAt: expect.any(Number)
+    }));
 
     expect(service.resetPerformanceDiagnostics()).toBe(true);
     expect(service.getPerformanceDiagnosticsSnapshot()).toMatchObject({
@@ -219,7 +255,7 @@ describe('instrumented StreamingRenderService', () => {
     (service as unknown as { _session: unknown })._session = null;
     await callback(1, { mediaTime: 1 });
 
-    expect(write).toHaveBeenNthCalledWith(1, {
+    expect(write).toHaveBeenNthCalledWith(2, expect.objectContaining({
       kind: 'source-opportunity',
       launchId: '6e3cc1a1-c341-4e20-9737-56ac2c4bd192',
       sourceSequence: 1,
@@ -228,22 +264,25 @@ describe('instrumented StreamingRenderService', () => {
       sessionActive: false,
       duplicateMediaTime: false,
       readyState: 4,
-      hasCurrentData: true
-    });
-    expect(write).toHaveBeenNthCalledWith(2, {
+      hasCurrentData: true,
+      observedAt: expect.any(Number)
+    }));
+    expect(write).toHaveBeenNthCalledWith(3, expect.objectContaining({
       kind: 'frame-branch',
       launchId: '6e3cc1a1-c341-4e20-9737-56ac2c4bd192',
       sourceSequence: 1,
       branch: 'session-disposition',
-      disposition: 'session-inactive'
-    });
-    expect(write).toHaveBeenNthCalledWith(3, {
+      disposition: 'session-inactive',
+      observedAt: expect.any(Number)
+    }));
+    expect(write).toHaveBeenNthCalledWith(4, expect.objectContaining({
       kind: 'advisory-frame-disposition',
       launchId: '6e3cc1a1-c341-4e20-9737-56ac2c4bd192',
       sourceSequence: 1,
       outcome: 'skipped-inactive',
-      frameToken: null
-    });
+      frameToken: null,
+      observedAt: expect.any(Number)
+    }));
     expect(service.getPerformanceDiagnosticsSnapshot()).toMatchObject({
       source: {
         sourceOpportunities: 1,
@@ -269,18 +308,20 @@ describe('instrumented StreamingRenderService', () => {
 
     service.stopPipeline();
 
-    expect(write).toHaveBeenNthCalledWith(1, {
+    expect(write).toHaveBeenNthCalledWith(2, expect.objectContaining({
       kind: 'shutdown-boundary',
       boundary: 'before-release',
-      launchId: '6e3cc1a1-c341-4e20-9737-56ac2c4bd192'
-    });
-    expect(write).toHaveBeenNthCalledWith(2, {
+      launchId: '6e3cc1a1-c341-4e20-9737-56ac2c4bd192',
+      observedAt: expect.any(Number)
+    }));
+    expect(write).toHaveBeenNthCalledWith(3, expect.objectContaining({
       kind: 'shutdown-boundary',
       boundary: 'release-dispatched',
-      launchId: '6e3cc1a1-c341-4e20-9737-56ac2c4bd192'
-    });
-    expect(write.mock.invocationCallOrder[0]).toBeLessThan(sessionTerminate.mock.invocationCallOrder[0]);
-    expect(sessionTerminate.mock.invocationCallOrder[0]).toBeLessThan(write.mock.invocationCallOrder[1]);
+      launchId: '6e3cc1a1-c341-4e20-9737-56ac2c4bd192',
+      observedAt: expect.any(Number)
+    }));
+    expect(write.mock.invocationCallOrder[1]).toBeLessThan(sessionTerminate.mock.invocationCallOrder[0]);
+    expect(sessionTerminate.mock.invocationCallOrder[0]).toBeLessThan(write.mock.invocationCallOrder[2]);
     expect(eventBus._getEventsOfType('performance:memory-snapshot-requested')).toEqual([
       expect.objectContaining({
         data: {

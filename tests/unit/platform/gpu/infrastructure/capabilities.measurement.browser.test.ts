@@ -6,10 +6,18 @@ import {
 
 function availableGpu() {
   const destroy = vi.fn();
-  const requestDevice = vi.fn(async () => ({ destroy }));
-  const requestAdapter = vi.fn(async () => ({ requestDevice }));
+  const limits = { maxTextureDimension2D: 8192, maxBindGroups: 8 };
+  const info = {
+    vendor: '  Example   Vendor  ',
+    architecture: 'Example Architecture',
+    device: 'Example Device',
+    description: '  Example   Adapter ',
+    isFallbackAdapter: false
+  };
+  const requestDevice = vi.fn(async () => ({ destroy, limits }));
+  const requestAdapter = vi.fn(async () => ({ requestDevice, info }));
 
-  return { gpu: { requestAdapter }, requestAdapter, requestDevice, destroy };
+  return { gpu: { requestAdapter }, requestAdapter, requestDevice, destroy, info, limits };
 }
 
 function availableTransfer() {
@@ -74,7 +82,10 @@ describe('probeBrowserGpuCapabilities', () => {
     const requestDevice = vi.fn(async () => {
       throw deviceError;
     });
-    const requestAdapter = vi.fn(async () => ({ requestDevice }));
+    const requestAdapter = vi.fn(async () => ({
+      requestDevice,
+      info: availableGpu().info
+    }));
 
     const result = await probeBrowserGpuCapabilities(probeApis({
       gpu: { requestAdapter }
@@ -149,13 +160,68 @@ describe('probeBrowserGpuCapabilities', () => {
     });
 
     expect(result).toEqual({
-      webgpu: { status: 'available' },
+      webgpu: {
+        status: 'available',
+        adapterIdentity: {
+          vendor: 'Example Vendor',
+          architecture: 'Example Architecture',
+          device: 'Example Device',
+          description: 'Example Adapter'
+        },
+        limits: { maxTextureDimension2D: 8192, maxBindGroups: 8 },
+        isFallbackAdapter: false,
+        strictSelection: {
+          requestedBackend: 'webgpu',
+          powerPreference: 'low-power',
+          forceFallbackAdapter: false
+        }
+      },
       transferControlToOffscreen: { status: 'available' }
+    });
+    expect(gpu.requestAdapter).toHaveBeenCalledWith({
+      powerPreference: 'low-power',
+      forceFallbackAdapter: false
     });
     expect(gpu.requestAdapter).toHaveBeenCalledTimes(1);
     expect(gpu.requestDevice).toHaveBeenCalledTimes(1);
     expect(gpu.destroy).toHaveBeenCalledTimes(1);
     expect(transfer.transferControlToOffscreen).toHaveBeenCalledTimes(1);
     expect(transfer.remove).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves a fallback adapter result and destroys its device', async () => {
+    const gpu = availableGpu();
+    gpu.info.isFallbackAdapter = true;
+
+    const result = await probeBrowserGpuCapabilities({
+      gpu: gpu.gpu,
+      ...availableTransfer()
+    });
+
+    expect(result.webgpu).toMatchObject({
+      status: 'available',
+      isFallbackAdapter: true,
+      adapterIdentity: { vendor: 'Example Vendor' }
+    });
+    expect(gpu.destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports invalid adapter metadata or limits as a device error after cleanup', async () => {
+    const gpu = availableGpu();
+    gpu.info.isFallbackAdapter = undefined as unknown as boolean;
+
+    const result = await probeBrowserGpuCapabilities({
+      gpu: gpu.gpu,
+      ...availableTransfer()
+    });
+
+    expect(result.webgpu).toEqual({
+      status: 'device-error',
+      error: {
+        name: 'TypeError',
+        message: 'WebGPU qualification adapter fallback status is invalid'
+      }
+    });
+    expect(gpu.destroy).toHaveBeenCalledTimes(1);
   });
 });

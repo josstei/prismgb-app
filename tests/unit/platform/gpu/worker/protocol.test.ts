@@ -18,6 +18,16 @@ import {
   isWorkerReadyPayload
 } from '../../../../../src/platform/gpu/worker/protocol';
 
+const backendExecutionIdentity = {
+  backend: 'webgpu' as const,
+  driver: 'webgpu-driver-v1' as const,
+  workerProtocol: 'webgpu-worker-ready-v1' as const,
+  adapterIdentity: { vendor: 'vendor', architecture: 'architecture', device: 'device', description: 'adapter' },
+  limits: { maxTextureDimension2D: 8192, maxBindGroups: 8 },
+  isFallbackAdapter: false,
+  powerPreference: 'low-power' as const
+};
+
 function bitmap(): ImageBitmap {
   return { close: () => {} } as unknown as ImageBitmap;
 }
@@ -128,12 +138,14 @@ describe('worker protocol', () => {
     expect(isWorkerReadyPayload({ backend: 'webgpu' })).toBe(true);
     expect(isInstrumentedWorkerReadyPayload({
       backend: 'webgpu',
+      backendExecutionIdentity,
       lifecycleRequestProxies: startup
     })).toBe(true);
     expect(isWorkerLifecycleRequestPayload({ lifecycleRequestProxies: resize })).toBe(true);
 
     expect(isInstrumentedWorkerReadyPayload({
       backend: 'webgpu',
+      backendExecutionIdentity,
       lifecycleRequestProxies: [...startup.slice(0, 3), bufferLifecycleRequest(64)]
     })).toBe(false);
     expect(isWorkerLifecycleRequestPayload({

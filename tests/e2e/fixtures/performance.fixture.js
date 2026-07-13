@@ -24,12 +24,14 @@ import {
   openPerformanceMeasurementLease,
   pauseExternalPerformanceSentinelCallbacks,
   pauseExternalPerformanceSentinelCallbacksAt,
+  readElectronBrowserProcessIdentity,
   readElectronRendererProcessId,
   readExternalPerformanceSentinelGate,
   removeExternalPerformanceSentinelGate,
   removePerformanceControlProbe,
   readPerformanceControlProbe,
   readPerformanceDiagnostics,
+  readPerformanceQualificationProbe,
   resetExternalPerformanceSentinelGate,
   resetPerformanceControlProbe,
   resumeExternalPerformanceSentinelCallbacks,
@@ -49,6 +51,36 @@ async function rethrowAfterMetricCleanup(primaryError, cleanup, label) {
     throw new AggregateError([...errors, cleanupError], `${label} and metric cleanup both failed`);
   }
   throw primaryError;
+}
+
+function metricAbortClock() {
+  return Number(process.hrtime.bigint()) / 1_000_000_000;
+}
+
+async function captureMetricAbortEvidence(primaryError, abort, label, adapterId) {
+  const startedAt = metricAbortClock();
+  let closure;
+  try {
+    closure = await abort();
+  } catch (cleanupError) {
+    const errors = primaryError instanceof AggregateError ? [...primaryError.errors] : [primaryError];
+    throw new AggregateError([...errors, cleanupError], `${label} and metric cleanup both failed`);
+  }
+  const endedAt = metricAbortClock();
+  const evidence = Object.freeze({ adapterId, startedAt, endedAt, closure });
+  const failure = new Error(`${label}: ${primaryError instanceof Error ? primaryError.message : String(primaryError)}`, {
+    cause: primaryError
+  });
+  Object.defineProperty(failure, 'performanceMetricAbortEvidence', { value: evidence, enumerable: false });
+  throw failure;
+}
+
+function throwMetricSessionZeroSpawned(primaryError) {
+  const failure = new Error(`performance metric pair session was not created: ${primaryError instanceof Error ? primaryError.message : String(primaryError)}`, {
+    cause: primaryError
+  });
+  Object.defineProperty(failure, 'performanceMetricZeroSpawned', { value: true, enumerable: false });
+  throw failure;
 }
 
 /**
@@ -116,10 +148,11 @@ export function createPerformanceElectronLaunchOptions({
       PRISMGB_PERF_ROOT_EXIT_AUDIT_PATH: rootExitAuditPath
     });
   } else {
-    delete environment.PRISMGB_PERF_MEASUREMENT;
-    delete environment.PRISMGB_PERF_LAUNCH_ID;
-    delete environment.PRISMGB_E2E_DIAGNOSTICS;
-    delete environment.PRISMGB_PERF_ROOT_EXIT_AUDIT_PATH;
+    for (const key of Object.keys(environment)) {
+      if (key.startsWith('PRISMGB_PERF_') || key === 'PRISMGB_E2E_DIAGNOSTICS') {
+        delete environment[key];
+      }
+    }
   }
   return Object.freeze({
     args: Object.freeze(args),
@@ -301,6 +334,7 @@ export async function resolvePerformanceRendererMetricTarget({
  */
 export async function openPerformanceRendererMetricPairSession({
   platform = process.platform,
+  deferFailureAbort = false,
   readLinuxConfiguration = readLinuxProcfsMetricConfiguration,
   createSession = createPlatformExternalMetricSession,
   resolveTarget = resolvePlatformExternalMetricTarget,
@@ -310,6 +344,9 @@ export async function openPerformanceRendererMetricPairSession({
   if (typeof platform !== 'string' || platform.length === 0) {
     throw new Error('performance renderer metric pair session requires a platform');
   }
+  if (typeof deferFailureAbort !== 'boolean') {
+    throw new Error('performance renderer metric pair session defer-failure authority is invalid');
+  }
   if (typeof readLinuxConfiguration !== 'function'
     || typeof createSession !== 'function'
     || typeof resolveTarget !== 'function'
@@ -318,31 +355,39 @@ export async function openPerformanceRendererMetricPairSession({
     throw new Error('performance renderer metric pair session requires external metric factories');
   }
 
-  const adapterOptions = platform === 'linux'
-    ? { linux: await readLinuxConfiguration() }
-    : {};
-  const adapter = await createSession({ platform, ...adapterOptions });
+  let adapterOptions;
+  let adapter;
+  try {
+    adapterOptions = platform === 'linux'
+      ? { linux: await readLinuxConfiguration() }
+      : {};
+    adapter = await createSession({ platform, ...adapterOptions });
+  } catch (error) {
+    throwMetricSessionZeroSpawned(error);
+  }
   if (!adapter || typeof adapter !== 'object' || typeof adapter.adapterId !== 'string'
     || !adapter.session || typeof adapter.session !== 'object') {
-    throw new Error('performance renderer metric pair adapter did not return a session');
+    throwMetricSessionZeroSpawned(new Error('performance renderer metric pair adapter did not return a session'));
   }
   for (const operation of ['open', 'close', 'abort']) {
     if (typeof adapter.session[operation] !== 'function') {
-      throw new Error(`performance renderer metric pair session must implement ${operation}`);
+      throwMetricSessionZeroSpawned(new Error(`performance renderer metric pair session must implement ${operation}`));
     }
   }
 
   let state = 'opening';
   let activeSide = null;
+  let terminalAbortEvidence = null;
   try {
     await adapter.session.open();
     state = 'open';
   } catch (error) {
     state = 'failed';
-    await rethrowAfterMetricCleanup(
+    await captureMetricAbortEvidence(
       error,
       () => adapter.session.abort(),
-      'performance metric pair session initialization'
+      'performance metric pair session initialization',
+      adapter.adapterId
     );
   }
 
@@ -377,6 +422,9 @@ export async function openPerformanceRendererMetricPairSession({
     getState() {
       return state;
     },
+    getTerminalAbortEvidence() {
+      return terminalAbortEvidence;
+    },
     async openSide(input) {
       requireOpen('open a metric pair side');
       if (activeSide !== null) {
@@ -392,13 +440,21 @@ export async function openPerformanceRendererMetricPairSession({
         side.state = 'active';
       } catch (error) {
         side.state = 'failed';
-        activeSide = null;
         state = 'failed';
-        await rethrowAfterMetricCleanup(
-          error,
-          () => adapter.session.abort(),
-          'performance metric pair side attachment'
-        );
+        if (deferFailureAbort) throw error;
+        activeSide = null;
+        try {
+          await captureMetricAbortEvidence(
+            error,
+            () => adapter.session.abort(),
+            'performance metric pair side attachment',
+            adapter.adapterId
+          );
+        } catch (failure) {
+          terminalAbortEvidence = failure?.performanceMetricAbortEvidence ?? null;
+          if (terminalAbortEvidence !== null) state = 'aborted';
+          throw failure;
+        }
       }
 
       const requireActiveSide = (operation) => {
@@ -444,23 +500,42 @@ export async function openPerformanceRendererMetricPairSession({
             return transcript;
           } catch (error) {
             side.state = 'failed';
-            activeSide = null;
             state = 'failed';
-            await rethrowAfterMetricCleanup(
-              error,
-              () => adapter.session.abort(),
-              'performance metric pair side finalization'
-            );
+            if (deferFailureAbort) throw error;
+            activeSide = null;
+            try {
+              await captureMetricAbortEvidence(
+                error,
+                () => adapter.session.abort(),
+                'performance metric pair side finalization',
+                adapter.adapterId
+              );
+            } catch (failure) {
+              terminalAbortEvidence = failure?.performanceMetricAbortEvidence ?? null;
+              if (terminalAbortEvidence !== null) state = 'aborted';
+              throw failure;
+            }
           }
         },
         async abort() {
-          requireActiveSide('abort the metric pair side');
+          if (activeSide !== side || !['active', 'failed'].includes(side.state)
+            || !['open', 'failed'].includes(state)) {
+            throw new Error(`cannot abort the performance renderer metric pair side when it is ${side.state}`);
+          }
           side.state = 'aborting';
           try {
+            const startedAt = metricAbortClock();
             const result = await cadenceCapture.abort();
+            const endedAt = metricAbortClock();
             side.state = 'aborted';
             activeSide = null;
             state = 'aborted';
+            terminalAbortEvidence = Object.freeze({
+              adapterId: adapter.adapterId,
+              startedAt,
+              endedAt,
+              closure: result
+            });
             return result;
           } catch (error) {
             side.state = 'failed';
@@ -483,20 +558,32 @@ export async function openPerformanceRendererMetricPairSession({
         return closure;
       } catch (error) {
         state = 'failed';
-        await rethrowAfterMetricCleanup(
-          error,
-          () => adapter.session.abort(),
-          'performance metric pair session close'
-        );
+        try {
+          await captureMetricAbortEvidence(
+            error,
+            () => adapter.session.abort(),
+            'performance metric pair session close',
+            adapter.adapterId
+          );
+        } catch (failure) {
+          terminalAbortEvidence = failure?.performanceMetricAbortEvidence ?? null;
+          if (terminalAbortEvidence !== null) state = 'aborted';
+          throw failure;
+        }
       }
     },
     async abort() {
-      requireOpen('abort the metric pair session');
+      if (!['open', 'failed'].includes(state)) {
+        throw new Error(`cannot abort the performance renderer metric pair session when it is ${state}`);
+      }
       state = 'aborting';
       try {
+        const startedAt = metricAbortClock();
         const result = await adapter.session.abort();
+        const endedAt = metricAbortClock();
         activeSide = null;
         state = 'aborted';
+        terminalAbortEvidence = Object.freeze({ adapterId: adapter.adapterId, startedAt, endedAt, closure: result });
         return result;
       } catch (error) {
         state = 'failed';
@@ -665,6 +752,7 @@ export async function openPerformanceLaunch({
   performanceVariant = 'instrumented',
   performanceDiagnostics = true,
   loadedManifest = undefined,
+  launchAuthoritySlot = null,
   launchElectron = electron.launch.bind(electron)
 } = {}) {
   if (!['production', 'harness-control', 'instrumented'].includes(performanceVariant)) {
@@ -675,8 +763,25 @@ export async function openPerformanceLaunch({
   }
   const manifest = loadedManifest ?? await loadPerformanceBuildManifest();
   const build = getPerformanceBuild(manifest, performanceVariant);
-  const launchId = build.harness ? createPerformanceLaunchId() : null;
-  const externalExecutionId = createExternalPerformanceExecutionId();
+  if (launchAuthoritySlot !== null && (
+    typeof launchAuthoritySlot !== 'object' ||
+    launchAuthoritySlot.buildVariant !== performanceVariant ||
+    typeof launchAuthoritySlot.externalExecutionId !== 'string'
+  )) {
+    throw new Error('performance launch authority slot does not match the requested variant');
+  }
+  const launchId = build.harness
+    ? launchAuthoritySlot?.launchId ?? createPerformanceLaunchId()
+    : null;
+  const executionId = build.harness
+    ? launchAuthoritySlot?.executionId ?? createExternalPerformanceExecutionId()
+    : null;
+  const externalExecutionId = launchAuthoritySlot?.externalExecutionId ?? createExternalPerformanceExecutionId();
+  if (build.harness && launchAuthoritySlot !== null && (
+    typeof launchId !== 'string' || typeof executionId !== 'string'
+  )) {
+    throw new Error('harness performance launch authority is missing launch or execution identity');
+  }
   const userDataDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'prismgb-performance-'));
   const launch = createPerformanceElectronLaunchOptions({
     build,
@@ -737,20 +842,24 @@ export async function openPerformanceLaunch({
 
   try {
     app = await launchElectron({ ...launch, timeout: 60000 });
-    if (build.harness && process.env.PRISMGB_PERFORMANCE_PAIR_PLAN) {
+    if (build.harness && ['pre-loop', 'pair-loop'].includes(process.env.PRISMGB_PERFORMANCE_EXECUTION_PHASE ?? '')) {
       performanceMeasurement = await openPerformanceMeasurementLease(app, launchId);
     }
     window = await app.firstWindow();
     await new AppShellPage(window).waitForReady();
     await installExternalPerformanceSentinelGate(window, externalExecutionId);
     const rendererPid = await readElectronRendererProcessId(app);
+    const browserIdentity = build.harness ? null : await readElectronBrowserProcessIdentity(app);
     const commonLaunch = {
       app,
       window,
       sourceSha: manifest.manifest.sourceSha,
       build,
       externalExecutionId,
+      executionId,
       rendererPid,
+      browserPid: browserIdentity?.pid ?? null,
+      browserCreationTime: browserIdentity?.creationTime ?? null,
       close,
       resolveRendererMetricTarget: () => resolvePerformanceRendererMetricTarget({
         rendererPid,
@@ -790,6 +899,7 @@ export async function openPerformanceLaunch({
     return Object.freeze({
       ...commonLaunch,
       launchId,
+      executionId,
       performanceMeasurement,
       readPerformanceControlProbe: () => readPerformanceControlProbe(window),
       resetPerformanceControlProbe: () => resetPerformanceControlProbe(window),
@@ -804,10 +914,21 @@ export async function openPerformanceLaunch({
           throw new Error('renderer diagnostics require an instrumented performance build');
         }
         return resetPerformanceDiagnostics(window, launchId);
-      }
+      },
+      readPerformanceQualificationProbe: () => readPerformanceQualificationProbe(window, launchId)
     });
   } catch (error) {
-    await close().catch(() => {});
+    try {
+      await close();
+    } catch (cleanupError) {
+      throw new AggregateError([error, cleanupError], 'performance launch initialization and cleanup both failed');
+    }
+    if (error instanceof Error) {
+      Object.defineProperty(error, 'performanceLaunchCleanupEnd', {
+        value: metricAbortClock(),
+        enumerable: false
+      });
+    }
     throw error;
   }
 }

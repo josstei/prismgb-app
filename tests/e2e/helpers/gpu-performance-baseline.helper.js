@@ -17,6 +17,14 @@ const PRODUCTION_FORBIDDEN_SENTINELS = Object.freeze([
   'frameToken',
   'canvas-draw-completed',
   'webgpu-queue-submit-completed',
+  'backend-ready',
+  'backendExecutionIdentity',
+  'requestedBackend',
+  'selectedBackend',
+  'selectionReason',
+  'webgpu-driver-v1',
+  'webgpu-worker-ready-v1',
+  'isFallbackAdapter',
   'adapter-unavailable',
   'performance-diagnostics',
   'prismgb-e2e-diagnostics',
@@ -27,6 +35,7 @@ const PERFORMANCE_CONTROL_PROBE_SYMBOL = 'prismgb.performance.controlProbe';
 const PERFORMANCE_CALLBACK_GATE_SYMBOL = 'prismgb.performance.callbackGate';
 const PERFORMANCE_EXTERNAL_SENTINEL_GATE_SYMBOL = 'prismgb.performance.externalSentinelGate';
 const PERFORMANCE_RENDERER_DIAGNOSTICS_SYMBOL = 'prismgb.performance.rendererDiagnostics';
+const PERFORMANCE_QUALIFICATION_PROBE_SYMBOL = 'prismgb.performance.qualificationProbe';
 const PERFORMANCE_MEASUREMENT_PHASES = Object.freeze([
   'startup',
   'qualification-probe',
@@ -73,7 +82,7 @@ async function walkFiles(root, directory = root) {
 }
 
 function validateManifest(manifest) {
-  if (!manifest || typeof manifest !== 'object' || manifest.schemaVersion !== 1) {
+  if (!manifest || typeof manifest !== 'object' || manifest.schemaVersion !== 2) {
     fail('build manifest is malformed');
   }
   if (!/^[a-f0-9]{40}$/i.test(manifest.sourceSha)) fail('build manifest source SHA is malformed');
@@ -97,6 +106,12 @@ export function createPerformanceLaunchId() {
 
 export function createExternalPerformanceExecutionId() {
   return crypto.randomUUID();
+}
+
+export function performanceBackendSettingValue(backend) {
+  if (backend === 'canvas2d') return true;
+  if (backend === 'webgpu') return false;
+  fail(`unsupported performance backend authority ${backend}`);
 }
 
 export async function loadPerformanceBuildManifest(manifestPath = process.env.PRISMGB_PERFORMANCE_BUILD_MANIFEST) {
@@ -431,8 +446,29 @@ export async function readElectronRendererProcessId(electronApp) {
   });
 }
 
+export async function readElectronBrowserProcessIdentity(electronApp) {
+  return electronApp.evaluate(({ app }) => {
+    const browserMetrics = app.getAppMetrics().filter((metric) => metric.type === 'Browser');
+    if (browserMetrics.length !== 1) {
+      throw new Error('performance Browser process identity requires exactly one Browser metric');
+    }
+    const [{ pid, creationTime }] = browserMetrics;
+    if (!Number.isSafeInteger(pid) || pid <= 0 ||
+      typeof creationTime !== 'number' || !Number.isFinite(creationTime) || creationTime < 0) {
+      throw new Error('performance Browser process identity is invalid');
+    }
+    return { pid, creationTime: String(creationTime) };
+  });
+}
+
 export async function installPerformanceControlProbe(page, launchId) {
   await page.evaluate(({ launchId: expectedLaunchId, probeSymbol }) => {
+    const hasExactKeys = (value, keys) => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+      const actual = Object.keys(value).sort();
+      const expected = [...keys].sort();
+      return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
+    };
     const writes = [];
     const sourceSequences = new Set();
     let lastSourceSequence = 0;
@@ -453,7 +489,46 @@ export async function installPerformanceControlProbe(page, launchId) {
           if (!message || message.launchId !== expectedLaunchId) {
             throw new Error('performance control probe received an invalid boundary message');
           }
-          if (message.kind === 'source-opportunity') {
+          if (message.kind === 'backend-ready') {
+            const identity = message.backendExecutionIdentity;
+            const adapterIdentity = identity?.adapterIdentity;
+            const limits = identity?.limits;
+            const validIdentity = identity !== null &&
+              hasExactKeys(identity, [
+                'backend', 'driver', 'workerProtocol', 'adapterIdentity', 'limits',
+                'isFallbackAdapter', 'powerPreference'
+              ]) &&
+              identity.backend === 'webgpu' &&
+              identity.driver === 'webgpu-driver-v1' &&
+              identity.workerProtocol === 'webgpu-worker-ready-v1' &&
+              hasExactKeys(adapterIdentity, ['vendor', 'architecture', 'device', 'description']) &&
+              Object.values(adapterIdentity).every((value) => value === null || typeof value === 'string') &&
+              hasExactKeys(limits, ['maxTextureDimension2D', 'maxBindGroups']) &&
+              Number.isSafeInteger(limits.maxTextureDimension2D) &&
+              limits.maxTextureDimension2D > 0 &&
+              Number.isSafeInteger(limits.maxBindGroups) &&
+              limits.maxBindGroups > 0 &&
+              typeof identity.isFallbackAdapter === 'boolean' &&
+              ['low-power', 'high-performance'].includes(identity.powerPreference);
+            if (
+              !hasExactKeys(message, [
+                'kind', 'launchId', 'observedAt', 'requestedBackend', 'selectedBackend',
+                'selectionReason', 'backendExecutionIdentity'
+              ]) ||
+              typeof message.observedAt !== 'number' ||
+              !Number.isFinite(message.observedAt) ||
+              !['canvas2d', 'webgpu'].includes(message.requestedBackend) ||
+              !['canvas2d', 'webgpu'].includes(message.selectedBackend) ||
+              ![
+                'requested-canvas2d', 'performance-mode-canvas2d', 'webgpu-api-unavailable',
+                'webgpu-adapter-unavailable', 'transfer-api-unavailable', 'transfer-method-unavailable',
+                'transfer-allowlisted-not-supported', 'webgpu-selected', 'fatal-detector-reason'
+              ].includes(message.selectionReason) ||
+              (message.selectedBackend === 'webgpu' ? !validIdentity : identity !== null)
+            ) {
+              throw new Error('performance control probe received invalid backend readiness evidence');
+            }
+          } else if (message.kind === 'source-opportunity') {
             if (
               !Number.isSafeInteger(message.sourceSequence) ||
               message.sourceSequence !== lastSourceSequence + 1 ||
@@ -522,7 +597,7 @@ export async function installPerformanceControlProbe(page, launchId) {
           ) {
             throw new Error('performance control probe received an invalid boundary message');
           }
-          writes.push(Object.freeze({ ...message, observedAt: performance.now() }));
+          writes.push(Object.freeze({ ...message }));
         }
       })
     });
@@ -738,7 +813,10 @@ async function installManagedPerformanceCallbackGate(page, {
       if (data.type === 'frameRendered') {
         const payload = data.payload;
         const tagged = isRecord(payload) && Number.isSafeInteger(payload.frameToken) && payload.frameToken > 0;
-        acknowledgementObservations.push(nextObservation('worker-frame-acknowledged', { tagged }));
+        acknowledgementObservations.push(nextObservation('worker-frame-acknowledged', {
+          tagged,
+          frameToken: tagged ? payload.frameToken : null
+        }));
       } else if (data.type === 'error') {
         errorObservations.push(nextObservation('worker-message-error'));
       }
@@ -1214,9 +1292,129 @@ export async function resetPerformanceDiagnostics(page, launchId) {
   }, { launchId, diagnosticsSymbol: PERFORMANCE_RENDERER_DIAGNOSTICS_SYMBOL });
 }
 
+export async function readPerformanceQualificationProbe(page, launchId) {
+  return page.evaluate(({ launchId: expectedLaunchId, qualificationSymbol }) => {
+    const probe = window[Symbol.for(qualificationSymbol)];
+    if (typeof probe !== 'function') {
+      throw new Error('performance qualification probe is unavailable');
+    }
+    return probe(expectedLaunchId);
+  }, { launchId, qualificationSymbol: PERFORMANCE_QUALIFICATION_PROBE_SYMBOL });
+}
+
 export async function removePerformanceControlProbe(page) {
   await page.evaluate((symbolName) => {
     delete window.prismgbPerformanceControlProbe;
     delete window[Symbol.for(symbolName)];
   }, PERFORMANCE_CONTROL_PROBE_SYMBOL);
+}
+
+const PERFORMANCE_ABORT_LAST_BOUNDARY = Object.freeze({
+  open: 'open',
+  'reset-a': 'open',
+  'side-a': 'reset-a',
+  'reset-b': 'side-a',
+  'side-b': 'reset-b',
+  close: 'side-b'
+});
+
+/** @param {any} [options] */
+export function createAbortedPerformanceMetricSessionClose({
+  sequence,
+  metricSessionId,
+  phase,
+  backend,
+  reason,
+  abortEvidence,
+  resourcesClosed,
+  applicationDescendantClosureEnd = null
+} = {}) {
+  if (!Number.isSafeInteger(sequence) || sequence < 1 || typeof metricSessionId !== 'string' || metricSessionId.length === 0) {
+    fail('aborted metric-session close identity is invalid');
+  }
+  const lastBoundary = PERFORMANCE_ABORT_LAST_BOUNDARY[phase];
+  if (!lastBoundary || typeof reason !== 'string' || reason.length === 0
+    || (phase.startsWith('side-') ? !['canvas2d', 'webgpu'].includes(backend) : backend !== 'none')) {
+    fail('aborted metric-session close reason is invalid');
+  }
+  const { adapterId, startedAt, endedAt, closure } = abortEvidence ?? {};
+  if (resourcesClosed !== true || typeof adapterId !== 'string' || adapterId.length === 0
+    || !Number.isFinite(startedAt) || !Number.isFinite(endedAt) || startedAt < 0 || endedAt < startedAt
+    || !closure || closure.adapterId !== adapterId || !Array.isArray(closure.transitions)
+    || closure.transitions.at(-1)?.operation !== 'abort') {
+    fail('aborted metric-session close has no canonical zero-survivor proof');
+  }
+  if (phase.startsWith('side-')) {
+    if (!Number.isFinite(applicationDescendantClosureEnd)
+      || applicationDescendantClosureEnd < 0
+      || applicationDescendantClosureEnd > startedAt) {
+      fail('failed application cleanup must precede the adapter abort close');
+    }
+  } else if (applicationDescendantClosureEnd !== null) {
+    fail('non-side adapter abort close cannot claim an application cleanup boundary');
+  }
+  return Object.freeze({
+    sequence,
+    operationId: 'metric-adapter-session-close',
+    start: startedAt,
+    end: endedAt,
+    metricSessionId,
+    outcome: 'aborted',
+    abortReason: Object.freeze({ phase, backend, reason }),
+    lastBoundary,
+    closure: Object.freeze({
+      closed: true,
+      stdoutDrained: true,
+      stderrDrained: true,
+      inputClosed: true,
+      exit: Object.freeze({ code: 0, durationMs: (endedAt - startedAt) * 1000 }),
+      zeroSurvivors: true
+    }),
+    closureEnd: endedAt
+  });
+}
+
+export async function executePerformancePairAttemptSequence({ pair, executeAttempt, assessCompletedAttempt }) {
+  if (!pair || typeof pair !== 'object' || !Array.isArray(pair.attempts) || pair.attempts.length !== 3) {
+    throw new Error('performance pair attempt sequence requires exactly three preallocated attempts');
+  }
+  if (typeof executeAttempt !== 'function' || typeof assessCompletedAttempt !== 'function') {
+    throw new Error('performance pair attempt sequence requires execution and assessment callbacks');
+  }
+  const completed = [];
+  let retryReason = null;
+  for (const [offset, attempt] of pair.attempts.entries()) {
+    if (!attempt || attempt.attemptIndex !== offset + 1) {
+      throw new Error('performance pair attempt indices must be contiguous from one');
+    }
+    const projection = await executeAttempt({ pair, attempt, retryReason });
+    const assessment = await assessCompletedAttempt({
+      pair,
+      attempt,
+      retryReason,
+      projection,
+      completed: Object.freeze([...completed])
+    });
+    if (!assessment || typeof assessment !== 'object'
+      || typeof assessment.disposition !== 'string'
+      || typeof assessment.retryAllowed !== 'boolean') {
+      throw new Error('performance pair attempt assessor returned an invalid result');
+    }
+    completed.push(Object.freeze({ attemptIndex: attempt.attemptIndex, retryReason, projection, assessment }));
+    if (assessment.disposition !== 'retryable') {
+      if (assessment.retryAllowed !== false || assessment.nextAttemptIndex !== null) {
+        throw new Error('terminal performance pair assessment cannot authorize a retry');
+      }
+      return Object.freeze({ terminal: assessment, completed: Object.freeze(completed) });
+    }
+    if (assessment.retryAllowed !== true || typeof assessment.reason !== 'string'
+      || assessment.reason.length === 0 || assessment.nextAttemptIndex !== attempt.attemptIndex + 1) {
+      throw new Error('retryable performance pair assessment does not authorize the next attempt');
+    }
+    if (offset === pair.attempts.length - 1) {
+      throw new Error('performance pair assessor exceeded the original-plus-two attempt cap');
+    }
+    retryReason = assessment.reason;
+  }
+  throw new Error('performance pair attempt sequence ended without a terminal assessment');
 }

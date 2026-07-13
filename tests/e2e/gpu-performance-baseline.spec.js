@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import path from 'node:path';
 import {
   expect,
   openPerformanceLaunch,
@@ -8,23 +9,38 @@ import {
 import { ChromaticDeviceFixture } from './fixtures/chromatic-device.fixture.js';
 import {
   assertProductionBundleIsolation,
+  createAbortedPerformanceMetricSessionClose,
+  executePerformancePairAttemptSequence,
   loadPerformanceBuildManifest,
+  performanceBackendSettingValue,
   readPerformanceDiagnostics
 } from './helpers/gpu-performance-baseline.helper.js';
 import { StreamPage } from './pages/stream.page.js';
+import { SettingsMenuPage } from './pages/settings.page.js';
 import {
   collectExternalMetricTranscript,
   runOperationWithinDeadline
 } from '../../scripts/lib/process-runner.js';
-import { loadBaselinePolicy } from '../../scripts/lib/performance-evidence.js';
-import { writePerformanceExternalMetricCapture } from '../../scripts/lib/performance-external-metric-capture.js';
-import { writePerformanceMetricSessionCapture } from '../../scripts/lib/performance-metric-session-capture.js';
+import { canonicalSha256, stableStringify } from '../../scripts/lib/baseline-report.js';
+import { assessCapturedPerformancePairAttempt, loadBaselinePolicy } from '../../scripts/lib/performance-evidence.js';
+import { createPerformanceExternalMetricCapture, writePerformanceExternalMetricCapture } from '../../scripts/lib/performance-external-metric-capture.js';
+import { createPerformanceMetricSessionCapture, writePerformanceMetricSessionCapture } from '../../scripts/lib/performance-metric-session-capture.js';
 import {
   resolvePerformancePairPlanLaunch,
   validatePerformancePairPlan
 } from '../../scripts/lib/performance-pair-plan.js';
-import { writePerformanceSentinelCapture } from '../../scripts/lib/performance-sentinel-capture.js';
-import { writePerformanceWorkloadCapture } from '../../scripts/lib/performance-workload-capture.js';
+import { createPerformanceSentinelCapture, writePerformanceSentinelCapture } from '../../scripts/lib/performance-sentinel-capture.js';
+import { createPerformanceWorkloadCapture, writePerformanceWorkloadCapture } from '../../scripts/lib/performance-workload-capture.js';
+import {
+  createPerformanceCaptureIndex,
+  createPerformanceQualificationCapture,
+  createPerformanceTransportCapture
+} from '../../scripts/lib/performance-raw-capture-manifest.js';
+import {
+  createPerformanceRunJoinFromAuthority,
+  validatePerformanceLaunchAuthority,
+  validatePerformancePreLoopAuthority
+} from '../../scripts/run-performance-baseline.js';
 
 const performancePolicy = loadBaselinePolicy().policy;
 const { warmup: warmupLimits, window: windowLimits } = performancePolicy.performanceLimits;
@@ -35,12 +51,59 @@ const measurementWindowLimits = Object.freeze({
   maximumDurationMs: windowLimits.maximumSeconds * 1000
 });
 const performancePairPlanPath = process.env.PRISMGB_PERFORMANCE_PAIR_PLAN ?? null;
-const usesPerformancePairPlan = performancePairPlanPath !== null;
+const performanceLaunchAuthorityPath = process.env.PRISMGB_PERFORMANCE_LAUNCH_AUTHORITY ?? null;
+const performancePreLoopAuthorityPath = process.env.PRISMGB_PERFORMANCE_PRELOOP_AUTHORITY ?? null;
+const performanceExecutionPhase = process.env.PRISMGB_PERFORMANCE_EXECUTION_PHASE ?? 'standalone';
+if (!['standalone', 'pre-loop', 'pair-loop'].includes(performanceExecutionPhase)) {
+  throw new Error('performance execution phase is invalid');
+}
 const PERFORMANCE_LAUNCH_DEADLINE_MS = performancePolicy.performanceLimits.oneLaunchSeconds * 1000;
+const PERFORMANCE_RESOURCE_CLEANUP_PROOFS = new WeakSet();
+
+function runnerMonotonicSeconds() {
+  return Number(process.hrtime.bigint()) / 1_000_000_000;
+}
+
+function operationClosure(start, end) {
+  return Object.freeze({
+    closed: true,
+    stdoutDrained: true,
+    stderrDrained: true,
+    inputClosed: true,
+    exit: Object.freeze({ code: 0, durationMs: (end - start) * 1000 }),
+    zeroSurvivors: true
+  });
+}
+
+async function appendPerformanceLedgerEntries(entries) {
+  const outputDirectory = process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT;
+  if (!outputDirectory) throw new Error('semantic performance ledger requires a capture output directory');
+  const ledgerPath = path.join(outputDirectory, 'performance-ledger.json');
+  const ledger = JSON.parse(await fs.readFile(ledgerPath, 'utf8'));
+  if (!Array.isArray(ledger) || !Array.isArray(entries) || entries.length === 0) {
+    throw new Error('semantic performance ledger append requires nonempty arrays');
+  }
+  let previous = ledger.at(-1);
+  for (const entry of entries) {
+    if (!previous || entry.sequence !== previous.sequence + 1 || entry.start < previous.end || entry.end < entry.start) {
+      throw new Error('semantic performance ledger append is not contiguous and monotonic');
+    }
+    ledger.push(entry);
+    previous = entry;
+  }
+  const temporaryPath = `${ledgerPath}.${process.pid}.tmp`;
+  await fs.writeFile(temporaryPath, `${stableStringify(ledger)}\n`, { encoding: 'utf8', flag: 'wx' });
+  try {
+    await fs.rename(temporaryPath, ledgerPath);
+  } catch (error) {
+    await fs.rm(temporaryPath, { force: true }).catch(() => {});
+    throw error;
+  }
+}
 
 async function loadPerformancePairPlanFromEnvironment() {
-  if (performancePairPlanPath === null) {
-    throw new Error('performance pair execution requires PRISMGB_PERFORMANCE_PAIR_PLAN');
+  if (performancePairPlanPath === null || performanceLaunchAuthorityPath === null) {
+    throw new Error('performance pair execution requires its pair plan and launch authority');
   }
   let parsed;
   try {
@@ -52,18 +115,46 @@ async function loadPerformancePairPlanFromEnvironment() {
   if (process.env.PRISMGB_PERFORMANCE_EXPERIMENT_ID !== plan.experimentId) {
     throw new Error('performance pair plan does not match the runner experiment identity');
   }
-  return plan;
+  let authorityInput;
+  try {
+    authorityInput = JSON.parse(await fs.readFile(performanceLaunchAuthorityPath, 'utf8'));
+  } catch (error) {
+    throw new Error(`performance launch authority is not readable JSON: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  const authority = validatePerformanceLaunchAuthority(authorityInput, plan);
+  if (authority.experimentId !== plan.experimentId) {
+    throw new Error('performance launch authority does not match the runner experiment identity');
+  }
+  return Object.freeze({ plan, authority });
 }
 
-function createPairBinding(plan, pair, launch) {
+async function loadPerformancePreLoopAuthorityFromEnvironment() {
+  if (performancePreLoopAuthorityPath === null) {
+    throw new Error('performance pre-loop execution requires its sealed authority');
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(await fs.readFile(performancePreLoopAuthorityPath, 'utf8'));
+  } catch (error) {
+    throw new Error(`performance pre-loop authority is not readable JSON: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  const authority = validatePerformancePreLoopAuthority(parsed);
+  if (authority.experimentId !== process.env.PRISMGB_PERFORMANCE_EXPERIMENT_ID ||
+    authority.experimentRole !== process.env.PRISMGB_PERFORMANCE_ROLE) {
+    throw new Error('performance pre-loop authority does not match the runner experiment');
+  }
+  return authority;
+}
+
+function createPairBinding(plan, pair, attempt, launch) {
   const binding = {
     experimentId: plan.experimentId,
     pairPlanChecksum: plan.checksum,
-    metricSessionId: pair.metricSessionId,
+    metricSessionId: attempt.metricSessionId,
     comparisonKind: pair.comparisonKind,
     backend: pair.backend,
     pairIndex: pair.pairIndex,
-    attemptIndex: pair.attemptIndex,
+    attemptIndex: attempt.attemptIndex,
     comparisonSide: launch.comparisonSide
   };
   const planned = resolvePerformancePairPlanLaunch(plan, binding);
@@ -71,6 +162,15 @@ function createPairBinding(plan, pair, launch) {
     throw new Error('performance pair launch does not match its immutable plan side');
   }
   return Object.freeze(binding);
+}
+
+function resolveLaunchAuthoritySlot(authority, binding) {
+  const slot = authority.slots.find((candidate) => (
+    candidate.metricSessionId === binding.metricSessionId &&
+    candidate.comparisonSide === binding.comparisonSide
+  ));
+  if (!slot) throw new Error('performance launch has no sealed authority slot');
+  return slot;
 }
 
 async function runWithinPerformanceLaunchDeadline(label, operation) {
@@ -83,19 +183,95 @@ async function runWithinPerformanceLaunchDeadline(label, operation) {
 
 async function rethrowAfterCleanup(primaryError, cleanupOperations, label) {
   const errors = primaryError instanceof AggregateError ? [...primaryError.errors] : [primaryError];
+  let cleanupFailed = false;
   for (const cleanup of cleanupOperations) {
     try {
       await cleanup();
     } catch (cleanupError) {
+      cleanupFailed = true;
       errors.push(cleanupError);
     }
   }
-  if (errors.length === 1) throw primaryError;
+  if (!cleanupFailed) {
+    if (primaryError instanceof Error) {
+      PERFORMANCE_RESOURCE_CLEANUP_PROOFS.add(primaryError);
+    }
+    throw primaryError;
+  }
   throw new AggregateError(errors, `${label} and cleanup both failed`);
+}
+
+function performanceAbortReason(error, phase, backend) {
+  if (phase === 'open') return 'metric-adapter-resource-owned';
+  if (phase === 'reset-a' || phase === 'reset-b') return 'reset-failure';
+  const message = error instanceof Error ? error.message : String(error);
+  const candidates = [
+    [/bitmap/i, 'bitmapCreationFailed'],
+    [/enqueue/i, 'enqueueFailed'],
+    [/submission.*(?:deadline|timeout)/i, 'submission-seal-timeout'],
+    [/drain.*(?:deadline|timeout)/i, 'drain-timeout'],
+    [/session.*inactive/i, 'sessionInactive'],
+    [/worker.*not.*ready/i, 'workerNotReady'],
+    [/environment/i, 'environment-drift'],
+    [/membership/i, 'membership-failure'],
+    [/pid.*identity/i, 'pid-identity-change'],
+    [/driver.*inactive/i, 'driverInactive'],
+    [/driver/i, 'driverFailed']
+  ];
+  const requested = candidates.find(([pattern]) => pattern.test(message))?.[1] ?? 'crash';
+  const allowed = performancePolicy.performanceFailurePolicy.metricSessionAbortTuples.some((tuple) => (
+    tuple.phase === phase && tuple.backend === backend && tuple.reason === requested
+  ));
+  return allowed ? requested : 'crash';
+}
+
+function hasVerifiedResourceCleanup(error) {
+  if (error instanceof Error && PERFORMANCE_RESOURCE_CLEANUP_PROOFS.has(error)) return true;
+  if (error instanceof Error && Number.isFinite(error.performanceLaunchCleanupEnd)) return true;
+  return error instanceof AggregateError && error.errors.some(hasVerifiedResourceCleanup);
+}
+
+function performanceLaunchFailureEvidence(error) {
+  if (error instanceof Error && error.performanceLaunchFailureEvidence) {
+    return error.performanceLaunchFailureEvidence;
+  }
+  if (error instanceof AggregateError) {
+    return error.errors.map(performanceLaunchFailureEvidence).find((entry) => entry !== null) ?? null;
+  }
+  return null;
 }
 
 function sourceOpportunityWrites(writes) {
   return writes.filter((write) => write.kind === 'source-opportunity');
+}
+
+function backendReadinessWrites(writes) {
+  return writes.filter((write) => write.kind === 'backend-ready');
+}
+
+function requireSingleBackendReadinessWrite(writes, expectedBackend) {
+  const readiness = backendReadinessWrites(writes);
+  if (readiness.length !== 1 || readiness[0].requestedBackend !== expectedBackend
+    || readiness[0].selectedBackend !== expectedBackend) {
+    throw new Error(`performance control probe did not retain exactly one ${expectedBackend} backend readiness write`);
+  }
+  const identity = readiness[0].backendExecutionIdentity;
+  if (expectedBackend === 'canvas2d' && identity !== null) {
+    throw new Error('Canvas2D readiness must not retain a WebGPU execution identity');
+  }
+  if (expectedBackend === 'webgpu' && (
+    !identity || identity.backend !== 'webgpu' || identity.driver !== 'webgpu-driver-v1'
+    || identity.workerProtocol !== 'webgpu-worker-ready-v1'
+    || identity.isFallbackAdapter !== false || identity.powerPreference !== 'low-power'
+  )) {
+    throw new Error('WebGPU readiness did not retain the strict selected-host execution identity');
+  }
+  return readiness[0];
+}
+
+async function applyPlannedPerformanceBackend(performanceLaunch, backend) {
+  const settingsMenu = new SettingsMenuPage(performanceLaunch.window);
+  await settingsMenu.setBooleanInMenu('animationSaver', performanceBackendSettingValue(backend));
 }
 
 function requireReleaseDispatchedControlBoundary(writes, launchId) {
@@ -232,142 +408,841 @@ function externalSentinelBackend(observations) {
   throw new Error('external sentinel observations do not identify one supported backend');
 }
 
-async function persistExternalSentinelCapture({
-  performanceLaunch,
-  performanceChromaticDevice,
-  warmup,
+const RUN_RAW_BINDING_KEYS = Object.freeze([
+  'sourceSha', 'policyHash', 'experimentId', 'pairPlanChecksum', 'ledgerSequence',
+  'experimentRole', 'runId', 'metricSessionId', 'comparisonKind', 'backend',
+  'pairIndex', 'attemptIndex', 'comparisonSide', 'buildVariant',
+  'externalExecutionId', 'observationBoundaryId'
+]);
+
+function bindRunRawRows(join, captureKind, groups) {
+  const binding = Object.fromEntries(RUN_RAW_BINDING_KEYS.map((key) => [key, join[key]]));
+  return groups.filter((group) => group.rows.length > 0).map((group) => ({
+    rawKind: group.rawKind,
+    rows: group.rows.map((row) => ({
+      ...row,
+      ...binding,
+      scopeKind: 'run',
+      scopeId: join.runId,
+      captureKind,
+      launchOrdinal: join.ordinal
+    }))
+  }));
+}
+
+function createSentinelRawKinds({ join, gate, controllerAudit, readinessWrites }) {
+  const window = gate.measurementWindow;
+  const events = [];
+  for (const callback of gate.observations.callbacks) {
+    events.push({
+      observedAt: callback.observedAt,
+      rawKind: 'sentinel-observation',
+      row: {
+        observationBoundaryId: join.observationBoundaryId,
+        observationKind: 'callback',
+        observedAt: callback.observedAt,
+        callbackOrdinal: callback.callbackOrdinal,
+        mediaTime: callback.mediaTime
+      }
+    });
+  }
+  for (const draw of gate.observations.canvasDraws) {
+    events.push({
+      observedAt: draw.observedAt,
+      rawKind: 'backend-operation',
+      row: { callbackOrdinal: draw.callbackOrdinal, operationId: 'canvas-draw-completed', observedAt: draw.observedAt }
+    });
+  }
+  for (const post of gate.observations.workerFramePosts) {
+    events.push({
+      observedAt: post.observedAt,
+      rawKind: 'backend-operation',
+      row: { callbackOrdinal: post.callbackOrdinal, operationId: 'worker-frame-posted', observedAt: post.observedAt }
+    });
+  }
+  const messages = [
+    ...gate.observations.acknowledgements.map((message) => ({
+      messageKind: 'acknowledgement', observedAt: message.observedAt,
+      tagged: message.tagged === true, frameToken: message.frameToken ?? null,
+      outcome: 'webgpu-queue-submit-completed'
+    })),
+    ...gate.observations.errors.map((message) => ({
+      messageKind: 'error', observedAt: message.observedAt,
+      tagged: message.tagged === true, frameToken: message.frameToken ?? null,
+      outcome: message.kind
+    }))
+  ].sort((left, right) => left.observedAt - right.observedAt);
+  messages.forEach((message, index) => events.push({
+    observedAt: message.observedAt,
+    rawKind: 'worker-message',
+    row: { messageOrdinal: index + 1, clockDomain: 'external-performance-now-v1', ...message }
+  }));
+  events.push(
+    {
+      observedAt: window.startedAt,
+      rawKind: 'sentinel-observation',
+      row: {
+        observationBoundaryId: join.observationBoundaryId,
+        observationKind: 'boundary',
+        observedAt: window.startedAt,
+        boundary: 'window-start'
+      }
+    },
+    {
+      observedAt: window.closedAt,
+      rawKind: 'sentinel-observation',
+      row: {
+        observationBoundaryId: join.observationBoundaryId,
+        observationKind: 'boundary',
+        observedAt: window.closedAt,
+        boundary: 'window-close'
+      }
+    },
+    {
+      observedAt: window.terminalClosureEnd,
+      rawKind: 'sentinel-observation',
+      order: 1,
+      row: {
+        observationBoundaryId: join.observationBoundaryId,
+        observationKind: 'pending',
+        observedAt: window.terminalClosureEnd,
+        pendingCount: gate.observations.outstandingWorkerFrames
+      }
+    },
+    {
+      observedAt: window.terminalClosureEnd,
+      rawKind: 'sentinel-observation',
+      order: 2,
+      row: {
+        observationBoundaryId: join.observationBoundaryId,
+        observationKind: 'closure',
+        observedAt: window.terminalClosureEnd,
+        closureReason: window.closureReason
+      }
+    }
+  );
+  events.sort((left, right) => left.observedAt - right.observedAt || (left.order ?? 0) - (right.order ?? 0));
+  const grouped = new Map([
+    ['backend-operation', []], ['worker-message', []], ['sentinel-observation', []]
+  ]);
+  events.forEach((event, index) => grouped.get(event.rawKind).push({ captureOrdinal: index + 1, ...event.row }));
+  return bindRunRawRows(join, 'sentinel', [
+    { rawKind: 'backend-operation', rows: grouped.get('backend-operation') },
+    { rawKind: 'worker-message', rows: grouped.get('worker-message') },
+    { rawKind: 'sentinel-observation', rows: grouped.get('sentinel-observation') },
+    { rawKind: 'controller-operation', rows: createControllerOperationRows(controllerAudit, readinessWrites) }
+  ]);
+}
+
+function metricTranscriptReads(transcript) {
+  return [
+    { samplePhase: 'prime', read: transcript.prime },
+    ...transcript.inWindowSamples.map((read) => ({ samplePhase: 'in-window', read })),
+    { samplePhase: 'terminal-closure', read: transcript.terminalSample }
+  ];
+}
+
+function createExternalMetricRawKinds({ join, transcript }) {
+  const target = performanceLaunchMetricTarget(transcript);
+  const adapterId = performanceLaunchMetricAdapterId(transcript);
+  const reads = metricTranscriptReads(transcript);
+  const processRows = [
+    {
+      observationOrdinal: 1,
+      observedAt: reads[0].read.sample.readStart,
+      observationKind: 'membership',
+      observationSource: 'external-metric-adapter',
+      adapterId,
+      subjectKind: 'renderer',
+      pid: target.pid,
+      creationIdentity: target.creationIdentity,
+      processIdentity: target.processIdentity,
+      rawAdapterKind: adapterId,
+      rawIdentity: reads[0].read.raw,
+      rawMembership: { target },
+      processClass: 'application-renderer',
+      ownership: 'application-owned',
+      alive: true
+    }
+  ];
+  reads.forEach(({ read }, index) => processRows.push({
+    observationOrdinal: index + 2,
+    observedAt: (read.sample.readStart + read.sample.readEnd) / 2,
+    observationKind: 'health',
+    observationSource: 'external-metric-adapter',
+    adapterId,
+    subjectKind: 'renderer',
+    pid: target.pid,
+    creationIdentity: target.creationIdentity,
+    processIdentity: target.processIdentity,
+    rawAdapterKind: adapterId,
+    rawIdentity: read.raw,
+    rawHealth: read.raw,
+    processClass: 'application-renderer',
+    ownership: 'application-owned',
+    alive: true,
+    healthState: 'live'
+  }));
+  const cpuRows = reads.map(({ samplePhase, read }, index) => ({
+    ordinal: index + 1,
+    samplePhase,
+    adapterId,
+    pid: target.pid,
+    creationIdentity: target.creationIdentity,
+    processIdentity: target.processIdentity,
+    readStart: read.sample.readStart,
+    readEnd: read.sample.readEnd,
+    counterQuantumSeconds: read.sample.counterQuantumSeconds,
+    cumulativeCpuSeconds: read.sample.cumulativeCpuSeconds,
+    workingSetMiB: read.sample.workingSetMiB,
+    rawAdapterKind: adapterId,
+    rawAdapterSample: {
+      adapterSample: read.raw,
+      readStart: read.sample.readStart,
+      readEnd: read.sample.readEnd
+    }
+  }));
+  return bindRunRawRows(join, 'external-metric', [
+    { rawKind: 'process-observation', rows: processRows },
+    { rawKind: 'cpu-sample', rows: cpuRows }
+  ]);
+}
+
+function createControllerOperationRows(controllerAudit, writes = []) {
+  const events = [
+    ...(controllerAudit?.requestLog ?? []).map((entry) => ({
+      sequence: entry.sequence,
+      row: {
+        operationKind: 'controller-lifecycle',
+        clockDomain: 'electron-main',
+        lifecyclePhase: entry.event,
+        rawLifecycleEvent: entry,
+        observedAt: entry.at,
+        outcome: 'recorded'
+      }
+    })),
+    ...(controllerAudit?.brokerSamples ?? []).map((sample) => ({
+      sequence: sample.callSequence,
+      row: {
+        operationKind: 'broker-sample',
+        clockDomain: 'electron-main',
+        brokerSequence: sample.callSequence,
+        sampleKind: sample.purpose,
+        rawSample: sample,
+        observedAt: sample.capturedAt
+      }
+    }))
+  ].sort((left, right) => left.sequence - right.sequence);
+  const rows = events.map(({ row }) => row);
+  for (const write of writes) {
+    rows.push({
+      operationKind: 'control-write',
+      clockDomain: 'renderer-performance-now-v1',
+      writeKind: write.kind,
+      rawWrite: write,
+      writtenAt: write.observedAt,
+      outcome: 'recorded'
+    });
+  }
+  return rows.map((row, index) => ({ controlSequence: index + 1, ...row }));
+}
+
+function qualificationStageFromWrites(writes, backend, readinessOffset = 0) {
+  const readiness = backendReadinessWrites(writes).filter((write) => write.selectedBackend === backend)[readinessOffset];
+  if (!readiness) throw new Error(`qualification did not observe ${backend} readiness`);
+  const sources = sourceOpportunityWrites(writes).filter((write) => write.observedAt >= readiness.observedAt);
+  for (const source of sources) {
+    if (backend === 'canvas2d') {
+      const terminal = writes.find((write) => write.kind === 'frame-branch'
+        && write.branch === 'canvas-disposition'
+        && write.sourceSequence === source.sourceSequence
+        && write.outcome === 'canvas-draw-completed');
+      if (terminal) {
+        return Object.freeze({
+          backend,
+          backendReadyObservedAt: readiness.observedAt,
+          sourceSequence: source.sourceSequence,
+          sourceObservedAt: source.observedAt,
+          terminalFrame: Object.freeze({
+            kind: 'canvas-draw-completed',
+            observedAt: terminal.observedAt,
+            outcome: terminal.outcome
+          })
+        });
+      }
+      continue;
+    }
+    const submitted = writes.find((write) => write.kind === 'frame-branch'
+      && write.branch === 'worker-frame-submitted'
+      && write.sourceSequence === source.sourceSequence);
+    const acknowledged = submitted && writes.find((write) => write.kind === 'frame-branch'
+      && write.branch === 'worker-frame-acknowledged'
+      && write.sourceSequence === source.sourceSequence
+      && write.frameToken === submitted.frameToken
+      && write.outcome === 'webgpu-queue-submit-completed');
+    if (submitted && acknowledged) {
+      return Object.freeze({
+        backend,
+        backendReadyObservedAt: readiness.observedAt,
+        sourceSequence: source.sourceSequence,
+        sourceObservedAt: source.observedAt,
+        terminalFrame: Object.freeze({
+          kind: 'worker-frame-acknowledged',
+          frameToken: submitted.frameToken,
+          submittedAt: submitted.observedAt,
+          acknowledgedAt: acknowledged.observedAt,
+          outcome: acknowledged.outcome
+        })
+      });
+    }
+  }
+  throw new Error(`qualification did not observe one terminal ${backend} frame after readiness`);
+}
+
+async function waitForQualificationStage(performanceLaunch, backend, readinessOffset = 0) {
+  const deadline = performance.now() + 10_000;
+  let lastError = null;
+  while (performance.now() < deadline) {
+    const writes = await performanceLaunch.readPerformanceControlProbe();
+    try {
+      return qualificationStageFromWrites(writes, backend, readinessOffset);
+    } catch (error) {
+      lastError = error;
+      await waitFor(25);
+    }
+  }
+  throw lastError ?? new Error(`qualification timed out waiting for ${backend} readiness`);
+}
+
+function preLoopRawBinding({ authority, slot, captureKind, operationId, observationBoundary = true }) {
+  return {
+    sourceSha: authority.sourceSha,
+    policyHash: authority.policyHash,
+    experimentId: authority.experimentId,
+    experimentRole: authority.experimentRole,
+    scopeKind: 'ledger-operation',
+    scopeId: slot.ledgerSequence,
+    captureKind,
+    ledgerSequence: slot.ledgerSequence,
+    operationId,
+    ...(observationBoundary ? { observationBoundaryId: slot.observationBoundaryId } : {})
+  };
+}
+
+function preLoopProcessRows({ authority, slot, captureKind, performanceLaunch, startedAt, closedAt, rootExit }) {
+  const binding = preLoopRawBinding({
+    authority,
+    slot,
+    captureKind,
+    operationId: 'electron-harness-spawn',
+    observationBoundary: false
+  });
+  const rawIdentity = { pid: performanceLaunch.rendererPid, creationIdentity: performanceLaunch.externalExecutionId };
+  const processIdentity = `external:${performanceLaunch.rendererPid}:${performanceLaunch.externalExecutionId}`;
+  return [{
+    ...binding,
+    observationOrdinal: 1,
+    observedAt: startedAt,
+    observationKind: 'membership',
+    observationSource: 'external-electron-fixture',
+    adapterId: 'external-membership-v1',
+    subjectKind: 'renderer',
+    pid: performanceLaunch.rendererPid,
+    creationIdentity: performanceLaunch.externalExecutionId,
+    processIdentity,
+    rawAdapterKind: 'external-process-membership',
+    rawIdentity,
+    rawMembership: {
+      spawnBoundary: { startedAt, launchId: performanceLaunch.launchId },
+      rendererEvaluation: { externalExecutionId: performanceLaunch.externalExecutionId },
+      ancestry: { browserRoot: rootExit.root },
+      processGroup: null,
+      job: null,
+      pathIdentity: { buildVariant: performanceLaunch.build.id, bundleSha256: performanceLaunch.build.bundle.sha256 }
+    },
+    processClass: 'application-renderer',
+    ownership: 'application-owned',
+    alive: true
+  }, {
+    ...binding,
+    observationOrdinal: 2,
+    observedAt: startedAt,
+    observationKind: 'health',
+    observationSource: 'external-electron-fixture',
+    adapterId: 'external-health-v1',
+    subjectKind: 'renderer',
+    pid: performanceLaunch.rendererPid,
+    creationIdentity: performanceLaunch.externalExecutionId,
+    processIdentity,
+    rawAdapterKind: 'external-process-health',
+    rawIdentity,
+    rawHealth: { alive: true, status: 'ready', exitObservation: null },
+    processClass: 'application-renderer',
+    ownership: 'application-owned',
+    alive: true,
+    healthState: 'live'
+  }, {
+    ...binding,
+    observationOrdinal: 3,
+    observedAt: closedAt,
+    observationKind: 'closure',
+    observationSource: 'external-electron-fixture',
+    adapterId: 'external-closure-v1',
+    subjectKind: 'renderer',
+    pid: performanceLaunch.rendererPid,
+    creationIdentity: performanceLaunch.externalExecutionId,
+    processIdentity,
+    rawAdapterKind: 'external-process-closure',
+    rawIdentity,
+    rawClosure: { terminalStatus: 'closed', exitCode: 0, signal: null, zeroSurvivors: true },
+    processClass: 'application-renderer',
+    ownership: 'application-owned',
+    alive: false,
+    closureState: 'closed'
+  }];
+}
+
+function preLoopEnvironmentRows({ authority, slot, captureKind, controllerAudit }) {
+  const binding = preLoopRawBinding({
+    authority,
+    slot,
+    captureKind,
+    operationId: 'electron-harness-spawn'
+  });
+  return controllerAudit.environmentSamples.map((sample, index) => ({
+    ...binding,
+    source: 'electron-main',
+    sourceSequence: index + 1,
+    clockDomain: 'electron-main',
+    runnerReceiptSequence: index + 1,
+    observedAt: sample.capturedAt,
+    observationKind: index === 0 ? 'initial-snapshot' : 'poll-snapshot',
+    rawAdapterKind: 'electron-environment-v1',
+    rawObservation: sample,
+    ...(index === 0
+      ? { staticIdentity: sample.currentState, dynamicState: sample.currentState }
+      : { dynamicState: sample.currentState })
+  }));
+}
+
+function preLoopControllerRows({ authority, slot, captureKind, controllerAudit, writes }) {
+  const binding = preLoopRawBinding({
+    authority,
+    slot,
+    captureKind,
+    operationId: 'electron-harness-spawn'
+  });
+  return createControllerOperationRows(controllerAudit, writes).map((row) => ({ ...binding, ...row }));
+}
+
+function probeCleanup(controllerAudit, receiptAt) {
+  return Object.freeze({
+    controllerFatalReasons: controllerAudit.fatalReasons,
+    listenersRemoved: controllerAudit.listenerEvidence.every((entry) => entry.removed === true),
+    restorationOutcome: controllerAudit.restorationOutcome,
+    applicationDescendantClosureEnd: receiptAt,
+    brokerDisposeEnd: receiptAt,
+    rootExitObservedAt: receiptAt,
+    terminalClosureEnd: receiptAt
+  });
+}
+
+function createWorkloadRawKinds({ join, writes, diagnostics, controllerAudit, rootExit }) {
+  const instrumented = join.buildVariant === 'instrumented';
+  const identity = {
+    measurementWindowId: join.observationBoundaryId,
+    measurementEpochId: instrumented ? join.launchId : null
+  };
+  const sourceWriteBySequence = new Map(writes
+    .filter((write) => write.kind === 'source-opportunity')
+    .map((write) => [write.sourceSequence, write]));
+  const terminalWriteByToken = new Map(writes
+    .filter((write) => write.kind === 'frame-branch' &&
+      (write.branch === 'worker-frame-acknowledged' || write.branch === 'worker-terminal-error'))
+    .map((write) => [write.frameToken, write]));
+  const timingRows = [];
+  const timingOrdinalByDomain = new Map();
+  const pushTiming = (sample) => {
+    const domain = `${sample.sourceSequence}\0${sample.metricId}`;
+    const spanOrdinal = (timingOrdinalByDomain.get(domain) ?? 0) + 1;
+    timingOrdinalByDomain.set(domain, spanOrdinal);
+    const timingSpanId = `${join.runId}:timing:${timingRows.length + 1}`;
+    timingRows.push({ ...sample, spanOrdinal, timingSpanId });
+    return timingSpanId;
+  };
+  if (instrumented) {
+    for (const sample of Object.values(diagnostics.timingSamples ?? {}).flatMap((samples) => samples)) {
+      pushTiming({
+        measurementWindowId: join.observationBoundaryId,
+        measurementEpochId: sample.measurementEpochId,
+        sourceSequence: sample.sourceSequence,
+        diagnosticFrameId: sample.sourceSequence,
+        metricId: sample.metricId,
+        frameToken: sample.frameToken,
+        unit: sample.unit,
+        clock: sample.clock,
+        startedAt: sample.startedAt,
+        endedAt: sample.endedAt,
+        outcome: sample.outcome
+      });
+    }
+  } else {
+    for (const write of writes) {
+      if (write.kind !== 'frame-branch') continue;
+      const source = sourceWriteBySequence.get(write.sourceSequence);
+      if (write.branch === 'canvas-disposition' && write.outcome === 'canvas-draw-completed' && source) {
+        pushTiming({
+          measurementWindowId: join.observationBoundaryId,
+          measurementEpochId: null,
+          sourceSequence: write.sourceSequence,
+          diagnosticFrameId: null,
+          metricId: 'canvas-draw-call',
+          frameToken: null,
+          unit: 'milliseconds',
+          clock: 'renderer-performance-now-v1',
+          startedAt: source.observedAt,
+          endedAt: write.observedAt,
+          outcome: 'canvas-draw-completed'
+        });
+      }
+      if (write.branch === 'worker-frame-submitted') {
+        const terminal = terminalWriteByToken.get(write.frameToken);
+        if (terminal?.branch === 'worker-frame-acknowledged' && terminal.outcome === 'webgpu-queue-submit-completed') {
+          pushTiming({
+            measurementWindowId: join.observationBoundaryId,
+            measurementEpochId: null,
+            sourceSequence: write.sourceSequence,
+            diagnosticFrameId: null,
+            metricId: 'webgpu-enqueue-to-ack',
+            frameToken: write.frameToken,
+            unit: 'milliseconds',
+            clock: 'renderer-performance-now-v1',
+            startedAt: write.observedAt,
+            endedAt: terminal.observedAt,
+            outcome: 'enqueue-acknowledged'
+          });
+        }
+      }
+    }
+  }
+  const timingSpanByOperation = new Map(timingRows
+    .filter((row) => row.metricId === 'canvas-draw-call' || row.metricId === 'webgpu-enqueue-to-ack')
+    .map((row) => [`${row.sourceSequence}\0${row.frameToken ?? 'null'}\0${row.metricId}`, row.timingSpanId]));
+  const sourceRows = [];
+  const backendRows = [];
+  const workerRows = [];
+  let captureOrdinal = 0;
+  for (const write of writes) {
+    const sourceIdentity = {
+      launchId: join.launchId,
+      ...identity,
+      sourceSequence: write.sourceSequence,
+      diagnosticFrameId: instrumented ? write.sourceSequence : null
+    };
+    if (write.kind === 'source-opportunity') {
+      captureOrdinal += 1;
+      sourceRows.push({
+        captureOrdinal,
+        eventKind: 'source-opportunity',
+        ...sourceIdentity,
+        mediaTime: write.mediaTime,
+        sessionPresent: write.sessionPresent,
+        sessionActive: write.sessionActive,
+        duplicateMediaTime: write.duplicateMediaTime,
+        readyState: write.readyState,
+        hasCurrentData: write.hasCurrentData
+      });
+      continue;
+    }
+    if (write.kind === 'advisory-frame-disposition') {
+      captureOrdinal += 1;
+      sourceRows.push({
+        captureOrdinal,
+        eventKind: 'advisory-disposition',
+        ...sourceIdentity,
+        advisoryOutcome: write.outcome,
+        advisoryFrameToken: write.frameToken
+      });
+      continue;
+    }
+    if (write.kind !== 'frame-branch') continue;
+    if (write.branch === 'session-branch') {
+      captureOrdinal += 1;
+      sourceRows.push({
+        captureOrdinal,
+        eventKind: 'session-branch',
+        ...sourceIdentity,
+        workerPresent: write.workerPresent,
+        workerReady: write.workerReady,
+        outstandingFrameCount: write.outstandingFrameCount,
+        outstandingFrameLimit: write.outstandingFrameLimit,
+        bitmapOutcome: write.bitmapOutcome,
+        canvasDrawOutcome: write.canvasDrawOutcome,
+        framePostOutcome: write.framePostOutcome
+      });
+      continue;
+    }
+    if (write.branch === 'worker-frame-acknowledged' || write.branch === 'worker-terminal-error') {
+      captureOrdinal += 1;
+      workerRows.push({
+        captureOrdinal,
+        messageKind: write.branch === 'worker-frame-acknowledged' ? 'acknowledgement' : 'error',
+        clockDomain: 'renderer-performance-now-v1',
+        observedAt: write.observedAt,
+        ...sourceIdentity,
+        frameToken: write.frameToken,
+        tagged: true,
+        outcome: write.outcome ?? 'worker-terminal-error'
+      });
+      continue;
+    }
+    if (write.branch === 'canvas-disposition' || write.branch === 'worker-frame-submitted') {
+      captureOrdinal += 1;
+      const terminal = write.branch === 'worker-frame-submitted'
+        ? terminalWriteByToken.get(write.frameToken)
+        : null;
+      const outcome = write.branch === 'canvas-disposition'
+        ? write.outcome
+        : terminal?.branch === 'worker-frame-acknowledged'
+          ? terminal.outcome
+          : 'failed';
+      const metricId = write.branch === 'canvas-disposition' ? 'canvas-draw-call' : 'webgpu-enqueue-to-ack';
+      backendRows.push({
+        captureOrdinal,
+        ...sourceIdentity,
+        operationId: write.branch === 'canvas-disposition' ? 'canvas-draw-call' : 'webgpu-frame-submit',
+        outcome,
+        frameToken: write.frameToken ?? null,
+        timingSpanId: timingSpanByOperation.get(
+          `${write.sourceSequence}\0${write.frameToken ?? 'null'}\0${metricId}`
+        ) ?? null
+      });
+    }
+  }
+  const firstBrokerSample = controllerAudit?.brokerSamples?.[0] ?? null;
+  const rootMetric = Array.isArray(firstBrokerSample?.rawAppMetrics)
+    ? firstBrokerSample.rawAppMetrics.find((metric) => metric?.type === 'Browser') ?? null
+    : null;
+  const processRows = rootExit === null || rootMetric === null ? [] : [
+    {
+      observationOrdinal: 1,
+      observedAt: firstBrokerSample.capturedAt,
+      observationKind: 'membership',
+      observationSource: 'electron-app-metrics-broker',
+      adapterId: 'electron-app-metrics-v1',
+      subjectKind: 'browser-root',
+      pid: rootMetric.pid,
+      creationIdentity: String(rootMetric.creationTime),
+      processIdentity: `browser:${join.executionId}:${rootMetric.pid}`,
+      rawAdapterKind: 'electron-app-metrics-v1',
+      rawIdentity: rootMetric,
+      rawMembership: firstBrokerSample,
+      processClass: 'application-root',
+      ownership: 'application-owned',
+      alive: true
+    },
+    {
+      observationOrdinal: 2,
+      observedAt: rootExit.rootExitObservedAt,
+      observationKind: 'closure',
+      observationSource: 'electron-root-exit',
+      adapterId: 'electron-app-metrics-v1',
+      subjectKind: 'browser-root',
+      pid: rootExit.root.pid,
+      creationIdentity: String(rootExit.root.creationTime),
+      processIdentity: `browser:${join.executionId}:${rootExit.root.pid}`,
+      rawAdapterKind: 'electron-app-metrics-v1',
+      rawIdentity: rootExit.root,
+      rawClosure: rootExit,
+      processClass: 'application-root',
+      ownership: 'application-owned',
+      alive: false,
+      closureState: 'closed'
+    }
+  ];
+  const environmentRows = controllerAudit === null ? [] : controllerAudit.environmentSamples.map((sample, index) => ({
+    source: 'electron-main',
+    sourceSequence: index + 1,
+    clockDomain: 'electron-main',
+    runnerReceiptSequence: index + 1,
+    observedAt: sample.capturedAt,
+    observationKind: index === 0 ? 'initial-snapshot' : 'poll-snapshot',
+    rawAdapterKind: 'electron-environment-v1',
+    rawObservation: sample,
+    ...(index === 0 ? { staticIdentity: sample.currentState, dynamicState: sample.currentState } : { dynamicState: sample.currentState })
+  }));
+  let runnerReceiptSequence = environmentRows.length;
+  if (instrumented) {
+    for (const observation of diagnostics.rendererHeap?.observations ?? []) {
+      environmentRows.push({
+        source: 'renderer-heap',
+        sourceSequence: environmentRows.filter((row) => row.source === 'renderer-heap').length + 1,
+        clockDomain: 'renderer-performance-now-v1',
+        runnerReceiptSequence: ++runnerReceiptSequence,
+        observedAt: observation.observedAt,
+        observationKind: 'renderer-heap',
+        rawAdapterKind: 'chromium-performance-memory-v1',
+        rawObservation: observation,
+        usedBytes: observation.usedBytes
+      });
+    }
+    if (diagnostics.rendererHeap?.availability === 'unavailable') {
+      environmentRows.push({
+        source: 'renderer-heap',
+        sourceSequence: 1,
+        clockDomain: 'renderer-performance-now-v1',
+        runnerReceiptSequence: ++runnerReceiptSequence,
+        observedAt: 0,
+        observationKind: 'renderer-heap-unavailable',
+        rawAdapterKind: 'chromium-performance-memory-v1',
+        rawObservation: diagnostics.rendererHeap,
+        reason: diagnostics.rendererHeap.unavailableReason
+      });
+    }
+  }
+  const frameRequests = (diagnostics.allocationRequestProxies?.frameRequests ?? []).map((row) => ({ ...row }));
+  const lifecycleRequests = (diagnostics.allocationRequestProxies?.lifecycleRequests ?? []).map((row) => ({
+    ...row,
+    executionId: join.executionId
+  }));
+  return bindRunRawRows(join, 'workload', [
+    { rawKind: 'source-opportunity', rows: sourceRows },
+    { rawKind: 'backend-operation', rows: backendRows },
+    { rawKind: 'worker-message', rows: workerRows },
+    { rawKind: 'process-observation', rows: processRows },
+    { rawKind: 'environment-observation', rows: environmentRows },
+    { rawKind: 'controller-operation', rows: createControllerOperationRows(controllerAudit, writes) },
+    { rawKind: 'timing-span', rows: timingRows },
+    { rawKind: 'frame-request', rows: frameRequests },
+    { rawKind: 'lifecycle-request', rows: lifecycleRequests }
+  ]);
+}
+
+function createMetricSessionRawKinds({ authority, pair, attempt, metricSession, closure, completedLaunches }) {
+  const join = {
+    metricSessionId: attempt.metricSessionId,
+    comparisonKind: pair.comparisonKind,
+    backend: pair.backend,
+    pairIndex: pair.pairIndex,
+    attemptIndex: attempt.attemptIndex,
+    metricSessionOpenSequence: completedLaunches[0].join.ledgerSequence - 2
+  };
+  const rows = completedLaunches.flatMap((launch, index) => {
+    const target = launch.metricTarget;
+    const reads = metricTranscriptReads(launch.metricTranscript);
+    const common = {
+      sourceSha: authority.sourceSha,
+      policyHash: authority.policyHash,
+      experimentId: authority.experimentId,
+      pairPlanChecksum: authority.pairPlanChecksum,
+      experimentRole: authority.experimentRole,
+      scopeKind: 'metric-session',
+      scopeId: join.metricSessionId,
+      captureKind: 'metric-session',
+      ...join,
+      observationSource: 'pair-metric-session',
+      adapterId: metricSession.adapterId,
+      subjectKind: 'renderer',
+      pid: target.pid,
+      creationIdentity: target.creationIdentity,
+      processIdentity: target.processIdentity,
+      rawAdapterKind: metricSession.adapterId,
+      processClass: 'application-renderer',
+      ownership: 'application-owned'
+    };
+    return [
+      {
+        ...common,
+        observationOrdinal: (index * 2) + 1,
+        observedAt: (reads[0].read.sample.readStart + reads[0].read.sample.readEnd) / 2,
+        observationKind: 'membership',
+        rawIdentity: reads[0].read.raw,
+          rawMembership: { target, closure },
+        alive: true
+      },
+      {
+        ...common,
+        observationOrdinal: (index * 2) + 2,
+        observedAt: reads.at(-1).read.sample.readEnd,
+        observationKind: 'closure',
+        rawIdentity: reads.at(-1).read.raw,
+          rawClosure: { target, closure },
+        alive: false,
+        closureState: 'detached'
+      }
+    ];
+  });
+  return [{ rawKind: 'process-observation', rows }];
+}
+
+function createExternalSentinelCapture({
   gate,
-  pair,
+  join,
   controllerAudit,
-  rootExit
+  readinessWrites
 }) {
-  if (!process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT) return;
   const measurementWindow = gate.measurementWindow;
   if (!measurementWindow || measurementWindow.terminalClosureEnd === null) {
     throw new Error('external sentinel capture requires a sealed measurement window');
   }
-  const backend = externalSentinelBackend(gate.observations);
-  await writePerformanceSentinelCapture({
-    outputDirectory: process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT,
-    sourceSha: performanceLaunch.sourceSha,
-    runId: `external-sentinel:${performanceLaunch.externalExecutionId}`,
-    externalExecutionId: performanceLaunch.externalExecutionId,
-    observationBoundaryId: `external-sentinel-window:${performanceLaunch.externalExecutionId}`,
-    pair,
-    build: {
-      id: performanceLaunch.build.id,
-      harness: performanceLaunch.build.harness,
-      instrumentation: performanceLaunch.build.instrumentation,
-      bundleSha256: performanceLaunch.build.bundle.sha256
-    },
-    backend,
-    workload: {
-      id: performancePolicy.performanceMetricPolicy.workloadId,
-      pattern: 'animated',
-      width: performanceChromaticDevice.fixture.display.nativeWidth,
-      height: performanceChromaticDevice.fixture.display.nativeHeight,
-      frameRate: performanceChromaticDevice.fixture.stream.defaultFrameRate
-    },
-    warmup,
-    window: {
-      minimumCallbacks: measurementWindow.minimumCallbacks,
-      minimumDurationMs: measurementWindow.minimumDurationMs,
-      maximumCallbacks: measurementWindow.maximumCallbacks,
-      maximumDurationMs: measurementWindow.maximumDurationMs,
-      deliveredCallbackCount: measurementWindow.deliveredCallbackCount,
-      startedAt: measurementWindow.startedAt,
-      closedAt: measurementWindow.closedAt,
-      terminalClosureEnd: measurementWindow.terminalClosureEnd,
-      closureReason: measurementWindow.closureReason
-    },
-    observations: gate.observations,
-    controllerAudit,
-    rootExit
+  if (externalSentinelBackend(gate.observations) !== join.backend) {
+    throw new Error('external sentinel backend does not match its run join');
+  }
+  return createPerformanceSentinelCapture({
+    experimentId: join.experimentId,
+    sourceSha: join.sourceSha,
+    policyHash: join.policyHash,
+    captureKind: 'sentinel',
+    join,
+    rawKinds: createSentinelRawKinds({ join, gate, controllerAudit, readinessWrites })
   });
 }
 
-async function persistExternalMetricCapture({ performanceLaunch, transcript, pair }) {
-  if (!process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT) return;
-  return writePerformanceExternalMetricCapture({
-    outputDirectory: process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT,
-    sourceSha: performanceLaunch.sourceSha,
-    runId: `external-sentinel:${performanceLaunch.externalExecutionId}`,
-    externalExecutionId: performanceLaunch.externalExecutionId,
-    observationBoundaryId: `external-sentinel-window:${performanceLaunch.externalExecutionId}`,
-    pair,
-    build: {
-      id: performanceLaunch.build.id,
-      harness: performanceLaunch.build.harness,
-      instrumentation: performanceLaunch.build.instrumentation,
-      bundleSha256: performanceLaunch.build.bundle.sha256
-    },
-    adapterId: performanceLaunchMetricAdapterId(transcript),
-    target: performanceLaunchMetricTarget(transcript),
-    window: transcript.window,
-    prime: transcript.prime,
-    inWindowSamples: transcript.inWindowSamples,
-    terminalSample: transcript.terminalSample
+function createExternalMetricCapture({ transcript, join }) {
+  return createPerformanceExternalMetricCapture({
+    experimentId: join.experimentId,
+    sourceSha: join.sourceSha,
+    policyHash: join.policyHash,
+    captureKind: 'external-metric',
+    join,
+    rawKinds: createExternalMetricRawKinds({ join, transcript })
   });
 }
 
-async function persistPerformanceWorkloadCapture({
-  performanceLaunch,
-  performanceChromaticDevice,
-  warmup,
+function createPlannedPerformanceWorkloadCapture({
   gate,
   writes,
-  sourceSequences,
   diagnostics,
-  pair,
+  join,
   controllerAudit,
   rootExit
 }) {
-  if (!process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT) return;
-  if (!pair) throw new Error('harness workload capture requires its planned pair binding');
   const measurementWindow = gate.measurementWindow;
   if (!measurementWindow || measurementWindow.status !== 'closed') {
     throw new Error('harness workload capture requires a closed measurement window');
   }
-  await writePerformanceWorkloadCapture({
-    outputDirectory: process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT,
-    sourceSha: performanceLaunch.sourceSha,
-    launchId: performanceLaunch.launchId,
-    externalExecutionId: performanceLaunch.externalExecutionId,
-    observationBoundaryId: `external-sentinel-window:${performanceLaunch.externalExecutionId}`,
-    pair,
-    build: {
-      id: performanceLaunch.build.id,
-      harness: performanceLaunch.build.harness,
-      instrumentation: performanceLaunch.build.instrumentation,
-      bundleSha256: performanceLaunch.build.bundle.sha256
-    },
-    workload: {
-      id: performancePolicy.performanceMetricPolicy.workloadId,
-      pattern: 'animated',
-      width: performanceChromaticDevice.fixture.display.nativeWidth,
-      height: performanceChromaticDevice.fixture.display.nativeHeight,
-      frameRate: performanceChromaticDevice.fixture.stream.defaultFrameRate
-    },
-    warmup: {
-      sourceOpportunityCount: warmup.sourceWrites.length,
-      elapsedMs: warmup.elapsedMs
-    },
-    window: {
-      minimumCallbacks: measurementWindow.minimumCallbacks,
-      minimumDurationMs: measurementWindow.minimumDurationMs,
-      maximumCallbacks: measurementWindow.maximumCallbacks,
-      maximumDurationMs: measurementWindow.maximumDurationMs,
-      deliveredCallbackCount: measurementWindow.deliveredCallbackCount,
-      startedAt: measurementWindow.startedAt,
-      closedAt: measurementWindow.closedAt,
-      closureReason: measurementWindow.closureReason
-    },
-    sourceSequences,
-    controlWrites: writes,
-    diagnostics,
-    controllerAudit,
-    rootExit
+  return createPerformanceWorkloadCapture({
+    experimentId: join.experimentId,
+    sourceSha: join.sourceSha,
+    policyHash: join.policyHash,
+    captureKind: 'workload',
+    join,
+    rawKinds: createWorkloadRawKinds({ join, writes, diagnostics, controllerAudit, rootExit })
   });
+}
+
+async function persistExternalSentinelCapture(input) {
+  const outputDirectory = process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT;
+  if (!outputDirectory) return null;
+  const capture = createExternalSentinelCapture(input);
+  return writePerformanceSentinelCapture({ outputDirectory, experimentId: capture.experimentId, sourceSha: capture.sourceSha, policyHash: capture.policyHash, captureKind: capture.captureKind, join: capture.join, rawKinds: capture.rawKinds });
+}
+
+async function persistExternalMetricCapture(input) {
+  const outputDirectory = process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT;
+  if (!outputDirectory) return null;
+  const capture = createExternalMetricCapture(input);
+  return writePerformanceExternalMetricCapture({ outputDirectory, experimentId: capture.experimentId, sourceSha: capture.sourceSha, policyHash: capture.policyHash, captureKind: capture.captureKind, join: capture.join, rawKinds: capture.rawKinds });
 }
 
 function performanceLaunchMetricAdapterId(transcript) {
@@ -417,11 +1292,360 @@ function prepareHarnessPerformanceRootExit(performanceLaunch) {
   return measurement.prepareRootExit();
 }
 
+async function executePreLoopHarnessProbe({ manifest, slot, qualification = false }) {
+  const startedAt = runnerMonotonicSeconds();
+  const performanceLaunch = await openPerformanceLaunch({
+    loadedManifest: manifest,
+    performanceVariant: 'harness-control',
+    performanceDiagnostics: false,
+    launchAuthoritySlot: slot
+  });
+  const measurement = requireHarnessPerformanceMeasurement(performanceLaunch);
+  const chromaticDevice = new ChromaticDeviceFixture(performanceLaunch.app, performanceLaunch.window);
+  const streamPage = new StreamPage(performanceLaunch.window);
+  const settingsMenu = new SettingsMenuPage(performanceLaunch.window);
+  let streamStarted = false;
+  let closed = false;
+  try {
+    const detailedProbe = qualification ? await performanceLaunch.readPerformanceQualificationProbe() : null;
+    if (detailedProbe !== null && (
+      ['adapter-error', 'device-error'].includes(detailedProbe.webgpu?.status)
+      || detailedProbe.transferControlToOffscreen?.status === 'unexpected-error'
+    )) {
+      throw new Error('selected-host qualification returned a fatal capability result');
+    }
+    await measurement.advance('warmup');
+    const unavailableCapability = {
+      'api-unavailable': 'webgpu-api-unavailable',
+      'adapter-unavailable': 'webgpu-adapter-unavailable'
+    }[detailedProbe?.webgpu?.status];
+    const unavailableTransfer = {
+      'api-unavailable': 'transfer-api-unavailable',
+      'method-unavailable': 'transfer-method-unavailable',
+      'allowlisted-not-supported': 'transfer-allowlisted-not-supported'
+    }[detailedProbe?.transferControlToOffscreen?.status];
+    const preWorkerBranch = unavailableCapability ?? unavailableTransfer ?? null;
+    await settingsMenu.setBooleanInMenu('animationSaver', !qualification || preWorkerBranch !== null);
+    await chromaticDevice.connect({ testPattern: 'animated' });
+    await streamPage.start();
+    streamStarted = true;
+
+    const readinessStages = [];
+    const firstBackend = qualification && preWorkerBranch === null ? 'webgpu' : 'canvas2d';
+    readinessStages.push(await waitForQualificationStage(performanceLaunch, firstBackend));
+    const firstReadiness = requireSingleBackendReadinessWrite(
+      await performanceLaunch.readPerformanceControlProbe(),
+      firstBackend
+    );
+    const fallbackAdapter = qualification
+      && detailedProbe.webgpu.status === 'available'
+      && detailedProbe.webgpu.isFallbackAdapter === true;
+    if (fallbackAdapter) {
+      if (stableStringify(firstReadiness.backendExecutionIdentity.adapterIdentity)
+        !== stableStringify(detailedProbe.webgpu.adapterIdentity)
+        || stableStringify(firstReadiness.backendExecutionIdentity.limits)
+        !== stableStringify(detailedProbe.webgpu.limits)
+        || firstReadiness.backendExecutionIdentity.isFallbackAdapter !== true) {
+        throw new Error('fallback qualification READY identity differs from the live capability oracle');
+      }
+      await settingsMenu.setBooleanInMenu('animationSaver', true);
+      readinessStages.push(await waitForQualificationStage(performanceLaunch, 'canvas2d'));
+    } else if (qualification && preWorkerBranch === null) {
+      if (stableStringify(firstReadiness.backendExecutionIdentity.adapterIdentity)
+        !== stableStringify(detailedProbe.webgpu.adapterIdentity)
+        || stableStringify(firstReadiness.backendExecutionIdentity.limits)
+        !== stableStringify(detailedProbe.webgpu.limits)
+        || firstReadiness.backendExecutionIdentity.isFallbackAdapter !== false
+        || firstReadiness.backendExecutionIdentity.powerPreference !== 'low-power') {
+        throw new Error('qualified WebGPU READY identity differs from the live capability oracle');
+      }
+    }
+
+    await measurement.recordWarmupIdentity();
+    await measurement.recordPrime();
+    await measurement.beginMeasurement(null);
+    await measurement.advance('submission-seal');
+    await measurement.advance('drain');
+    await measurement.advance('shutdown');
+    await streamPage.stop();
+    streamStarted = false;
+    const writes = await performanceLaunch.readPerformanceControlProbe();
+    await recordPostReleaseSettle(performanceLaunch, measurement, writes);
+    await measurement.advance('application-descendant-closure');
+    prepareHarnessPerformanceRootExit(performanceLaunch);
+    const rootExitEvidence = await performanceLaunch.close();
+    closed = true;
+    if (!rootExitEvidence) throw new Error('pre-loop harness probe did not retain root-exit evidence');
+    const closedAt = runnerMonotonicSeconds();
+    const cleanup = probeCleanup(rootExitEvidence.controllerAudit, closedAt);
+    return Object.freeze({
+      startedAt,
+      closedAt,
+      performanceLaunch,
+      detailedProbe,
+      preWorkerBranch,
+      fallbackAdapter,
+      readinessEvidence: Object.freeze({ stages: Object.freeze(readinessStages) }),
+      writes,
+      controllerAudit: rootExitEvidence.controllerAudit,
+      rootExit: rootExitEvidence.rootExit,
+      cleanup
+    });
+  } catch (error) {
+    const cleanups = [];
+    if (streamStarted) cleanups.push(() => streamPage.stop());
+    cleanups.push(() => chromaticDevice.cleanup());
+    if (!closed) cleanups.push(() => performanceLaunch.close());
+    await rethrowAfterCleanup(error, cleanups, qualification ? 'qualification probe' : 'Electron transport probe');
+  } finally {
+    await chromaticDevice.cleanup();
+  }
+}
+
+function preLoopRawKinds({ authority, slot, captureKind, probe }) {
+  return [{
+    rawKind: 'process-observation',
+    rows: preLoopProcessRows({
+      authority,
+      slot,
+      captureKind,
+      performanceLaunch: probe.performanceLaunch,
+      startedAt: probe.startedAt,
+      closedAt: probe.closedAt,
+      rootExit: probe.rootExit
+    })
+  }, {
+    rawKind: 'environment-observation',
+    rows: preLoopEnvironmentRows({ authority, slot, captureKind, controllerAudit: probe.controllerAudit })
+  }, {
+    rawKind: 'controller-operation',
+    rows: preLoopControllerRows({
+      authority,
+      slot,
+      captureKind,
+      controllerAudit: probe.controllerAudit,
+      writes: probe.writes
+    })
+  }];
+}
+
+function qualificationCaptureBody({ authority, slot, probe }) {
+  const capabilityResult = probe.detailedProbe.webgpu;
+  const transferResult = probe.detailedProbe.transferControlToOffscreen;
+  let selectionResult;
+  let adapterIdentity = null;
+  let fallbackState = null;
+  let backendExecutionIdentity = null;
+  if (probe.preWorkerBranch !== null) {
+    selectionResult = {
+      qualificationState: 'hardware-capability-unavailable',
+      unavailabilityBranch: probe.preWorkerBranch,
+      requestedBackend: 'webgpu',
+      selectedBackend: 'canvas2d',
+      observedBackend: 'canvas2d',
+      selectionReason: probe.preWorkerBranch
+    };
+  } else {
+    const webgpuReadiness = backendReadinessWrites(probe.writes).find((write) => write.selectedBackend === 'webgpu');
+    if (!webgpuReadiness?.backendExecutionIdentity) {
+      throw new Error('qualification capture has no actual WebGPU READY identity');
+    }
+    adapterIdentity = capabilityResult.adapterIdentity;
+    if (probe.fallbackAdapter) {
+      selectionResult = {
+        qualificationState: 'hardware-capability-unavailable',
+        unavailabilityBranch: 'worker-fallback-adapter',
+        requestedBackend: 'webgpu',
+        selectedBackend: 'canvas2d',
+        observedBackend: 'webgpu',
+        selectionReason: 'worker-fallback-adapter'
+      };
+      fallbackState = {
+        isFallbackAdapter: true,
+        branch: 'worker-fallback-adapter',
+        observedBackendExecutionIdentity: webgpuReadiness.backendExecutionIdentity,
+        fallbackBackend: 'canvas2d'
+      };
+    } else {
+      selectionResult = {
+        qualificationState: 'qualified-webgpu',
+        unavailabilityBranch: 'none',
+        requestedBackend: 'webgpu',
+        selectedBackend: 'webgpu',
+        observedBackend: 'webgpu',
+        selectionReason: 'webgpu-selected'
+      };
+      fallbackState = { isFallbackAdapter: false, branch: null };
+      backendExecutionIdentity = webgpuReadiness.backendExecutionIdentity;
+    }
+  }
+  return Object.freeze({
+    schemaVersion: 1,
+    experimentId: authority.experimentId,
+    ledgerSequence: slot.ledgerSequence,
+    observationBoundaryId: slot.observationBoundaryId,
+    sourceSha: authority.sourceSha,
+    policyHash: authority.policyHash,
+    buildVariant: 'harness-control',
+    requestedBackend: 'webgpu',
+    readinessEvidence: probe.readinessEvidence,
+    capabilityResult,
+    transferResult,
+    selectionResult,
+    adapterIdentity,
+    fallbackState,
+    backendExecutionIdentity,
+    cleanup: probe.cleanup
+  });
+}
+
+async function writeJsonExclusive(absolutePath, value) {
+  await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+  await fs.writeFile(absolutePath, `${stableStringify(value)}\n`, { encoding: 'utf8', flag: 'wx' });
+}
+
+async function persistElectronTransportProbe({ authority, slot, probe }) {
+  const outputDirectory = process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT;
+  if (!outputDirectory) throw new Error('Electron transport probe requires a capture output directory');
+  const capture = createPerformanceTransportCapture({
+    experimentId: authority.experimentId,
+    sourceSha: authority.sourceSha,
+    policyHash: authority.policyHash,
+    captureKind: 'transport',
+    ledgerSequence: slot.ledgerSequence,
+    operationId: 'electron-harness-spawn',
+    observationBoundaryId: slot.observationBoundaryId,
+    rawKinds: preLoopRawKinds({ authority, slot, captureKind: 'transport', probe })
+  });
+  const relativePath = 'experiment-evidence/transport/electron-harness.json';
+  await writeJsonExclusive(path.join(outputDirectory, relativePath), capture);
+  const genericRelativePath = 'experiment-evidence/transport/generic.json';
+  let genericCapture;
+  try {
+    genericCapture = JSON.parse(await fs.readFile(path.join(outputDirectory, genericRelativePath), 'utf8'));
+  } catch (error) {
+    throw new Error(`generic transport capture is unavailable before Electron transport indexing: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  const index = createPerformanceCaptureIndex({
+    schemaVersion: 1,
+    experimentId: authority.experimentId,
+    captureKind: 'transport',
+    entryCount: 2,
+    entries: [{
+      ledgerSequence: genericCapture.ledgerSequence,
+      operationId: genericCapture.operationId,
+      observationBoundaryId: genericCapture.observationBoundaryId,
+      relativePath: genericRelativePath,
+      checksum: genericCapture.checksum
+    }, {
+      ledgerSequence: slot.ledgerSequence,
+      operationId: 'electron-harness-spawn',
+      observationBoundaryId: slot.observationBoundaryId,
+      relativePath,
+      checksum: capture.checksum
+    }]
+  });
+  await writeJsonExclusive(path.join(outputDirectory, 'performance-transport-captures.json'), index);
+  return Object.freeze({ capture, index, relativePath });
+}
+
+async function persistQualificationProbe({ authority, slot, probe }) {
+  const outputDirectory = process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT;
+  if (!outputDirectory) throw new Error('qualification probe requires a capture output directory');
+  const captureBody = qualificationCaptureBody({ authority, slot, probe });
+  const capture = createPerformanceQualificationCapture({
+    experimentId: authority.experimentId,
+    sourceSha: authority.sourceSha,
+    policyHash: authority.policyHash,
+    captureKind: 'qualification',
+    ledgerSequence: slot.ledgerSequence,
+    observationBoundaryId: slot.observationBoundaryId,
+    captureBody,
+    captureBodyChecksum: canonicalSha256(captureBody),
+    rawKinds: preLoopRawKinds({ authority, slot, captureKind: 'qualification', probe })
+  });
+  const relativePath = 'experiment-evidence/qualification.json';
+  await writeJsonExclusive(path.join(outputDirectory, relativePath), capture);
+  const index = createPerformanceCaptureIndex({
+    schemaVersion: 1,
+    experimentId: authority.experimentId,
+    captureKind: 'qualification',
+    entryCount: 1,
+    entries: [{
+      ledgerSequence: slot.ledgerSequence,
+      operationId: 'electron-harness-spawn',
+      observationBoundaryId: slot.observationBoundaryId,
+      relativePath,
+      checksum: capture.checksum
+    }]
+  });
+  await writeJsonExclusive(path.join(outputDirectory, 'performance-qualification-captures.json'), index);
+  return Object.freeze({ capture, index, relativePath });
+}
+
+function preLoopTransportCarriers(slot, transportId) {
+  return {
+    executionIdentity: Object.freeze({
+      externalExecutionId: slot.externalExecutionId,
+      executionId: slot.executionId
+    }),
+    markerIdentity: Object.freeze({
+      operationMarker: slot.operationMarker,
+      launchId: slot.launchId,
+      preloadEchoLaunchId: slot.launchId,
+      rendererEchoLaunchId: slot.launchId
+    }),
+    transportIdentity: Object.freeze({
+      transportId,
+      observationBoundaryId: slot.observationBoundaryId
+    })
+  };
+}
+
+function electronTransportLedgerEntry(slot, probe) {
+  return Object.freeze({
+    sequence: slot.ledgerSequence,
+    operationId: 'electron-harness-spawn',
+    start: probe.startedAt,
+    end: probe.closedAt,
+    purpose: 'transport-probe',
+    outcome: 'completed',
+    ...preLoopTransportCarriers(slot, `electron-transport:${slot.executionId}`),
+    applicationDescendantClosureEnd: probe.closedAt
+  });
+}
+
+function qualificationLedgerEntry({ authority, slot, probe, capture }) {
+  return Object.freeze({
+    sequence: slot.ledgerSequence,
+    operationId: 'electron-harness-spawn',
+    start: probe.startedAt,
+    end: probe.closedAt,
+    purpose: 'qualification-probe',
+    outcome: 'completed',
+    experimentId: authority.experimentId,
+    policyHash: authority.policyHash,
+    buildVariant: slot.buildVariant,
+    observationBoundaryId: slot.observationBoundaryId,
+    operationMarker: slot.operationMarker,
+    launchId: slot.launchId,
+    executionId: slot.executionId,
+    externalExecutionId: slot.externalExecutionId,
+    ...preLoopTransportCarriers(slot, `qualification:${slot.executionId}`),
+    capabilityEvidence: Object.freeze({ captureBodyChecksum: capture.captureBodyChecksum }),
+    readinessEvidence: probe.readinessEvidence,
+    ownership: Object.freeze({ class: 'application-owned' }),
+    cleanup: probe.cleanup,
+    applicationDescendantClosureEnd: probe.closedAt
+  });
+}
+
 async function executeExternalSentinelMeasurement({
   performanceLaunch,
   performanceChromaticDevice,
   openMetricCapture,
-  collectMetricTranscript = collectExternalMetricTranscript
+  collectMetricTranscript = collectExternalMetricTranscript,
+  expectedBackend
 }) {
   const streamPage = new StreamPage(performanceLaunch.window);
   const measurement = await beginPerformanceWarmup(performanceLaunch);
@@ -470,12 +1694,17 @@ async function executeExternalSentinelMeasurement({
     if (measurement !== null) await measurement.advance('shutdown');
     await streamPage.stop();
     streamStopped = true;
+    let readinessWrites = [];
     if (measurement !== null) {
       const writes = await performanceLaunch.readPerformanceControlProbe();
+      readinessWrites = [requireSingleBackendReadinessWrite(
+        writes,
+        expectedBackend
+      )];
       await recordPostReleaseSettle(performanceLaunch, measurement, writes);
       await measurement.advance('application-descendant-closure');
     }
-    return Object.freeze({ warmup, gate: sealedGate, transcript: measured.transcript });
+    return Object.freeze({ warmup, gate: sealedGate, transcript: measured.transcript, readinessWrites });
   } finally {
     if (!streamStopped) await streamPage.stop().catch(() => {});
   }
@@ -486,7 +1715,8 @@ async function executeHarnessWorkloadMeasurement({
   performanceChromaticDevice,
   openMetricCapture,
   collectMetricTranscript = collectExternalMetricTranscript,
-  instrumentation
+  instrumentation,
+  expectedBackend
 }) {
   if (!performanceLaunch.build.harness || performanceLaunch.build.instrumentation !== instrumentation) {
     const expectedBuild = instrumentation ? 'instrumented' : 'harness-control';
@@ -513,6 +1743,10 @@ async function executeHarnessWorkloadMeasurement({
       () => performanceLaunch.readPerformanceCallbackGate(),
       { timeout: 5000 }
     ).toMatchObject({ paused: true, heldCallbackCount: 1 });
+    const readinessWrites = [requireSingleBackendReadinessWrite(
+      await performanceLaunch.readPerformanceControlProbe(),
+      expectedBackend
+    )];
     await expect(performanceLaunch.resetPerformanceControlProbe()).resolves.toEqual({ reset: true });
     if (instrumentation) {
       await expect(performanceLaunch.resetPerformanceDiagnostics()).resolves.toEqual({ reset: true });
@@ -563,10 +1797,10 @@ async function executeHarnessWorkloadMeasurement({
     await measurement.advance('shutdown');
     await streamPage.stop();
     streamStopped = true;
-    const writes = await performanceLaunch.readPerformanceControlProbe();
-    await recordPostReleaseSettle(performanceLaunch, measurement, writes);
+    const measurementWrites = await performanceLaunch.readPerformanceControlProbe();
+    await recordPostReleaseSettle(performanceLaunch, measurement, measurementWrites);
     await measurement.advance('application-descendant-closure');
-    const cohortSourceWrites = sourceOpportunityWrites(writes);
+    const cohortSourceWrites = sourceOpportunityWrites(measurementWrites);
     const diagnostics = instrumentation ? await performanceLaunch.readPerformanceDiagnostics() : {};
     const measurementWindow = sealedGate.measurementWindow;
     const sourceSequences = cohortSourceWrites.map((write) => write.sourceSequence);
@@ -600,7 +1834,7 @@ async function executeHarnessWorkloadMeasurement({
       warmup,
       gate: sealedGate,
       transcript: measured.transcript,
-      writes,
+      writes: [...readinessWrites, ...measurementWrites],
       sourceSequences,
       diagnostics
     });
@@ -617,22 +1851,54 @@ async function executeHarnessControlMeasurement(options) {
   return executeHarnessWorkloadMeasurement({ ...options, instrumentation: false });
 }
 
-async function executePlannedLaunch({ manifest, plan, pair, launch, metricSession, deadlineSignal }) {
+async function executePlannedLaunch({
+  manifest,
+  plan,
+  authority,
+  pair,
+  attempt,
+  launch,
+  launchAuthoritySlot,
+  ledgerSequence,
+  ordinal,
+  operationStart,
+  metricSession,
+  deadlineSignal
+}) {
   if (!deadlineSignal || typeof deadlineSignal !== 'object'
     || typeof deadlineSignal.addEventListener !== 'function'
     || typeof deadlineSignal.removeEventListener !== 'function'
     || typeof deadlineSignal.aborted !== 'boolean') {
     throw new Error('planned performance launch requires a deadline cancellation signal');
   }
-  const binding = createPairBinding(plan, pair, launch);
+  const binding = createPairBinding(plan, pair, attempt, launch);
   const performanceLaunch = await openPerformanceLaunch({
     loadedManifest: manifest,
     performanceVariant: launch.buildVariant,
-    performanceDiagnostics: launch.buildVariant === 'instrumented'
+    performanceDiagnostics: launch.buildVariant === 'instrumented',
+    launchAuthoritySlot
+  });
+  const join = createPerformanceRunJoinFromAuthority({
+    authority,
+    slot: launchAuthoritySlot,
+    ledgerSequence,
+    ordinal,
+    runtimeIdentity: launch.buildVariant === 'production'
+      ? {
+        externalExecutionId: performanceLaunch.externalExecutionId,
+        browserPid: performanceLaunch.browserPid,
+        browserCreationTime: performanceLaunch.browserCreationTime
+      }
+      : {
+        externalExecutionId: performanceLaunch.externalExecutionId,
+        launchId: performanceLaunch.launchId,
+        executionId: performanceLaunch.executionId
+      }
   });
   let metricCapture = null;
   let metricCaptureOwnedByLaunch = false;
   let performanceLaunchClosed = false;
+  let performanceLaunchClosureEnd = null;
   let performanceLaunchCloseOutcome = null;
   const requestPerformanceLaunchClose = () => {
     performanceLaunchCloseOutcome ??= Promise.resolve()
@@ -640,6 +1906,7 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
       .then(
         (value) => {
           performanceLaunchClosed = true;
+          performanceLaunchClosureEnd ??= runnerMonotonicSeconds();
           return Object.freeze({ status: 'fulfilled', value });
         },
         (error) => Object.freeze({ status: 'rejected', error })
@@ -649,6 +1916,7 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
   const closePerformanceLaunch = async () => {
     const outcome = await requestPerformanceLaunchClose();
     if (outcome.status === 'rejected') throw outcome.error;
+    performanceLaunchClosureEnd ??= runnerMonotonicSeconds();
     return outcome.value;
   };
   const throwIfDeadlineCancelled = () => {
@@ -666,6 +1934,8 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
       await closePerformanceLaunch();
       throwIfDeadlineCancelled();
     }
+    await applyPlannedPerformanceBackend(performanceLaunch, pair.backend);
+    throwIfDeadlineCancelled();
     const openMetricCapture = async () => {
       if (metricCapture !== null) throw new Error('planned performance launch opened its metric capture more than once');
       metricCapture = await metricSession.openSide({
@@ -684,17 +1954,19 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
         onOwnershipAccepted: () => { metricCaptureOwnedByLaunch = false; }
       });
     };
-    const persistPlannedMetricCapture = async (transcript) => {
-      const written = await persistExternalMetricCapture({ performanceLaunch, transcript, pair: binding });
-      if (!written) {
-        throw new Error('planned performance launch did not persist its external metric capture');
-      }
+    const createPlannedMetricCapture = (transcript, operationEvidence, measurementCapture) => {
+      const externalMetricCapture = createExternalMetricCapture({ transcript, join });
       return Object.freeze({
         sourceSha: performanceLaunch.sourceSha,
         pair: binding,
         buildVariant: launch.buildVariant,
         externalExecutionId: performanceLaunch.externalExecutionId,
-        metricCapture: written.capture
+        join,
+        operationEvidence,
+        metricCapture: externalMetricCapture,
+        measurementCapture,
+        metricTarget: performanceLaunchMetricTarget(transcript),
+        metricTranscript: transcript
       });
     };
     const performanceChromaticDevice = new ChromaticDeviceFixture(performanceLaunch.app, performanceLaunch.window);
@@ -706,7 +1978,8 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
           performanceLaunch,
           performanceChromaticDevice,
           openMetricCapture,
-          collectMetricTranscript
+          collectMetricTranscript,
+          expectedBackend: pair.backend
         });
         measurementKind = 'harness-overhead';
       } else if (pair.comparisonKind === 'instrumentation-overhead') {
@@ -722,7 +1995,8 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
           performanceLaunch,
           performanceChromaticDevice,
           openMetricCapture,
-          collectMetricTranscript
+          collectMetricTranscript,
+          expectedBackend: pair.backend
         });
         measurementKind = 'instrumentation-overhead';
       } else {
@@ -734,115 +2008,376 @@ async function executePlannedLaunch({ manifest, plan, pair, launch, metricSessio
     throwIfDeadlineCancelled();
     prepareHarnessPerformanceRootExit(performanceLaunch);
     const rootExitEvidence = await closePerformanceLaunch();
+    const applicationDescendantClosureEnd = runnerMonotonicSeconds();
     throwIfDeadlineCancelled();
     if (performanceLaunch.build.harness && rootExitEvidence === null) {
       throw new Error('planned harness launch did not retain root-exit closure evidence');
     }
     const controllerAudit = rootExitEvidence?.controllerAudit ?? null;
     const rootExit = rootExitEvidence?.rootExit ?? null;
-    if (measurementKind === 'harness-overhead') {
-      await persistExternalSentinelCapture({
-        performanceLaunch,
-        performanceChromaticDevice,
-        warmup: measured.warmup,
+    const measurementCapture = measurementKind === 'harness-overhead'
+      ? createExternalSentinelCapture({
         gate: measured.gate,
-        pair: binding,
+        join,
         controllerAudit,
-        rootExit
-      });
-    } else {
-      await persistPerformanceWorkloadCapture({
-        performanceLaunch,
-        performanceChromaticDevice,
-        warmup: measured.warmup,
+        readinessWrites: measured.readinessWrites
+      })
+      : createPlannedPerformanceWorkloadCapture({
         gate: measured.gate,
         writes: measured.writes,
-        sourceSequences: measured.sourceSequences,
         diagnostics: measured.diagnostics,
-        pair: binding,
+        join,
         controllerAudit,
         rootExit
       });
-    }
     throwIfDeadlineCancelled();
-    return persistPlannedMetricCapture(measured.transcript);
+    return createPlannedMetricCapture(measured.transcript, Object.freeze({
+      applicationDescendantClosureEnd,
+      frameSourceSequences: measurementKind === 'instrumentation-overhead'
+        && performanceLaunch.build.instrumentation
+        ? Object.freeze([...measured.sourceSequences])
+        : null
+    }), measurementCapture);
   } catch (error) {
     const cleanupOperations = [];
-    if (metricCaptureOwnedByLaunch && metricCapture !== null) {
-      cleanupOperations.push(() => metricCapture.abort());
-    }
     if (!performanceLaunchClosed) {
       cleanupOperations.push(() => closePerformanceLaunch());
     }
-    await rethrowAfterCleanup(error, cleanupOperations, 'planned performance launch');
+    if (metricCaptureOwnedByLaunch && metricCapture !== null) {
+      cleanupOperations.push(() => metricCapture.abort());
+    }
+    try {
+      await rethrowAfterCleanup(error, cleanupOperations, 'planned performance launch');
+    } catch (failure) {
+      const applicationDescendantClosureEnd = performanceLaunchClosureEnd;
+      if (failure instanceof Error && applicationDescendantClosureEnd !== null) {
+        Object.defineProperty(failure, 'performanceLaunchFailureEvidence', {
+          value: Object.freeze({ join, operationStart, applicationDescendantClosureEnd }),
+          enumerable: false
+        });
+      }
+      throw failure;
+    }
   } finally {
     deadlineSignal.removeEventListener('abort', closeAtDeadline);
   }
 }
 
-async function executePlannedPair({ manifest, plan, pair }) {
+function measurementLaunchLedgerEntry({ completedLaunch, start }) {
+  const { join, operationEvidence } = completedLaunch;
+  const end = operationEvidence.applicationDescendantClosureEnd;
+  const harness = join.buildVariant !== 'production';
+  return Object.freeze({
+    sequence: join.ledgerSequence,
+    operationId: harness ? 'electron-harness-spawn' : 'production-sentinel-spawn',
+    start,
+    end,
+    purpose: 'measurement-side',
+    ...join,
+    ownership: Object.freeze({ class: 'application-owned' }),
+    cleanup: operationClosure(start, end),
+    outcome: 'completed',
+    applicationDescendantClosureEnd: end,
+    ...(join.buildVariant === 'instrumented'
+      ? {
+        measurementEpochId: join.launchId,
+        frameSourceSequences: operationEvidence.frameSourceSequences
+      }
+      : {})
+  });
+}
+
+function failedMeasurementLaunchLedgerEntry({ failureEvidence, phase, reason }) {
+  const { join, operationStart, applicationDescendantClosureEnd } = failureEvidence;
+  if (!join || !Number.isFinite(operationStart) || !Number.isFinite(applicationDescendantClosureEnd)
+    || applicationDescendantClosureEnd < operationStart) {
+    throw new Error('failed performance launch has no actual application cleanup boundary');
+  }
+  const harness = join.buildVariant !== 'production';
+  return Object.freeze({
+    sequence: join.ledgerSequence,
+    operationId: harness ? 'electron-harness-spawn' : 'production-sentinel-spawn',
+    start: operationStart,
+    end: applicationDescendantClosureEnd,
+    purpose: 'measurement-side',
+    ...join,
+    ownership: Object.freeze({ class: 'application-owned' }),
+    cleanup: operationClosure(operationStart, applicationDescendantClosureEnd),
+    outcome: 'failed',
+    abortReason: Object.freeze({ phase, backend: join.backend, reason }),
+    lastBoundary: phase === 'side-a' ? 'reset-a' : 'reset-b',
+    applicationDescendantClosureEnd
+  });
+}
+
+function captureWriterInput(outputDirectory, capture) {
+  return { outputDirectory, experimentId: capture.experimentId, sourceSha: capture.sourceSha, policyHash: capture.policyHash, captureKind: capture.captureKind, join: capture.join, rawKinds: capture.rawKinds };
+}
+
+async function persistCompletedAttemptCaptures(outputDirectory, completedLaunches, metricSessionCapture) {
+  for (const completedLaunch of completedLaunches) {
+    const measurementWriter = completedLaunch.measurementCapture.captureKind === 'sentinel'
+      ? writePerformanceSentinelCapture
+      : completedLaunch.measurementCapture.captureKind === 'workload'
+        ? writePerformanceWorkloadCapture
+        : null;
+    if (measurementWriter === null) throw new Error('completed performance attempt has an unsupported measurement capture');
+    await measurementWriter(captureWriterInput(outputDirectory, completedLaunch.measurementCapture));
+    await writePerformanceExternalMetricCapture(captureWriterInput(outputDirectory, completedLaunch.metricCapture));
+  }
+  await writePerformanceMetricSessionCapture(captureWriterInput(outputDirectory, metricSessionCapture));
+}
+
+async function executePlannedPair({ manifest, plan, authority, pair, attempt, retryReason = null }) {
   const captureOutput = process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT;
   if (!captureOutput) {
     throw new Error('planned performance pair execution requires PRISMGB_PERFORMANCE_CAPTURE_OUTPUT');
   }
-  const metricSession = await openPerformanceRendererMetricPairSession();
+  if ((attempt.attemptIndex === 1) !== (retryReason === null)) {
+    throw new Error('planned performance pair retry reason does not match its attempt index');
+  }
+  const existingLedger = JSON.parse(await fs.readFile(path.join(captureOutput, 'performance-ledger.json'), 'utf8'));
+  if (!Array.isArray(existingLedger) || existingLedger.length === 0) throw new Error('planned performance pair execution requires the existing canonical ledger');
+  const metricSessionOpenSequence = existingLedger.at(-1).sequence + 1;
+  const ordinalBase = existingLedger.filter((entry) => (
+    (entry.operationId === 'electron-harness-spawn' || entry.operationId === 'production-sentinel-spawn')
+    && entry.purpose === 'measurement-side'
+  )).length;
+  const openStart = runnerMonotonicSeconds();
+  let metricSession;
   try {
-    const completedLaunches = [];
-    for (const launch of pair.launches) {
-      completedLaunches.push(await runWithinPerformanceLaunchDeadline(
-        `${pair.comparisonKind} pair ${pair.pairIndex} side ${launch.comparisonSide}`,
+    metricSession = await openPerformanceRendererMetricPairSession({ deferFailureAbort: true });
+  } catch (error) {
+    if (error?.performanceMetricZeroSpawned === true) {
+      const failedAt = runnerMonotonicSeconds();
+      const failedOpen = Object.freeze({
+        sequence: metricSessionOpenSequence,
+        operationId: 'metric-adapter-session-open',
+        start: openStart,
+        end: failedAt,
+        metricSessionId: attempt.metricSessionId,
+        outcome: 'failed-no-resource',
+        comparisonKind: pair.comparisonKind,
+        backend: pair.backend,
+        pairIndex: pair.pairIndex,
+        attemptIndex: attempt.attemptIndex,
+        ...(retryReason === null ? {} : { retryReason }),
+        failedAt,
+        zeroSpawned: true
+      });
+      try {
+        await appendPerformanceLedgerEntries([failedOpen]);
+      } catch (persistenceError) {
+        throw new AggregateError([error, persistenceError], 'metric-session no-resource open failure could not be persisted');
+      }
+      throw error;
+    }
+    const abortEvidence = error?.performanceMetricAbortEvidence ?? null;
+    if (abortEvidence === null) throw error;
+    const abortReason = Object.freeze({
+      phase: 'open',
+      backend: 'none',
+      reason: 'metric-adapter-resource-owned'
+    });
+    const failedOpen = Object.freeze({
+      sequence: metricSessionOpenSequence,
+      operationId: 'metric-adapter-session-open',
+      start: openStart,
+      end: abortEvidence.startedAt,
+      metricSessionId: attempt.metricSessionId,
+      outcome: 'failed-resource-owned',
+      comparisonKind: pair.comparisonKind,
+      backend: pair.backend,
+      pairIndex: pair.pairIndex,
+      attemptIndex: attempt.attemptIndex,
+      ...(retryReason === null ? {} : { retryReason }),
+      failedAt: abortEvidence.startedAt,
+      resourceIdentity: Object.freeze({ adapterId: abortEvidence.adapterId }),
+      abortReason,
+      lastBoundary: 'open'
+    });
+    const abortedClose = createAbortedPerformanceMetricSessionClose({
+      sequence: metricSessionOpenSequence + 1,
+      metricSessionId: attempt.metricSessionId,
+      phase: 'open',
+      backend: 'none',
+      reason: abortReason.reason,
+      abortEvidence,
+      resourcesClosed: true
+    });
+    try {
+      await appendPerformanceLedgerEntries([failedOpen, abortedClose]);
+    } catch (persistenceError) {
+      throw new AggregateError([error, persistenceError], 'metric-session open failure cleanup evidence could not be persisted');
+    }
+    throw error;
+  }
+  const openEnd = runnerMonotonicSeconds();
+  const completedLaunches = [];
+  const transactionEntries = [];
+  let abortPhase = 'reset-a';
+  let abortBackend = 'none';
+  try {
+    transactionEntries.push(Object.freeze({
+      sequence: metricSessionOpenSequence,
+      operationId: 'metric-adapter-session-open',
+      start: openStart,
+      end: openEnd,
+      metricSessionId: attempt.metricSessionId,
+      outcome: 'ready',
+      comparisonKind: pair.comparisonKind,
+      backend: pair.backend,
+      pairIndex: pair.pairIndex,
+      attemptIndex: attempt.attemptIndex,
+      ...(retryReason === null ? {} : { retryReason }),
+      readyAt: openEnd
+    }));
+    for (const launch of attempt.launches) {
+      const binding = createPairBinding(plan, pair, attempt, launch);
+      const launchAuthoritySlot = resolveLaunchAuthoritySlot(authority, binding);
+      const resetStart = runnerMonotonicSeconds();
+      const resetEnd = runnerMonotonicSeconds();
+      transactionEntries.push(Object.freeze({
+        sequence: metricSessionOpenSequence + (launch.executionOrdinal * 2) - 1,
+        operationId: 'internal-reset',
+        start: resetStart,
+        end: resetEnd,
+        outcome: 'completed',
+        resetIdentity: `${attempt.metricSessionId}:side-${launch.comparisonSide.toLowerCase()}`
+      }));
+      abortPhase = launch.comparisonSide === 'A' ? 'side-a' : 'side-b';
+      abortBackend = pair.backend;
+      const launchStart = runnerMonotonicSeconds();
+      const completedLaunch = await runWithinPerformanceLaunchDeadline(
+        `${pair.comparisonKind} pair ${pair.pairIndex} attempt ${attempt.attemptIndex} side ${launch.comparisonSide}`,
         (deadlineSignal) => executePlannedLaunch({
           manifest,
           plan,
+          authority,
           pair,
+          attempt,
           launch,
+          launchAuthoritySlot,
+          ledgerSequence: metricSessionOpenSequence + (launch.executionOrdinal * 2),
+          ordinal: ordinalBase + launch.executionOrdinal,
+          operationStart: launchStart,
           metricSession,
           deadlineSignal
         })
-      ));
+      );
+      completedLaunches.push(completedLaunch);
+      transactionEntries.push(measurementLaunchLedgerEntry({ completedLaunch, start: launchStart }));
+      abortPhase = launch.comparisonSide === 'A' ? 'reset-b' : 'close';
+      abortBackend = 'none';
     }
+    const closeStart = runnerMonotonicSeconds();
     const closure = await metricSession.close();
+    const closeEnd = runnerMonotonicSeconds();
     if (closure.adapterId !== metricSession.adapterId) {
       throw new Error('performance metric pair session closure changed its adapter identity');
     }
     const sourceSha = completedLaunches[0]?.sourceSha;
-    if (typeof sourceSha !== 'string' || completedLaunches.length !== pair.launches.length
+    if (typeof sourceSha !== 'string' || completedLaunches.length !== attempt.launches.length
       || completedLaunches.some((launch) => launch.sourceSha !== sourceSha)) {
       throw new Error('performance metric pair sides do not retain one source identity');
     }
-    await writePerformanceMetricSessionCapture({
-      outputDirectory: captureOutput,
+    const metricSessionCapture = createPerformanceMetricSessionCapture({
+      experimentId: plan.experimentId,
       sourceSha,
-      pair: {
-        experimentId: plan.experimentId,
-        pairPlanChecksum: plan.checksum,
-        metricSessionId: pair.metricSessionId,
+      policyHash: authority.policyHash,
+      captureKind: 'metric-session',
+      join: {
+        metricSessionId: attempt.metricSessionId,
         comparisonKind: pair.comparisonKind,
         backend: pair.backend,
         pairIndex: pair.pairIndex,
-        attemptIndex: pair.attemptIndex
+        attemptIndex: attempt.attemptIndex,
+        metricSessionOpenSequence
       },
-      adapterId: metricSession.adapterId,
-      sides: completedLaunches.map((launch) => ({
-        comparisonSide: launch.pair.comparisonSide,
-        buildVariant: launch.buildVariant,
-        externalExecutionId: launch.externalExecutionId,
-        metricCaptureChecksum: launch.metricCapture.checksum,
-        target: launch.metricCapture.target
-      })),
-      closure: {
-        adapterId: closure.adapterId,
-        transitions: closure.transitions
-      }
+      rawKinds: createMetricSessionRawKinds({
+        authority,
+        pair,
+        attempt,
+        metricSession,
+        closure,
+        completedLaunches
+      })
+    });
+    transactionEntries.push(Object.freeze({
+      sequence: metricSessionOpenSequence + 5,
+      operationId: 'metric-adapter-session-close',
+      start: closeStart,
+      end: closeEnd,
+      metricSessionId: attempt.metricSessionId,
+      outcome: 'completed',
+      closure: operationClosure(closeStart, closeEnd),
+      closureEnd: closeEnd
+    }));
+    await persistCompletedAttemptCaptures(captureOutput, completedLaunches, metricSessionCapture);
+    await appendPerformanceLedgerEntries(transactionEntries);
+    const liveEnvironmentPath = process.env.PRISMGB_PERFORMANCE_LIVE_ENVIRONMENT_CAPTURE;
+    if (!liveEnvironmentPath) throw new Error('planned performance pair execution requires the continuous environment capture');
+    const liveEnvironment = JSON.parse(await fs.readFile(liveEnvironmentPath, 'utf8'));
+    if (liveEnvironment.schemaVersion !== 1 || !Array.isArray(liveEnvironment.rows)) throw new Error('planned performance pair continuous environment capture is invalid');
+    return Object.freeze({
+      ledger: Object.freeze(transactionEntries),
+      measurementCaptures: Object.freeze(completedLaunches.map((entry) => entry.measurementCapture)),
+      externalMetricCaptures: Object.freeze(completedLaunches.map((entry) => entry.metricCapture)),
+      metricSessionCapture,
+      environmentRows: Object.freeze(liveEnvironment.rows)
     });
   } catch (error) {
-    await rethrowAfterCleanup(error, [async () => {
-      if (metricSession.getState() === 'open') await metricSession.abort();
-    }], 'planned performance pair');
+    if (metricSession.getState() === 'closed') throw error;
+    let abortEvidence = metricSession.getTerminalAbortEvidence();
+    if (abortEvidence === null && ['open', 'failed'].includes(metricSession.getState())) {
+      try {
+        await metricSession.abort();
+      } catch (cleanupError) {
+        throw new AggregateError([error, cleanupError], 'planned performance pair and metric-session cleanup both failed');
+      }
+      abortEvidence = metricSession.getTerminalAbortEvidence();
+    }
+    if (abortEvidence === null) {
+      throw new AggregateError([error], 'planned performance pair failed without canonical metric-session cleanup evidence');
+    }
+    const sideFailure = abortPhase === 'side-a' || abortPhase === 'side-b';
+    if (sideFailure && !hasVerifiedResourceCleanup(error)) {
+      throw new AggregateError([error], 'planned performance side failed without canonical application cleanup evidence');
+    }
+    const reason = abortPhase === 'close'
+      ? 'metric-adapter-close-failure'
+      : performanceAbortReason(error, abortPhase, abortBackend);
+    const failureEvidence = sideFailure ? performanceLaunchFailureEvidence(error) : null;
+    if (sideFailure && failureEvidence === null) {
+      throw new AggregateError([error], 'planned performance side failed without canonical failed-launch evidence');
+    }
+    if (failureEvidence !== null) {
+      transactionEntries.push(failedMeasurementLaunchLedgerEntry({
+        failureEvidence,
+        phase: abortPhase,
+        reason
+      }));
+    }
+    const abortedClose = createAbortedPerformanceMetricSessionClose({
+      sequence: transactionEntries.at(-1).sequence + 1,
+      metricSessionId: attempt.metricSessionId,
+      phase: abortPhase,
+      backend: abortBackend,
+      reason,
+      abortEvidence,
+      resourcesClosed: true,
+      applicationDescendantClosureEnd: failureEvidence?.applicationDescendantClosureEnd ?? null
+    });
+    try {
+      await appendPerformanceLedgerEntries([...transactionEntries, abortedClose]);
+    } catch (persistenceError) {
+      throw new AggregateError([error, persistenceError], 'planned performance pair abort evidence could not be persisted');
+    }
+    throw error;
   }
 }
 
-if (!usesPerformancePairPlan) {
+if (performanceExecutionPhase === 'standalone') {
 test('the production build excludes the harness-only performance surface', async () => {
   await assertProductionBundleIsolation(await loadPerformanceBuildManifest());
 });
@@ -1173,14 +2708,86 @@ test('the instrumented harness delimits the policy-bound renderer cohort after w
 });
 }
 
-if (usesPerformancePairPlan) {
-  test('executes every balanced planned pair with one shared external metric session', async () => {
-    const plan = await loadPerformancePairPlanFromEnvironment();
+if (performanceExecutionPhase === 'pre-loop') {
+  test('executes the sealed transport and optional qualification probes before the pair loop', async () => {
+    const preLoopAuthority = await loadPerformancePreLoopAuthorityFromEnvironment();
     const manifest = await loadPerformanceBuildManifest();
+    expect(preLoopAuthority).toMatchObject({
+      experimentId: process.env.PRISMGB_PERFORMANCE_EXPERIMENT_ID,
+      experimentRole: process.env.PRISMGB_PERFORMANCE_ROLE,
+      transport: { ledgerSequence: 5, buildVariant: 'harness-control' }
+    });
     await assertProductionBundleIsolation(manifest);
 
+    const transportProbe = await runWithinPerformanceLaunchDeadline(
+      'Electron transport probe',
+      () => executePreLoopHarnessProbe({
+        manifest,
+        slot: preLoopAuthority.transport,
+        qualification: false
+      })
+    );
+    await persistElectronTransportProbe({
+      authority: preLoopAuthority,
+      slot: preLoopAuthority.transport,
+      probe: transportProbe
+    });
+    await appendPerformanceLedgerEntries([electronTransportLedgerEntry(preLoopAuthority.transport, transportProbe)]);
+
+    if (preLoopAuthority.qualification !== null) {
+      const qualificationProbe = await runWithinPerformanceLaunchDeadline(
+        'selected-host qualification probe',
+        () => executePreLoopHarnessProbe({
+          manifest,
+          slot: preLoopAuthority.qualification,
+          qualification: true
+        })
+      );
+      const qualificationCapture = await persistQualificationProbe({
+        authority: preLoopAuthority,
+        slot: preLoopAuthority.qualification,
+        probe: qualificationProbe
+      });
+      await appendPerformanceLedgerEntries([qualificationLedgerEntry({
+        authority: preLoopAuthority,
+        slot: preLoopAuthority.qualification,
+        probe: qualificationProbe,
+        capture: qualificationCapture.capture
+      })]);
+    }
+
+  });
+}
+
+if (performanceExecutionPhase === 'pair-loop') {
+  test('executes every balanced planned pair with one shared external metric session', async () => {
+    const { plan, authority } = await loadPerformancePairPlanFromEnvironment();
+    const manifest = await loadPerformanceBuildManifest();
+    await assertProductionBundleIsolation(manifest);
     for (const pair of plan.pairs) {
-      await executePlannedPair({ manifest, plan, pair });
+      const result = await executePerformancePairAttemptSequence({
+        pair,
+        executeAttempt: ({ attempt, retryReason }) => executePlannedPair({ manifest, plan, authority, pair, attempt, retryReason }),
+        assessCompletedAttempt: async ({ attempt, projection }) => {
+          const captureOutput = process.env.PRISMGB_PERFORMANCE_CAPTURE_OUTPUT;
+          if (!captureOutput) throw new Error('performance pair assessment requires the capture output');
+          const ledger = JSON.parse(await fs.readFile(path.join(captureOutput, 'performance-ledger.json'), 'utf8'));
+          return assessCapturedPerformancePairAttempt({
+            ledger,
+            target: {
+              backend: pair.backend,
+              comparisonKind: pair.comparisonKind,
+              pairIndex: pair.pairIndex,
+              attemptIndex: attempt.attemptIndex
+            },
+            captureGroups: [...projection.measurementCaptures, ...projection.externalMetricCaptures, projection.metricSessionCapture],
+            environmentRows: projection.environmentRows.filter((row) => row.observationKind !== 'cleanup')
+          });
+        }
+      });
+      if (result.terminal.disposition !== 'accepted') {
+        throw new Error(`performance pair ${pair.comparisonKind}/${pair.pairIndex} stopped with ${result.terminal.disposition}: ${result.terminal.reason}`);
+      }
     }
   });
 }

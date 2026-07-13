@@ -3,6 +3,7 @@ import { loadWebGpuShaders } from './shaders';
 import { RecoverableBackendInitializationError } from '../domain/errors';
 import type {
   FrameRenderResult,
+  WebGpuBackendExecutionIdentity,
   WebGpuFrameInstrumentationObserver,
   WebGpuLifecycleInstrumentationObserver
 } from '../domain/types';
@@ -40,6 +41,10 @@ type WebGpuRenderPass = CompiledRenderPass<WebGpuPassState>;
 type RenderPipelines = Map<string, GPURenderPipeline>;
 type UniformBuffers = Map<string, GPUBuffer>;
 const CREATE_NATIVE_RENDER_PIPELINE_ASYNC = ['create', 'Render', 'PipelineAsync'].join('') as keyof GPUDevice;
+const PERFORMANCE_HARNESS_IDENTITIES: WeakMap<object, WebGpuBackendExecutionIdentity> | null =
+  typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__
+    ? new WeakMap<object, WebGpuBackendExecutionIdentity>()
+    : null;
 
 class BindGroupStore {
   private readonly cache = new Map<string, GPUBindGroup>();
@@ -200,6 +205,9 @@ export class WebGpuDriver implements RenderDriver {
   private uniformChangeTracker = new UniformChangeTracker();
 
   private hasError = false;
+  getBackendExecutionIdentity(): WebGpuBackendExecutionIdentity | null {
+    return PERFORMANCE_HARNESS_IDENTITIES?.get(this) ?? null;
+  }
 
   async initialize(
     state: PipelineState,
@@ -209,8 +217,12 @@ export class WebGpuDriver implements RenderDriver {
       throw new RecoverableBackendInitializationError('WebGPU not supported');
     }
 
-    const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'low-power' })
-      ?? await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+    let powerPreference: 'low-power' | 'high-performance' = 'low-power';
+    let adapter = await navigator.gpu.requestAdapter({ powerPreference });
+    if (!adapter) {
+      powerPreference = 'high-performance';
+      adapter = await navigator.gpu.requestAdapter({ powerPreference });
+    }
 
     if (!adapter) {
       throw new RecoverableBackendInitializationError('WebGPU adapter not available');
@@ -223,6 +235,32 @@ export class WebGpuDriver implements RenderDriver {
     }
 
     const initializedDevice = this.device;
+    if (
+      typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+      __PRISMGB_PERF_HARNESS__
+    ) {
+      const sanitize = (value: string): string | null => {
+        const normalized = value.trim().replace(/\s+/g, ' ');
+        return normalized.length === 0 ? null : normalized;
+      };
+      PERFORMANCE_HARNESS_IDENTITIES?.set(this, Object.freeze({
+        backend: 'webgpu',
+        driver: 'webgpu-driver-v1',
+        workerProtocol: 'webgpu-worker-ready-v1',
+        adapterIdentity: Object.freeze({
+          vendor: sanitize(adapter.info.vendor),
+          architecture: sanitize(adapter.info.architecture),
+          device: sanitize(adapter.info.device),
+          description: sanitize(adapter.info.description)
+        }),
+        limits: Object.freeze({
+          maxTextureDimension2D: this.device.limits.maxTextureDimension2D,
+          maxBindGroups: this.device.limits.maxBindGroups
+        }),
+        isFallbackAdapter: adapter.info.isFallbackAdapter,
+        powerPreference
+      }));
+    }
     this.device.lost.then(() => {
       if (this.device === initializedDevice) {
         this.hasError = true;
@@ -780,6 +818,7 @@ export class WebGpuDriver implements RenderDriver {
 
     this.device?.destroy();
     this.device = null;
+    PERFORMANCE_HARNESS_IDENTITIES?.delete(this);
     this.context = null;
     this.canvasFormat = null;
     this.renderPipelines = null;

@@ -28,4 +28,12 @@ export async function probeBrowserGpuCapabilitiesForMeasurement(): Promise<Brows
   return probeBrowserGpuCapabilities();
 }
 
-export type { GpuVideoRendererStats } from './domain/types';
+export type {
+  BrowserCapabilityProbeResult,
+  BrowserGpuAdapterIdentity,
+  BrowserGpuQualificationLimits,
+  BrowserGpuStrictSelection,
+  GpuVideoRendererStats,
+  OffscreenCanvasTransferProbeResult,
+  WebGpuCapabilityProbeResult
+} from './domain/types';

@@ -13,6 +13,7 @@ import {
 } from './lib/baseline-evidence-contract.js';
 import {
   EVIDENCE_HARD_LIMITS,
+  EVIDENCE_ARCHIVE_SCHEMA_VERSION,
   encodeCanonicalEvidenceArchive,
   encodeEvidenceArchive,
   createCompressorIdentity,
@@ -26,10 +27,12 @@ import {
   deriveAllocationEvidence,
   deriveAllocationExpectedCoverage,
   encodePerformanceEvidence,
-  evaluatePerformanceExperiment,
+  finalizeCiCanvasPerformanceExperiment,
+  finalizeReferencePerformanceExperiment,
   loadBaselinePolicy,
-  requirePublishablePerformanceEvidence
+  reconstructPerformanceEvaluationBody
 } from './lib/performance-evidence.js';
+import { createPerformanceCapacityCaptureSet } from './lib/performance-capacity-capture-set.js';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const CAPACITY_OUTPUT_ROOT = path.join(PROJECT_ROOT, 'artifacts', 'codebase-baseline', 'capacity');
@@ -168,53 +171,6 @@ function workflowProvenance() {
   };
 }
 
-function createComparisonInput(backend) {
-  return {
-    schemaVersion: 1,
-    policyHashes: { fixture: 'a'.repeat(64) },
-    initialEnvironment: { host: 'capacity-fixture' },
-    workload: { id: 'phase0-animated-160x144-v1' },
-    reset: { version: 'phase0-cold-launch-reset-v1' },
-    processAdapter: { id: 'linux-procfs-v1' },
-    seed: { hash: 'b'.repeat(64) },
-    backend,
-    backendExecutionIdentity: backend === 'canvas2d' ? 'not-applicable' : { adapter: 'fixture-adapter', isFallbackAdapter: false }
-  };
-}
-
-function createQualificationInput() {
-  return {
-    schemaVersion: 1,
-    sourceSha: '9a7839ce47c61982f6eab836c496b8469f01a9ca',
-    controlBundle: { hash: 'c'.repeat(64), mode: 'harness-control' },
-    workload: { id: 'phase0-animated-160x144-v1' },
-    initialEnvironment: { host: 'capacity-fixture' },
-    requestedBackend: 'webgpu',
-    selectedBackend: 'webgpu',
-    observedBackend: 'webgpu',
-    qualificationState: 'qualified-webgpu',
-    unavailabilityBranch: 'none',
-    adapter: { id: 'fixture-adapter', isFallbackAdapter: false },
-    backendExecutionIdentity: { adapter: 'fixture-adapter', isFallbackAdapter: false },
-    resetVersion: 'phase0-cold-launch-reset-v1',
-    policyHashes: { fixture: 'a'.repeat(64) },
-    processAdapter: { id: 'linux-procfs-v1' },
-    seedManifestHash: 'b'.repeat(64)
-  };
-}
-
-function createUnavailableQualificationInput(unavailabilityBranch) {
-  return {
-    ...createQualificationInput(),
-    selectedBackend: 'canvas2d',
-    observedBackend: 'canvas2d',
-    qualificationState: 'hardware-capability-unavailable',
-    unavailabilityBranch,
-    adapter: { id: 'unavailable', isFallbackAdapter: false },
-    backendExecutionIdentity: 'not-applicable'
-  };
-}
-
 function createInstrumentationLedger({ prefix, runIds, experimentId, backend, callbacksPerRun, policy }) {
   if (!Array.isArray(runIds) || runIds.length < 2 || runIds.length % 2 !== 0) {
     fail('capacity instrumentation ledgers require an even nonempty control/instrumented run set');
@@ -264,137 +220,6 @@ function createInstrumentationLedger({ prefix, runIds, experimentId, backend, ca
     ledger.push({ sequence: sequence++, operationId: 'metric-adapter-session-close', start: start(), end: end(), metricSessionId: sessionId, outcome: 'completed', closure });
   }
   return ledger;
-}
-
-function validateCapacityAttemptRepresentation(ledger, evaluation, expectedPairCount, label) {
-  const sessionAttempts = ledger
-    .filter((entry) => entry.operationId === 'metric-adapter-session-open')
-    .map((entry) => ({ metricSessionId: entry.metricSessionId, ...entry.attempt }));
-  if (sessionAttempts.length !== expectedPairCount) {
-    fail(`${label} does not represent every capacity pair attempt`);
-  }
-  sessionAttempts.forEach((attempt, index) => {
-    if (attempt.pairIndex !== index + 1 || attempt.attemptIndex !== 1 || attempt.retryReason !== null) {
-      fail(`${label} capacity pair attempts must carry the explicit original-attempt metadata`);
-    }
-  });
-  const retryTopology = evaluation.retryTopology;
-  if (retryTopology.mode !== 'explicit-attempts' || retryTopology.pairs.length !== expectedPairCount) {
-    fail(`${label} evaluator did not preserve explicit capacity pair attempts`);
-  }
-  retryTopology.pairs.forEach((pair, index) => {
-    const sessionAttempt = sessionAttempts[index];
-    if (pair.pairIndex !== index + 1 || pair.attempts.length < 1 || pair.attempts.length > 3) {
-      fail(`${label} capacity pair attempt representation is not bounded`);
-    }
-    if (pair.attempts.length !== 1) {
-      fail(`${label} capacity fixture must materialize one original attempt per pair`);
-    }
-    const attempt = pair.attempts[0];
-    if (attempt.metricSessionId !== sessionAttempt.metricSessionId
-      || attempt.attemptIndex !== sessionAttempt.attemptIndex
-      || attempt.retryReason !== sessionAttempt.retryReason
-      || attempt.outcome !== 'completed') {
-      fail(`${label} evaluator retry topology does not match the capacity ledger metadata`);
-    }
-  });
-  return {
-    sessions: sessionAttempts,
-    pairs: retryTopology.pairs
-  };
-}
-
-function createRawRunEvidence(launch, callbacksPerRun, policy) {
-  const callbackWindowStart = 0;
-  const callbackClosureAt = 30;
-  const callbackWindowEnd = callbackClosureAt;
-  const cpuSampleIntervalSeconds = 0.5;
-  const cpuReadDurationSeconds = 0.01;
-  const callbackCount = launch.buildVariant === 'instrumented'
-    ? launch.frameSourceSequences.length
-    : callbacksPerRun;
-  const identity = `${launch.runId}-renderer`;
-  const counterQuantumSeconds = policy.adapters.get('linux-procfs-v1').counterQuantumSeconds;
-  const terminalSampleIndex = Math.ceil(callbackWindowEnd / cpuSampleIntervalSeconds);
-  const cpuSampleCount = Math.max(policy.policy.performanceMetricPolicy.minimumRawSamples, terminalSampleIndex + 1);
-  const cpuSamples = Array.from({ length: cpuSampleCount }, (_, index) => {
-    const readStart = index * cpuSampleIntervalSeconds;
-    const readEnd = readStart + cpuReadDurationSeconds;
-    return {
-      ordinal: index + 1,
-      readStart,
-      readEnd,
-      cumulativeCpuSeconds: index * 0.05,
-      counterQuantumSeconds,
-      processIdentity: identity,
-      workingSetMiB: 128
-    };
-  });
-  const firstCpuSample = cpuSamples[0];
-  const terminalCpuSample = cpuSamples.at(-1);
-  const beforeTerminalCpuSample = cpuSamples.at(-2);
-  if (
-    firstCpuSample.readStart !== callbackWindowStart
-    || !beforeTerminalCpuSample
-    || beforeTerminalCpuSample.readEnd >= callbackClosureAt
-    || terminalCpuSample.readStart < callbackClosureAt
-    || terminalCpuSample.readEnd <= callbackClosureAt
-  ) {
-    fail('capacity CPU evidence must run from the immediate callback-window start through the first terminal sample after callback closure');
-  }
-  const terminalCpuMidpoint = (terminalCpuSample.readStart + terminalCpuSample.readEnd) / 2;
-  const traceCount = Math.ceil(terminalCpuMidpoint) + 2;
-  const traces = ['external', 'controller'].flatMap((source) => Array.from({ length: traceCount }, (_, index) => ({
-    source,
-    sourceSequence: index + 1,
-    observedAt: index,
-    dynamicState: {
-      power: 'ac', display: 'single', refreshRate: 60, devicePixelRatio: 1,
-      thermal: 'nominal', gpuSwitch: 'stable'
-    }
-  })));
-  return {
-    runId: launch.runId,
-    callbackTiming: {
-      callbackCohort: {
-        sourceSequenceEncoding: policy.policy.capacityFixturePolicy.callbackCohortEncoding,
-        firstSourceSequence: 1,
-        callbackCount,
-        windowStart: callbackWindowStart,
-        windowEnd: callbackWindowEnd,
-        dropCount: 0,
-        sealed: true,
-        drained: true
-      },
-      timingSpans: [{
-        firstSourceSequence: 1,
-        lastSourceSequence: callbackCount,
-        startedAt: 0,
-        endedAt: callbackClosureAt
-      }]
-    },
-    cpuSamples,
-    environment: {
-      staticIdentity: { host: 'capacity-fixture', runtime: 'electron', gpu: 'fixture-gpu', switches: 'none' },
-      dynamicState: { power: 'ac', display: 'single', refreshRate: 60, devicePixelRatio: 1, thermal: 'nominal', gpuSwitch: 'stable' },
-      traces
-    },
-    process: {
-      adapterId: 'linux-procfs-v1',
-      identity,
-      observations: cpuSamples.map((sample) => ({
-        sequence: sample.ordinal,
-        observedAt: (sample.readStart + sample.readEnd) / 2,
-        identity,
-        alive: true
-      }))
-    }
-  };
-}
-
-function createRawPerformanceEvidence(ledger, callbacksPerRun, policy) {
-  const launches = ledger.filter((entry) => entry.operationId === 'electron-harness-spawn');
-  return { runs: launches.map((launch) => createRawRunEvidence(launch, callbacksPerRun, policy)) };
 }
 
 function createAllocationInput({ acceptedRuns, ledger, experimentId, fixtureProvenance, allocationVector = undefined, shape = 'complete', policy }) {
@@ -458,219 +283,147 @@ function createAllocationInput({ acceptedRuns, ledger, experimentId, fixtureProv
   };
 }
 
-function addPerformanceFixtureGraph(store, {
-  scenario,
-  runBodies,
-  callbacksPerRun,
-  parentKind,
-  experimentRole,
-  backend,
-  allocationShape = 'complete',
-  allocationVector = undefined,
-  unavailabilityBranch = undefined,
-  verifySyntheticAcceptance = true,
-  replayRawEvidence = true,
-  policy = loadBaselinePolicy()
-}) {
-  if (!Number.isSafeInteger(runBodies) || runBodies < 1) fail('performance fixture graphs require at least one run body');
-  const effectiveRunBodies = Math.max(2, runBodies + (runBodies % 2));
-  const fixtureProvenance = syntheticFixtureProvenance(scenario);
-  const runReferences = [];
-  const rawKindManifestReferences = [];
-  const experimentId = `${scenario}-${experimentRole}-${backend}-experiment`;
-  const runIds = Array.from({ length: effectiveRunBodies }, (_, index) => `${experimentRole}-${backend}-run-${index + 1}`);
-  const ledger = createInstrumentationLedger({
-    prefix: `${scenario}-${experimentRole}-${backend}`,
-    runIds,
-    experimentId,
-    backend,
-    callbacksPerRun,
-    policy
-  });
-  const ledgerRuns = new Map(ledger.filter((entry) => entry.operationId === 'electron-harness-spawn').map((entry) => [entry.runId, entry]));
-  const acceptedInstrumentedRuns = ledger.filter((entry) => entry.operationId === 'electron-harness-spawn' && entry.comparisonKind === 'instrumentation-overhead' && entry.buildVariant === 'instrumented');
-  if (acceptedInstrumentedRuns.some((run) => run.frameSourceSequences.length !== callbacksPerRun)) {
-    fail('capacity instrumented runs did not materialize the declared callback/frame cohort');
+function persistedRecord(store, record) {
+  const stored = store.putObject(record.kind, record.body);
+  if (stored.hash !== record.hash || stored.canonicalBodyBytes !== record.canonicalBodyBytes
+    || stableStringify(stored.body) !== stableStringify(record.body)) {
+    fail(`performance finalizer record ${record.kind}:${record.hash} changed during object-store insertion`);
   }
-  for (const runId of runIds) {
-    const ledgerRun = ledgerRuns.get(runId);
-    if (!ledgerRun) fail(`capacity ledger did not materialize run ${runId}`);
-    const run = store.putObject('run', {
-      runId,
-      callbacks: callbacksPerRun,
-      backend,
-      experimentRole,
-      fixtureProvenance,
-      rawRunEvidence: {
-        runId,
-        experimentId: ledgerRun.experimentId,
-        backend: ledgerRun.backend,
-        policyHash: ledgerRun.policyHash,
-        executionId: ledgerRun.executionId,
-        ...(ledgerRun.buildVariant === 'instrumented' ? {
-          measurementEpochId: ledgerRun.measurementEpochId,
-          frameSourceSequences: ledgerRun.frameSourceSequences
-        } : {}),
-        buildVariant: ledgerRun.buildVariant
-      }
-    });
-    runReferences.push({ kind: run.kind, hash: run.hash });
-    const chunkReferences = [];
-    for (let start = 0; start < callbacksPerRun; start += 256) {
-      const count = Math.min(256, callbacksPerRun - start);
-      const rows = Array.from({ length: count }, (_, offset) => ({ sequence: start + offset + 1, callback: 'window' }));
-      const chunk = store.putObject('raw-chunk', { runId, rows });
-      chunkReferences.push({ kind: chunk.kind, hash: chunk.hash });
-    }
-    const rawKindManifest = store.putObject('raw-kind-manifest', {
-      chunkReferences: sortedReferences(chunkReferences)
-    });
-    rawKindManifestReferences.push({ kind: rawKindManifest.kind, hash: rawKindManifest.hash });
-  }
-  const rawAllocationEvidence = backend === 'webgpu'
-    ? createAllocationInput({
-      acceptedRuns: acceptedInstrumentedRuns,
-      ledger,
-      experimentId,
-      fixtureProvenance,
-      allocationVector,
-      shape: allocationShape,
-      policy
-    })
-    : { backend: 'canvas2d', rows: [], evidenceProvenance: fixtureProvenance };
-  const allocationEvidence = rawAllocationEvidence;
-  const qualificationInput = experimentRole === 'reference-comparison'
-    ? (backend === 'webgpu' ? createQualificationInput() : createUnavailableQualificationInput(unavailabilityBranch))
-    : undefined;
-  const failureTuple = unavailabilityBranch === undefined
-    ? undefined
-    : { phase: 'qualification', backend: 'webgpu', reason: unavailabilityBranch };
-  const rawEvidence = createRawPerformanceEvidence(ledger, callbacksPerRun, policy);
-  const cpuWindowCoverage = rawEvidence.runs.map((run) => {
-    const firstCpuSample = run.cpuSamples[0];
-    const terminalCpuSample = run.cpuSamples.at(-1);
-    const beforeTerminalCpuSample = run.cpuSamples.at(-2);
-    const { windowStart, windowEnd } = run.callbackTiming.callbackCohort;
-    if (
-      firstCpuSample.readStart !== windowStart
-      || !beforeTerminalCpuSample
-      || beforeTerminalCpuSample.readEnd >= windowEnd
-      || terminalCpuSample.readStart < windowEnd
-      || terminalCpuSample.readEnd <= windowEnd
-    ) {
-      fail('capacity CPU evidence does not cover the callback window through its first terminal sample');
-    }
-    return {
-      runId: run.runId,
-      windowStart,
-      windowEnd,
-      firstReadStart: firstCpuSample.readStart,
-      beforeTerminalReadEnd: beforeTerminalCpuSample.readEnd,
-      terminalReadStart: terminalCpuSample.readStart,
-      terminalReadEnd: terminalCpuSample.readEnd
-    };
-  });
-  const logicalCallbackCohorts = rawEvidence.runs.map((run) => ({
-    runId: run.runId,
-    callbackCount: run.callbackTiming.callbackCohort.callbackCount
-  })).sort((left, right) => left.runId.localeCompare(right.runId));
-  if (logicalCallbackCohorts.length !== effectiveRunBodies || logicalCallbackCohorts.some((cohort) => cohort.callbackCount !== callbacksPerRun)) {
-    fail('capacity raw callback cohorts do not exactly match every logical run body');
-  }
-  const evaluatorInput = {
-    experimentId,
-    experimentRole,
-    backend,
-    ledger,
-    comparisonInputs: [createComparisonInput(backend)],
-    allocationEvidence,
-    rawEvidence,
-    evidenceProvenance: fixtureProvenance,
-    ...(qualificationInput === undefined ? {} : { qualificationInput }),
-    ...(failureTuple === undefined ? {} : { failureTuple })
-  };
-  const evaluation = evaluatePerformanceExperiment(evaluatorInput, policy);
-  if (evaluation.publicationEligible !== false) fail('synthetic capacity fixture unexpectedly became publication eligible');
-  const attemptRepresentation = validateCapacityAttemptRepresentation(
-    ledger,
-    evaluation,
-    effectiveRunBodies / 2,
-    `${scenario} ${experimentRole} ${backend}`
-  );
-  let publishableEvidenceRejected = false;
-  try {
-    requirePublishablePerformanceEvidence(evaluation);
-  } catch {
-    publishableEvidenceRejected = true;
-  }
-  if (!publishableEvidenceRejected) fail('synthetic capacity fixture bypassed production evidence acceptance');
-  if (verifySyntheticAcceptance) {
-    let syntheticAcceptanceRejected = false;
-    try {
-      evaluatePerformanceExperiment({ ...evaluatorInput, acceptanceContext: true }, policy);
-    } catch {
-      syntheticAcceptanceRejected = true;
-    }
-    if (!syntheticAcceptanceRejected) fail('synthetic capacity fixture was accepted as a production measurement');
-  }
-  if (replayRawEvidence) {
-    const replayed = evaluatePerformanceExperiment(evaluatorInput, policy);
-    if (replayed.checksum !== evaluation.checksum) fail('capacity fixture raw evaluator input does not replay identically');
-  }
-  if (backend === 'webgpu') {
-    const capacityCoverageChunk = store.putObject('raw-chunk', {
-      rawKind: policy.policy.capacityFixturePolicy.encoding,
-      fixtureProvenance,
-      syntheticCoverage: allocationEvidence.syntheticCoverage
-    });
-    const capacityCoverageManifest = store.putObject('raw-kind-manifest', {
-      rawKind: policy.policy.capacityFixturePolicy.encoding,
-      chunkReferences: [{ kind: capacityCoverageChunk.kind, hash: capacityCoverageChunk.hash }]
-    });
-    rawKindManifestReferences.push({ kind: capacityCoverageManifest.kind, hash: capacityCoverageManifest.hash });
-  }
-  const evaluatorRawChunk = store.putObject('raw-chunk', {
-    rawKind: 'capacity-evaluator-input-v1',
-    fixtureProvenance,
-    evaluatorInput
-  });
-  const evaluatorRawManifest = store.putObject('raw-kind-manifest', {
-    rawKind: 'capacity-evaluator-input-v1',
-    chunkReferences: [{ kind: evaluatorRawChunk.kind, hash: evaluatorRawChunk.hash }]
-  });
-  rawKindManifestReferences.push({ kind: evaluatorRawManifest.kind, hash: evaluatorRawManifest.hash });
-  const child = store.putObject('experiment-child-manifest', {
-    runReferences: sortedReferences(runReferences),
-    rawKindManifestReferences: sortedReferences(rawKindManifestReferences)
-  });
-  const parent = store.putObject(parentKind, {
-    childManifest: { kind: child.kind, hash: child.hash },
-    experimentRole,
-    backend,
-    fixtureProvenance,
-    evaluatorInput,
-    evaluatorChecksum: evaluation.checksum,
-    publicationEligible: evaluation.publicationEligible
-  });
   return {
-    rootReference: { kind: parent.kind, hash: parent.hash },
-    runIds,
-    runBodies: effectiveRunBodies,
-    acceptedInstrumentedRunIds: acceptedInstrumentedRuns.map((run) => run.runId),
-    instrumentedCallbackCohorts: acceptedInstrumentedRuns.map((run) => ({ runId: run.runId, callbackCount: run.frameSourceSequences.length })),
-    logicalCallbackCohorts,
-    logicalCallbackCount: logicalCallbackCohorts.reduce((total, cohort) => total + cohort.callbackCount, 0),
-    cpuWindowCoverage,
-    attemptRepresentation,
-    allocationEvidenceClass: evaluation.allocationEvidence.evidenceClass,
-    evaluation,
-    evaluatorInput,
-    fixtureProvenance
+    kind: stored.kind,
+    body: stored.body,
+    hash: stored.hash,
+    canonicalBodyBytes: stored.canonicalBodyBytes
   };
 }
 
-async function createCoreFixture({ scenario, ciRunBodies, callbacksPerRun, store = createEvidenceStore(), policy = loadBaselinePolicy() }) {
-  if (!Number.isSafeInteger(ciRunBodies) || ciRunBodies < 1) fail('core fixture requires nonempty CI run evidence');
+function rawRows(capture, rawKind) {
+  const group = capture.rawKinds.find((candidate) => candidate.rawKind === rawKind);
+  if (!group) fail(`${capture.captureKind} capture is missing ${rawKind}`);
+  return group.rows;
+}
+
+function addPerformanceFixtureGraph(store, {
+  scenario,
+  callbacksPerRun,
+  experimentRole,
+  allocationVector = undefined,
+  unavailabilityBranch = undefined,
+  policy = loadBaselinePolicy()
+}) {
+  const webgpuAllocationVectors = experimentRole === 'reference-comparison' && unavailabilityBranch === undefined
+    ? allocationVector
+      ?? Array.from({ length: 6 }, () => policy.policy.allocationEvidencePolicy.webgpu.coverage.map((entry) => (
+        entry.cardinality === 'per-frame' ? callbacksPerRun : entry.cardinality
+      )))
+    : undefined;
+  const captureSet = createPerformanceCapacityCaptureSet({
+    scenarioId: scenario,
+    experimentRole,
+    callbacksPerRun,
+    ...(unavailabilityBranch === undefined ? {} : { unavailabilityBranch }),
+    ...(webgpuAllocationVectors === undefined ? {} : { webgpuAllocationVectors }),
+    policy
+  });
+  const finalized = experimentRole === 'ci-integrity'
+    ? finalizeCiCanvasPerformanceExperiment({ captureSet }, policy)
+    : finalizeReferencePerformanceExperiment({ captureSet }, policy);
+  for (const record of finalized.recordsBeforeParent) persistedRecord(store, record);
+  const parent = persistedRecord(store, finalized.objects.parent);
+  const objectMap = store.objectMap();
+  const resolveRecords = (records) => records.map((record) => {
+    const persisted = objectMap.get(record.hash);
+    if (!persisted || persisted.kind !== record.kind) fail(`persisted performance graph is missing ${record.kind}:${record.hash}`);
+    return persisted;
+  });
+  const replayBody = reconstructPerformanceEvaluationBody(parent, {
+    runs: resolveRecords(finalized.objects.runs),
+    aggregates: resolveRecords(finalized.objects.aggregates),
+    comparisons: resolveRecords(finalized.objects.comparisons),
+    qualifications: resolveRecords(finalized.objects.qualifications),
+    rawKindManifests: resolveRecords(finalized.objects.rawKindManifests),
+    rawChunks: resolveRecords(finalized.objects.rawChunks),
+    dictionaries: resolveRecords(finalized.objects.dictionaries),
+    policyLeaves: resolveRecords(finalized.objects.policyLeaves),
+    environmentLeaves: resolveRecords(finalized.objects.environmentLeaves),
+    childManifest: objectMap.get(finalized.objects.childManifest.hash)
+  }, policy);
+  if (canonicalSha256(replayBody) !== finalized.evaluation.checksum) {
+    fail('persisted performance graph did not reconstruct the finalized evaluator checksum');
+  }
+  const runRecords = finalized.objects.runs;
+  const runCaptures = Object.values(captureSet.backendFamilies).flatMap((family) => [
+    ...family.captures.sentinel,
+    ...family.captures.workload
+  ]);
+  const logicalCallbackCohorts = runCaptures.map((capture) => ({
+    runId: capture.join.runId,
+    callbackCount: capture.captureKind === 'sentinel'
+      ? rawRows(capture, 'sentinel-observation').filter((row) => row.observationKind === 'callback').length
+      : rawRows(capture, 'source-opportunity').filter((row) => row.eventKind === 'source-opportunity').length
+  })).sort((left, right) => left.runId.localeCompare(right.runId));
+  if (logicalCallbackCohorts.length !== runRecords.length
+    || logicalCallbackCohorts.some((cohort) => cohort.callbackCount !== callbacksPerRun)) {
+    fail('production capture callbacks do not match the finalized run topology');
+  }
+  const instrumentedBackend = finalized.evaluation.backendEvaluations.some((entry) => entry.backend === 'webgpu')
+    ? 'webgpu'
+    : 'canvas2d';
+  const acceptedInstrumented = runRecords.filter((record) => record.body.metrics.status === 'accepted'
+    && record.body.metrics.join.buildVariant === 'instrumented'
+    && record.body.metrics.join.backend === instrumentedBackend);
+  const cpuWindowCoverage = Object.values(captureSet.backendFamilies).flatMap((family) => family.captures.externalMetric)
+    .filter((capture) => capture.join.attemptIndex === 3)
+    .map((capture) => {
+      const samples = rawRows(capture, 'cpu-sample');
+      const first = samples[0];
+      const beforeTerminal = samples.at(-2);
+      const terminal = samples.at(-1);
+      if (!first || !beforeTerminal || !terminal) fail('accepted production capture is missing terminal CPU coverage');
+      return {
+        runId: capture.join.runId,
+        windowStart: first.readStart,
+        windowEnd: terminal.readStart,
+        firstReadStart: first.readStart,
+        beforeTerminalReadEnd: beforeTerminal.readEnd,
+        terminalReadStart: terminal.readStart,
+        terminalReadEnd: terminal.readEnd
+      };
+    });
+  const sessions = finalized.evaluation.ledger
+    .filter((entry) => entry.operationId === 'metric-adapter-session-open')
+    .map((entry) => ({
+      metricSessionId: entry.metricSessionId,
+      backend: entry.backend,
+      comparisonKind: entry.comparisonKind,
+      pairIndex: entry.pairIndex,
+      attemptIndex: entry.attemptIndex,
+      retryReason: entry.retryReason ?? null
+    }));
+  const allocationEvidence = finalized.evaluation.backendEvaluations.find((entry) => entry.backend === 'webgpu')?.allocationEvidence
+    ?? finalized.evaluation.backendEvaluations[0].allocationEvidence;
+  return {
+    rootReference: { kind: parent.kind, hash: parent.hash },
+    runIds: logicalCallbackCohorts.map((entry) => entry.runId),
+    runBodies: finalized.topology.manifestRunCount,
+    acceptedInstrumentedRunIds: acceptedInstrumented.map((record) => record.body.metrics.join.runId),
+    instrumentedCallbackCohorts: acceptedInstrumented.map((record) => ({
+      runId: record.body.metrics.join.runId,
+      callbackCount: logicalCallbackCohorts.find((cohort) => cohort.runId === record.body.metrics.join.runId)?.callbackCount
+    })),
+    logicalCallbackCohorts,
+    logicalCallbackCount: logicalCallbackCohorts.length * callbacksPerRun,
+    cpuWindowCoverage,
+    attemptRepresentation: { sessions, pairs: finalized.evaluation.retryTopology.pairs },
+    allocationEvidenceClass: allocationEvidence.evidenceClass ?? null,
+    evaluation: { ...finalized.evaluation, allocationEvidence },
+    fixtureProvenance: finalized.evaluation.evidenceProvenance,
+    rawEvidenceReplayed: true,
+    finalized
+  };
+}
+
+async function createCoreFixture({ scenario, callbacksPerRun, store = createEvidenceStore(), policy = loadBaselinePolicy() }) {
   const fixtureProvenance = syntheticFixtureProvenance(scenario);
   const singletonReferences = ['source', 'events', 'lifecycle', 'behavior'].map((kind) => {
     const object = store.putObject('singleton-report', { evidenceId: kind, scenario, schemaVersion: 1, fixtureProvenance });
@@ -679,11 +432,8 @@ async function createCoreFixture({ scenario, ciRunBodies, callbacksPerRun, store
   const packageObject = store.putObject('package-report', { evidenceId: 'package:fixture:release', scenario, schemaVersion: 1, fixtureProvenance });
   const ci = addPerformanceFixtureGraph(store, {
     scenario,
-    runBodies: ciRunBodies,
     callbacksPerRun,
-    parentKind: 'ci-experiment-parent',
     experimentRole: 'ci-integrity',
-    backend: 'canvas2d',
     policy
   });
   const rootReferences = sortedReferences([...singletonReferences, { kind: packageObject.kind, hash: packageObject.hash }, ci.rootReference]);
@@ -790,7 +540,6 @@ export async function writeSelectedPreviewArchive({
 }
 
 async function constructScenario(name, resolutionKind, {
-  runBodies = 0,
   callbacksPerRun = 0,
   allocationShape = 'complete',
   allocationVector = undefined,
@@ -800,12 +549,7 @@ async function constructScenario(name, resolutionKind, {
   policy = loadBaselinePolicy()
 } = {}) {
   const effectiveCallbacksPerRun = Math.max(1, callbacksPerRun);
-  const evenRunBodies = (count) => Math.max(2, count + (count % 2));
-  const ciRunBodies = evenRunBodies(resolutionKind === 'no-host'
-    ? 2
-    : Math.min(18, Math.max(2, runBodies - 2)));
-  const referenceRunBodies = resolutionKind === 'no-host' ? 0 : evenRunBodies(Math.max(2, runBodies - ciRunBodies));
-  const core = await createCoreFixture({ scenario: name, ciRunBodies, callbacksPerRun: effectiveCallbacksPerRun, policy });
+  const core = await createCoreFixture({ scenario: name, callbacksPerRun: effectiveCallbacksPerRun, policy });
   let resolution;
   let resolutionRoot;
   let reference = null;
@@ -821,18 +565,12 @@ async function constructScenario(name, resolutionKind, {
     resolutionRoot = { kind: blocker.kind, hash: blocker.hash };
     resolution = { mode: 'no-host-selected', blocker: 'phase-5-selected-reference-host' };
   } else {
-    const backend = resolutionKind === 'hardware-unavailable' ? 'canvas2d' : 'webgpu';
     reference = addPerformanceFixtureGraph(core.store, {
       scenario: name,
-      runBodies: referenceRunBodies,
       callbacksPerRun: effectiveCallbacksPerRun,
-      parentKind: 'reference-experiment-parent',
       experimentRole: 'reference-comparison',
-      backend,
-      allocationShape,
       allocationVector,
       unavailabilityBranch,
-      replayRawEvidence: outputDirectory === undefined,
       policy
     });
     resolutionRoot = reference.rootReference;
@@ -932,18 +670,29 @@ async function constructScenario(name, resolutionKind, {
       rootProjection: acceptedRootProjection
     });
     if (replayed.canonicalArchiveSha256 !== acceptedArchive.canonicalArchiveSha256) fail(`${name} persisted archive did not replay`);
-    const parentReference = reference?.rootReference ?? core.ci.rootReference;
+    const selectedFinalized = reference?.finalized ?? core.ci.finalized;
+    const parentReference = selectedFinalized.rootReference;
     const persistedParent = replayed.objects.get(parentReference.hash);
     if (!persistedParent || persistedParent.kind !== parentReference.kind) fail(`${name} replay is missing its persisted evaluator parent`);
-    const persistedEvaluation = evaluatePerformanceExperiment(persistedParent.body.evaluatorInput, policy);
-    if (persistedEvaluation.checksum !== persistedParent.body.evaluatorChecksum || persistedEvaluation.publicationEligible !== false) {
-      fail(`${name} persisted raw evaluator evidence did not replay identically`);
-    }
-    if (reference?.allocationEvidenceClass === 'synthetic-capacity-only') {
-      const persistedCoverage = persistedParent.body.evaluatorInput.allocationEvidence.syntheticCoverage;
-      if (stableStringify(persistedCoverage) !== stableStringify(reference.evaluatorInput.allocationEvidence.syntheticCoverage)) {
-        fail(`${name} persisted capacity-only coverage did not replay byte-for-byte`);
-      }
+    const replayRecords = (records) => records.map((record) => {
+      const persisted = replayed.objects.get(record.hash);
+      if (!persisted || persisted.kind !== record.kind) fail(`${name} replay is missing ${record.kind}:${record.hash}`);
+      return persisted;
+    });
+    const reconstructed = reconstructPerformanceEvaluationBody(persistedParent, {
+      runs: replayRecords(selectedFinalized.objects.runs),
+      aggregates: replayRecords(selectedFinalized.objects.aggregates),
+      comparisons: replayRecords(selectedFinalized.objects.comparisons),
+      qualifications: replayRecords(selectedFinalized.objects.qualifications),
+      rawKindManifests: replayRecords(selectedFinalized.objects.rawKindManifests),
+      rawChunks: replayRecords(selectedFinalized.objects.rawChunks),
+      dictionaries: replayRecords(selectedFinalized.objects.dictionaries),
+      policyLeaves: replayRecords(selectedFinalized.objects.policyLeaves),
+      environmentLeaves: replayRecords(selectedFinalized.objects.environmentLeaves),
+      childManifest: replayed.objects.get(selectedFinalized.objects.childManifest.hash)
+    }, policy);
+    if (canonicalSha256(reconstructed) !== selectedFinalized.evaluation.checksum) {
+      fail(`${name} persisted finalized performance graph did not replay identically`);
     }
     replayedArchive = true;
     rawEvidenceReplayed = true;
@@ -961,7 +710,9 @@ async function constructScenario(name, resolutionKind, {
   }
   const cpuWindowCoverage = [...core.ci.cpuWindowCoverage, ...(reference?.cpuWindowCoverage ?? [])]
     .sort((left, right) => left.runId.localeCompare(right.runId));
-  if (cpuWindowCoverage.length !== runBodyCount || cpuWindowCoverage.some((coverage) => (
+  const acceptedRunCount = core.ci.finalized.topology.acceptedRunCount
+    + (reference?.finalized.topology.acceptedRunCount ?? 0);
+  if (cpuWindowCoverage.length !== acceptedRunCount || cpuWindowCoverage.some((coverage) => (
     coverage.firstReadStart !== coverage.windowStart
     || coverage.beforeTerminalReadEnd >= coverage.windowEnd
     || coverage.terminalReadStart < coverage.windowEnd
@@ -970,7 +721,8 @@ async function constructScenario(name, resolutionKind, {
     fail(`${name} CPU evidence does not span every callback window through its first terminal sample`);
   }
   const attemptRepresentations = [core.ci.attemptRepresentation, ...(reference ? [reference.attemptRepresentation] : [])];
-  if (attemptRepresentations.some((representation) => representation.sessions.length !== representation.pairs.length)) {
+  if (attemptRepresentations.some((representation) => representation.sessions.length !== representation.pairs.length * 3
+    || representation.pairs.some((pair) => pair.attempts.length !== 3))) {
     fail(`${name} capacity attempt representations do not cover every pair`);
   }
   return {
@@ -1071,6 +823,224 @@ function mergeObjectMaps(...maps) {
   return merged;
 }
 
+function canonicalValueBytes(value) {
+  return Buffer.byteLength(stableStringify(value), 'utf8');
+}
+
+function canonicalArrayBytes({ count, elementBytes }) {
+  if (!Number.isSafeInteger(count) || count < 0 || !Number.isSafeInteger(elementBytes) || elementBytes < 0) {
+    fail('compact oracle array byte contribution is invalid');
+  }
+  return 2 + elementBytes + Math.max(0, count - 1);
+}
+
+function canonicalObjectBytes(valueBytesByKey) {
+  const entries = Object.entries(valueBytesByKey).sort(([left], [right]) => left.localeCompare(right));
+  return 2 + entries.reduce((total, [key, valueBytes], index) => {
+    if (!Number.isSafeInteger(valueBytes) || valueBytes < 0) fail(`compact oracle object field ${key} has invalid bytes`);
+    return total + (index === 0 ? 0 : 1) + canonicalValueBytes(key) + 1 + valueBytes;
+  }, 0);
+}
+
+function compactObjectRecordBytes(kind, canonicalBodyBytes) {
+  return canonicalObjectBytes({
+    recordType: canonicalValueBytes('object'),
+    hash: canonicalValueBytes('a'.repeat(64)),
+    kind: canonicalValueBytes(kind),
+    canonicalBodyBytes: canonicalValueBytes(canonicalBodyBytes),
+    body: canonicalBodyBytes
+  }) + 1;
+}
+
+function compactVectorContribution({ run, vector, coverage, expected }) {
+  const coverageIndexes = new Map(coverage.map((entry, index) => [
+    stableStringify([entry.operationId, entry.sourceLocationId]),
+    index
+  ]));
+  const syntheticRows = [];
+  const observedRows = [];
+  const missingRows = [];
+  for (const entry of expected) {
+    const coverageIndex = coverageIndexes.get(stableStringify([entry.operationId, entry.sourceLocationId]));
+    if (coverageIndex === undefined) fail('compact oracle expected tuple is absent from policy coverage');
+    const observedCardinality = vector[coverageIndex];
+    const observed = {
+      runId: entry.runId,
+      operationId: entry.operationId,
+      sourceLocationId: entry.sourceLocationId,
+      observedCardinality
+    };
+    syntheticRows.push(observed);
+    if (observedCardinality > 0) observedRows.push(observed);
+    if (observedCardinality !== entry.expectedCardinality) {
+      missingRows.push({
+        runId: entry.runId,
+        operationId: entry.operationId,
+        sourceLocationId: entry.sourceLocationId,
+        expectedCardinality: entry.expectedCardinality,
+        observedCardinality
+      });
+    }
+  }
+  const contribution = (rows) => ({
+    count: rows.length,
+    elementBytes: rows.reduce((total, row) => total + canonicalValueBytes(row), 0)
+  });
+  return {
+    synthetic: contribution(syntheticRows),
+    observed: contribution(observedRows),
+    missing: contribution(missingRows),
+    runBodyBytes: canonicalValueBytes({
+      runId: run.runId,
+      experimentId: run.experimentId,
+      backend: 'webgpu',
+      frameSourceSequences: run.frameSourceSequences,
+      allocationCoverage: observedRows
+    })
+  };
+}
+
+function combineCompactContributions(contributions, field) {
+  return contributions.reduce((combined, contribution) => ({
+    count: combined.count + contribution[field].count,
+    elementBytes: combined.elementBytes + contribution[field].elementBytes
+  }), { count: 0, elementBytes: 0 });
+}
+
+function createCompactOracleSizingModel(base, enumeration, policy) {
+  const { scenario, experimentId, acceptedRuns } = base.allocationTemplate;
+  const fixtureProvenance = syntheticFixtureProvenance(scenario);
+  const expectedByRun = new Map(acceptedRuns.map((run) => [
+    run.runId,
+    base.expectedAllocationCoverage.filter((entry) => entry.runId === run.runId)
+  ]));
+  const contributionByRun = acceptedRuns.map((run) => new Map(enumeration.perRunVectors.map((vector) => [
+    coverageVectorKey(vector),
+    compactVectorContribution({
+      run,
+      vector,
+      coverage: enumeration.coverage,
+      expected: expectedByRun.get(run.runId)
+    })
+  ])));
+  const placeholderHash = (index) => index.toString(16).padStart(64, '0');
+  const reference = (kind, index) => ({ kind, hash: placeholderHash(index) });
+  const baseEntries = [...base.objects.values()];
+  const runReferences = acceptedRuns.map((_, index) => reference('run', baseEntries.length + index + 1));
+  const chunkReference = reference('raw-chunk', baseEntries.length + acceptedRuns.length + 1);
+  const manifestReference = reference('raw-kind-manifest', baseEntries.length + acceptedRuns.length + 2);
+  const childReference = reference('experiment-child-manifest', baseEntries.length + acceptedRuns.length + 3);
+  const parentReference = reference('reference-experiment-parent', baseEntries.length + acceptedRuns.length + 4);
+  const decisionReference = reference('decision-evidence', baseEntries.length + acceptedRuns.length + 5);
+  const manifestBodyBytes = canonicalValueBytes({
+    rawKind: policy.policy.capacityFixturePolicy.encoding,
+    chunkReferences: [chunkReference]
+  });
+  const childBodyBytes = canonicalValueBytes({
+    runReferences: sortedReferences(runReferences),
+    rawKindManifestReferences: [manifestReference]
+  });
+  const decision = { option: 'unresolved', strategy: 'unresolved', blocked: true };
+  const decisionBodyBytes = canonicalValueBytes(decision);
+  const baseBodyBytes = baseEntries.reduce((total, entry) => total + entry.canonicalBodyBytes, 0);
+  const baseRecordBytes = baseEntries.map((entry) => compactObjectRecordBytes(entry.kind, entry.canonicalBodyBytes));
+  const rootReferences = sortedReferences([
+    ...base.coreReferences,
+    parentReference,
+    decisionReference
+  ]);
+  const objectCount = baseEntries.length + acceptedRuns.length + 5;
+  const recordCount = objectCount + 1;
+  const indexedHashesBytes = canonicalValueBytes(Array.from({ length: objectCount }, (_, index) => placeholderHash(index + 1)));
+  const rootReferencesBytes = canonicalValueBytes(rootReferences);
+  const frameCohortsBytes = canonicalValueBytes(acceptedRuns.map((run) => ({
+    runId: run.runId,
+    callbackCount: run.frameSourceSequences.length
+  })).sort((left, right) => left.runId.localeCompare(right.runId)));
+  const semanticExpansionChecksumBytes = canonicalValueBytes(canonicalSha256(base.expectedAllocationCoverage));
+  const fixedRecordBytes = [
+    ...baseRecordBytes,
+    compactObjectRecordBytes('raw-kind-manifest', manifestBodyBytes),
+    compactObjectRecordBytes('experiment-child-manifest', childBodyBytes),
+    compactObjectRecordBytes('decision-evidence', decisionBodyBytes)
+  ];
+
+  return (vector) => {
+    const contributions = vector.map((runVector, runIndex) => {
+      const contribution = contributionByRun[runIndex]?.get(coverageVectorKey(runVector));
+      if (!contribution) fail('compact oracle vector does not bind one precomputed run contribution');
+      return contribution;
+    });
+    const synthetic = combineCompactContributions(contributions, 'synthetic');
+    const observed = combineCompactContributions(contributions, 'observed');
+    const missing = combineCompactContributions(contributions, 'missing');
+    const syntheticCoverageBytes = canonicalObjectBytes({
+      encoding: canonicalValueBytes(policy.policy.capacityFixturePolicy.encoding),
+      frameCohorts: frameCohortsBytes,
+      observedCoverage: canonicalArrayBytes(synthetic)
+    });
+    const syntheticCapacityCoverageBytes = canonicalObjectBytes({
+      encoding: canonicalValueBytes(policy.policy.capacityFixturePolicy.encoding),
+      frameCohorts: frameCohortsBytes,
+      observedCoverage: canonicalArrayBytes(synthetic),
+      semanticExpansionChecksum: semanticExpansionChecksumBytes
+    });
+    const allocationEvidenceBytes = canonicalObjectBytes({
+      state: canonicalValueBytes('unavailable-incomplete-request-coverage'),
+      observedCoverage: canonicalArrayBytes(observed),
+      missingCoverage: canonicalArrayBytes(missing),
+      blocker: canonicalValueBytes('phase-5-webgpu-allocation-request-proxy'),
+      evidenceClass: canonicalValueBytes('synthetic-capacity-only'),
+      allocationValuesObserved: canonicalValueBytes(false),
+      syntheticCapacityCoverage: syntheticCapacityCoverageBytes
+    });
+    const chunkBodyBytes = canonicalObjectBytes({
+      rawKind: canonicalValueBytes(policy.policy.capacityFixturePolicy.encoding),
+      syntheticCoverage: syntheticCoverageBytes
+    });
+    const parentBodyBytes = canonicalObjectBytes({
+      childManifest: canonicalValueBytes(childReference),
+      experimentRole: canonicalValueBytes('reference-comparison'),
+      backend: canonicalValueBytes('webgpu'),
+      fixtureProvenance: canonicalValueBytes(fixtureProvenance),
+      allocationEvidence: allocationEvidenceBytes,
+      publicationEligible: canonicalValueBytes(false)
+    });
+    const runBodyBytes = contributions.map((contribution) => contribution.runBodyBytes);
+    const dynamicRecordBytes = [
+      ...runBodyBytes.map((bytes) => compactObjectRecordBytes('run', bytes)),
+      compactObjectRecordBytes('raw-chunk', chunkBodyBytes),
+      compactObjectRecordBytes('reference-experiment-parent', parentBodyBytes)
+    ];
+    const uniqueCanonicalBodyBytes = baseBodyBytes
+      + runBodyBytes.reduce((total, bytes) => total + bytes, 0)
+      + chunkBodyBytes + manifestBodyBytes + childBodyBytes + parentBodyBytes + decisionBodyBytes;
+    const dedupStatisticsBytes = canonicalObjectBytes({
+      logicalReferenceCount: canonicalValueBytes(objectCount),
+      uniqueObjectCount: canonicalValueBytes(objectCount),
+      logicalCanonicalBodyBytes: canonicalValueBytes(uniqueCanonicalBodyBytes),
+      uniqueCanonicalBodyBytes: canonicalValueBytes(uniqueCanonicalBodyBytes),
+      savedObjectOccurrences: canonicalValueBytes(0),
+      savedCanonicalBodyBytes: canonicalValueBytes(0)
+    });
+    const indexRecordBytes = canonicalObjectBytes({
+      recordType: canonicalValueBytes('index'),
+      schemaVersion: canonicalValueBytes(EVIDENCE_ARCHIVE_SCHEMA_VERSION),
+      rootReferences: rootReferencesBytes,
+      indexedHashes: indexedHashesBytes,
+      dedupStatistics: dedupStatisticsBytes
+    }) + 1;
+    const objectRecordBytes = [...fixedRecordBytes, ...dynamicRecordBytes];
+    return {
+      maximumRecordBytes: Math.max(indexRecordBytes, ...objectRecordBytes),
+      expandedJsonlBytes: indexRecordBytes + objectRecordBytes.reduce((total, bytes) => total + bytes, 0),
+      objectCount,
+      recordCount,
+      evaluatorChecksum: canonicalSha256({ experimentId, vector })
+    };
+  };
+}
+
 function createCompactOracleBase(policy, runCount) {
   const store = createEvidenceStore();
   const fixtureProvenance = syntheticFixtureProvenance('qualified-incomplete-oracle');
@@ -1118,6 +1088,13 @@ function createCompactOracleBase(policy, runCount) {
     objects: store.objectMap(),
     coreReferences,
     coreRecord: createCoreEvidenceRecord({ coreEvidenceBody }),
+    expectedAllocationCoverage: deriveAllocationExpectedCoverage({
+      acceptedRunIds: ledger.filter((entry) => entry.operationId === 'electron-harness-spawn' && entry.buildVariant === 'instrumented')
+        .map((entry) => entry.runId),
+      frameCountByRun: Object.fromEntries(ledger
+        .filter((entry) => entry.operationId === 'electron-harness-spawn' && entry.buildVariant === 'instrumented')
+        .map((entry) => [entry.runId, entry.frameSourceSequences.length]))
+    }, policy),
     allocationTemplate: {
       scenario,
       experimentId,
@@ -1198,15 +1175,15 @@ function materializeCompactQualifiedIncompleteVector(vector, base, policy) {
   const acceptedRoots = sortedReferences([...resolvedRoots, { kind: decisionObject.kind, hash: decisionObject.hash }]);
   objects = mergeObjectMaps(base.objects, store.objectMap());
   const acceptedProjection = projectEvidenceArchive(objects, acceptedRoots, acceptedSelectedProjection(acceptedRoots, base.coreReferences, resolvedRoots));
+  // Preserve the semantic constructor check in the compact path without
+  // inventing an archive hash, byte count, or compressor identity. Transport
+  // root sizing is calculated only after a real production archive exists.
   const acceptedEvidence = createAcceptedEvidenceBody({
     ...resolvedRecord,
     decision,
     decisionChecksum: canonicalSha256(decision),
     rootReferences: acceptedRoots
   });
-  // Preserve the semantic constructor check in the compact path without
-  // inventing an archive hash, byte count, or compressor identity. Transport
-  // root sizing is calculated only after a real production archive exists.
   if (!acceptedEvidence.acceptedEvidenceChecksum) fail('compact oracle did not construct accepted semantic evidence');
   return {
     maximumRecordBytes: acceptedProjection.maximumRecordBytes,
@@ -1334,9 +1311,10 @@ export function calculateQualifiedIncompleteEnvelope({ runCount = 2, policy = lo
   if (cached) return cached;
   const enumeration = enumerateQualifiedIncompleteCoverageVectors({ runCount, policy });
   const base = createCompactOracleBase(policy, runCount);
+  const measureCompactVector = createCompactOracleSizingModel(base, enumeration, policy);
   const evaluated = enumeration.vectors.map((vector) => ({
     vector,
-    components: materializeCompactQualifiedIncompleteVector(vector, base, policy)
+    components: measureCompactVector(vector)
   }));
   const semanticComponentMaxima = Object.fromEntries(COMPACT_SEMANTIC_COMPONENTS.map((component) => {
     const maximum = Math.max(...evaluated.map((entry) => entry.components[component]));
@@ -1368,8 +1346,14 @@ export function calculateQualifiedIncompleteEnvelope({ runCount = 2, policy = lo
     shape.maximumComponents.push(component);
     shapesByVector.set(maximum.vectorKey, shape);
   }
+  const materializedByVector = new Map([...new Set(Object.values(semanticComponentMaxima).map((maximum) => maximum.vectorKey))]
+    .map((vectorKey) => {
+      const representative = semanticComponentMaxima[Object.keys(semanticComponentMaxima)
+        .find((component) => semanticComponentMaxima[component].vectorKey === vectorKey)].vector;
+      return [vectorKey, materializeCompactQualifiedIncompleteVector(representative, base, policy)];
+    }));
   const materializedSemanticComponentMaxima = Object.fromEntries(COMPACT_SEMANTIC_COMPONENTS
-    .map((component) => [component, Math.max(...evaluated.map((entry) => entry.components[component]))]));
+    .map((component) => [component, materializedByVector.get(semanticComponentMaxima[component].vectorKey)[component]]));
   for (const component of COMPACT_SEMANTIC_COMPONENTS) {
     if (materializedSemanticComponentMaxima[component] !== semanticComponentMaxima[component].value) {
       fail(`compact oracle ${component} maximum does not equal its materialized production projection`);
@@ -1398,18 +1382,20 @@ export function calculateQualifiedIncompleteEnvelope({ runCount = 2, policy = lo
 export async function runHeadroomCapacity({
   policy = loadBaselinePolicy(),
   qualifiedRunBodies = 162,
-  hardwareUnavailableRunBodies = 81,
+  hardwareUnavailableRunBodies = 108,
   callbacksPerRun = 2048,
   outputDirectory = undefined
 } = {}) {
   for (const [label, value] of Object.entries({ qualifiedRunBodies, hardwareUnavailableRunBodies, callbacksPerRun })) {
     if (!Number.isSafeInteger(value) || value < 1) fail(`${label} must be a positive safe integer`);
   }
+  if (qualifiedRunBodies !== 162 || hardwareUnavailableRunBodies !== 108) {
+    fail('production capacity topology requires 162 qualified run bodies and 108 hardware-unavailable run bodies');
+  }
   if (outputDirectory !== undefined) resolveCapacityOutputRoot(outputDirectory);
   const scenarios = [];
   const materializedProductionScenarios = [];
   const qualifiedMeasured = await constructScenario('qualified-measured-request-proxy', 'qualified', {
-    runBodies: qualifiedRunBodies,
     callbacksPerRun,
     allocationShape: 'complete',
     outputDirectory,
@@ -1417,17 +1403,13 @@ export async function runHeadroomCapacity({
   });
   scenarios.push(qualifiedMeasured);
   materializedProductionScenarios.push(qualifiedMeasured);
-  const evenRunBodies = (count) => Math.max(2, count + (count % 2));
-  const coreRunBodies = evenRunBodies(Math.min(18, Math.max(2, qualifiedRunBodies - 2)));
-  const referenceRunBodies = evenRunBodies(Math.max(2, qualifiedRunBodies - coreRunBodies));
   const envelope = calculateQualifiedIncompleteEnvelope({ runCount: 2, policy });
   const incompleteCases = [];
   for (const shape of envelope.shapes) {
     incompleteCases.push(await constructScenario('qualified-incomplete-request-coverage', 'qualified', {
-      runBodies: qualifiedRunBodies,
       callbacksPerRun,
       allocationShape: shape.name,
-      allocationVector: expandCompactCoverageVector(shape.compactVector, referenceRunBodies / 2, envelope.coverage, callbacksPerRun),
+      allocationVector: expandCompactCoverageVector(shape.compactVector, 6, envelope.coverage, callbacksPerRun),
       outputDirectory,
       archiveStem: `qualified-incomplete-request-coverage.${shape.name}`,
       policy
@@ -1461,7 +1443,6 @@ export async function runHeadroomCapacity({
     ['hardware-unavailable-worker-fallback', 'worker-fallback-adapter']
   ]) {
     const scenario = await constructScenario(name, 'hardware-unavailable', {
-      runBodies: hardwareUnavailableRunBodies,
       callbacksPerRun,
       unavailabilityBranch: branch,
       outputDirectory,
@@ -1487,8 +1468,57 @@ export async function runHeadroomCapacity({
   };
 }
 
-function makeRows(count) {
-  return Array.from({ length: count }, (_, index) => ({ runId: 'run-1', ordinal: index }));
+function makeRows(count, policy) {
+  const runId = 'capacity-codec-run';
+  return Array.from({ length: count }, (_, index) => {
+    const ordinal = index + 1;
+    const readStart = index * 0.5;
+    const readEnd = readStart + 0.01;
+    const adapterSample = {
+      pid: 1,
+      userTicks: index,
+      systemTicks: 0,
+      startTicks: 1,
+      residentPages: 32768,
+      pageSize: 4096,
+      clockTicks: 100
+    };
+    return {
+      adapterId: 'linux-procfs-v1',
+      attemptIndex: 1,
+      backend: 'canvas2d',
+      buildVariant: 'production',
+      captureKind: 'external-metric',
+      comparisonKind: 'harness-overhead',
+      comparisonSide: 'A',
+      counterQuantumSeconds: 0.01,
+      creationIdentity: '1',
+      cumulativeCpuSeconds: index / 100,
+      experimentId: 'capacity-codec-experiment',
+      experimentRole: 'ci-integrity',
+      externalExecutionId: 'capacity-codec-execution',
+      launchOrdinal: 1,
+      ledgerSequence: 1,
+      metricSessionId: 'capacity-codec-session',
+      observationBoundaryId: 'capacity-codec-boundary',
+      ordinal,
+      pairIndex: 1,
+      pairPlanChecksum: 'a'.repeat(64),
+      pid: 1,
+      policyHash: policy.policyHash,
+      processIdentity: 'capacity-codec-process',
+      rawAdapterKind: 'linux-procfs-v1',
+      rawAdapterSample: { adapterSample, readStart, readEnd },
+      readEnd,
+      readStart,
+      runId,
+      samplePhase: ordinal === 1 ? 'prime' : ordinal === count ? 'terminal-closure' : 'in-window',
+      scopeId: runId,
+      scopeKind: 'run',
+      sourceSha: policy.policy.programOriginSha,
+      workingSetMiB: 128
+    };
+  });
 }
 
 function assertCodecFixtureLimits(limits) {
@@ -1890,10 +1920,10 @@ export async function runCodecBoundaries({
   const compressorIdentity = await createCompressorIdentity({
     compressorProbePolicyHash: policy.sectionHashes.performanceEvidenceChunkPolicy
   });
-  encodePerformanceEvidence('cpu-sample', makeRows(policy.policy.performanceEvidenceChunkPolicy.maximumRowsPerRunAndKind), policy);
+  encodePerformanceEvidence('cpu-sample', makeRows(policy.policy.performanceEvidenceChunkPolicy.maximumRowsPerRunAndKind, policy), policy);
   let rawOverflowRejected = false;
   try {
-    encodePerformanceEvidence('cpu-sample', makeRows(policy.policy.performanceEvidenceChunkPolicy.maximumRowsPerRunAndKind + 1), policy);
+    encodePerformanceEvidence('cpu-sample', makeRows(policy.policy.performanceEvidenceChunkPolicy.maximumRowsPerRunAndKind + 1, policy), policy);
   } catch {
     rawOverflowRejected = true;
   }
@@ -2114,7 +2144,8 @@ export async function runCapacityValidation({
   mode = 'all',
   capacityRoot = CAPACITY_OUTPUT_ROOT,
   workspaceId = undefined,
-  headroomOptions = undefined
+  headroomOptions = undefined,
+  codecOptions = undefined
 } = {}) {
   if (!['headroom', 'codec-boundaries', 'all'].includes(mode)) fail('mode is invalid');
   const workspace = createCapacityWorkspace(capacityRoot, workspaceId);
@@ -2123,7 +2154,9 @@ export async function runCapacityValidation({
     if (mode === 'headroom' || mode === 'all') {
       result.headroom = await runHeadroomCapacity({ ...(headroomOptions ?? {}), outputDirectory: workspace });
     }
-    if (mode === 'codec-boundaries' || mode === 'all') result.codecBoundaries = await runCodecBoundaries({ outputDirectory: workspace });
+    if (mode === 'codec-boundaries' || mode === 'all') {
+      result.codecBoundaries = await runCodecBoundaries({ ...(codecOptions ?? {}), outputDirectory: workspace });
+    }
     return result;
   } finally {
     removeCapacityWorkspace(workspace);

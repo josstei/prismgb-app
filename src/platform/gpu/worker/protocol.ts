@@ -2,6 +2,7 @@ import type {
   FrameDispositionOutcome,
   RenderBackend,
   RenderPreset,
+  WebGpuBackendExecutionIdentity,
   WebGpuFrameRequestProxy,
   WebGpuLifecycleRequestProxy
 } from '../domain/types';
@@ -79,6 +80,11 @@ export type WorkerReadyPayload =
   | Readonly<{ backend: WorkerRenderBackend }>
   | Readonly<{
     backend: WorkerRenderBackend;
+    backendExecutionIdentity: WebGpuBackendExecutionIdentity;
+  }>
+  | Readonly<{
+    backend: WorkerRenderBackend;
+    backendExecutionIdentity: WebGpuBackendExecutionIdentity;
     lifecycleRequestProxies: readonly WebGpuLifecycleRequestProxy[];
   }>;
 export type WorkerLifecycleRequestPayload = Readonly<{
@@ -205,10 +211,39 @@ export function isWorkerRenderBackend(value: unknown): value is WorkerRenderBack
   return value === 'webgpu';
 }
 
-export function isWorkerReadyPayload(value: unknown): value is Readonly<{ backend: WorkerRenderBackend }> {
+function isNullableIdentityField(value: unknown): value is string | null {
+  return value === null || (typeof value === 'string' && value.length > 0);
+}
+
+function isBackendExecutionIdentity(value: unknown): value is WebGpuBackendExecutionIdentity {
   return isRecord(value) &&
-    hasExactKeys(value, ['backend']) &&
-    isWorkerRenderBackend(value.backend);
+    hasExactKeys(value, [
+      'backend', 'driver', 'workerProtocol', 'adapterIdentity', 'limits',
+      'isFallbackAdapter', 'powerPreference'
+    ]) &&
+    value.backend === 'webgpu' &&
+    value.driver === 'webgpu-driver-v1' &&
+    value.workerProtocol === 'webgpu-worker-ready-v1' &&
+    isRecord(value.adapterIdentity) &&
+    hasExactKeys(value.adapterIdentity, ['vendor', 'architecture', 'device', 'description']) &&
+    isNullableIdentityField(value.adapterIdentity.vendor) &&
+    isNullableIdentityField(value.adapterIdentity.architecture) &&
+    isNullableIdentityField(value.adapterIdentity.device) &&
+    isNullableIdentityField(value.adapterIdentity.description) &&
+    isRecord(value.limits) &&
+    hasExactKeys(value.limits, ['maxTextureDimension2D', 'maxBindGroups']) &&
+    isPositiveSafeInteger(value.limits.maxTextureDimension2D) &&
+    isPositiveSafeInteger(value.limits.maxBindGroups) &&
+    typeof value.isFallbackAdapter === 'boolean' &&
+    (value.powerPreference === 'low-power' || value.powerPreference === 'high-performance');
+}
+
+export function isWorkerReadyPayload(value: unknown): value is Exclude<WorkerReadyPayload, { lifecycleRequestProxies: unknown }> {
+  if (!isRecord(value) || !isWorkerRenderBackend(value.backend)) return false;
+  return isPerformanceHarnessBuild
+    ? hasExactKeys(value, ['backend', 'backendExecutionIdentity']) &&
+      isBackendExecutionIdentity(value.backendExecutionIdentity)
+    : hasExactKeys(value, ['backend']);
 }
 
 export function isFrameToken(value: unknown): value is number {
@@ -320,8 +355,9 @@ function isResizeLifecycleRequestProxies(value: unknown): value is readonly WebG
 
 export function isInstrumentedWorkerReadyPayload(value: unknown): value is Extract<WorkerReadyPayload, { lifecycleRequestProxies: unknown }> {
   return isRecord(value) &&
-    hasExactKeys(value, ['backend', 'lifecycleRequestProxies']) &&
+    hasExactKeys(value, ['backend', 'backendExecutionIdentity', 'lifecycleRequestProxies']) &&
     isWorkerRenderBackend(value.backend) &&
+    isBackendExecutionIdentity(value.backendExecutionIdentity) &&
     isStartupLifecycleRequestProxies(value.lifecycleRequestProxies);
 }
 

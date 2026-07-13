@@ -2,6 +2,7 @@ import { vi } from 'vitest';
 import * as Comlink from 'comlink';
 import {
   CONTROL_PORT_MESSAGE,
+  isPerformanceHarnessBuild,
   type WorkerCaptureReadyPayload,
   type WorkerControlApi,
   type WorkerReadyPayload
@@ -22,6 +23,21 @@ export type RecordingDriverHandle = {
   record: DriverRecord;
   reset(): void;
 };
+
+export const TEST_WEBGPU_BACKEND_EXECUTION_IDENTITY = Object.freeze({
+  backend: 'webgpu' as const,
+  driver: 'webgpu-driver-v1' as const,
+  workerProtocol: 'webgpu-worker-ready-v1' as const,
+  adapterIdentity: Object.freeze({
+    vendor: 'test-vendor',
+    architecture: 'test-architecture',
+    device: 'test-device',
+    description: 'test-adapter'
+  }),
+  limits: Object.freeze({ maxTextureDimension2D: 8192, maxBindGroups: 8 }),
+  isFallbackAdapter: false,
+  powerPreference: 'low-power' as const
+});
 
 export function createRecordingDriver(mockCreateGpuRenderer: ReturnType<typeof vi.fn>): RecordingDriverHandle {
   const record: DriverRecord = [];
@@ -78,6 +94,7 @@ export function createRecordingDriver(mockCreateGpuRenderer: ReturnType<typeof v
     }
     return {
       backend: 'webgpu',
+      getBackendExecutionIdentity: () => TEST_WEBGPU_BACKEND_EXECUTION_IDENTITY,
       renderFrame: (
         src: unknown,
         instrumentationObserver?: {
@@ -249,7 +266,9 @@ export function stubControlWorker(api: Partial<WorkerControlApi> = {}): FakeWork
   const channel = new MessageChannel();
   Comlink.expose(
     {
-      initialize: async (): Promise<WorkerReadyPayload> => ({ backend: 'webgpu' }),
+      initialize: async (): Promise<WorkerReadyPayload> => isPerformanceHarnessBuild
+        ? { backend: 'webgpu', backendExecutionIdentity: TEST_WEBGPU_BACKEND_EXECUTION_IDENTITY }
+        : { backend: 'webgpu' },
       resize: async () => {},
       setPreset: async () => {},
       setBrightness: async () => {},

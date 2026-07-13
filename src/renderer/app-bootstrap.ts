@@ -56,6 +56,7 @@ class RendererBootstrap extends PlatformBootstrap<RendererServiceContainer, AppO
   protected async afterContainerCreated(container: RendererServiceContainer): Promise<void> {
     this._initializePresentationPlane(container);
     await this._initializeUIEventBridge(container);
+    this._installPerformanceQualificationBridge();
     this._installPerformanceDiagnosticsBridge(container);
   }
 
@@ -84,6 +85,7 @@ class RendererBootstrap extends PlatformBootstrap<RendererServiceContainer, AppO
   }
 
   protected async cleanupOwnedResources(): Promise<void> {
+    this._removePerformanceQualificationBridge();
     this._removePerformanceDiagnosticsBridge();
 
     if (this.orchestrator) {
@@ -166,6 +168,56 @@ class RendererBootstrap extends PlatformBootstrap<RendererServiceContainer, AppO
         throw new Error('Performance renderer diagnostics command is unsupported');
       }
     });
+  }
+
+  private _installPerformanceQualificationBridge(): void {
+    if (
+      typeof __PRISMGB_PERF_HARNESS__ === 'undefined' ||
+      !__PRISMGB_PERF_HARNESS__
+    ) {
+      return;
+    }
+
+    const launchId = window.prismgbPerformanceLaunchMarker?.launchId;
+    if (launchId === undefined) {
+      return;
+    }
+
+    const qualificationSymbol = Symbol.for('prismgb.performance.qualificationProbe');
+    const target = window as unknown as Record<PropertyKey, unknown>;
+    if (Object.prototype.hasOwnProperty.call(target, qualificationSymbol)) {
+      throw new Error('Performance qualification probe bridge is already installed');
+    }
+
+    Object.defineProperty(target, qualificationSymbol, {
+      configurable: true,
+      enumerable: false,
+      writable: false,
+      value: async (requestedLaunchId: string) => {
+        if (requestedLaunchId !== launchId) {
+          throw new Error('Performance qualification probe launch ID does not match the preload marker');
+        }
+        const { probeBrowserGpuCapabilitiesForMeasurement } = await import('@platform/gpu/runtime');
+        const result = await probeBrowserGpuCapabilitiesForMeasurement();
+        if (result === null) {
+          throw new Error('Performance qualification probe is unavailable without a validated harness marker');
+        }
+        return result;
+      }
+    });
+  }
+
+  private _removePerformanceQualificationBridge(): void {
+    if (
+      typeof __PRISMGB_PERF_HARNESS__ === 'undefined' ||
+      !__PRISMGB_PERF_HARNESS__
+    ) {
+      return;
+    }
+
+    const qualificationSymbol = Symbol.for('prismgb.performance.qualificationProbe');
+    const target = window as unknown as Record<PropertyKey, unknown>;
+    delete target[qualificationSymbol];
   }
 
   private _removePerformanceDiagnosticsBridge(): void {

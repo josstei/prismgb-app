@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -45,9 +46,16 @@ function envelope(overrides: Record<string, unknown> = {}) {
 
 describe('baseline report canonicalization', () => {
   it('sorts recursive object keys and hashes canonical UTF-8 JSON', () => {
-    expect(stableStringify({ z: { b: 1, a: 2 }, a: [true, null] })).toBe('{"a":[true,null],"z":{"a":2,"b":1}}');
+    const nested = { z: { b: 1, a: 2 }, a: [true, null, -0, 'é'] };
+    expect(stableStringify(nested)).toBe('{"a":[true,null,0,"é"],"z":{"a":2,"b":1}}');
+    expect(canonicalSha256(nested)).toBe(crypto.createHash('sha256').update(stableStringify(nested), 'utf8').digest('hex'));
     expect(canonicalSha256({ z: 1, a: 2 })).toBe(canonicalSha256({ a: 2, z: 1 }));
     expect(() => stableStringify({ value: Number.NaN })).toThrow(/non-finite/);
+    expect(() => canonicalSha256({ value: Number.NaN })).toThrow(/non-finite/);
+    expect(() => canonicalSha256({ value: undefined })).toThrow(/not JSON-serializable/);
+    const cyclic: { self?: unknown } = {};
+    cyclic.self = cyclic;
+    expect(() => canonicalSha256(cyclic)).toThrow(/cycle/);
   });
 
   it('derives composite evidence identities instead of using kind alone', () => {

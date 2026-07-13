@@ -5,7 +5,12 @@ import {
   WorkerResponseType,
   createWorkerPerformanceFrameTimingResponse
 } from '../../../../../src/platform/gpu/worker/protocol';
-import { flush, makeDeterministicFrame, stubControlWorker } from '../../../platform/gpu/worker/golden-harness';
+import {
+  flush,
+  makeDeterministicFrame,
+  stubControlWorker,
+  TEST_WEBGPU_BACKEND_EXECUTION_IDENTITY
+} from '../../../platform/gpu/worker/golden-harness';
 
 describe('harness video-session performance observations', () => {
   afterEach(() => {
@@ -30,6 +35,7 @@ describe('harness video-session performance observations', () => {
     };
     const observations: unknown[] = [];
     const harnessObservations: unknown[] = [];
+    const onReady = vi.fn();
     const canvas = {
       clientWidth: 160,
       clientHeight: 144,
@@ -47,8 +53,13 @@ describe('harness video-session performance observations', () => {
         preferredBackend: 'webgpu',
         maxTextureSize: 4096
       },
+      onReady,
       onHarnessObservation: (observation) => harnessObservations.push(observation),
       onPerformanceObservation: (observation) => observations.push(observation)
+    });
+    expect(onReady).toHaveBeenCalledWith({
+      backend: 'webgpu',
+      backendExecutionIdentity: TEST_WEBGPU_BACKEND_EXECUTION_IDENTITY
     });
     const video = document.createElement('video');
     Object.defineProperties(video, {
@@ -63,9 +74,20 @@ describe('harness video-session performance observations', () => {
       (message) => (message as { type?: string }).type === WorkerMessageType.FRAME
     ) as { payload?: unknown } | undefined;
     expect(frameMessage?.payload).toEqual({ imageBitmap: bitmap, frameToken: 1, diagnosticFrameId: 1 });
+    expect(observations[0]).toEqual(expect.objectContaining({
+      kind: 'bitmap-creation',
+      context: { sourceSequence: 1, measurementEpochId: 'epoch-1' },
+      outcome: 'success',
+      frameToken: 1
+    }));
     expect(observations).toEqual([
       expect.objectContaining({ kind: 'bitmap-creation', context: { sourceSequence: 1, measurementEpochId: 'epoch-1' } }),
-      { kind: 'worker-frame-submitted', context: { sourceSequence: 1, measurementEpochId: 'epoch-1' }, frameToken: 1 }
+      expect.objectContaining({
+        kind: 'worker-frame-submitted',
+        context: { sourceSequence: 1, measurementEpochId: 'epoch-1' },
+        frameToken: 1,
+        submittedAt: expect.any(Number)
+      })
     ]);
     expect(harnessObservations).toEqual([
       {
@@ -77,6 +99,17 @@ describe('harness video-session performance observations', () => {
         kind: 'worker-frame-submitted',
         context: { sourceSequence: 1, measurementEpochId: 'epoch-1' },
         frameToken: 1
+      },
+      {
+        kind: 'session-branch',
+        context: { sourceSequence: 1, measurementEpochId: 'epoch-1' },
+        workerPresent: true,
+        workerReady: true,
+        outstandingFrameCount: 1,
+        outstandingFrameLimit: 2,
+        bitmapOutcome: 'created',
+        canvasDrawOutcome: 'not-applicable',
+        framePostOutcome: 'posted'
       }
     ]);
 
@@ -158,18 +191,36 @@ describe('harness video-session performance observations', () => {
     } as MessageEvent);
     await flush();
 
-    expect(observations.at(-1)).toEqual({
+    expect(observations.at(-1)).toEqual(expect.objectContaining({
       kind: 'worker-frame-acknowledged',
       context: { sourceSequence: 1, measurementEpochId: 'epoch-1' },
       frameToken: 1,
-      outcome: 'webgpu-queue-submit-completed'
-    });
+      outcome: 'webgpu-queue-submit-completed',
+      submittedAt: expect.any(Number),
+      acknowledgedAt: expect.any(Number)
+    }));
     expect(harnessObservations.at(-1)).toEqual({
       kind: 'worker-frame-acknowledged',
       context: { sourceSequence: 1, measurementEpochId: 'epoch-1' },
       frameToken: 1,
       outcome: 'webgpu-queue-submit-completed'
     });
+
+    vi.mocked(createImageBitmap).mockRejectedValueOnce(new Error('bitmap rejected'));
+    await expect(session.renderFrame(video, {
+      sourceSequence: 2,
+      measurementEpochId: 'epoch-1'
+    })).resolves.toEqual({ outcome: 'failed' });
+    expect(observations.find((observation) =>
+      (observation as { kind?: string; outcome?: string }).kind === 'bitmap-creation' &&
+      (observation as { outcome?: string }).outcome === 'failed'
+    )).toEqual(expect.objectContaining({
+      context: { sourceSequence: 2, measurementEpochId: 'epoch-1' },
+      frameToken: null
+    }));
+    expect(rawMessages.filter(
+      (message) => (message as { type?: string }).type === WorkerMessageType.FRAME
+    )).toHaveLength(1);
     session.terminate();
   });
 
@@ -224,6 +275,7 @@ describe('harness video-session performance observations', () => {
     const worker = stubControlWorker({
       initialize: async () => ({
         backend: 'webgpu' as const,
+        backendExecutionIdentity: TEST_WEBGPU_BACKEND_EXECUTION_IDENTITY,
         lifecycleRequestProxies: startupLifecycleRequestProxies
       }),
       resize: async () => ({ lifecycleRequestProxies: resizeLifecycleRequestProxies })

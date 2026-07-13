@@ -30,11 +30,14 @@ function frameRequest(sourceSequence: number): WebGpuAllocationRequestProxyInput
   return {
     backend: 'webgpu',
     carrier: 'frame-request',
+    measurementWindowId: 'window-1',
     measurementEpochId: 'epoch-1',
     sourceSequence,
+    diagnosticFrameId: sourceSequence,
+    frameToken: sourceSequence,
     operationId: 'video-frame-image-bitmap-request',
     sourceLocationId: 'video-session:create-image-bitmap',
-    requestOrdinal: sourceSequence,
+    requestOrdinal: 1,
     outcome: 'success',
     byteKind: 'rgba-transfer-footprint',
     byteValue: 92_160,
@@ -211,6 +214,78 @@ describe('PerformanceDiagnostics', () => {
       lifecycleRequests: [lifecycleRequest(1)]
     });
     expect('allocations' in snapshot).toBe(false);
+  });
+
+  it('rejects frame token and ordinal shapes that cannot satisfy replay', () => {
+    const diagnostics = createPerformanceDiagnostics();
+    const first = frameRequest(1);
+
+    expect(diagnostics.recordWebGpuAllocationRequestProxy({ ...first, frameToken: null })).toEqual({
+      accepted: false,
+      reason: 'invalid-input'
+    });
+    expect(diagnostics.recordWebGpuAllocationRequestProxy(first)).toEqual({ accepted: true });
+    expect(diagnostics.recordWebGpuAllocationRequestProxy({
+      backend: 'webgpu',
+      carrier: 'frame-request',
+      measurementWindowId: 'window-1',
+      measurementEpochId: 'epoch-1',
+      sourceSequence: 1,
+      diagnosticFrameId: 1,
+      frameToken: 1,
+      operationId: 'uniform-float32-array',
+      sourceLocationId: 'webgpu-driver:uniform-float32-array',
+      requestOrdinal: 3,
+      outcome: 'success',
+      byteKind: 'requested-byte-length',
+      byteValue: 96,
+      requestedByteLength: 96
+    })).toEqual({ accepted: false, reason: 'invalid-input' });
+    const failedDiagnostics = createPerformanceDiagnostics();
+    expect(failedDiagnostics.recordWebGpuAllocationRequestProxy({
+      ...frameRequest(2),
+      outcome: 'failed',
+      frameToken: null
+    })).toEqual({ accepted: true });
+  });
+
+  it('enforces lifecycle phase-global and operation-local ordinal domains independently', () => {
+    const diagnostics = createPerformanceDiagnostics();
+    const buffer = lifecycleRequest(1);
+    const texture = {
+      backend: 'webgpu',
+      carrier: 'lifecycle-request',
+      executionId: 'execution-1',
+      lifecyclePhase: 'startup',
+      phaseSequence: 2,
+      operationId: 'gpu-texture-request',
+      sourceLocationId: 'webgpu-driver:create-texture',
+      requestOrdinal: 1,
+      outcome: 'success',
+      byteKind: 'logical-texel-footprint',
+      byteValue: 92_160,
+      textureDescriptor: {
+        width: 160,
+        height: 144,
+        depth: 1,
+        format: 'rgba8unorm',
+        usage: 'texture-binding-render-attachment',
+        logicalTexelFootprint: 92_160
+      }
+    } as const;
+
+    expect(diagnostics.recordWebGpuAllocationRequestProxy(buffer)).toEqual({ accepted: true });
+    expect(diagnostics.recordWebGpuAllocationRequestProxy(texture)).toEqual({ accepted: true });
+    expect(diagnostics.recordWebGpuAllocationRequestProxy({
+      ...buffer,
+      phaseSequence: 3,
+      requestOrdinal: 2
+    })).toEqual({ accepted: true });
+    expect(diagnostics.recordWebGpuAllocationRequestProxy({
+      ...texture,
+      phaseSequence: 5,
+      requestOrdinal: 2
+    })).toEqual({ accepted: false, reason: 'invalid-input' });
   });
 
   it('records explicit renderer heap unavailability instead of synthesizing an observation', () => {

@@ -1,19 +1,28 @@
 import { describe, expect, it } from 'vitest';
 import { canonicalSha256 } from '../../../scripts/lib/baseline-report.js';
+import { createEvidenceStore } from '../../../scripts/lib/baseline-evidence-store.js';
 import {
+  assessPerformancePairAttempt,
   classifyFailure,
   computeComparisonFingerprint,
   computeQualificationFingerprint,
+  collectPerformanceCaptureRows,
+  createPerformanceEvaluatorInput,
+  createPerformanceEvaluationBody,
+  createPerformanceRawArchive,
   decodePerformanceEvidence,
   deriveAllocationEvidence,
   deriveAllocationExpectedCoverage,
   deriveCpuScore,
   deriveCpuWindow,
+  deriveQualificationCapture,
   deriveAcceptedInstrumentedLedgerRuns,
   encodePerformanceEvidence,
   evaluatePerformanceExperiment,
+  finalizeCiCanvasPerformanceExperiment,
   loadBaselinePolicy,
   requirePublishablePerformanceEvidence,
+  reconstructPerformanceRawEvidence,
   validateBaselinePolicy,
   validatePerformanceLedger
 } from '../../../scripts/lib/performance-evidence.js';
@@ -21,7 +30,7 @@ import {
 const hash = 'a'.repeat(64);
 const compiledPolicy = loadBaselinePolicy();
 const policyHash = compiledPolicy.policyHash;
-const experimentId = 'performance-evidence-experiment';
+const experimentId = '00000000-0000-4000-8000-000000000000';
 const runtimeCallbackCount = compiledPolicy.policy.performanceLimits.window.minimumCallbacks;
 
 function sourceSequences(count: number) {
@@ -30,6 +39,58 @@ function sourceSequences(count: number) {
 
 function runtimeSourceSequences() {
   return sourceSequences(runtimeCallbackCount);
+}
+
+function cpuRawRow(runId: string, ordinal: number, total = 2) {
+  const readStart = ordinal * 0.5;
+  const readEnd = readStart + 0.01;
+  return {
+    adapterId: 'linux-procfs-v1',
+    attemptIndex: 1,
+    backend: 'canvas2d',
+    buildVariant: 'production',
+    captureKind: 'external-metric',
+    comparisonKind: 'harness-overhead',
+    comparisonSide: 'A',
+    counterQuantumSeconds: 0.01,
+    creationIdentity: '1',
+    cumulativeCpuSeconds: ordinal / 100,
+    experimentId,
+    experimentRole: 'ci-integrity',
+    externalExecutionId: `${runId}-execution`,
+    launchOrdinal: 1,
+    ledgerSequence: 1,
+    metricSessionId: `${runId}-session`,
+    observationBoundaryId: `${runId}-boundary`,
+    ordinal,
+    pairIndex: 1,
+    pairPlanChecksum: hash,
+    pid: 1,
+    policyHash,
+    processIdentity: `${runId}-identity`,
+    rawAdapterKind: 'linux-procfs-v1',
+    rawAdapterSample: {
+      adapterSample: {
+        pid: 1,
+        userTicks: ordinal,
+        systemTicks: 0,
+        startTicks: 1,
+        residentPages: 32768,
+        pageSize: 4096,
+        clockTicks: 100
+      },
+      readStart,
+      readEnd
+    },
+    readEnd,
+    readStart,
+    runId,
+    samplePhase: ordinal === 1 ? 'prime' : ordinal === total ? 'terminal-closure' : 'in-window',
+    scopeId: runId,
+    scopeKind: 'run',
+    sourceSha: runtimeEvidenceProvenance.captureProvenance.sourceSha,
+    workingSetMiB: 128
+  };
 }
 
 const runtimeEvidenceProvenance = {
@@ -43,21 +104,65 @@ const runtimeEvidenceProvenance = {
   }
 };
 
+const ciRuntimeEvidenceProvenance = {
+  kind: 'runtime-capture' as const,
+  captureProvenance: {
+    provider: 'github-actions' as const,
+    sourceSha: '9a7839ce47c61982f6eab836c496b8469f01a9ca',
+    analysisSha256: '0c6a4ccbe48b9b12e4c58bd153ae6f5c04bed82fb489c5a2402d21934b4c8fba',
+    repository: 'prismgb/prismgb-app',
+    workflowRef: 'prismgb/prismgb-app/.github/workflows/codebase-baseline.yml@refs/heads/main',
+    workflowRunId: '1',
+    workflowRunAttempt: 1,
+    eventName: 'workflow_dispatch',
+    producer: { jobId: 'performance-ci', targetId: null, artifactName: 'performance-evidence' }
+  }
+};
+
 function allocationRow(entry: ReturnType<typeof deriveAllocationExpectedCoverage>[number], sequence: number) {
   const common = {
     experimentId,
     backend: 'webgpu',
     policyHash,
+    sourceSha: runtimeEvidenceProvenance.captureProvenance.sourceSha,
+    pairPlanChecksum: hash,
+    ledgerSequence: 1,
+    experimentRole: 'reference-comparison',
+    scopeKind: 'run',
+    scopeId: 'run',
+    captureKind: 'workload',
+    metricSessionId: 'session',
+    comparisonKind: 'instrumentation-overhead',
+    pairIndex: 1,
+    attemptIndex: 1,
+    comparisonSide: 'B',
+    buildVariant: 'instrumented',
+    launchOrdinal: 2,
+    externalExecutionId: 'external',
+    observationBoundaryId: 'boundary',
     runId: 'run', operationId: entry.operationId, sourceLocationId: entry.sourceLocationId,
     carrier: entry.carrier, requestOrdinal: sequence, outcome: 'success', byteKind: entry.byteSemantics
   } as Record<string, unknown>;
   if (entry.carrier === 'frame-request') {
+    const frameOperations = compiledPolicy.policy.allocationEvidencePolicy.webgpu.coverage
+      .filter((candidate) => candidate.carrier === 'frame-request');
+    common.requestOrdinal = frameOperations.findIndex((candidate) => (
+      candidate.operationId === entry.operationId && candidate.sourceLocationId === entry.sourceLocationId
+    )) + 1;
     common.measurementEpochId = 'epoch';
+    common.measurementWindowId = 'window';
     common.sourceSequence = sequence;
+    common.diagnosticFrameId = `diagnostic-frame-${sequence}`;
+    common.frameToken = sequence;
   } else {
+    const phaseOperations = compiledPolicy.policy.allocationEvidencePolicy.webgpu.coverage
+      .filter((candidate) => candidate.carrier === 'lifecycle-request' && candidate.lifecyclePhase === entry.lifecyclePhase);
+    const phaseOperationIndex = phaseOperations.findIndex((candidate) => (
+      candidate.operationId === entry.operationId && candidate.sourceLocationId === entry.sourceLocationId
+    ));
     common.executionId = 'run-execution';
     common.lifecyclePhase = entry.lifecyclePhase;
-    common.phaseSequence = sequence;
+    common.phaseSequence = ((sequence - 1) * phaseOperations.length) + phaseOperationIndex + 1;
   }
   if (entry.byteSemantics === 'rgba-transfer-footprint') Object.assign(common, { sourceWidth: 160, sourceHeight: 144, byteValue: 160 * 144 * 4 });
   if (entry.byteSemantics === 'requested-byte-length') Object.assign(common, { requestedByteLength: 64, byteValue: 64 });
@@ -76,7 +181,18 @@ function allocationInput(rows: Record<string, unknown>[]) {
     backend: 'webgpu',
     policyHash,
     ledger: validLedger({ experimentId, backend: 'webgpu', comparisonKind: 'instrumentation-overhead' }),
-    rows,
+    rows: rows.map((row) => {
+      const projected: Record<string, unknown> = {};
+      for (const key of [
+        'experimentId', 'backend', 'policyHash', 'runId', 'operationId', 'sourceLocationId',
+        'carrier', 'requestOrdinal', 'outcome', 'byteKind', 'byteValue',
+        'measurementWindowId', 'measurementEpochId', 'sourceSequence', 'diagnosticFrameId',
+        'frameToken', 'executionId', 'lifecyclePhase',
+        'phaseSequence', 'sourceWidth', 'sourceHeight', 'requestedByteLength',
+        'descriptorSize', 'textureDescriptor'
+      ]) if (key in row) projected[key] = row[key];
+      return projected;
+    }),
     evidenceProvenance: runtimeEvidenceProvenance
   };
 }
@@ -133,6 +249,7 @@ function completePairAttempt({
     experimentId?: string;
     backend?: 'canvas2d' | 'webgpu';
     comparisonKind?: 'harness-overhead' | 'instrumentation-overhead';
+    frameCallbackCount?: number;
   };
 }) {
   return validLedger(ledgerOptions).map((entry) => {
@@ -156,7 +273,10 @@ function completePairAttempt({
 }
 
 function rawEvidence(ledger: ReturnType<typeof validLedger>) {
-  const launches = ledger.filter((entry) => entry.operationId === 'electron-harness-spawn' || entry.operationId === 'production-sentinel-spawn');
+  const launches = ledger.filter((entry) => (
+    (entry.operationId === 'electron-harness-spawn' || entry.operationId === 'production-sentinel-spawn')
+    && 'runId' in entry
+  ));
   return {
     runs: launches.map((launch: any) => {
       const sourceSequences = launch.buildVariant === 'instrumented' ? launch.frameSourceSequences : runtimeSourceSequences();
@@ -192,10 +312,388 @@ function rawEvidence(ledger: ReturnType<typeof validLedger>) {
           adapterId: 'linux-procfs-v1',
           identity,
           observations: cpuSamples.map((sample) => ({ sequence: sample.ordinal, observedAt: (sample.readStart + sample.readEnd) / 2, identity, alive: true }))
-        }
+        },
+        ...(launch.comparisonKind === 'harness-overhead' ? {
+          sentinel: {
+            callbackCount: sourceSequences.length,
+            backendOperationCount: sourceSequences.length,
+            backendSuccessCount: sourceSequences.length,
+            errorCount: 0,
+            healthFailureCount: 0
+          }
+        } : {})
       };
     })
   };
+}
+
+function balancedPairAttempt(entries: ReturnType<typeof completePairAttempt>, pairIndex: number) {
+  const comparisonKind = entries[2].comparisonKind;
+  const canonicalVariants = comparisonKind === 'harness-overhead'
+    ? ['production', 'harness-control']
+    : ['harness-control', 'instrumented'];
+  const expectedFirst = pairIndex % 2 === 1 ? canonicalVariants[0] : canonicalVariants[1];
+  if (entries[2].buildVariant === expectedFirst) return entries;
+  const balanced = JSON.parse(JSON.stringify(entries));
+  const first = balanced[2];
+  const second = balanced[4];
+  balanced[2] = {
+    ...second,
+    sequence: first.sequence,
+    start: first.start,
+    end: first.end,
+    comparisonSide: 'A'
+  };
+  balanced[4] = {
+    ...first,
+    sequence: second.sequence,
+    start: second.start,
+    end: second.end,
+    comparisonSide: 'B'
+  };
+  return balanced;
+}
+
+function ciCanvasPreLoop() {
+  const closure = {
+    closed: true,
+    stdoutDrained: true,
+    stderrDrained: true,
+    inputClosed: true,
+    exit: { code: 0, durationMs: 1 },
+    zeroSurvivors: true
+  };
+  return [
+    { sequence: 1, operationId: 'generic-transport-spawn', start: 0, end: 1, transportId: 'membership-path', closure },
+    { sequence: 2, operationId: 'build-spawn', start: 1, end: 2, buildId: 'production', closure },
+    { sequence: 3, operationId: 'build-spawn', start: 2, end: 3, buildId: 'harness-control', closure },
+    { sequence: 4, operationId: 'build-spawn', start: 3, end: 4, buildId: 'instrumented', closure },
+    {
+      sequence: 5,
+      operationId: 'electron-harness-spawn',
+      start: 4,
+      end: 5,
+      transportId: 'harness-control-electron',
+      operationMarker: 'transport-operation-marker',
+      launchId: 'transport-operation-marker',
+      executionId: 'transport-execution',
+      experimentId,
+      policyHash,
+      buildVariant: 'harness-control',
+      ownership: { class: 'application-owned' },
+      cleanup: closure,
+      outcome: 'completed'
+    }
+  ];
+}
+
+function canonicalLedger() {
+  const closure = {
+    closed: true,
+    stdoutDrained: true,
+    stderrDrained: true,
+    inputClosed: true,
+    exit: { code: 0, durationMs: 1 },
+    zeroSurvivors: true
+  };
+  const carrier = (suffix: number) => {
+    const launchId = `00000000-0000-4000-8000-${String(suffix).padStart(12, '0')}`;
+    return {
+      executionIdentity: {
+        externalExecutionId: `00000000-0000-4000-8000-${String(suffix + 1).padStart(12, '0')}`,
+        executionId: `00000000-0000-4000-8000-${String(suffix + 2).padStart(12, '0')}`
+      },
+      markerIdentity: {
+        operationMarker: launchId,
+        launchId,
+        preloadEchoLaunchId: launchId,
+        rendererEchoLaunchId: launchId
+      },
+      transportIdentity: { transportId: `transport-${suffix}`, observationBoundaryId: launchId }
+    };
+  };
+  const experiment = '00000000-0000-4000-8000-000000000010';
+  const sourceSha = runtimeEvidenceProvenance.captureProvenance.sourceSha;
+  const pairPlanChecksum = 'c'.repeat(64);
+  const commonJoin = {
+    sourceSha,
+    policyHash,
+    experimentId: experiment,
+    pairPlanChecksum,
+    experimentRole: 'ci-integrity',
+    metricSessionId: 'canonical-session',
+    comparisonKind: 'harness-overhead',
+    backend: 'canvas2d',
+    pairIndex: 1,
+    attemptIndex: 1
+  };
+  return [
+    { sequence: 1, operationId: 'generic-transport-spawn', start: 0, end: 1, outcome: 'completed', transportClosureEnd: 1, ...carrier(100) },
+    { sequence: 2, operationId: 'build-spawn', start: 1, end: 2, outcome: 'completed', buildId: 'production', closure },
+    { sequence: 3, operationId: 'build-spawn', start: 2, end: 3, outcome: 'completed', buildId: 'harness-control', closure },
+    { sequence: 4, operationId: 'build-spawn', start: 3, end: 4, outcome: 'completed', buildId: 'instrumented', closure },
+    { sequence: 5, operationId: 'electron-harness-spawn', start: 4, end: 5, purpose: 'transport-probe', outcome: 'completed', applicationDescendantClosureEnd: 5, ...carrier(200) },
+    { sequence: 6, operationId: 'metric-adapter-session-open', start: 5, end: 6, outcome: 'ready', readyAt: 6, metricSessionId: 'canonical-session', comparisonKind: 'harness-overhead', backend: 'canvas2d', pairIndex: 1, attemptIndex: 1 },
+    { sequence: 7, operationId: 'internal-reset', start: 6, end: 7, outcome: 'completed', resetIdentity: 'canonical-reset-a' },
+    {
+      sequence: 8,
+      operationId: 'electron-harness-spawn',
+      start: 7,
+      end: 8,
+      purpose: 'measurement-side',
+      outcome: 'completed',
+      applicationDescendantClosureEnd: 8,
+      ledgerSequence: 8,
+      ...commonJoin,
+      comparisonSide: 'A',
+      buildVariant: 'harness-control',
+      ordinal: 1,
+      runId: 'canonical-run-a',
+      externalExecutionId: '00000000-0000-4000-8000-000000000301',
+      observationBoundaryId: 'canonical-boundary-a',
+      launchId: '00000000-0000-4000-8000-000000000302',
+      executionId: '00000000-0000-4000-8000-000000000303',
+      ownership: { class: 'application-owned' },
+      cleanup: closure
+    },
+    { sequence: 9, operationId: 'internal-reset', start: 8, end: 9, outcome: 'completed', resetIdentity: 'canonical-reset-b' },
+    {
+      sequence: 10,
+      operationId: 'production-sentinel-spawn',
+      start: 9,
+      end: 10,
+      purpose: 'measurement-side',
+      outcome: 'completed',
+      applicationDescendantClosureEnd: 10,
+      ledgerSequence: 10,
+      ...commonJoin,
+      comparisonSide: 'B',
+      buildVariant: 'production',
+      ordinal: 2,
+      runId: 'canonical-run-b',
+      externalExecutionId: '00000000-0000-4000-8000-000000000304',
+      observationBoundaryId: 'canonical-boundary-b',
+      browserPid: 123,
+      browserCreationTime: 'canonical-browser-creation',
+      ownership: { class: 'application-owned' },
+      cleanup: closure
+    },
+    { sequence: 11, operationId: 'metric-adapter-session-close', start: 10, end: 11, outcome: 'completed', closureEnd: 11, metricSessionId: 'canonical-session', closure }
+  ];
+}
+
+function canonicalMultiBackendLedger() {
+  const ledger = canonicalLedger();
+  const secondSession = JSON.parse(JSON.stringify(ledger.slice(5))).map((entry: Record<string, any>) => {
+    const shifted: Record<string, any> = {
+      ...entry,
+      sequence: entry.sequence + 6,
+      start: entry.start + 6,
+      end: entry.end + 6
+    };
+    if ('metricSessionId' in entry) shifted.metricSessionId = 'canonical-session-webgpu';
+    if ('readyAt' in shifted) shifted.readyAt += 6;
+    if ('applicationDescendantClosureEnd' in shifted) shifted.applicationDescendantClosureEnd += 6;
+    if ('closureEnd' in shifted) shifted.closureEnd += 6;
+    if ('resetIdentity' in shifted) shifted.resetIdentity = `${shifted.resetIdentity}-webgpu`;
+    if (!('runId' in shifted)) {
+      if ('backend' in shifted) shifted.backend = 'webgpu';
+      return shifted;
+    }
+    shifted.backend = 'webgpu';
+    shifted.pairPlanChecksum = 'd'.repeat(64);
+    shifted.ledgerSequence = shifted.sequence;
+    shifted.ordinal += 2;
+    if (shifted.comparisonSide === 'A') {
+      shifted.runId = 'canonical-webgpu-run-a';
+      shifted.externalExecutionId = '00000000-0000-4000-8000-000000000401';
+      shifted.observationBoundaryId = 'canonical-webgpu-boundary-a';
+      shifted.launchId = '00000000-0000-4000-8000-000000000402';
+      shifted.executionId = '00000000-0000-4000-8000-000000000403';
+    } else {
+      shifted.runId = 'canonical-webgpu-run-b';
+      shifted.externalExecutionId = '00000000-0000-4000-8000-000000000404';
+      shifted.observationBoundaryId = 'canonical-webgpu-boundary-b';
+      shifted.browserPid = 124;
+      shifted.browserCreationTime = 'canonical-webgpu-browser-creation';
+    }
+    return shifted;
+  });
+  return [...ledger, ...secondSession];
+}
+
+function validCiCanvasEvaluationInput() {
+  const ledger: any[] = ciCanvasPreLoop();
+  for (const [comparisonKind, pairCount] of [
+    ['harness-overhead', 3],
+    ['instrumentation-overhead', 6]
+  ] as const) {
+    for (let pairIndex = 1; pairIndex <= pairCount; pairIndex += 1) {
+      const attempt = completePairAttempt({
+        sessionId: `${comparisonKind}-pair-${pairIndex}`,
+        pairIndex,
+        attemptIndex: 1,
+        retryReason: null,
+        sequenceOffset: ledger.length,
+        timeOffset: ledger.at(-1).end,
+        ledgerOptions: { experimentId, backend: 'canvas2d', comparisonKind, frameCallbackCount: runtimeCallbackCount }
+      });
+      ledger.push(...balancedPairAttempt(attempt, pairIndex));
+    }
+  }
+  const bundle = (mainBytes: number) => {
+    const entries = [
+      { path: 'main/index.js', bytes: mainBytes, sha256: hash },
+      { path: 'preload/index.js', bytes: 20_000, sha256: hash },
+      { path: 'renderer/assets/main-test.js', bytes: 30_000, sha256: hash },
+      { path: 'renderer/assets/worker-entry-test.js', bytes: 10_000, sha256: hash }
+    ];
+    return { sha256: canonicalSha256(entries), entries };
+  };
+  const buildManifest = {
+    schemaVersion: 2,
+    sourceSha: ciRuntimeEvidenceProvenance.captureProvenance.sourceSha,
+    variants: [
+      { id: 'production', harness: false, instrumentation: false, bundle: bundle(40_000) },
+      { id: 'harness-control', harness: true, instrumentation: false, bundle: bundle(40_100) },
+      { id: 'instrumented', harness: true, instrumentation: true, bundle: bundle(40_200) }
+    ]
+  };
+  const productionBundleEvidence = {
+    schemaVersion: 1,
+    sourceSha: ciRuntimeEvidenceProvenance.captureProvenance.sourceSha,
+    build: {
+      id: 'production',
+      harness: false,
+      instrumentation: false,
+      bundleSha256: buildManifest.variants[0].bundle.sha256
+    },
+    codeByteTotal: 100_000,
+    codeRoots: buildManifest.variants[0].bundle.entries.map((entry, index) => ({
+      id: ['main', 'preload', 'renderer', 'worker'][index],
+      entrypoint: entry,
+      byteTotal: entry.bytes,
+      entries: [entry],
+      sha256: canonicalSha256([entry])
+    })),
+    checksum: ''
+  };
+  productionBundleEvidence.checksum = canonicalSha256({
+    schemaVersion: productionBundleEvidence.schemaVersion,
+    sourceSha: productionBundleEvidence.sourceSha,
+    build: productionBundleEvidence.build,
+    codeByteTotal: productionBundleEvidence.codeByteTotal,
+    codeRoots: productionBundleEvidence.codeRoots
+  });
+  const pairs = (comparisonKind: 'harness-overhead' | 'instrumentation-overhead', count: number) => Array.from({ length: count }, (_, offset) => {
+    const pairIndex = offset + 1;
+    const canonicalVariants = comparisonKind === 'harness-overhead'
+      ? ['production', 'harness-control']
+      : ['harness-control', 'instrumented'];
+    const buildVariants = pairIndex % 2 === 1 ? canonicalVariants : [...canonicalVariants].reverse();
+    return {
+      comparisonKind,
+      backend: 'canvas2d',
+      pairIndex,
+      attempts: Array.from({ length: 3 }, (_, attemptOffset) => ({
+        attemptIndex: attemptOffset + 1,
+        metricSessionId: `${comparisonKind}-pair-${pairIndex}-attempt-${attemptOffset + 1}`,
+        launches: buildVariants.map((buildVariant, launchOffset) => ({
+          comparisonSide: launchOffset === 0 ? 'A' : 'B',
+          executionOrdinal: launchOffset + 1,
+          buildVariant
+        }))
+      }))
+    };
+  });
+  const pairPlanBody = {
+    schemaVersion: 3,
+    experimentId,
+    backend: 'canvas2d',
+    pairs: [...pairs('harness-overhead', 3), ...pairs('instrumentation-overhead', 6)]
+  };
+  return {
+    experimentId,
+    experimentRole: 'ci-integrity' as const,
+    backend: 'canvas2d' as const,
+    ledger,
+    comparisonInputs: [comparisonInput('canvas2d')],
+    allocationEvidence: {
+      experimentId,
+      backend: 'canvas2d' as const,
+      policyHash,
+      rows: [],
+      evidenceProvenance: ciRuntimeEvidenceProvenance
+    },
+    rawEvidence: rawEvidence(ledger as ReturnType<typeof validLedger>),
+    evidenceProvenance: ciRuntimeEvidenceProvenance,
+    finalizationPurpose: 'publication' as const,
+    semanticAuthority: {
+      generatedAt: '2026-07-12T00:00:00.000Z',
+      repository: {
+        commitSha: ciRuntimeEvidenceProvenance.captureProvenance.sourceSha,
+        dirty: false,
+        branch: null
+      },
+      environment: { os: 'linux', arch: 'x64', nodeVersion: 'v24.0.0', targetId: null },
+      inputs: { paths: ['tests/unit/scripts/performance-evidence.test.ts'] },
+      reset: { version: 'phase0-cold-launch-reset-v1' },
+      seed: { hash }
+    },
+    buildManifest,
+    productionBundleEvidence,
+    pairPlans: [{ ...pairPlanBody, checksum: canonicalSha256(pairPlanBody) }]
+  };
+}
+
+function abortedPairAttempt({
+  side,
+  reason,
+  attemptIndex = 1,
+  retryReason = null,
+  sequenceOffset = 0,
+  timeOffset = 0
+}: {
+  side: 'A' | 'B';
+  reason: string;
+  attemptIndex?: number;
+  retryReason?: string | null;
+  sequenceOffset?: number;
+  timeOffset?: number;
+}) {
+  const entries = completePairAttempt({
+    sessionId: `aborted-attempt-${attemptIndex}`,
+    pairIndex: 1,
+    attemptIndex,
+    retryReason,
+    sequenceOffset,
+    timeOffset,
+    ledgerOptions: { experimentId, backend: 'canvas2d', comparisonKind: 'harness-overhead' }
+  }) as Array<Record<string, any>>;
+  const abortReason = { phase: side === 'A' ? 'side-a' : 'side-b', backend: 'canvas2d', reason };
+  const launchIndex = side === 'A' ? 2 : 4;
+  entries[launchIndex] = {
+    ...entries[launchIndex],
+    outcome: 'failed',
+    abortReason,
+    lastBoundary: side === 'A' ? 'reset-a' : 'reset-b'
+  };
+  if (side === 'A') {
+    return [
+      ...entries.slice(0, 3),
+      {
+        ...entries[5],
+        sequence: sequenceOffset + 4,
+        start: timeOffset + 3,
+        end: timeOffset + 4,
+        outcome: 'aborted',
+        abortReason,
+        lastBoundary: 'reset-a'
+      }
+    ];
+  }
+  entries[5] = { ...entries[5], outcome: 'aborted', abortReason, lastBoundary: 'reset-b' };
+  return entries;
 }
 
 function comparisonInput(backend = 'canvas2d') {
@@ -245,7 +743,7 @@ function validRuntimeEvaluationInput() {
     ledger,
     comparisonInputs: [comparisonInput('webgpu')],
     qualificationInput: qualificationInput(),
-    allocationEvidence: { experimentId, backend: 'webgpu', policyHash, ledger, rows, evidenceProvenance: runtimeEvidenceProvenance },
+    allocationEvidence: { ...allocationInput(rows), ledger },
     rawEvidence: rawEvidence(ledger),
     evidenceProvenance: runtimeEvidenceProvenance
   };
@@ -342,6 +840,223 @@ describe('performance evidence policy evaluator', () => {
     expect(deriveAllocationEvidence({ backend: 'canvas2d', rows: [], evidenceProvenance: runtimeEvidenceProvenance }, policy).state).toBe('not-applicable-no-covered-allocation-request');
   });
 
+  it('derives qualified WebGPU and every unavailable branch from the sealed qualification carrier', () => {
+    const adapterIdentity = { vendor: 'vendor', architecture: null, device: 'device', description: null };
+    const limits = { maxTextureDimension2D: 8192, maxBindGroups: 4 };
+    const backendIdentity = (isFallbackAdapter: boolean) => ({
+      backend: 'webgpu',
+      driver: 'webgpu-driver-v1',
+      workerProtocol: 'webgpu-worker-ready-v1',
+      adapterIdentity,
+      limits,
+      isFallbackAdapter,
+      powerPreference: 'low-power'
+    });
+    const webgpuStage = {
+      backend: 'webgpu', backendReadyObservedAt: 1, sourceSequence: 1, sourceObservedAt: 2,
+      terminalFrame: {
+        kind: 'worker-frame-acknowledged', frameToken: 1, submittedAt: 3,
+        acknowledgedAt: 4, outcome: 'webgpu-queue-submit-completed'
+      }
+    };
+    const canvasStage = {
+      backend: 'canvas2d', backendReadyObservedAt: 5, sourceSequence: 1, sourceObservedAt: 6,
+      terminalFrame: { kind: 'canvas-draw-completed', observedAt: 7, outcome: 'canvas-draw-completed' }
+    };
+    const cleanup = {
+      controllerFatalReasons: [], listenersRemoved: true, restorationOutcome: 'restored',
+      applicationDescendantClosureEnd: 10, brokerDisposeEnd: 11,
+      rootExitObservedAt: 12, terminalClosureEnd: 13
+    };
+    const availableCapability = (isFallbackAdapter: boolean) => ({
+      status: 'available', adapterIdentity, limits, isFallbackAdapter,
+      strictSelection: { requestedBackend: 'webgpu', powerPreference: 'low-power', forceFallbackAdapter: false }
+    });
+    const derive = (branch: string) => {
+      const workerFallback = branch === 'worker-fallback-adapter';
+      const qualified = branch === 'none';
+      const capabilityStatus = branch === 'webgpu-api-unavailable'
+        ? 'api-unavailable'
+        : branch === 'webgpu-adapter-unavailable'
+          ? 'adapter-unavailable'
+          : 'available';
+      const transferStatus = ({
+        'transfer-api-unavailable': 'api-unavailable',
+        'transfer-method-unavailable': 'method-unavailable',
+        'transfer-allowlisted-not-supported': 'allowlisted-not-supported'
+      } as Record<string, string>)[branch] ?? (capabilityStatus === 'available' ? 'available' : 'api-unavailable');
+      const capabilityResult = capabilityStatus === 'available'
+        ? availableCapability(workerFallback)
+        : { status: capabilityStatus };
+      const preWorkerUnavailable = !qualified && !workerFallback;
+      const selectionResult = {
+        qualificationState: qualified ? 'qualified-webgpu' : 'hardware-capability-unavailable',
+        unavailabilityBranch: branch,
+        requestedBackend: 'webgpu',
+        selectedBackend: qualified ? 'webgpu' : 'canvas2d',
+        observedBackend: workerFallback || qualified ? 'webgpu' : 'canvas2d',
+        selectionReason: qualified ? 'webgpu-selected' : branch
+      };
+      const captureBody = {
+        schemaVersion: 1,
+        experimentId,
+        ledgerSequence: 6,
+        observationBoundaryId: 'qualification-boundary',
+        sourceSha: runtimeEvidenceProvenance.captureProvenance.sourceSha,
+        policyHash,
+        buildVariant: 'harness-control',
+        requestedBackend: 'webgpu',
+        readinessEvidence: { stages: preWorkerUnavailable ? [canvasStage] : workerFallback ? [webgpuStage, canvasStage] : [webgpuStage] },
+        capabilityResult,
+        transferResult: { status: transferStatus },
+        selectionResult,
+        adapterIdentity: preWorkerUnavailable ? null : adapterIdentity,
+        fallbackState: preWorkerUnavailable
+          ? null
+          : workerFallback
+            ? { isFallbackAdapter: true, branch, observedBackendExecutionIdentity: backendIdentity(true), fallbackBackend: 'canvas2d' }
+            : { isFallbackAdapter: false, branch: null },
+        backendExecutionIdentity: qualified ? backendIdentity(false) : null,
+        cleanup
+      };
+      const captureBodyChecksum = canonicalSha256(captureBody);
+      const scopedBinding = {
+        sourceSha: runtimeEvidenceProvenance.captureProvenance.sourceSha,
+        policyHash,
+        experimentId,
+        experimentRole: 'reference-comparison',
+        scopeKind: 'ledger-operation',
+        scopeId: 6,
+        captureKind: 'qualification',
+        ledgerSequence: 6,
+        operationId: 'electron-harness-spawn',
+        observationBoundaryId: 'qualification-boundary'
+      };
+      const processBinding = { ...scopedBinding } as Record<string, unknown>;
+      delete processBinding.observationBoundaryId;
+      const processIdentity = 'external:42:created-42';
+      const processCommon = {
+        ...processBinding,
+        observationSource: 'external', subjectKind: 'qualification', pid: 42,
+        creationIdentity: 'created-42', processIdentity,
+        rawIdentity: { pid: 42, creationIdentity: 'created-42' },
+        processClass: 'application-renderer', ownership: 'application-owned'
+      };
+      const staticIdentity = { host: 'selected' };
+      const dynamicState = { power: 'ac' };
+      const controllerRows = [{
+        ...scopedBinding, controlSequence: 1, operationKind: 'request', clockDomain: 'electron-main',
+        controllerRequestId: 'qualification-request', channel: 'browser-window', requestKind: 'qualification',
+        rawRequest: {}, sentAt: 1
+      }, {
+        ...scopedBinding, controlSequence: 2, operationKind: 'response', clockDomain: 'electron-main',
+        controllerRequestId: 'qualification-request', channel: 'browser-window', responseKind: 'qualification',
+        rawResponse: {}, receivedAt: 2, outcome: 'recorded'
+      }, ...captureBody.readinessEvidence.stages.map((stage, index) => ({
+        ...scopedBinding,
+        controlSequence: index + 3,
+        operationKind: 'control-write',
+        clockDomain: 'renderer-performance-now-v1',
+        writeKind: 'backend-ready',
+        rawWrite: {
+          kind: 'backend-ready', launchId: 'qualification-launch', observedAt: stage.backendReadyObservedAt,
+          requestedBackend: 'webgpu', selectedBackend: stage.backend,
+          selectionReason: stage.backend === 'webgpu'
+            ? 'webgpu-selected'
+            : branch === 'worker-fallback-adapter' ? 'fatal-detector-reason' : branch,
+          backendExecutionIdentity: stage.backend === 'webgpu'
+            ? (captureBody.backendExecutionIdentity ?? captureBody.fallbackState?.observedBackendExecutionIdentity)
+            : null
+        },
+        writtenAt: stage.backendReadyObservedAt,
+        outcome: 'recorded'
+      }))];
+      const rawKinds = [{
+        rawKind: 'process-observation',
+        rows: [{
+          ...processCommon, observationOrdinal: 1, observedAt: 1, observationKind: 'membership',
+          adapterId: 'external-membership-v1', rawAdapterKind: 'external-process-membership',
+          rawMembership: { spawnBoundary: {}, rendererEvaluation: {}, ancestry: {}, processGroup: null, job: null, pathIdentity: {} },
+          alive: true
+        }, {
+          ...processCommon, observationOrdinal: 2, observedAt: 2, observationKind: 'health',
+          adapterId: 'external-health-v1', rawAdapterKind: 'external-process-health',
+          rawHealth: { alive: true, status: 'live', exitObservation: null }, alive: true, healthState: 'live'
+        }, {
+          ...processCommon, observationOrdinal: 3, observedAt: 10, observationKind: 'closure',
+          adapterId: 'external-closure-v1', rawAdapterKind: 'external-process-closure',
+          rawClosure: { terminalStatus: 'closed', exitCode: 0, signal: null, zeroSurvivors: true },
+          alive: false, closureState: 'closed'
+        }]
+      }, {
+        rawKind: 'environment-observation',
+        rows: [{
+          ...scopedBinding, source: 'external-monitor', sourceSequence: 1, clockDomain: 'runner',
+          runnerReceiptSequence: 1, observedAt: 1, observationKind: 'initial-snapshot',
+          rawAdapterKind: 'external-host-snapshot-v1', rawObservation: { staticIdentity, dynamicState },
+          staticIdentity, dynamicState
+        }, {
+          ...scopedBinding, source: 'external-monitor', sourceSequence: 2, clockDomain: 'runner',
+          runnerReceiptSequence: 2, observedAt: 13, observationKind: 'cleanup',
+          rawAdapterKind: 'external-host-cleanup-v1',
+          rawObservation: { cleanupState: 'disposed', lastSourceSequence: 1, remainingPollTimerCount: 0, remainingListenerCount: 0 },
+          cleanupState: 'disposed'
+        }]
+      }, { rawKind: 'controller-operation', rows: controllerRows }];
+      const capture = {
+        experimentId,
+        ledgerSequence: 6,
+        observationBoundaryId: 'qualification-boundary',
+        sourceSha: runtimeEvidenceProvenance.captureProvenance.sourceSha,
+        policyHash,
+        captureBody,
+        captureBodyChecksum,
+        rawKinds
+      };
+      const ledgerEntry = {
+        sequence: 6, operationId: 'electron-harness-spawn', start: 0, end: 14,
+        purpose: 'qualification-probe', outcome: 'completed', experimentId, policyHash,
+        buildVariant: 'harness-control', observationBoundaryId: 'qualification-boundary',
+        operationMarker: 'qualification-launch', launchId: 'qualification-launch',
+        executionId: 'qualification-execution', externalExecutionId: 'qualification-external',
+        executionIdentity: { externalExecutionId: 'qualification-external', executionId: 'qualification-execution' },
+        markerIdentity: {
+          operationMarker: 'qualification-launch', launchId: 'qualification-launch',
+          preloadEchoLaunchId: 'qualification-launch', rendererEchoLaunchId: 'qualification-launch'
+        },
+        transportIdentity: { transportId: 'qualification-transport', observationBoundaryId: 'qualification-boundary' },
+        capabilityEvidence: { captureBodyChecksum },
+        readinessEvidence: captureBody.readinessEvidence,
+        ownership: { class: 'application-owned' },
+        cleanup,
+        applicationDescendantClosureEnd: 14
+      };
+      const captureSet = {
+        manifest: {
+          semanticAuthority: {
+            generatedAt: '2026-07-12T00:00:00.000Z',
+            repository: { commitSha: runtimeEvidenceProvenance.captureProvenance.sourceSha, dirty: false, branch: 'main' },
+            environment: { os: 'darwin', arch: 'arm64', nodeVersion: 'v24', targetId: 'selected' },
+            inputs: { workload: { id: 'phase0-animated-160x144-v1' }, processAdapter: { id: 'linux-procfs-v1' } },
+            reset: { version: 'phase0-cold-launch-reset-v1' }, seed: { manifestHash: hash }
+          }
+        },
+        buildManifest: { variants: [{ id: 'harness-control', bundle: { sha256: hash } }] },
+        performanceLedger: [ledgerEntry]
+      };
+      return deriveQualificationCapture(capture as never, captureSet as never, compiledPolicy);
+    };
+    const qualified = derive('none');
+    expect(qualified).toMatchObject({ state: 'qualified-webgpu', selectedBackend: 'webgpu', unavailabilityBranch: 'none' });
+    for (const branch of compiledPolicy.policy.performanceFailurePolicy.qualificationUnavailableReasons) {
+      expect(derive(branch)).toMatchObject({
+        state: 'hardware-capability-unavailable',
+        selectedBackend: 'canvas2d',
+        unavailabilityBranch: branch
+      });
+    }
+  });
+
   it('keeps all accepted runs for an allocation raw kind in one canonical manifest', () => {
     const policy = loadBaselinePolicy();
     const ledgerOptions = { experimentId, backend: 'webgpu' as const, comparisonKind: 'instrumentation-overhead' as const };
@@ -369,6 +1084,7 @@ describe('performance evidence policy evaluator', () => {
       const run = runsById.get(entry.runId);
       if (!run) throw new Error(`missing accepted run ${entry.runId}`);
       row.runId = entry.runId;
+      row.scopeId = entry.runId;
       if (entry.carrier === 'frame-request') row.measurementEpochId = run.measurementEpochId;
       else row.executionId = run.executionId;
       return row;
@@ -458,9 +1174,310 @@ describe('performance evidence policy evaluator', () => {
     const score = deriveCpuScore({ p95Lower: 1, p95Upper: 2 }, { p95Lower: 1, p95Upper: 2 }, 0.05);
     expect(cpuWindow.cpuLowerPp).toBeLessThanOrEqual(cpuWindow.cpuUpperPp);
     expect(score.verdict).toBe('pass');
-    const encoded = encodePerformanceEvidence('cpu-sample', [{ runId: 'run', ordinal: 2 }, { runId: 'run', ordinal: 1 }]);
+    const encoded = encodePerformanceEvidence('cpu-sample', [cpuRawRow('run', 2), cpuRawRow('run', 1)]);
     expect(encoded.columns).toEqual(compiledPolicy.policy.performanceEvidenceChunkPolicy.rawKinds['cpu-sample'].columns);
-    expect(decodePerformanceEvidence(encoded)).toEqual([{ runId: 'run', ordinal: 1 }, { runId: 'run', ordinal: 2 }]);
+    expect(encoded.chunkDictionaries).toHaveLength(1);
+    expect(decodePerformanceEvidence(encoded)).toEqual([cpuRawRow('run', 1), cpuRawRow('run', 2)]);
+
+    const multiChunkRows = Array.from({ length: 257 }, (_, index) => cpuRawRow('multi-chunk-run', index + 1, 257));
+    const multiChunk = encodePerformanceEvidence('cpu-sample', multiChunkRows, compiledPolicy);
+    expect(multiChunk.chunks.map((chunk) => chunk.rowCount)).toEqual([256, 1]);
+    expect(multiChunk.chunkDictionaries).toHaveLength(2);
+    expect(decodePerformanceEvidence(multiChunk, compiledPolicy).sort((left, right) => left.ordinal - right.ordinal)).toEqual(multiChunkRows);
+
+    const duplicateCoverage = deriveAllocationExpectedCoverage({
+      acceptedRunIds: ['duplicate-run'],
+      frameCountByRun: { 'duplicate-run': 1 }
+    }, compiledPolicy)[0];
+    const duplicate = allocationRow(duplicateCoverage, 1);
+    expect(() => encodePerformanceEvidence('frame-request', [
+      duplicate,
+      JSON.parse(JSON.stringify(duplicate))
+    ], compiledPolicy)).toThrow(/duplicate sort keys/);
+  });
+
+  it('archives and losslessly reconstructs every registered raw kind with kind-bound closure', () => {
+    const rowsByRawKind = Object.fromEntries(compiledPolicy.rawKindOrder.map((rawKind) => [rawKind, []]));
+    rowsByRawKind['cpu-sample'] = Array.from({ length: 257 }, (_, index) => cpuRawRow('run', index + 1, 257));
+    const archive = createPerformanceRawArchive({ experimentId, rowsByRawKind }, compiledPolicy);
+    expect(Object.isFrozen(archive)).toBe(true);
+    expect(Object.isFrozen(archive.rawEvidenceBody)).toBe(true);
+    expect(Object.isFrozen(archive.rawEvidenceBody.rawKinds)).toBe(true);
+    expect(Object.isFrozen(archive.rawEvidenceBody.rawKinds.find((entry) => entry.rawKind === 'cpu-sample')?.rows[0])).toBe(true);
+    expect(Object.isFrozen(archive.rawKindManifests[0].body)).toBe(true);
+    expect(archive.rawKindManifests).toHaveLength(11);
+    expect(archive.rawKindManifests.map((record) => record.body.rawKind)).toEqual(compiledPolicy.rawKindOrder);
+    expect(archive.dictionaries.length).toBeLessThan(11);
+    const cpuManifest = archive.rawKindManifests.find((record) => record.body.rawKind === 'cpu-sample');
+    expect(cpuManifest?.body.chunkMetadata).toHaveLength(2);
+    const chunkDictionaryHashes = cpuManifest?.body.chunkMetadata.map((entry) => entry.dictionaryHash).sort();
+    expect(new Set(chunkDictionaryHashes).size).toBe(2);
+    expect(cpuManifest?.body.dictionaryReferences.map((entry) => entry.hash)).toEqual(chunkDictionaryHashes);
+    const replayed = reconstructPerformanceRawEvidence({
+      rawKindManifests: archive.rawKindManifests,
+      rawChunks: archive.rawChunks,
+      dictionaries: archive.dictionaries
+    }, compiledPolicy);
+    expect(replayed).toEqual(archive.rawEvidenceBody);
+    expect(canonicalSha256(replayed)).toBe(archive.rawEvidenceChecksum);
+    const store = createEvidenceStore();
+    for (const record of [
+      ...archive.rawKindManifests,
+      ...archive.rawChunks,
+      ...archive.dictionaries
+    ]) {
+      const { deduplicated, ...stored } = store.putObject(record.kind, record.body);
+      expect(deduplicated).toBe(false);
+      expect(stored).toEqual(record);
+    }
+    for (const kind of ['run', 'aggregate', 'comparison', 'qualification', 'experiment-child-manifest']) {
+      expect(store.putObject(kind, { schemaVersion: 1, fixture: kind }).kind).toBe(kind);
+    }
+
+    const tampered = JSON.parse(JSON.stringify(archive));
+    tampered.rawKindManifests[0].body.encodedChecksum = 'b'.repeat(64);
+    tampered.rawKindManifests[0].hash = canonicalSha256({
+      kind: tampered.rawKindManifests[0].kind,
+      body: tampered.rawKindManifests[0].body
+    });
+    expect(() => reconstructPerformanceRawEvidence({
+      rawKindManifests: tampered.rawKindManifests,
+      rawChunks: tampered.rawChunks,
+      dictionaries: tampered.dictionaries
+    }, compiledPolicy)).toThrow(/encoded checksum/);
+
+    const wrongChunkDictionary = JSON.parse(JSON.stringify(archive));
+    const wrongCpuManifest = wrongChunkDictionary.rawKindManifests.find((record: { body: { rawKind: string } }) => record.body.rawKind === 'cpu-sample');
+    wrongCpuManifest.body.chunkMetadata[0].dictionaryHash = wrongCpuManifest.body.chunkMetadata[1].dictionaryHash;
+    wrongCpuManifest.hash = canonicalSha256({ kind: wrongCpuManifest.kind, body: wrongCpuManifest.body });
+    expect(() => reconstructPerformanceRawEvidence({
+      rawKindManifests: wrongChunkDictionary.rawKindManifests,
+      rawChunks: wrongChunkDictionary.rawChunks,
+      dictionaries: wrongChunkDictionary.dictionaries
+    }, compiledPolicy)).toThrow(/encoded checksum|unreferenced dictionary/);
+  });
+
+  it('rejects forged normalized carriers and broken controller foreign keys', () => {
+    const cpu = cpuRawRow('forged-cpu-run', 1);
+    expect(() => encodePerformanceEvidence('cpu-sample', [{ ...cpu, cumulativeCpuSeconds: 99 }], compiledPolicy))
+      .toThrow(/normalized CPU fields/);
+
+    const process = {
+      sourceSha: runtimeEvidenceProvenance.captureProvenance.sourceSha,
+      policyHash,
+      experimentId,
+      experimentRole: 'reference-comparison',
+      scopeKind: 'ledger-operation',
+      scopeId: 'transport-boundary',
+      captureKind: 'transport',
+      ledgerSequence: 1,
+      operationId: 'generic-transport-spawn',
+      observationOrdinal: 1,
+      observedAt: 1,
+      observationKind: 'membership',
+      observationSource: 'external',
+      adapterId: 'external-membership-v1',
+      subjectKind: 'transport',
+      pid: 42,
+      creationIdentity: 'created-42',
+      processIdentity: 'external:42:created-42',
+      rawAdapterKind: 'external-process-membership',
+      rawIdentity: { pid: 42, creationIdentity: 'created-42' },
+      rawMembership: {
+        spawnBoundary: {}, rendererEvaluation: {}, ancestry: {},
+        processGroup: null, job: null, pathIdentity: {}
+      },
+      processClass: 'application-renderer',
+      ownership: 'application-owned',
+      alive: true
+    };
+    expect(() => encodePerformanceEvidence('process-observation', [{ ...process, processIdentity: 'forged' }], compiledPolicy))
+      .toThrow(/raw-derived identity/);
+    const { rawMembership: _rawMembership, ...healthBase } = process;
+    const health = {
+      ...healthBase,
+      observationKind: 'health',
+      adapterId: 'external-health-v1',
+      rawAdapterKind: 'external-process-health',
+      rawHealth: { alive: true, status: 'reported', exitObservation: null },
+      healthState: 'live'
+    };
+    expect(decodePerformanceEvidence(encodePerformanceEvidence('process-observation', [health], compiledPolicy), compiledPolicy)).toEqual([health]);
+    expect(() => encodePerformanceEvidence('process-observation', [{
+      ...health,
+      rawHealth: { alive: false, status: 'exited', exitObservation: { code: 1 } }
+    }], compiledPolicy)).toThrow(/normalized health differs from its raw registered carrier/);
+
+    const hostState = {
+      power: {}, display: {}, refreshRate: 60, devicePixelRatio: 1,
+      thermal: {}, gpuSwitch: {}
+    };
+    const environment = {
+      sourceSha: runtimeEvidenceProvenance.captureProvenance.sourceSha,
+      policyHash,
+      experimentId,
+      experimentRole: 'ci-integrity',
+      scopeKind: 'experiment',
+      scopeId: experimentId,
+      captureKind: 'experiment-environment',
+      source: 'external-monitor',
+      sourceSequence: 1,
+      clockDomain: 'runner',
+      runnerReceiptSequence: 1,
+      observedAt: 1,
+      observationKind: 'initial-snapshot',
+      rawAdapterKind: 'external-host-snapshot-v1',
+      rawObservation: { staticIdentity: hostState, dynamicState: hostState },
+      staticIdentity: hostState,
+      dynamicState: hostState
+    };
+    expect(() => encodePerformanceEvidence('environment-observation', [{
+      ...environment,
+      dynamicState: { ...hostState, refreshRate: 120 }
+    }], compiledPolicy)).toThrow(/normalized host snapshot/);
+    expect(() => encodePerformanceEvidence('environment-observation', [{
+      ...environment,
+      clockDomain: 'electron-main'
+    }], compiledPolicy)).toThrow(/clockDomain differs/);
+
+    const controllerBinding = {
+      sourceSha: runtimeEvidenceProvenance.captureProvenance.sourceSha,
+      policyHash,
+      experimentId,
+      experimentRole: 'reference-comparison',
+      scopeKind: 'ledger-operation',
+      scopeId: 'qualification-boundary',
+      captureKind: 'qualification',
+      ledgerSequence: 2,
+      operationId: 'electron-harness-spawn',
+      observationBoundaryId: 'qualification-boundary',
+      clockDomain: 'electron-main'
+    };
+    const request = {
+      ...controllerBinding,
+      controlSequence: 1,
+      operationKind: 'request',
+      controllerRequestId: 'qualification-request',
+      channel: 'browser-window',
+      requestKind: 'qualification',
+      rawRequest: {},
+      sentAt: 1
+    };
+    const response = {
+      ...controllerBinding,
+      controlSequence: 2,
+      operationKind: 'response',
+      controllerRequestId: 'qualification-request',
+      channel: 'browser-window',
+      responseKind: 'qualification',
+      rawResponse: {},
+      receivedAt: 2,
+      outcome: 'recorded'
+    };
+    expect(() => encodePerformanceEvidence('controller-operation', [request, {
+      ...response,
+      controllerRequestId: 'forged-request'
+    }], compiledPolicy)).toThrow(/response must follow exactly one request/);
+  });
+
+  it('derives raw authority and projection checksums only from manifest-resolved captures', () => {
+    const context = {
+      experimentId,
+      experimentRole: 'ci-integrity',
+      sourceSha: ciRuntimeEvidenceProvenance.captureProvenance.sourceSha,
+      policyHash
+    };
+    const hostState = {
+      power: { source: 'ac' },
+      display: { count: 1 },
+      refreshRate: 60,
+      devicePixelRatio: 1,
+      thermal: { state: 'nominal' },
+      gpuSwitch: { state: 'stable' }
+    };
+    const environmentRow = {
+      captureKind: 'experiment-environment',
+      clockDomain: 'runner',
+      dynamicState: hostState,
+      experimentId,
+      experimentRole: 'ci-integrity',
+      observationKind: 'initial-snapshot',
+      observedAt: 0,
+      policyHash,
+      rawAdapterKind: 'external-host-snapshot-v1',
+      rawObservation: { staticIdentity: hostState, dynamicState: hostState },
+      runnerReceiptSequence: 1,
+      scopeId: experimentId,
+      scopeKind: 'experiment',
+      source: 'external-monitor',
+      sourceSequence: 1,
+      sourceSha: context.sourceSha,
+      staticIdentity: hostState
+    };
+    const transportRow = (sequence: number) => ({
+      adapterId: 'external-membership-v1',
+      alive: true,
+      captureKind: 'transport',
+      creationIdentity: `created-${sequence}`,
+      experimentId,
+      experimentRole: 'ci-integrity',
+      ledgerSequence: sequence,
+      observationKind: 'membership',
+      observationOrdinal: 1,
+      observationSource: 'external',
+      observedAt: sequence,
+      operationId: 'generic-transport-spawn',
+      ownership: 'application-owned',
+      pid: 40 + sequence,
+      policyHash,
+      processClass: 'application-renderer',
+      processIdentity: `external:${40 + sequence}:created-${sequence}`,
+      rawAdapterKind: 'external-process-membership',
+      rawIdentity: { pid: 40 + sequence, creationIdentity: `created-${sequence}` },
+      rawMembership: {
+        spawnBoundary: {}, rendererEvaluation: {}, ancestry: {},
+        processGroup: null, job: null, pathIdentity: {}
+      },
+      scopeId: `boundary-${sequence}`,
+      scopeKind: 'ledger-operation',
+      sourceSha: context.sourceSha,
+      subjectKind: 'renderer'
+    });
+    const captureSet = {
+      manifest: { evaluationContext: context },
+      buildManifest: {},
+      productionBundleEvidence: {},
+      buildCommandLedger: {},
+      performanceLedger: [],
+      experimentEvidence: {
+        captures: {
+          environment: {
+            captureKind: 'experiment-environment', scopeKind: 'experiment', checksum: hash,
+            rawKinds: [{ rawKind: 'environment-observation', rows: [environmentRow] }]
+          },
+          transport: [1, 2].map((sequence) => ({
+            captureKind: 'transport', operationId: 'generic-transport-spawn', observationBoundaryId: `boundary-${sequence}`, checksum: `${sequence}`.repeat(64).slice(0, 64),
+            rawKinds: [{ rawKind: 'process-observation', rows: [transportRow(sequence)] }]
+          }))
+        }
+      },
+      backendFamilies: {}
+    };
+    const collected = collectPerformanceCaptureRows(captureSet as never, compiledPolicy);
+    expect(Object.isFrozen(collected)).toBe(true);
+    expect(Object.isFrozen(collected.rawArchive)).toBe(true);
+    expect(Object.isFrozen(collected.rawArchive.rawEvidenceBody)).toBe(true);
+    expect(Object.isFrozen(collected.captureProjections)).toBe(true);
+    expect(Object.isFrozen(collected.captureProjections[0])).toBe(true);
+    expect(collected.captureProjections).toHaveLength(3);
+    expect(collected.captureProjections.every((projection) => /^[a-f0-9]{64}$/.test(projection.projectionChecksum))).toBe(true);
+    expect(collected.rawArchive.rawKindManifests).toHaveLength(11);
+
+    const duplicated = JSON.parse(JSON.stringify(captureSet));
+    duplicated.experimentEvidence.captures.transport[1].observationBoundaryId = 'boundary-1';
+    duplicated.experimentEvidence.captures.transport[1].rawKinds[0].rows = [transportRow(1)];
+    expect(() => collectPerformanceCaptureRows(duplicated, compiledPolicy)).toThrow(/directly owned by more than one capture/);
+    expect(() => collectPerformanceCaptureRows({ ...captureSet, inventedEvaluationInput: {} } as never, compiledPolicy)).toThrow(/forbidden field inventedEvaluationInput/);
   });
 
   it('uses raw-kind schemas and policy-defined columns for canonical optional cells', () => {
@@ -471,23 +1488,63 @@ describe('performance evidence policy evaluator', () => {
     const rows = [allocationRow(rgba, 1), allocationRow(countOnly, 1)];
     const encoded = encodePerformanceEvidence('frame-request', rows, compiledPolicy);
     expect(encoded.columns).toEqual(compiledPolicy.policy.performanceEvidenceChunkPolicy.rawKinds['frame-request'].columns);
-    expect(encoded.dictionary.map((entry: { state: number }) => entry.state)).toEqual(expect.arrayContaining([0, 1, 2]));
-    expect(decodePerformanceEvidence(encoded)).toEqual([rows[1], rows[0]]);
+    expect(encoded.chunkDictionaries[0].map((entry: { state: number }) => entry.state)).toEqual(expect.arrayContaining([0, 1, 2]));
+    expect(decodePerformanceEvidence(encoded)).toEqual([rows[0], rows[1]]);
     expect(() => encodePerformanceEvidence('frame-request', [{ ...rows[0], unexpected: true }], compiledPolicy)).toThrow(/unrecognized column/);
     const missingRunId = { ...rows[0] };
     delete missingRunId.runId;
     expect(() => encodePerformanceEvidence('frame-request', [missingRunId], compiledPolicy)).toThrow(/missing required column runId/);
     expect(() => encodePerformanceEvidence('frame-request', [{ ...rows[0], byteValue: undefined }], compiledPolicy)).toThrow(/JSON values or null/);
+
+    const workerMessage = {
+      sourceSha: runtimeEvidenceProvenance.captureProvenance.sourceSha,
+      policyHash,
+      experimentId,
+      pairPlanChecksum: hash,
+      ledgerSequence: 8,
+      experimentRole: 'reference-comparison',
+      scopeKind: 'run',
+      scopeId: 'worker-run',
+      captureKind: 'workload',
+      runId: 'worker-run',
+      metricSessionId: 'worker-session',
+      comparisonKind: 'instrumentation-overhead',
+      backend: 'webgpu',
+      pairIndex: 1,
+      attemptIndex: 1,
+      comparisonSide: 'A',
+      buildVariant: 'harness-control',
+      launchOrdinal: 1,
+      externalExecutionId: 'worker-external',
+      observationBoundaryId: 'worker-boundary',
+      captureOrdinal: 1,
+      launchId: 'worker-launch',
+      messageKind: 'acknowledgement',
+      clockDomain: 'renderer-performance-now-v1',
+      observedAt: 1,
+      measurementWindowId: 'worker-window',
+      measurementEpochId: null,
+      sourceSequence: 1,
+      diagnosticFrameId: null,
+      frameToken: 1,
+      tagged: true,
+      outcome: 'webgpu-queue-submit-completed'
+    };
+    expect(decodePerformanceEvidence(encodePerformanceEvidence('worker-message', [workerMessage], compiledPolicy), compiledPolicy)).toEqual([workerMessage]);
+    expect(() => encodePerformanceEvidence('worker-message', [{ ...workerMessage, clockDomain: 'external-performance-now-v1' }], compiledPolicy)).toThrow(/exactly one raw row shape/);
+    expect(() => encodePerformanceEvidence('worker-message', [{ ...workerMessage, outcome: 'worker-terminal-error' }], compiledPolicy)).toThrow(/exactly one raw row shape/);
+    expect(() => encodePerformanceEvidence('worker-message', [{ ...workerMessage, frameToken: 0 }], compiledPolicy)).toThrow(/positive safe-integer token/);
+    expect(() => encodePerformanceEvidence('worker-message', [{ ...workerMessage, frameToken: '1' }], compiledPolicy)).toThrow(/positive safe-integer token/);
   });
 
   it('enforces the raw-row cap per run and raw kind', () => {
     const acceptedAcrossRuns = [
-      ...Array.from({ length: 8193 }, (_, ordinal) => ({ runId: 'run-a', ordinal })),
-      ...Array.from({ length: 8192 }, (_, ordinal) => ({ runId: 'run-b', ordinal }))
+      ...Array.from({ length: 8193 }, (_, index) => cpuRawRow('run-a', index + 1, 8193)),
+      ...Array.from({ length: 8192 }, (_, index) => cpuRawRow('run-b', index + 1, 8192))
     ];
     expect(encodePerformanceEvidence('cpu-sample', acceptedAcrossRuns, compiledPolicy).chunks).not.toHaveLength(0);
-    const overflowOneRun = Array.from({ length: 16385 }, (_, ordinal) => ({ runId: 'run-overflow', ordinal }));
-    expect(() => encodePerformanceEvidence('cpu-sample', overflowOneRun, compiledPolicy)).toThrow(/run run-overflow exceeds 16384 rows/);
+    const overflowOneRun = Array.from({ length: 16385 }, (_, index) => cpuRawRow('run-overflow', index + 1, 16385));
+    expect(() => encodePerformanceEvidence('cpu-sample', overflowOneRun, compiledPolicy)).toThrow(/scope run.*run-overflow exceeds 16384 rows/);
   });
 
   it('keeps performance ordering stable when locale comparison behavior changes', () => {
@@ -504,12 +1561,12 @@ describe('performance evidence policy evaluator', () => {
     expect(contrasted).toEqual(baseline);
   });
 
-  it('allows only contiguous, bounded whole-pair retries and reserves completed retries for CPU-boundary overlap', () => {
+  it('allows only contiguous, bounded retries after completed two-launch attempts', () => {
     const first = completePairAttempt({ sessionId: 'pair-1-attempt-1', pairIndex: 1, attemptIndex: 1, retryReason: null, sequenceOffset: 0, timeOffset: 0 });
     const retry = completePairAttempt({ sessionId: 'pair-1-attempt-2', pairIndex: 1, attemptIndex: 2, retryReason: 'cpu-boundary-overlap', sequenceOffset: 6, timeOffset: 6 });
     expect(validatePerformanceLedger([...first, ...retry] as never)).toEqual([...first, ...retry]);
     const nonCpuCompletedRetry = completePairAttempt({ sessionId: 'pair-1-attempt-2', pairIndex: 1, attemptIndex: 2, retryReason: 'sample-floor', sequenceOffset: 6, timeOffset: 6 });
-    expect(() => validatePerformanceLedger([...first, ...nonCpuCompletedRetry] as never)).toThrow(/completed cpu-boundary-overlap/);
+    expect(validatePerformanceLedger([...first, ...nonCpuCompletedRetry] as never)).toEqual([...first, ...nonCpuCompletedRetry]);
     const fourthAttempt = completePairAttempt({ sessionId: 'pair-1-attempt-4', pairIndex: 1, attemptIndex: 4, retryReason: 'cpu-boundary-overlap', sequenceOffset: 18, timeOffset: 18 });
     expect(() => validatePerformanceLedger([...first, ...retry, ...completePairAttempt({ sessionId: 'pair-1-attempt-3', pairIndex: 1, attemptIndex: 3, retryReason: 'cpu-boundary-overlap', sequenceOffset: 12, timeOffset: 12 }), ...fourthAttempt] as never)).toThrow(/retry limit|attempt indices/);
     const harnessOptions = { experimentId, backend: 'webgpu' as const, comparisonKind: 'harness-overhead' as const };
@@ -605,6 +1662,52 @@ describe('performance evidence policy evaluator', () => {
     expect(() => classifyFailure({ phase: 'measurement', backend: 'webgpu', reason: 'worker-error', extra: true } as never)).toThrow(/forbidden field/);
   });
 
+  it('executes the operation registry grammar and exact canonical run joins', () => {
+    const ledger = canonicalLedger();
+    expect(validatePerformanceLedger(ledger as never)).toEqual(ledger);
+    const multiBackendLedger = canonicalMultiBackendLedger();
+    expect(validatePerformanceLedger(multiBackendLedger as never)).toEqual(multiBackendLedger);
+
+    const mismatchedBackendPlan = JSON.parse(JSON.stringify(multiBackendLedger));
+    mismatchedBackendPlan[15].pairPlanChecksum = 'e'.repeat(64);
+    expect(() => validatePerformanceLedger(mismatchedBackendPlan)).toThrow(/pairPlanChecksum|webgpu launches must bind one pair plan/);
+
+    const reordered = JSON.parse(JSON.stringify(ledger));
+    const generic = reordered[0];
+    const electron = reordered[4];
+    reordered[0] = { ...electron, sequence: 1, start: 0, end: 1, applicationDescendantClosureEnd: 1 };
+    reordered[4] = { ...generic, sequence: 5, start: 4, end: 5, transportClosureEnd: 5 };
+    expect(() => validatePerformanceLedger(reordered)).toThrow(/registry root|pre-loop ledger prefix|predecessor grammar/);
+
+    const missingJoinKey = JSON.parse(JSON.stringify(ledger));
+    delete missingJoinKey[7].pairPlanChecksum;
+    expect(() => validatePerformanceLedger(missingJoinKey)).toThrow(/pairPlanChecksum/);
+
+    const mismatchedLedgerSequence = JSON.parse(JSON.stringify(ledger));
+    mismatchedLedgerSequence[7].ledgerSequence = 9;
+    expect(() => validatePerformanceLedger(mismatchedLedgerSequence)).toThrow(/ledgerSequence must equal sequence/);
+
+    const missingDiscriminator = JSON.parse(JSON.stringify(ledger));
+    delete missingDiscriminator[4].purpose;
+    expect(() => validatePerformanceLedger(missingDiscriminator)).toThrow(/exactly one discriminator-aware/);
+
+    const missingRegistryField = JSON.parse(JSON.stringify(ledger));
+    delete missingRegistryField[6].resetIdentity;
+    expect(() => validatePerformanceLedger(missingRegistryField)).toThrow(/registry-required field resetIdentity/);
+
+    const forbiddenRegistryField = JSON.parse(JSON.stringify(ledger));
+    forbiddenRegistryField[6].metricSessionId = 'canonical-session';
+    expect(() => validatePerformanceLedger(forbiddenRegistryField)).toThrow(/registry-forbidden field metricSessionId/);
+
+    const callerClockDomain = JSON.parse(JSON.stringify(ledger));
+    callerClockDomain[7].clockDomain = 'runner';
+    expect(() => validatePerformanceLedger(callerClockDomain)).toThrow(/registry-undeclared field clockDomain/);
+
+    const callerPairLoopStart = JSON.parse(JSON.stringify(ledger));
+    callerPairLoopStart[5].pairLoopStart = 5;
+    expect(() => validatePerformanceLedger(callerPairLoopStart)).toThrow(/registry-undeclared field pairLoopStart/);
+  });
+
   it('binds allocation rows to completed instrumented ledger runs and rejects fabricated joins', () => {
     const policy = loadBaselinePolicy();
     const ledger = validLedger({ experimentId, backend: 'webgpu', comparisonKind: 'instrumentation-overhead' });
@@ -653,11 +1756,12 @@ describe('performance evidence policy evaluator', () => {
     const mutations: Array<[string, (policy: any) => void]> = [
       ['environment unknown field', (policy) => { policy.performanceEnvironmentPolicy.extra = true; }],
       ['environment cadence null', (policy) => { policy.performanceEnvironmentPolicy.pollCadenceMs.minimum = null; }],
+      ['environment clock mapping missing', (policy) => { policy.performanceEnvironmentPolicy.clockDomainMappings.pop(); }],
       ['operation field missing', (policy) => { delete policy.performanceOperationRegistry.operations[0].variant; }],
       ['adapter incompatible source', (policy) => { policy.processAdapterRegistry.adapters[0].metricSource = 'ps'; }],
       ['failure tuple extra field', (policy) => { policy.performanceFailurePolicy.metricSessionAbortTuples[0].extra = true; }],
       ['disposition missing field', (policy) => { delete policy.performanceDispositionPolicy.advisoryDispositionIsAuthority; }],
-      ['metric score null', (policy) => { policy.performanceMetricPolicy.scoreCountByBackend.webgpu = null; }],
+      ['metric score null', (policy) => { policy.performanceMetricPolicy.scoreCountByComparisonKind['instrumentation-overhead'] = null; }],
       ['capacity encoding invalid', (policy) => { policy.capacityFixturePolicy.encoding = 'runtime-allocation-rows-v1'; }],
       ['capacity callback encoding invalid', (policy) => { policy.capacityFixturePolicy.callbackCohortEncoding = 'runtime-source-sequences-v1'; }],
       ['comparison fingerprint unknown', (policy) => { policy.comparisonFingerprintPolicy.extra = true; }],
@@ -749,12 +1853,132 @@ describe('performance evidence policy evaluator', () => {
     }
   });
 
+  it('classifies pair attempts without requiring the runner to parse evaluator errors', () => {
+    const completedLedger = completePairAttempt({
+      sessionId: 'completed-attempt-1', pairIndex: 1, attemptIndex: 1, retryReason: null,
+      sequenceOffset: 0, timeOffset: 0,
+      ledgerOptions: { experimentId, backend: 'canvas2d', comparisonKind: 'harness-overhead' }
+    });
+    const completedRawEvidence = rawEvidence(completedLedger as ReturnType<typeof validLedger>);
+    expect(assessPerformancePairAttempt({ ledger: completedLedger, rawEvidence: completedRawEvidence }, compiledPolicy)).toEqual({
+      disposition: 'accepted', reason: null, retryAllowed: false, nextAttemptIndex: null
+    });
+    for (const side of ['A', 'B'] as const) {
+      expect(assessPerformancePairAttempt({
+        ledger: abortedPairAttempt({ side, reason: side === 'A' ? 'sample-floor' : 'cadence-insufficient' }),
+        rawEvidence: null
+      }, compiledPolicy)).toEqual({
+        disposition: 'fatal',
+        reason: side === 'A' ? 'sample-floor' : 'cadence-insufficient',
+        retryAllowed: false,
+        nextAttemptIndex: null
+      });
+    }
+    const overlapRawEvidence = JSON.parse(JSON.stringify(completedRawEvidence));
+    overlapRawEvidence.runs[0].cpuSamples.forEach((sample: { cumulativeCpuSeconds: number }, index: number) => {
+      sample.cumulativeCpuSeconds = index * 0.056;
+    });
+    expect(assessPerformancePairAttempt({ ledger: completedLedger, rawEvidence: overlapRawEvidence }, compiledPolicy)).toEqual({
+      disposition: 'retryable', reason: 'cpu-boundary-overlap', retryAllowed: true, nextAttemptIndex: 2
+    });
+    const unsafeCleanup = abortedPairAttempt({ side: 'B', reason: 'host-noise' });
+    unsafeCleanup.at(-1).closure.zeroSurvivors = false;
+    expect(assessPerformancePairAttempt({ ledger: unsafeCleanup, rawEvidence: null }, compiledPolicy)).toEqual({
+      disposition: 'fatal', reason: 'unclean-shutdown', retryAllowed: false, nextAttemptIndex: null
+    });
+    const regressionRawEvidence = JSON.parse(JSON.stringify(completedRawEvidence));
+    regressionRawEvidence.runs[0].cpuSamples.forEach((sample: { cumulativeCpuSeconds: number }, index: number) => {
+      sample.cumulativeCpuSeconds = index * 0.5;
+    });
+    expect(assessPerformancePairAttempt({ ledger: completedLedger, rawEvidence: regressionRawEvidence }, compiledPolicy)).toEqual({
+      disposition: 'rejected-regression', reason: 'definite-regression:external-cpu-p95', retryAllowed: false, nextAttemptIndex: null
+    });
+    const aborted = abortedPairAttempt({ side: 'B', reason: 'host-noise' });
+    const later = completePairAttempt({
+      sessionId: 'attempt-after-abort', pairIndex: 1, attemptIndex: 2, retryReason: 'host-noise',
+      sequenceOffset: aborted.length, timeOffset: aborted.at(-1).end,
+      ledgerOptions: { experimentId, backend: 'canvas2d', comparisonKind: 'harness-overhead' }
+    });
+    expect(() => validatePerformanceLedger([...aborted, ...later] as never)).toThrow(/aborted metric sessions never authorize a retry/);
+  });
+
+  it('rejects caller-authored legacy finalizer fields instead of splicing evaluator authority', () => {
+    const input = validCiCanvasEvaluationInput();
+    expect(() => finalizeCiCanvasPerformanceExperiment(input as never, compiledPolicy)).toThrow(/forbidden field experimentId/);
+  });
+
+  it('seals full evaluator inputs and retains purpose/provenance in non-publishable capacity parents', () => {
+    const input = validCiCanvasEvaluationInput();
+    const rawInput = createPerformanceRawArchive({
+      experimentId,
+      rowsByRawKind: Object.fromEntries(compiledPolicy.rawKindOrder.map((rawKind) => [rawKind, []]))
+    }, compiledPolicy).rawEvidenceBody;
+    const sealed = createPerformanceEvaluatorInput({
+      evaluationContext: {
+        experimentId,
+        experimentRole: 'ci-integrity',
+        sourceSha: ciRuntimeEvidenceProvenance.captureProvenance.sourceSha,
+        policyHash
+      },
+      semanticAuthority: input.semanticAuthority,
+      finalizationPurpose: input.finalizationPurpose,
+      evidenceProvenance: input.evidenceProvenance,
+      buildManifest: input.buildManifest,
+      productionBundleEvidence: input.productionBundleEvidence,
+      ledger: input.ledger,
+      pairPlans: input.pairPlans,
+      qualificationBody: null,
+      rawInput
+    }, compiledPolicy);
+    expect(Object.isFrozen(sealed)).toBe(true);
+    expect(Object.isFrozen(sealed.semanticAuthority.repository)).toBe(true);
+    expect(() => createPerformanceEvaluatorInput({ ...sealed, invented: true } as never, compiledPolicy)).toThrow(/forbidden field invented/);
+    expect(() => createPerformanceEvaluatorInput({
+      ...sealed,
+      evaluationContext: { ...sealed.evaluationContext, sourceSha: 'b'.repeat(40) }
+    }, compiledPolicy)).toThrow(/repository does not match/);
+    const forgedBuild = JSON.parse(JSON.stringify(sealed));
+    forgedBuild.buildManifest.variants[0].bundle.entries[0].bytes += 1;
+    expect(() => createPerformanceEvaluatorInput(forgedBuild, compiledPolicy)).toThrow(/bundle checksum is invalid/);
+    const forgedBundleRoot = JSON.parse(JSON.stringify(sealed));
+    forgedBundleRoot.productionBundleEvidence.codeRoots[0].entries[0].path = 'preload/index.js';
+    expect(() => createPerformanceEvaluatorInput(forgedBundleRoot, compiledPolicy)).toThrow(/missing, duplicated, or assigned to the wrong root/);
+    expect(() => createPerformanceEvaluationBody({
+      experimentId,
+      experimentRole: 'ci-integrity',
+      finalizationPurpose: 'capacity-fixture',
+      ledger: [],
+      retryTopology: {},
+      backendEvaluations: [],
+      qualificationFingerprint: null,
+      failureDisposition: null,
+      rawEvidenceChecksum: hash,
+      evidenceProvenance: {
+        kind: 'capacity-fixture', fixtureId: 'fixture', scenarioId: 'scenario', seedHash: hash,
+        runtimeProjection: ciRuntimeEvidenceProvenance.captureProvenance
+      },
+      topology: {},
+      publicationEligible: true
+    } as never)).toThrow(/publication eligibility/);
+
+    const capacityInput = JSON.parse(JSON.stringify(input));
+    capacityInput.finalizationPurpose = 'capacity-fixture';
+    capacityInput.evidenceProvenance = {
+      kind: 'capacity-fixture',
+      fixtureId: 'capacity-fixture',
+      scenarioId: 'ci-canvas-maximum',
+      seedHash: hash,
+      runtimeProjection: ciRuntimeEvidenceProvenance.captureProvenance
+    };
+    expect(() => finalizeCiCanvasPerformanceExperiment(capacityInput as never, compiledPolicy)).toThrow(/forbidden field experimentId/);
+  });
+
   it('requires raw cohort evidence and recomputes CPU, timing, environment, process, and score bounds before publication', () => {
     const input = validRuntimeEvaluationInput();
     const evaluation = evaluatePerformanceExperiment(input, compiledPolicy);
-    expect(evaluation.publicationEligible).toBe(true);
+    expect(evaluation.publicationEligible).toBe(false);
     expect(evaluation.rawEvidence.scores).toHaveLength(6);
-    expect(requirePublishablePerformanceEvidence(evaluation)).toBe(evaluation);
+    expect(() => requirePublishablePerformanceEvidence(evaluation)).toThrow(/complete semantic topology/);
     expect(() => evaluatePerformanceExperiment({ ...input, rawEvidence: undefined } as never, compiledPolicy)).toThrow(/requires raw CPU/);
 
     const invalidCadence = JSON.parse(JSON.stringify(input));
@@ -837,6 +2061,51 @@ describe('performance evidence policy evaluator', () => {
 
   it('requires immediate aborted cleanup after a launched side fails and never advances it to a completed close', () => {
     const closure = { closed: true, stdoutDrained: true, stderrDrained: true, inputClosed: true, exit: { code: 1, durationMs: 1 }, zeroSurvivors: true };
+    const noResource = [...canonicalLedger().slice(0, 5), {
+      sequence: 6,
+      operationId: 'metric-adapter-session-open',
+      start: 5,
+      end: 6,
+      outcome: 'failed-no-resource',
+      zeroSpawned: true,
+      failedAt: 6,
+      metricSessionId: 'no-resource',
+      comparisonKind: 'harness-overhead',
+      backend: 'canvas2d',
+      pairIndex: 1,
+      attemptIndex: 1
+    }];
+    expect(validatePerformanceLedger(noResource)).toEqual(noResource);
+    expect(() => validatePerformanceLedger(noResource.map((entry, index) => index === 5
+      ? { ...entry, zeroSpawned: false }
+      : entry))).toThrow(/discriminator|shape/);
+    expect(() => validatePerformanceLedger([...noResource, {
+      sequence: 7, operationId: 'internal-reset', start: 6, end: 7,
+      outcome: 'completed', resetIdentity: 'illegal-successor'
+    }])).toThrow(/successor|predecessor|out of metric-session order/);
+
+    const resetB = validLedger({ experimentId, backend: 'webgpu', comparisonKind: 'instrumentation-overhead' }).slice(0, 3) as any[];
+    resetB.push({
+      sequence: 4,
+      operationId: 'metric-adapter-session-close',
+      start: 3,
+      end: 4,
+      metricSessionId: 'session',
+      outcome: 'aborted',
+      abortReason: { phase: 'reset-b', backend: 'none', reason: 'reset-failure' },
+      lastBoundary: 'side-a',
+      closure
+    });
+    expect(validatePerformanceLedger(resetB)).toEqual(resetB);
+    expect(() => validatePerformanceLedger([...resetB, {
+      sequence: 5,
+      operationId: 'metric-adapter-session-open',
+      start: 4,
+      end: 5,
+      outcome: 'ready',
+      metricSessionId: 'illegal-retry',
+    }])).toThrow(/aborted metric sessions never authorize a retry|successor|unclosed metric session/);
+
     const sideA = validLedger({ experimentId, backend: 'webgpu', comparisonKind: 'instrumentation-overhead' }).slice(0, 3) as any[];
     sideA[2] = {
       ...sideA[2], outcome: 'failed', abortReason: { phase: 'side-a', backend: 'webgpu', reason: 'worker-error' }, lastBoundary: 'reset-a', cleanup: closure
@@ -854,5 +2123,25 @@ describe('performance evidence policy evaluator', () => {
     sideB.push({ sequence: 6, operationId: 'metric-adapter-session-close', start: 5, end: 6, metricSessionId: 'session', outcome: 'aborted', abortReason: { phase: 'side-b', backend: 'webgpu', reason: 'worker-error' }, lastBoundary: 'reset-b', closure });
     expect(validatePerformanceLedger(sideB)).toEqual(sideB);
     expect(() => validatePerformanceLedger([...sideB.slice(0, 5), { sequence: 6, operationId: 'internal-reset', start: 5, end: 6, metricSessionId: 'session', resetId: 'illegal', boundary: 'reset-before-a' }])).toThrow(/out of metric-session order/);
+
+    const closeFailure = validLedger({ experimentId, backend: 'canvas2d', comparisonKind: 'harness-overhead' }) as any[];
+    closeFailure[5] = {
+      ...closeFailure[5],
+      outcome: 'aborted',
+      abortReason: { phase: 'close', backend: 'none', reason: 'metric-adapter-close-failure' },
+      lastBoundary: 'side-b'
+    };
+    expect(validatePerformanceLedger(closeFailure)).toEqual(closeFailure);
+    expect(() => validatePerformanceLedger(closeFailure.map((entry, index) => index === 5
+      ? { ...entry, lastBoundary: 'completed-close' }
+      : entry))).toThrow(/lastBoundary/);
+    expect(() => validatePerformanceLedger([...closeFailure, {
+      sequence: 7,
+      operationId: 'metric-adapter-session-open',
+      start: 6,
+      end: 7,
+      outcome: 'ready',
+      metricSessionId: 'illegal-close-retry',
+    }])).toThrow(/aborted metric sessions never authorize a retry|successor|unclosed metric session/);
   });
 });

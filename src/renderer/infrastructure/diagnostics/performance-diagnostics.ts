@@ -242,8 +242,11 @@ type AllocationRequestCommon = {
 export type WebGpuAllocationRequestProxyInput =
   | (AllocationRequestCommon & AllocationRequestValue & {
     readonly carrier: 'frame-request';
+    readonly measurementWindowId: string;
     readonly measurementEpochId: string;
     readonly sourceSequence: number;
+    readonly diagnosticFrameId: number;
+    readonly frameToken: number | null;
   })
   | (AllocationRequestCommon & AllocationRequestValue & {
     readonly carrier: 'lifecycle-request';
@@ -537,8 +540,6 @@ function allocationRequestProxyKey(row: WebGpuAllocationRequestProxyInput): stri
     return [
       row.measurementEpochId,
       row.sourceSequence,
-      row.operationId,
-      row.sourceLocationId,
       row.requestOrdinal
     ].join('\u0000');
   }
@@ -809,8 +810,11 @@ function isWebGpuAllocationRequestProxyInput(value: unknown): value is WebGpuAll
     'outcome',
     'byteKind',
     'byteValue',
+    'measurementWindowId',
     'measurementEpochId',
     'sourceSequence',
+    'diagnosticFrameId',
+    'frameToken',
     ...valueKeys
   ];
   const lifecycleKeys = [
@@ -829,7 +833,18 @@ function isWebGpuAllocationRequestProxyInput(value: unknown): value is WebGpuAll
   ];
 
   if (value.carrier === 'frame-request') {
-    if (!hasExactKeys(value, frameKeys) || !isSafeIdentifier(value.measurementEpochId) || !isSafeIntegerAtLeast(value.sourceSequence, 1)) {
+    if (!hasExactKeys(value, frameKeys) ||
+      !isSafeIdentifier(value.measurementWindowId) ||
+      !isSafeIdentifier(value.measurementEpochId) ||
+      !isSafeIntegerAtLeast(value.sourceSequence, 1) ||
+      !isSafeIntegerAtLeast(value.diagnosticFrameId, 1) ||
+      !isNullablePositiveToken(value.frameToken)) {
+      return false;
+    }
+    const bitmapRequest = value.operationId === 'video-frame-image-bitmap-request';
+    if ((bitmapRequest && value.outcome === 'success' && value.frameToken === null) ||
+      (bitmapRequest && value.outcome === 'failed' && value.frameToken !== null) ||
+      (!bitmapRequest && value.frameToken === null)) {
       return false;
     }
   } else if (value.carrier === 'lifecycle-request') {
@@ -1129,6 +1144,30 @@ export class PerformanceDiagnostics {
     const rows = isFrameRequest ? this.frameAllocationRequestProxies : this.lifecycleAllocationRequestProxies;
     if (keys.has(key)) {
       return rejected('duplicate-sample');
+    }
+    if (input.carrier === 'frame-request') {
+      const precedingFrameRequests = this.frameAllocationRequestProxies.filter((row) =>
+        row.carrier === 'frame-request' &&
+        row.measurementEpochId === input.measurementEpochId &&
+        row.sourceSequence === input.sourceSequence
+      );
+      if (input.requestOrdinal !== precedingFrameRequests.length + 1) {
+        return rejected('invalid-input');
+      }
+    } else {
+      const precedingPhaseRequests = this.lifecycleAllocationRequestProxies.filter((row) =>
+        row.carrier === 'lifecycle-request' &&
+        row.executionId === input.executionId &&
+        row.lifecyclePhase === input.lifecyclePhase
+      );
+      const precedingOperationRequests = precedingPhaseRequests.filter((row) =>
+        row.operationId === input.operationId &&
+        row.sourceLocationId === input.sourceLocationId
+      );
+      if (input.phaseSequence !== precedingPhaseRequests.length + 1 ||
+        input.requestOrdinal !== precedingOperationRequests.length + 1) {
+        return rejected('invalid-input');
+      }
     }
     if (rows.length >= this.maxSamplesPerKind) {
       return rejected('buffer-full');

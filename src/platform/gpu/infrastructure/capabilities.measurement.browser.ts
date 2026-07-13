@@ -1,6 +1,9 @@
 import type {
   BrowserCapabilityProbeError,
   BrowserCapabilityProbeResult,
+  BrowserGpuAdapterIdentity,
+  BrowserGpuQualificationLimits,
+  BrowserGpuStrictSelection,
   OffscreenCanvasTransferProbeResult,
   WebGpuCapabilityProbeResult
 } from '../domain/types';
@@ -8,20 +11,37 @@ import type {
 export type {
   BrowserCapabilityProbeError,
   BrowserCapabilityProbeResult,
+  BrowserGpuAdapterIdentity,
+  BrowserGpuQualificationLimits,
+  BrowserGpuStrictSelection,
   OffscreenCanvasTransferProbeResult,
   WebGpuCapabilityProbeResult
 } from '../domain/types';
 
 export interface BrowserGpuProbeDevice {
+  readonly limits: Readonly<{
+    readonly maxTextureDimension2D: number;
+    readonly maxBindGroups: number;
+  }>;
   destroy(): void;
 }
 
 export interface BrowserGpuProbeAdapter {
+  readonly info: Readonly<{
+    readonly vendor: string;
+    readonly architecture: string;
+    readonly device: string;
+    readonly description: string;
+    readonly isFallbackAdapter: boolean;
+  }>;
   requestDevice(): Promise<BrowserGpuProbeDevice>;
 }
 
 export interface BrowserGpuProbeApi {
-  requestAdapter(): Promise<BrowserGpuProbeAdapter | null>;
+  requestAdapter(options: Readonly<{
+    readonly powerPreference: 'low-power';
+    readonly forceFallbackAdapter: false;
+  }>): Promise<BrowserGpuProbeAdapter | null>;
 }
 
 export interface BrowserTransferProbeCanvas {
@@ -63,6 +83,36 @@ function isDefaultAllowlistedTransferNotSupported(error: unknown): boolean {
     && error.name === 'NotSupportedError';
 }
 
+const STRICT_SELECTION: BrowserGpuStrictSelection = Object.freeze({
+  requestedBackend: 'webgpu',
+  powerPreference: 'low-power',
+  forceFallbackAdapter: false
+});
+
+function sanitizeAdapterIdentity(info: BrowserGpuProbeAdapter['info']): BrowserGpuAdapterIdentity {
+  const sanitize = (value: string): string | null => {
+    const normalized = value.trim().replace(/\s+/g, ' ');
+    return normalized.length === 0 ? null : normalized;
+  };
+  return Object.freeze({
+    vendor: sanitize(info.vendor),
+    architecture: sanitize(info.architecture),
+    device: sanitize(info.device),
+    description: sanitize(info.description)
+  });
+}
+
+function qualificationLimits(device: BrowserGpuProbeDevice): BrowserGpuQualificationLimits {
+  const { maxTextureDimension2D, maxBindGroups } = device.limits;
+  if (
+    !Number.isSafeInteger(maxTextureDimension2D) || maxTextureDimension2D <= 0 ||
+    !Number.isSafeInteger(maxBindGroups) || maxBindGroups <= 0
+  ) {
+    throw new TypeError('WebGPU qualification device limits are invalid');
+  }
+  return Object.freeze({ maxTextureDimension2D, maxBindGroups });
+}
+
 async function probeWebGpu(gpu: BrowserGpuProbeApi | undefined): Promise<WebGpuCapabilityProbeResult> {
   if (!gpu) return { status: 'api-unavailable' };
 
@@ -70,13 +120,25 @@ async function probeWebGpu(gpu: BrowserGpuProbeApi | undefined): Promise<WebGpuC
   let result: WebGpuCapabilityProbeResult;
 
   try {
-    const adapter = await gpu.requestAdapter();
+    const adapter = await gpu.requestAdapter({
+      powerPreference: STRICT_SELECTION.powerPreference,
+      forceFallbackAdapter: STRICT_SELECTION.forceFallbackAdapter
+    });
     if (!adapter) {
       result = { status: 'adapter-unavailable' };
     } else {
       try {
         device = await adapter.requestDevice();
-        result = { status: 'available' };
+        if (typeof adapter.info.isFallbackAdapter !== 'boolean') {
+          throw new TypeError('WebGPU qualification adapter fallback status is invalid');
+        }
+        result = {
+          status: 'available',
+          adapterIdentity: sanitizeAdapterIdentity(adapter.info),
+          limits: qualificationLimits(device),
+          isFallbackAdapter: adapter.info.isFallbackAdapter,
+          strictSelection: STRICT_SELECTION
+        };
       } catch (error) {
         result = { status: 'device-error', error: describeProbeError(error) };
       }

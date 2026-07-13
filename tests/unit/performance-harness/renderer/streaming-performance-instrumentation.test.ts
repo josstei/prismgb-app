@@ -91,9 +91,20 @@ describe('StreamingPerformanceInstrumentation', () => {
     const context = instrumentation.beginSourceOpportunity(1);
 
     instrumentation.observe({
+      kind: 'bitmap-creation',
+      context,
+      outcome: 'success',
+      frameToken: 7,
+      startedAt: 8,
+      endedAt: 9,
+      sourceWidth: 160,
+      sourceHeight: 144
+    });
+    instrumentation.observe({
       kind: 'worker-frame-submitted',
       context,
-      frameToken: 7
+      frameToken: 7,
+      submittedAt: 12
     });
     instrumentation.observe({
       kind: 'worker-frame-timing',
@@ -128,6 +139,14 @@ describe('StreamingPerformanceInstrumentation', () => {
         }
       ]
     });
+    instrumentation.observe({
+      kind: 'worker-frame-acknowledged',
+      context,
+      frameToken: 7,
+      outcome: 'webgpu-queue-submit-completed',
+      submittedAt: 12,
+      acknowledgedAt: 15
+    });
 
     const snapshot = instrumentation.getSnapshot();
     expect(snapshot.timingSamples['webgpu-worker-render']).toEqual([{
@@ -156,6 +175,19 @@ describe('StreamingPerformanceInstrumentation', () => {
       startedAt: 11,
       endedAt: 11.5
     }]);
+    expect(snapshot.timingSamples['webgpu-enqueue-to-ack']).toEqual([{
+      measurementEpochId: 'launch-1',
+      sourceSequence: 1,
+      firstSourceSequence: 1,
+      lastSourceSequence: 1,
+      frameToken: 7,
+      metricId: 'webgpu-enqueue-to-ack',
+      unit: 'milliseconds',
+      clock: 'renderer-performance-now-v1',
+      outcome: 'enqueue-acknowledged',
+      startedAt: 12,
+      endedAt: 15
+    }]);
     expect(snapshot.source).toMatchObject({
       workerFramesSubmitted: 1,
       reconciliation: { isConserved: true }
@@ -164,11 +196,31 @@ describe('StreamingPerformanceInstrumentation', () => {
       {
         backend: 'webgpu',
         carrier: 'frame-request',
+        measurementWindowId: 'launch-1',
         measurementEpochId: 'launch-1',
         sourceSequence: 1,
+        diagnosticFrameId: 1,
+        frameToken: 7,
+        operationId: 'video-frame-image-bitmap-request',
+        sourceLocationId: 'video-session:create-image-bitmap',
+        requestOrdinal: 1,
+        outcome: 'success',
+        byteKind: 'rgba-transfer-footprint',
+        byteValue: 160 * 144 * 4,
+        sourceWidth: 160,
+        sourceHeight: 144
+      },
+      {
+        backend: 'webgpu',
+        carrier: 'frame-request',
+        measurementWindowId: 'launch-1',
+        measurementEpochId: 'launch-1',
+        sourceSequence: 1,
+        diagnosticFrameId: 1,
+        frameToken: 7,
         operationId: 'uniform-float32-array',
         sourceLocationId: 'webgpu-driver:uniform-float32-array',
-        requestOrdinal: 1,
+        requestOrdinal: 2,
         outcome: 'success',
         byteKind: 'requested-byte-length',
         byteValue: 96,
@@ -177,11 +229,14 @@ describe('StreamingPerformanceInstrumentation', () => {
       {
         backend: 'webgpu',
         carrier: 'frame-request',
+        measurementWindowId: 'launch-1',
         measurementEpochId: 'launch-1',
         sourceSequence: 1,
+        diagnosticFrameId: 1,
+        frameToken: 7,
         operationId: 'render-pass-plan-materialization',
         sourceLocationId: 'webgpu-driver:materialize-render-plan',
-        requestOrdinal: 1,
+        requestOrdinal: 3,
         outcome: 'success',
         byteKind: 'count-only-unavailable',
         byteValue: null
@@ -189,11 +244,14 @@ describe('StreamingPerformanceInstrumentation', () => {
       {
         backend: 'webgpu',
         carrier: 'frame-request',
+        measurementWindowId: 'launch-1',
         measurementEpochId: 'launch-1',
         sourceSequence: 1,
+        diagnosticFrameId: 1,
+        frameToken: 7,
         operationId: 'bind-group-create',
         sourceLocationId: 'webgpu-driver:create-bind-group',
-        requestOrdinal: 1,
+        requestOrdinal: 4,
         outcome: 'success',
         byteKind: 'count-only-unavailable',
         byteValue: null
@@ -279,7 +337,7 @@ describe('StreamingPerformanceInstrumentation', () => {
         carrier: 'lifecycle-request',
         executionId: 'launch-1',
         lifecyclePhase: 'startup',
-        phaseSequence: 1,
+        phaseSequence: 2,
         operationId: 'gpu-buffer-request',
         sourceLocationId: 'webgpu-driver:create-buffer',
         requestOrdinal: 1,
@@ -314,5 +372,44 @@ describe('StreamingPerformanceInstrumentation', () => {
     expect(instrumentation.getSnapshot().allocationRequestProxies.lifecycleRequests).toEqual(expectedLifecycleRequests);
     instrumentation.reset();
     expect(instrumentation.getSnapshot().allocationRequestProxies.lifecycleRequests).toEqual(expectedLifecycleRequests);
+  });
+
+  it('retains a failed pre-token bitmap request with a null token and no success timing span', () => {
+    const instrumentation = createStreamingPerformanceInstrumentation(
+      'launch-1',
+      { error: vi.fn() },
+      createEventBus()
+    );
+    const context = instrumentation.beginSourceOpportunity(1);
+
+    instrumentation.observe({
+      kind: 'bitmap-creation',
+      context,
+      outcome: 'failed',
+      frameToken: null,
+      startedAt: 8,
+      endedAt: 9,
+      sourceWidth: 160,
+      sourceHeight: 144
+    });
+
+    expect(instrumentation.getSnapshot().allocationRequestProxies.frameRequests).toEqual([{
+      backend: 'webgpu',
+      carrier: 'frame-request',
+      measurementWindowId: 'launch-1',
+      measurementEpochId: 'launch-1',
+      sourceSequence: 1,
+      diagnosticFrameId: 1,
+      frameToken: null,
+      operationId: 'video-frame-image-bitmap-request',
+      sourceLocationId: 'video-session:create-image-bitmap',
+      requestOrdinal: 1,
+      outcome: 'failed',
+      byteKind: 'rgba-transfer-footprint',
+      byteValue: 160 * 144 * 4,
+      sourceWidth: 160,
+      sourceHeight: 144
+    }]);
+    expect(instrumentation.getSnapshot().timingSamples['webgpu-bitmap-creation']).toEqual([]);
   });
 });

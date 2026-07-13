@@ -8,6 +8,7 @@ import type {
   RenderPipeline,
   RenderPreset,
   RenderStats,
+  WebGpuBackendExecutionIdentity,
   WebGpuFrameInstrumentationObserver,
   WebGpuFrameRequestProxy,
   WebGpuLifecycleInstrumentationObserver,
@@ -45,6 +46,7 @@ export type WorkerRendererServiceScope = {
 
 type WorkerRendererPipeline = {
   backend: WorkerRenderBackend;
+  backendExecutionIdentity?: WebGpuBackendExecutionIdentity;
   startupLifecycleRequestProxies?: readonly WebGpuLifecycleRequestProxy[];
   render: (source: TexImageSource, instrumentationObserver?: WebGpuFrameInstrumentationObserver) => FrameRenderResult;
   resize: (width: number, height: number) => readonly WebGpuLifecycleRequestProxy[] | undefined;
@@ -114,6 +116,10 @@ async function createWorkerRendererPipeline(options: {
 
   return {
     backend: renderer.backend,
+    ...(isPerformanceHarnessBuild ? {
+      backendExecutionIdentity: renderer.getBackendExecutionIdentity()
+        ?? (() => { throw new Error('Harness WebGPU renderer did not expose its execution identity'); })()
+    } : {}),
     ...(lifecycleInstrumentationObserver === undefined
       ? {}
       : { startupLifecycleRequestProxies }),
@@ -195,7 +201,14 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
       if (isPerformanceInstrumentationBuild()) {
         return {
           backend: pipeline.backend,
+          backendExecutionIdentity: pipeline.backendExecutionIdentity!,
           lifecycleRequestProxies: pipeline.startupLifecycleRequestProxies ?? []
+        };
+      }
+      if (isPerformanceHarnessBuild) {
+        return {
+          backend: pipeline.backend,
+          backendExecutionIdentity: pipeline.backendExecutionIdentity!
         };
       }
       return { backend: pipeline.backend };

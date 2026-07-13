@@ -1,20 +1,29 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import {
+  assertProductionBundleIsolation,
   armPerformanceCallbackWindow,
   assertPerformanceController,
   armExternalPerformanceSentinelWindow,
   createExternalPerformanceExecutionId,
+  createAbortedPerformanceMetricSessionClose,
+  executePerformancePairAttemptSequence,
   installExternalPerformanceSentinelGate,
   installPerformanceControlProbe,
   openPerformanceMeasurementLease,
+  performanceBackendSettingValue,
   pausePerformanceCallbacks,
   pausePerformanceCallbacksAt,
   pauseExternalPerformanceSentinelCallbacks,
   readPerformanceCallbackGate,
+  readElectronBrowserProcessIdentity,
   readElectronRendererProcessId,
   readExternalPerformanceSentinelGate,
   readPerformanceControlProbe,
   readPerformanceDiagnostics,
+  readPerformanceQualificationProbe,
   removeExternalPerformanceSentinelGate,
   removePerformanceCallbackGate,
   resetExternalPerformanceSentinelGate,
@@ -59,6 +68,153 @@ afterEach(() => {
 });
 
 describe('GPU performance baseline helper', () => {
+  it('maps the sealed backend authority to the real animation-saver setting', () => {
+    expect(performanceBackendSettingValue('canvas2d')).toBe(true);
+    expect(performanceBackendSettingValue('webgpu')).toBe(false);
+    expect(() => performanceBackendSettingValue('unknown')).toThrow(/unsupported performance backend authority/);
+  });
+
+  it.each([
+    ['reset-b', 'none', 'reset-failure', 'side-a'],
+    ['close', 'none', 'metric-adapter-close-failure', 'side-b']
+  ])('seals a %s abort with the exact last completed boundary', (phase, backend, reason, lastBoundary) => {
+    const entry = createAbortedPerformanceMetricSessionClose({
+      sequence: 6,
+      metricSessionId: 'metric-session',
+      phase,
+      backend,
+      reason,
+      abortEvidence: {
+        adapterId: 'macos-ps-v1',
+        startedAt: 10,
+        endedAt: 11,
+        closure: { adapterId: 'macos-ps-v1', transitions: [{ operation: 'abort', status: 'completed' }] }
+      },
+      resourcesClosed: true
+    });
+    expect(entry).toMatchObject({
+      outcome: 'aborted',
+      abortReason: { phase, backend, reason },
+      lastBoundary,
+      closure: { zeroSurvivors: true },
+      closureEnd: 11
+    });
+  });
+
+  it('preserves adapter-owned abort timestamps byte-for-byte after application cleanup', () => {
+    const abortEvidence = Object.freeze({
+      adapterId: 'macos-ps-v1',
+      startedAt: 10.25,
+      endedAt: 10.75,
+      closure: Object.freeze({
+        adapterId: 'macos-ps-v1',
+        transitions: Object.freeze([{ operation: 'abort', status: 'completed' }])
+      })
+    });
+    const encodedEvidence = JSON.stringify(abortEvidence);
+    const entry = createAbortedPerformanceMetricSessionClose({
+      sequence: 6,
+      metricSessionId: 'metric-session',
+      phase: 'side-b',
+      backend: 'webgpu',
+      reason: 'worker-error',
+      abortEvidence,
+      resourcesClosed: true,
+      applicationDescendantClosureEnd: 10
+    });
+
+    expect(JSON.stringify(abortEvidence)).toBe(encodedEvidence);
+    expect(entry).toMatchObject({
+      start: 10.25,
+      end: 10.75,
+      closure: { exit: { durationMs: 500 } },
+      closureEnd: 10.75
+    });
+    expect(() => createAbortedPerformanceMetricSessionClose({
+      sequence: 6,
+      metricSessionId: 'metric-session',
+      phase: 'side-b',
+      backend: 'webgpu',
+      reason: 'worker-error',
+      abortEvidence,
+      resourcesClosed: true,
+      applicationDescendantClosureEnd: 10.5
+    })).toThrow(/application cleanup must precede the adapter abort close/);
+  });
+
+  it('rejects production bundles containing the backend readiness identity path', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'prismgb-bundle-sentinel-'));
+    const productionDirectory = path.join(root, 'production');
+    await fs.mkdir(productionDirectory, { recursive: true });
+    await fs.writeFile(path.join(productionDirectory, 'renderer.js'), 'const backendExecutionIdentity = true;');
+    try {
+      await expect(assertProductionBundleIsolation({
+        buildsDirectory: root,
+        manifest: { variants: [{ id: 'production', harness: false, instrumentation: false }] }
+      })).rejects.toThrow(/contains backendExecutionIdentity/);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('advances evaluator-authorized retries and stops when accepted', async () => {
+    const pair = { attempts: [1, 2, 3].map((attemptIndex) => ({ attemptIndex })) };
+    const executeAttempt = vi.fn(async ({ attempt, retryReason }) => ({ attemptIndex: attempt.attemptIndex, retryReason }));
+    const assessCompletedAttempt = vi.fn(async ({ attempt }) => attempt.attemptIndex < 3
+      ? { disposition: 'retryable', reason: attempt.attemptIndex === 1 ? 'sample-floor' : 'cadence-insufficient', retryAllowed: true, nextAttemptIndex: attempt.attemptIndex + 1 }
+      : { disposition: 'accepted', reason: null, retryAllowed: false, nextAttemptIndex: null });
+    await expect(executePerformancePairAttemptSequence({ pair, executeAttempt, assessCompletedAttempt }))
+      .resolves.toMatchObject({
+        terminal: { disposition: 'accepted' },
+        completed: [
+          { attemptIndex: 1, retryReason: null },
+          { attemptIndex: 2, retryReason: 'sample-floor' },
+          { attemptIndex: 3, retryReason: 'cadence-insufficient' }
+        ]
+      });
+  });
+
+  it.each(['accepted', 'rejected-regression', 'fatal'])('stops after a terminal %s assessment', async (disposition) => {
+    const pair = { attempts: [1, 2, 3].map((attemptIndex) => ({ attemptIndex })) };
+    const executeAttempt = vi.fn(async ({ attempt }) => ({ attemptIndex: attempt.attemptIndex }));
+    const assessCompletedAttempt = vi.fn(async () => ({ disposition, reason: null, retryAllowed: false, nextAttemptIndex: null }));
+    await expect(executePerformancePairAttemptSequence({ pair, executeAttempt, assessCompletedAttempt }))
+      .resolves.toMatchObject({ terminal: { disposition }, completed: [{ attemptIndex: 1 }] });
+    expect(executeAttempt).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not assess or retry a partial attempt', async () => {
+    const pair = { attempts: [1, 2, 3].map((attemptIndex) => ({ attemptIndex })) };
+    const failure = new Error('side B aborted');
+    const executeAttempt = vi.fn(async () => { throw failure; });
+    const assessCompletedAttempt = vi.fn();
+    await expect(executePerformancePairAttemptSequence({ pair, executeAttempt, assessCompletedAttempt })).rejects.toBe(failure);
+    expect(assessCompletedAttempt).not.toHaveBeenCalled();
+  });
+
+  it('enforces the original-plus-two attempt cap', async () => {
+    const pair = { attempts: [1, 2, 3].map((attemptIndex) => ({ attemptIndex })) };
+    const executeAttempt = vi.fn(async ({ attempt }) => ({ attemptIndex: attempt.attemptIndex }));
+    const assessCompletedAttempt = vi.fn(async ({ attempt }) => ({ disposition: 'retryable', reason: 'host-noise', retryAllowed: true, nextAttemptIndex: attempt.attemptIndex + 1 }));
+    await expect(executePerformancePairAttemptSequence({ pair, executeAttempt, assessCompletedAttempt }))
+      .rejects.toThrow(/original-plus-two attempt cap/);
+    expect(executeAttempt).toHaveBeenCalledTimes(3);
+  });
+
+  it('passes isolated projections and immutable completed history', async () => {
+    const pair = { attempts: [1, 2, 3].map((attemptIndex) => ({ attemptIndex })) };
+    const executeAttempt = vi.fn(async ({ attempt }) => ({ attemptIndex: attempt.attemptIndex, rows: [`attempt-${attempt.attemptIndex}`] }));
+    const assessCompletedAttempt = vi.fn(async ({ attempt, projection, completed }) => {
+      expect(projection.attemptIndex).toBe(attempt.attemptIndex);
+      expect(completed).toHaveLength(attempt.attemptIndex - 1);
+      return attempt.attemptIndex === 1
+        ? { disposition: 'retryable', reason: 'cpu-boundary-overlap', retryAllowed: true, nextAttemptIndex: 2 }
+        : { disposition: 'accepted', reason: null, retryAllowed: false, nextAttemptIndex: null };
+    });
+    await expect(executePerformancePairAttemptSequence({ pair, executeAttempt, assessCompletedAttempt }))
+      .resolves.toMatchObject({ completed: [{ attemptIndex: 1 }, { attemptIndex: 2 }] });
+  });
+
   it("uses Electron evaluation's module and argument callback positions", async () => {
     const assertLaunchId = vi.fn();
     Object.defineProperty(globalThis, controllerSymbol, {
@@ -164,6 +320,24 @@ describe('GPU performance baseline helper', () => {
     await expect(readElectronRendererProcessId(electronApp)).resolves.toBe(4242);
   });
 
+  it('reads the unique Browser PID and creation identity from raw Electron app metrics', async () => {
+    const electronApp = {
+      evaluate: async (callback: (electronModule: { app: { getAppMetrics: () => unknown[] } }) => unknown) => callback({
+        app: {
+          getAppMetrics: () => [
+            { type: 'Browser', pid: 42, creationTime: 123.5 },
+            { type: 'Tab', pid: 43, creationTime: 124 }
+          ]
+        }
+      })
+    };
+
+    await expect(readElectronBrowserProcessIdentity(electronApp)).resolves.toEqual({
+      pid: 42,
+      creationTime: '123.5'
+    });
+  });
+
   it('passes the control-probe symbol into the renderer evaluation', async () => {
     const windowTarget: Record<PropertyKey, unknown> = {
       prismgbPerformanceLaunchMarker: { launchId: 'launch-id' }
@@ -185,6 +359,56 @@ describe('GPU performance baseline helper', () => {
     expect(windowTarget[Symbol.for('prismgb.performance.controlProbe')]).toBeUndefined();
   });
 
+  it('accepts only the exact actual WebGPU backend execution identity carrier', async () => {
+    const windowTarget: Record<PropertyKey, unknown> = {
+      prismgbPerformanceLaunchMarker: { launchId: 'launch-id' }
+    };
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: windowTarget
+    });
+    const page = {
+      evaluate: async <T>(callback: (argument: T) => unknown, argument: T) => callback(argument)
+    };
+    await installPerformanceControlProbe(page, 'launch-id');
+    const probe = windowTarget.prismgbPerformanceControlProbe as {
+      write(message: Record<string, unknown>): void;
+    };
+    const message = {
+      kind: 'backend-ready',
+      launchId: 'launch-id',
+      observedAt: 1,
+      requestedBackend: 'webgpu',
+      selectedBackend: 'webgpu',
+      selectionReason: 'webgpu-selected',
+      backendExecutionIdentity: {
+        backend: 'webgpu',
+        driver: 'webgpu-driver-v1',
+        workerProtocol: 'webgpu-worker-ready-v1',
+        adapterIdentity: {
+          vendor: 'vendor',
+          architecture: null,
+          device: 'device',
+          description: 'description'
+        },
+        limits: { maxTextureDimension2D: 8192, maxBindGroups: 4 },
+        isFallbackAdapter: false,
+        powerPreference: 'low-power'
+      }
+    };
+
+    expect(() => probe.write(message)).not.toThrow();
+    await expect(readPerformanceControlProbe(page)).resolves.toEqual([message]);
+    expect(() => probe.write({ ...message, invented: true })).toThrow(/invalid backend readiness evidence/);
+    expect(() => probe.write({
+      ...message,
+      backendExecutionIdentity: {
+        ...message.backendExecutionIdentity,
+        adapterIdentity: { ...message.backendExecutionIdentity.adapterIdentity, invented: true }
+      }
+    })).toThrow(/invalid backend readiness evidence/);
+  });
+
   it('passes the marker-bound launch ID into the renderer diagnostics commands', async () => {
     const diagnostics = { source: { sourceOpportunities: 1 } };
     const reader = vi.fn((_launchId: string, command = 'snapshot') => command === 'snapshot' ? diagnostics : { reset: true });
@@ -203,6 +427,27 @@ describe('GPU performance baseline helper', () => {
     await expect(resetPerformanceDiagnostics(page, 'launch-id')).resolves.toEqual({ reset: true });
     expect(reader).toHaveBeenCalledWith('launch-id');
     expect(reader).toHaveBeenLastCalledWith('launch-id', 'reset');
+  });
+
+  it('passes the marker-bound launch ID into the renderer qualification probe', async () => {
+    const qualification = {
+      webgpu: { status: 'available' },
+      transferControlToOffscreen: { status: 'available' }
+    };
+    const probe = vi.fn(async () => qualification);
+    const windowTarget: Record<PropertyKey, unknown> = {
+      [Symbol.for('prismgb.performance.qualificationProbe')]: probe
+    };
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: windowTarget
+    });
+    const page = {
+      evaluate: async <T>(callback: (argument: T) => unknown, argument: T) => callback(argument)
+    };
+
+    await expect(readPerformanceQualificationProbe(page, 'launch-id')).resolves.toEqual(qualification);
+    expect(probe).toHaveBeenCalledWith('launch-id');
   });
 
   it('routes callback-gate commands through the marker-bound fixture control', async () => {
@@ -446,7 +691,7 @@ describe('GPU performance baseline helper', () => {
           startedAt: expect.any(Number),
           endedAt: expect.any(Number)
         }],
-        acknowledgements: [{ kind: 'worker-frame-acknowledged', tagged: false }],
+        acknowledgements: [{ kind: 'worker-frame-acknowledged', tagged: false, frameToken: null }],
         errors: [],
         postPauseCanvasDrawCount: 0,
         callbackOverlapCount: 0,

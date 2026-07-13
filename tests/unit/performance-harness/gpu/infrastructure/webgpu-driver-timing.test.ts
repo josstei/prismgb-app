@@ -29,6 +29,7 @@ function createRuntime() {
     end: vi.fn()
   }));
   const device = {
+    limits: { maxTextureDimension2D: 8192, maxBindGroups: 8 },
     lost: new Promise(() => undefined),
     queue: {
       copyExternalImageToTexture: vi.fn(),
@@ -61,7 +62,13 @@ function createRuntime() {
     context,
     device,
     gpu: {
-      requestAdapter: vi.fn(async () => ({ requestDevice: vi.fn(async () => device) })),
+      requestAdapter: vi.fn(async () => ({
+        info: {
+          vendor: ' test-vendor ', architecture: 'test-architecture', device: 'test-device',
+          description: ' test-adapter ', isFallbackAdapter: false
+        },
+        requestDevice: vi.fn(async () => device)
+      })),
       getPreferredCanvasFormat: vi.fn(() => 'rgba8unorm')
     }
   };
@@ -111,6 +118,21 @@ describe('instrumented WebGpuDriver frame instrumentation', () => {
     };
 
     await renderer.initialize();
+    expect(runtime.gpu.requestAdapter).toHaveBeenCalledWith({ powerPreference: 'low-power' });
+    expect(renderer.getBackendExecutionIdentity()).toEqual({
+      backend: 'webgpu',
+      driver: 'webgpu-driver-v1',
+      workerProtocol: 'webgpu-worker-ready-v1',
+      adapterIdentity: {
+        vendor: 'test-vendor',
+        architecture: 'test-architecture',
+        device: 'test-device',
+        description: 'test-adapter'
+      },
+      limits: { maxTextureDimension2D: 8192, maxBindGroups: 8 },
+      isFallbackAdapter: false,
+      powerPreference: 'low-power'
+    });
     expect(renderer.renderFrame({} as TexImageSource, instrumentationObserver)).toEqual({
       outcome: 'webgpu-queue-submit-completed'
     });

@@ -5,7 +5,15 @@
 // Internal implementation details are not exposed.
 // =============================================================================
 
-export type { BrowserCapabilityProbeResult, RenderCapabilities } from './domain/types';
+export type {
+  BrowserCapabilityProbeResult,
+  BrowserGpuAdapterIdentity,
+  BrowserGpuQualificationLimits,
+  BrowserGpuStrictSelection,
+  OffscreenCanvasTransferProbeResult,
+  RenderCapabilities,
+  WebGpuCapabilityProbeResult
+} from './domain/types';
 
 export { PRESET_POLICY } from './domain/presets';
 

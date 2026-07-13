@@ -9,134 +9,59 @@ import {
   writePerformanceMetricSessionCapture
 } from '../../../scripts/lib/performance-metric-session-capture.js';
 
-const temporaryDirectories: string[] = [];
+const directories: string[] = [];
+afterEach(async () => Promise.all(directories.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true }))));
 
-async function temporaryDirectory(): Promise<string> {
-  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'prismgb-metric-session-capture-'));
-  temporaryDirectories.push(directory);
-  return directory;
-}
-
-afterEach(async () => {
-  await Promise.all(temporaryDirectories.splice(0).map((directory) => fs.rm(directory, {
-    recursive: true,
-    force: true
-  })));
-});
-
-function target(externalExecutionId: string, pid: number) {
+function input() {
+  const experimentId = '123e4567-e89b-42d3-a456-426614174001';
+  const sourceSha = 'a'.repeat(40);
+  const policyHash = 'b'.repeat(64);
+  const pairPlanChecksum = 'c'.repeat(64);
+  const join = {
+    metricSessionId: 'metric-session-1', comparisonKind: 'instrumentation-overhead', backend: 'canvas2d',
+    pairIndex: 1, attemptIndex: 2, metricSessionOpenSequence: 20
+  } as const;
   return {
-    pid,
-    creationIdentity: String(1000 + pid),
-    processIdentity: `renderer:${externalExecutionId}:${pid}`,
-    counterQuantumSeconds: 0.01
-  };
+    experimentId, sourceSha, policyHash, captureKind: 'metric-session', join,
+    rawKinds: [{
+      rawKind: 'process-observation',
+      rows: [{
+        sourceSha, policyHash, experimentId, pairPlanChecksum, experimentRole: 'ci-integrity', scopeKind: 'metric-session',
+        scopeId: join.metricSessionId, captureKind: 'metric-session', metricSessionId: join.metricSessionId,
+        comparisonKind: join.comparisonKind, backend: join.backend, pairIndex: join.pairIndex, attemptIndex: join.attemptIndex,
+        metricSessionOpenSequence: join.metricSessionOpenSequence, observationOrdinal: 1, observedAt: 1,
+        observationKind: 'membership', observationSource: 'sampler', adapterId: 'macos-ps-v1', subjectKind: 'sampler',
+        pid: 42, creationIdentity: 'created', processIdentity: 'sampler:42', rawAdapterKind: 'macos-ps-v1',
+        rawIdentity: { pid: 42, creationIdentity: 'created', cpuTime: '00:00', residentSetKiB: 1024 },
+        rawMembership: { adapterId: 'macos-ps-v1', result: null, transitions: [{ sequence: 1, operation: 'attach', at: 1, target: { pid: 42, creationIdentity: 'created', processIdentity: 'sampler:42', counterQuantumSeconds: 0.01 } }] },
+        processClass: 'application-renderer', ownership: 'application-owned', alive: true
+      }]
+    }]
+  } as const;
 }
 
-function baseCapture() {
-  const externalExecutionA = '123e4567-e89b-42d3-a456-426614174010';
-  const externalExecutionB = '123e4567-e89b-42d3-a456-426614174011';
-  const sideA = {
-    comparisonSide: 'A',
-    buildVariant: 'production',
-    externalExecutionId: externalExecutionA,
-    metricCaptureChecksum: 'd'.repeat(64),
-    target: target(externalExecutionA, 42)
-  };
-  const sideB = {
-    comparisonSide: 'B',
-    buildVariant: 'harness-control',
-    externalExecutionId: externalExecutionB,
-    metricCaptureChecksum: 'e'.repeat(64),
-    target: target(externalExecutionB, 43)
-  };
-  let sequence = 0;
-  let at = 0;
-  const transition = (operation: string, metricTarget?: Record<string, unknown>) => ({
-    sequence: ++sequence,
-    operation,
-    at: ++at,
-    ...(metricTarget ? { target: metricTarget } : {})
-  });
-  return {
-    sourceSha: 'a'.repeat(40),
-    pair: {
-      experimentId: '123e4567-e89b-42d3-a456-426614174001',
-      pairPlanChecksum: 'b'.repeat(64),
-      metricSessionId: 'harness-pair-1-attempt-1',
-      comparisonKind: 'harness-overhead',
-      backend: 'canvas2d',
-      pairIndex: 1,
-      attemptIndex: 1
-    },
-    adapterId: 'linux-procfs-v1',
-    sides: [sideA, sideB],
-    closure: {
-      adapterId: 'linux-procfs-v1',
-      transitions: [
-        transition('open'),
-        transition('attach', sideA.target),
-        transition('prime', sideA.target),
-        transition('sample', sideA.target),
-        transition('detach', sideA.target),
-        transition('attach', sideB.target),
-        transition('prime', sideB.target),
-        transition('sample', sideB.target),
-        transition('detach', sideB.target),
-        transition('close')
-      ]
-    }
-  };
-}
-
-describe('performance metric session capture', () => {
-  it('binds both external metric sides to one opened adapter session', () => {
-    const capture = createPerformanceMetricSessionCapture(baseCapture());
-
-    expect(capture).toMatchObject({
-      schemaVersion: 1,
-      adapterId: 'linux-procfs-v1',
-      pair: { pairPlanChecksum: 'b'.repeat(64), metricSessionId: 'harness-pair-1-attempt-1' },
-      sides: [
-        { comparisonSide: 'A', buildVariant: 'production' },
-        { comparisonSide: 'B', buildVariant: 'harness-control' }
-      ],
-      checksum: expect.stringMatching(/^[a-f0-9]{64}$/)
-    });
-    expect(capture.closure.transitions[0]).toMatchObject({ sequence: 1, operation: 'open' });
-    expect(capture.closure.transitions.at(-1)).toMatchObject({ sequence: 10, operation: 'close' });
-    expect(Object.isFrozen(capture)).toBe(true);
-    expect(validatePerformanceMetricSessionCapture(JSON.parse(JSON.stringify(capture)))).toEqual(capture);
+describe('performance metric session capture v2', () => {
+  it('retains one metric-session-scoped process stream', () => {
+    const capture = createPerformanceMetricSessionCapture(input());
+    expect(capture).toMatchObject({ schemaVersion: 2, captureKind: 'metric-session', join: { attemptIndex: 2, metricSessionOpenSequence: 20 } });
+    expect(validatePerformanceMetricSessionCapture(structuredClone(capture))).toEqual(capture);
   });
 
-  it('rejects a mismatched target, malformed side order, and stale checksum', () => {
-    const mismatchedTarget = baseCapture();
-    mismatchedTarget.closure.transitions[2].target = {
-      ...mismatchedTarget.closure.transitions[2].target,
-      processIdentity: 'renderer:wrong:42'
-    };
-    expect(() => createPerformanceMetricSessionCapture(mismatchedTarget)).toThrow(/does not prime the A metric target/);
-
-    const malformedSideOrder = baseCapture();
-    malformedSideOrder.sides[1].comparisonSide = 'A';
-    expect(() => createPerformanceMetricSessionCapture(malformedSideOrder)).toThrow(/planned B-then-end side order/);
-
-    const capture = createPerformanceMetricSessionCapture(baseCapture());
-    const staleChecksum = { ...capture, checksum: 'f'.repeat(64) };
-    expect(() => validatePerformanceMetricSessionCapture(staleChecksum)).toThrow(/checksum does not match/);
+  it('rejects run-bound fields, attempt overflow, and stale checksum', () => {
+    const runBound = structuredClone(input()) as Record<string, any>;
+    (runBound.rawKinds[0].rows[0] as Record<string, unknown>).runId = 'forbidden';
+    expect(() => createPerformanceMetricSessionCapture(runBound)).toThrow(/forbids runId/);
+    const overflow = structuredClone(input()) as Record<string, any>;
+    overflow.join.attemptIndex = 4;
+    expect(() => createPerformanceMetricSessionCapture(overflow)).toThrow(/preallocated cardinality/);
+    const capture = createPerformanceMetricSessionCapture(input());
+    expect(() => validatePerformanceMetricSessionCapture({ ...capture, checksum: 'd'.repeat(64) })).toThrow(/checksum does not match/);
   });
 
-  it('writes and reloads a checksum-bound session without overwrite', async () => {
-    const outputDirectory = await temporaryDirectory();
-    const written = await writePerformanceMetricSessionCapture({ outputDirectory, ...baseCapture() });
-
-    expect(written.relativePath).toMatch(/^raw-metric-session-captures\/[a-f0-9]{64}\.json$/);
-    await expect(writePerformanceMetricSessionCapture({ outputDirectory, ...baseCapture() })).rejects.toMatchObject({ code: 'EEXIST' });
-    await expect(readPerformanceMetricSessionCaptures({ outputDirectory })).resolves.toEqual([
-      expect.objectContaining({
-        relativePath: written.relativePath,
-        capture: written.capture
-      })
-    ]);
+  it('writes and reloads the exact session wrapper', async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'metric-session-v2-'));
+    directories.push(directory);
+    const written = await writePerformanceMetricSessionCapture({ outputDirectory: directory, ...input() });
+    await expect(readPerformanceMetricSessionCaptures({ outputDirectory: directory })).resolves.toEqual([{ relativePath: written.relativePath, capture: written.capture }]);
   });
 });
