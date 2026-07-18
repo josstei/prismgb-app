@@ -86,7 +86,7 @@
     "@vitest/ui": "^4.0.14",
     "@webgpu/types": "^0.1.71",
     "builder-util": "^26.8.1",
-    "dependency-cruiser": "^17.4.3",
+    "dependency-cruiser": "^18.0.0",
     "electron": "^41.6.1",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.1",
