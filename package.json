@@ -58,7 +58,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@preact/signals-core": "^1.14.3",
+    "@preact/signals-core": "^1.14.4",
     "@trpc/client": "^10.45.4",
     "@trpc/server": "^10.45.4",
     "electron-log": "^5.4.4",
@@ -67,7 +67,7 @@
     "eventemitter3": "^5.0.4",
     "ffmpeg-static": "^5.2.0",
     "ffprobe-static": "^3.1.0",
-    "inversify": "^8.1.1",
+    "inversify": "^8.2.1",
     "usb": "^2.16.0",
     "zod": "^3.25.76"
   },
