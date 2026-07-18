@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * NotesResizeHandlerComponent Unit Tests
  */
@@ -8,10 +7,21 @@ import { NotesResizeHandlerComponent } from '@renderer/presentation/features/not
 import { createLogger } from '../../../../../factories/index.js';
 import { installAnimationFrameMock } from '../../../../../support/mocks/browser-api.installers.js';
 
+type ToggleCallback = (isVisible: boolean) => void;
+type ClientXTouch = Pick<Touch, 'clientX'>;
+
+const createClientXTouch = (clientX: number): ClientXTouch => ({ clientX });
+
+const createTouchEvent = (type: string, touch?: ClientXTouch): TouchEvent =>
+  new TouchEvent(type, {
+    touches: touch ? ([touch] as unknown as Touch[]) : [],
+    cancelable: true
+  });
+
 describe('NotesResizeHandlerComponent', () => {
-  let component;
-  let mockLogger;
-  let animationFrameMock;
+  let component: NotesResizeHandlerComponent;
+  let mockLogger: ReturnType<typeof createLogger>;
+  let animationFrameMock: ReturnType<typeof installAnimationFrameMock> | undefined;
 
   beforeEach(() => {
     mockLogger = createLogger({ name: 'NotesResizeHandlerComponent' });
@@ -130,14 +140,14 @@ describe('NotesResizeHandlerComponent', () => {
   });
 
   describe('click-to-toggle (no drag)', () => {
-    let listToggle;
-    let panelContent;
-    let onToggle;
+    let listToggle: HTMLButtonElement;
+    let panelContent: HTMLDivElement;
+    let onToggle: ToggleCallback;
 
     beforeEach(() => {
       listToggle = document.createElement('button');
       panelContent = document.createElement('div');
-      onToggle = vi.fn();
+      onToggle = vi.fn<ToggleCallback>();
 
       component.initialize({
         listToggle,
@@ -200,8 +210,8 @@ describe('NotesResizeHandlerComponent', () => {
   });
 
   describe('drag-to-resize', () => {
-    let listToggle;
-    let panelContent;
+    let listToggle: HTMLButtonElement;
+    let panelContent: HTMLDivElement;
 
     beforeEach(() => {
       listToggle = document.createElement('button');
@@ -284,7 +294,7 @@ describe('NotesResizeHandlerComponent', () => {
   });
 
   describe('touch events', () => {
-    let listToggle;
+    let listToggle: HTMLButtonElement;
 
     beforeEach(() => {
       listToggle = document.createElement('button');
@@ -298,11 +308,8 @@ describe('NotesResizeHandlerComponent', () => {
     });
 
     it('should handle touchstart as drag start', () => {
-      const touch = { clientX: 100 };
-      const event = new TouchEvent('touchstart', {
-        touches: [touch],
-        cancelable: true
-      });
+      const touch = createClientXTouch(100);
+      const event = createTouchEvent('touchstart', touch);
 
       listToggle.dispatchEvent(event);
 
@@ -310,25 +317,19 @@ describe('NotesResizeHandlerComponent', () => {
     });
 
     it('should clean up touch listeners on touchend', () => {
-      const touch = { clientX: 100 };
-      listToggle.dispatchEvent(new TouchEvent('touchstart', {
-        touches: [touch],
-        cancelable: true
-      }));
+      const touch = createClientXTouch(100);
+      listToggle.dispatchEvent(createTouchEvent('touchstart', touch));
 
-      document.dispatchEvent(new TouchEvent('touchend'));
+      document.dispatchEvent(createTouchEvent('touchend'));
 
       expect(component._isDragging).toBe(false);
     });
 
     it('should clean up on touchcancel', () => {
-      const touch = { clientX: 100 };
-      listToggle.dispatchEvent(new TouchEvent('touchstart', {
-        touches: [touch],
-        cancelable: true
-      }));
+      const touch = createClientXTouch(100);
+      listToggle.dispatchEvent(createTouchEvent('touchstart', touch));
 
-      document.dispatchEvent(new TouchEvent('touchcancel'));
+      document.dispatchEvent(createTouchEvent('touchcancel'));
 
       expect(component._isDragging).toBe(false);
     });
@@ -355,7 +356,6 @@ describe('NotesResizeHandlerComponent', () => {
     });
 
     it('should handle dispose without active RAF', () => {
-      component._rafId = null;
       expect(() => component.dispose()).not.toThrow();
     });
 

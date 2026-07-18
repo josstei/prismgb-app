@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * Main-process DI container binding tests.
  *
@@ -13,12 +12,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 vi.mock('electron', () => {
   class MockBrowserWindow {}
   class MockTray {
-    constructor() {
-      this.setToolTip = vi.fn();
-      this.setContextMenu = vi.fn();
-      this.on = vi.fn();
-      this.destroy = vi.fn();
-    }
+    setToolTip = vi.fn();
+    setContextMenu = vi.fn();
+    on = vi.fn();
+    destroy = vi.fn();
   }
   return {
     app: {

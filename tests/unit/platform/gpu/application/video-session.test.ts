@@ -99,6 +99,40 @@ describe('GpuVideoRendererSession', () => {
     session.terminate();
   });
 
+  it('invokes onCanvasExpired only when terminate requests it', async () => {
+    const canvas = createMockCanvas() as unknown as HTMLCanvasElement;
+    const worker = createWorkerMock();
+    const onCanvasExpired = vi.fn();
+
+    const sessionPromise = createGpuVideoRendererSession({
+      canvas,
+      nativeResolution: { width: 160, height: 144 },
+      preferredBackend: 'webgpu',
+      createWorker: () => worker,
+      onCanvasExpired,
+      capabilities: createRenderCapabilitiesFixture({
+        webgpu: true,
+        offscreenCanvas: true,
+        transferControlToOffscreen: true,
+        preferredBackend: 'webgpu'
+      })
+    });
+
+    setTimeout(() => {
+      worker.onmessage?.({
+        data: createWorkerResponse(WorkerResponseType.READY, { backend: 'webgpu' })
+      } as MessageEvent);
+    }, 10);
+
+    const session = await sessionPromise;
+
+    session.terminate();
+    expect(onCanvasExpired).not.toHaveBeenCalled();
+
+    session.terminate({ emitCanvasExpired: true });
+    expect(onCanvasExpired).toHaveBeenCalledTimes(1);
+  });
+
   it('reports scaled target dimensions (not a hardcoded native width)', async () => {
     const canvas = createMockCanvas() as unknown as HTMLCanvasElement;
     const worker = createWorkerMock();

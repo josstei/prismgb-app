@@ -170,9 +170,18 @@ export class StreamPage {
     await this.#clickControl(this.shaderButton);
   }
 
+  /**
+   * Triggers a screenshot and waits for the "Screenshot saved" status.
+   *
+   * The e2e app runs `--disable-gpu`, so frame capture + full-resolution PNG
+   * `toBlob` encoding is CPU-bound (~1s baseline, heavy tail under load). The
+   * capture always completes and a genuine failure surfaces as an "Error taking
+   * screenshot" status, so the wait is given generous headroom rather than a
+   * tight cap that flakes when the encode is starved on a contended runner.
+   */
   async captureScreenshot() {
     await this.#clickControl(this.screenshotButton);
-    await expect(this.statusMessage).toContainText('Screenshot saved', { timeout: 5000 });
+    await expect(this.statusMessage).toContainText('Screenshot saved', { timeout: 15000 });
   }
 
   async startRecording() {

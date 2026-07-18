@@ -1,0 +1,322 @@
+/**
+ * PerformanceMetricsService Unit Tests
+ */
+
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { PerformanceMetricsService } from '@renderer/infrastructure/services/performance/performance-metrics.service';
+import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+
+describe('PerformanceMetricsService', () => {
+  let service;
+  let mockLogger;
+  let mockMetricsAdapter;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+
+    const h = createInjectableHarness(PerformanceMetricsService);
+    service = h.subject;
+    mockLogger = h.logger;
+    ({ metricsAdapter: mockMetricsAdapter } = h.deps);
+  });
+
+  afterEach(() => {
+    service.stopPeriodicSnapshots();
+    service.clearPendingRequests();
+    vi.useRealTimers();
+  });
+
+  describe('constructor', () => {
+    it('should initialize with default values', () => {
+      expect(service._pendingSnapshotCancels).toBeInstanceOf(Set);
+      expect(service._periodicIntervalCancel).toBeNull();
+      expect(service._periodicStartCancel).toBeNull();
+    });
+  });
+
+  describe('requestSnapshot', () => {
+    it('should log snapshot immediately when no delay specified', () => {
+      service.requestSnapshot({ label: 'test-snapshot' });
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('test-snapshot')
+      );
+    });
+
+    it('should use default label when none provided', () => {
+      service.requestSnapshot({});
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('snapshot')
+      );
+    });
+
+    it('should handle undefined payload', () => {
+      service.requestSnapshot();
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('snapshot')
+      );
+    });
+
+    it('should handle null payload', () => {
+      service.requestSnapshot(null);
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('snapshot')
+      );
+    });
+
+    it('should delay snapshot when delayMs is specified', () => {
+      service.requestSnapshot({ label: 'delayed', delayMs: 1000 });
+
+      expect(mockLogger.debug).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(1000);
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('delayed')
+      );
+    });
+
+    it('should track pending timeouts', () => {
+      service.requestSnapshot({ label: 'pending', delayMs: 5000 });
+
+      expect(service._pendingSnapshotCancels.size).toBe(1);
+
+      vi.advanceTimersByTime(5000);
+
+      expect(service._pendingSnapshotCancels.size).toBe(0);
+    });
+
+    it('should handle multiple delayed requests', () => {
+      service.requestSnapshot({ label: 'first', delayMs: 1000 });
+      service.requestSnapshot({ label: 'second', delayMs: 2000 });
+
+      expect(service._pendingSnapshotCancels.size).toBe(2);
+
+      vi.advanceTimersByTime(2000);
+
+      expect(service._pendingSnapshotCancels.size).toBe(0);
+      expect(mockLogger.debug).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('startPeriodicSnapshots', () => {
+    it('should start periodic snapshots after initial delay', () => {
+      service.startPeriodicSnapshots();
+
+      expect(mockLogger.debug).not.toHaveBeenCalled();
+
+      vi.advanceTimersByTime(2000);
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('periodic')
+      );
+    });
+
+    it('should continue logging at interval after initial delay', () => {
+      service.startPeriodicSnapshots();
+
+      vi.advanceTimersByTime(2000);
+      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
+
+      vi.advanceTimersByTime(10000);
+      expect(mockLogger.debug).toHaveBeenCalledTimes(2);
+
+      vi.advanceTimersByTime(10000);
+      expect(mockLogger.debug).toHaveBeenCalledTimes(3);
+    });
+
+    it('should not start if already running (timeout phase)', () => {
+      service.startPeriodicSnapshots();
+      service.startPeriodicSnapshots();
+
+      vi.advanceTimersByTime(2000);
+
+      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not start if already running (interval phase)', () => {
+      service.startPeriodicSnapshots();
+      vi.advanceTimersByTime(2000);
+
+      service.startPeriodicSnapshots();
+
+      vi.advanceTimersByTime(10000);
+
+      expect(mockLogger.debug).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('stopPeriodicSnapshots', () => {
+    it('should stop timeout before interval starts', () => {
+      service.startPeriodicSnapshots();
+      service.stopPeriodicSnapshots();
+
+      vi.advanceTimersByTime(2000);
+
+      expect(mockLogger.debug).not.toHaveBeenCalled();
+    });
+
+    it('should stop interval after it starts', () => {
+      service.startPeriodicSnapshots();
+      vi.advanceTimersByTime(2000);
+
+      service.stopPeriodicSnapshots();
+
+      vi.advanceTimersByTime(10000);
+
+      expect(mockLogger.debug).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle being called when not running', () => {
+      expect(() => service.stopPeriodicSnapshots()).not.toThrow();
+    });
+
+    it('should reset internal state', () => {
+      service.startPeriodicSnapshots();
+      vi.advanceTimersByTime(2000);
+
+      service.stopPeriodicSnapshots();
+
+      expect(service._periodicStartCancel).toBeNull();
+      expect(service._periodicIntervalCancel).toBeNull();
+    });
+  });
+
+  describe('clearPendingRequests', () => {
+    it('should clear all pending delayed requests', () => {
+      service.requestSnapshot({ label: 'one', delayMs: 5000 });
+      service.requestSnapshot({ label: 'two', delayMs: 10000 });
+
+      expect(service._pendingSnapshotCancels.size).toBe(2);
+
+      service.clearPendingRequests();
+
+      expect(service._pendingSnapshotCancels.size).toBe(0);
+
+      vi.advanceTimersByTime(10000);
+      expect(mockLogger.debug).not.toHaveBeenCalled();
+    });
+
+    it('should handle empty pending set', () => {
+      expect(() => service.clearPendingRequests()).not.toThrow();
+    });
+  });
+
+  describe('_logSnapshot with metricsAdapter', () => {
+    it('should log unavailable when metricsAdapter is not available', () => {
+      mockMetricsAdapter.isAvailable.mockReturnValue(false);
+
+      service._logSnapshot('test');
+
+      expect(mockMetricsAdapter.isAvailable).toHaveBeenCalled();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('unavailable')
+      );
+    });
+
+    it('should log metrics when adapter returns success', async () => {
+      mockMetricsAdapter.isAvailable.mockReturnValue(true);
+      mockMetricsAdapter.getProcessMetrics.mockResolvedValue({
+        status: 'ok',
+        value: {
+          totalMB: '150.5',
+          processes: [
+            { type: 'Renderer', memoryMB: '80.0' },
+            { type: 'GPU', memoryMB: '50.0' }
+          ]
+        }
+      });
+
+      service._logSnapshot('test-label');
+
+      await vi.runAllTimersAsync();
+
+      expect(mockMetricsAdapter.getProcessMetrics).toHaveBeenCalled();
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('test-label')
+      );
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('150.5 MB')
+      );
+    });
+
+    it('should handle missing renderer process', async () => {
+      mockMetricsAdapter.isAvailable.mockReturnValue(true);
+      mockMetricsAdapter.getProcessMetrics.mockResolvedValue({
+        status: 'ok',
+        value: { totalMB: '50.0', processes: [{ type: 'GPU', memoryMB: '50.0' }] }
+      });
+
+      service._logSnapshot('test');
+
+      await vi.runAllTimersAsync();
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('renderer n/a')
+      );
+    });
+
+    it('should handle missing GPU process', async () => {
+      mockMetricsAdapter.isAvailable.mockReturnValue(true);
+      mockMetricsAdapter.getProcessMetrics.mockResolvedValue({
+        status: 'ok',
+        value: { totalMB: '80.0', processes: [{ type: 'Renderer', memoryMB: '80.0' }] }
+      });
+
+      service._logSnapshot('test');
+
+      await vi.runAllTimersAsync();
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('gpu n/a')
+      );
+    });
+
+    it('should log error when adapter returns failure', async () => {
+      mockMetricsAdapter.isAvailable.mockReturnValue(true);
+      mockMetricsAdapter.getProcessMetrics.mockResolvedValue({
+        status: 'error',
+        error: 'Failed'
+      });
+
+      service._logSnapshot('test');
+
+      await vi.runAllTimersAsync();
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('error')
+      );
+    });
+
+    it('should handle adapter promise rejection', async () => {
+      mockMetricsAdapter.isAvailable.mockReturnValue(true);
+      const testError = new Error('IPC error');
+      mockMetricsAdapter.getProcessMetrics.mockRejectedValue(testError);
+
+      service._logSnapshot('test');
+
+      await vi.runAllTimersAsync();
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('error'),
+        testError
+      );
+    });
+
+    it('should handle null snapshot response', async () => {
+      mockMetricsAdapter.isAvailable.mockReturnValue(true);
+      mockMetricsAdapter.getProcessMetrics.mockResolvedValue(null);
+
+      service._logSnapshot('test');
+
+      await vi.runAllTimersAsync();
+
+      expect(mockLogger.debug).toHaveBeenCalledWith(
+        expect.stringContaining('error')
+      );
+    });
+  });
+});

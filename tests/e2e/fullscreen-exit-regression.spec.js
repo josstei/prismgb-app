@@ -49,8 +49,12 @@ test.describe('Fullscreen exit regression', () => {
       .poll(() => nativeIsFullscreen(electronApp), { timeout: 15000, message: 'window should enter fullscreen' })
       .toBe(true);
 
-    // In fullscreen the header (and #fullscreenBtn) is display:none; #fsExitBtn is the exit affordance.
-    // Nudge the mouse to reveal the auto-hidden controls, then click exit.
+    // The main side reports fullscreen (above) before the renderer does: the fullscreen-mode UI is
+    // applied on the onEnterFullscreen IPC push, which fires only after the macOS space transition
+    // completes. Gate on the renderer state (body.fullscreen-active) so the exit-control assertions
+    // do not race that sync under load. In fullscreen the header (#fullscreenBtn) is display:none;
+    // #fsExitBtn is the exit affordance.
+    await expect(page.locator('body')).toHaveClass(/fullscreen-active/, { timeout: 15000 });
     await page.mouse.move(400, 20);
     await page.mouse.move(420, 30);
     await expect(appShell.fullscreenExitButton).toBeVisible();
