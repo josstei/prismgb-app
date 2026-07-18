@@ -4,8 +4,9 @@
  */
 
 import { app, BrowserWindow, dialog, Menu, type MenuItemConstructorOptions } from 'electron';
-import { AppOrchestrator } from './application/index.js';
-import { getGpuPolicy, applyChromiumFlags } from './infrastructure/platform/index.js';
+import { MainBootstrap } from './app-bootstrap.js';
+import { getGpuPolicy, applyChromiumFlags, GPU_ENV_VARS } from './infrastructure/gpu/gpu-policy.js';
+import { TOKENS } from './application/di/tokens.js';
 
 const APP_NAME = 'PrismGB';
 
@@ -89,7 +90,7 @@ if (process.argv.includes('--smoke-test')) {
   // Hardware acceleration is enabled by default for better performance.
   // Users with GPU driver issues can disable it via environment variable:
   //   PRISMGB_DISABLE_GPU=1 prismgb
-  if (process.env.PRISMGB_DISABLE_GPU === '1') {
+  if (process.env[GPU_ENV_VARS.DISABLE_GPU] === '1') {
     app.disableHardwareAcceleration();
   }
 
@@ -116,13 +117,13 @@ if (process.argv.includes('--smoke-test')) {
     app.quit();
   } else {
     // Create application instance
-    const application = new AppOrchestrator();
+    const application = new MainBootstrap();
 
     // Handle second instance launch - focus existing window
     app.on('second-instance', () => {
       const container = application.getContainer();
       if (container) {
-        const windowService = container.resolve('windowService');
+        const windowService = container.get(TOKENS.windowService);
         const win = windowService?.getMainWindow();
         if (win) {
           if (win.isMinimized()) win.restore();
@@ -157,7 +158,7 @@ if (process.argv.includes('--smoke-test')) {
         if (BrowserWindow.getAllWindows().length === 0) {
           const container = application.getContainer();
           if (container) {
-            const windowService = container.resolve('windowService');
+            const windowService = container.get(TOKENS.windowService);
             windowService.createWindow();
           }
         }
@@ -170,17 +171,26 @@ if (process.argv.includes('--smoke-test')) {
       // Intentionally empty - app stays running in tray
     });
 
+    let quitCleanupPromise: Promise<void> | null = null;
+    let quitCleanupComplete = false;
+
     app.on('before-quit', (event) => {
-      const wasAlreadyQuitting = app.isQuitting;
+      if (quitCleanupComplete) {
+        return;
+      }
+
+      event.preventDefault();
       app.isQuitting = true;
 
-      application.cleanup();
-
-      if (!wasAlreadyQuitting) {
-        event.preventDefault();
-        setTimeout(() => {
-          app.quit();
-        }, 100);
+      if (!quitCleanupPromise) {
+        quitCleanupPromise = application.cleanup()
+          .catch((error: unknown) => {
+            console.error('Application cleanup failed:', error);
+          })
+          .finally(() => {
+            quitCleanupComplete = true;
+            app.quit();
+          });
       }
     });
   }

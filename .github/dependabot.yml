@@ -19,13 +19,10 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "electron"
         update-types: ["version-update:semver-major"]
-      - dependency-name: "electron-vite"
-        update-types: ["version-update:semver-major"]
       - dependency-name: "vite"
         update-types: ["version-update:semver-major"]
-      # TypeScript major bumps require coordinated upgrade of @typescript-eslint/*,
-      # vitest, and re-baselining scripts/type-debt-allowlist.json. See
-      # CONTRIBUTING.md → "Upgrading TypeScript (major)".
+      # TypeScript major bumps require coordinated upgrade of @typescript-eslint/*
+      # and vitest. See CONTRIBUTING.md → "Upgrading TypeScript (major)".
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
       - dependency-name: "@typescript-eslint/eslint-plugin"
@@ -83,4 +80,3 @@ updates:
       prefix: "ci(deps)"
     labels:
       - "dependencies"
-      - "github-actions"

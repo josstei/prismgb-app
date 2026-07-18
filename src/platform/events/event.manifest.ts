@@ -1,0 +1,127 @@
+/**
+ * Event channel manifest — single source of truth for every event domain,
+ * name, and channel value used across renderer and main scopes.
+ */
+export const EventManifest = {
+  version: 1,
+  mode: 'enforced',
+  scopes: [
+    {
+      scope: 'renderer',
+      events: [
+        { domain: 'system', name: 'handler-error', value: 'system:handler-error', payload: 'HandlerErrorPayload' },
+        { domain: 'device', name: 'status-changed', value: 'device:status-changed', payload: 'DeviceStatus' },
+        { domain: 'device', name: 'connected', value: 'device:connected', payload: 'DeviceInfoPayload' },
+        { domain: 'device', name: 'disconnected', value: 'device:disconnected', payload: 'DeviceInfoPayload | null | undefined' },
+        { domain: 'device', name: 'supported-device-available', value: 'device:supported-device-available', payload: 'SupportedDeviceAvailablePayload' },
+        { domain: 'device', name: 'enumeration-failed', value: 'device:enumeration-failed', payload: 'DeviceEnumerationFailedPayload' },
+        { domain: 'device', name: 'disconnected-during-session', value: 'device:disconnected-during-session', payload: 'void' },
+        { domain: 'stream', name: 'started', value: 'stream:started', payload: 'StreamStartedPayload' },
+        { domain: 'stream', name: 'stopped', value: 'stream:stopped', payload: 'void' },
+        { domain: 'stream', name: 'error', value: 'stream:error', payload: 'StreamErrorPayload' },
+        { domain: 'stream', name: 'health-ok', value: 'stream:health-ok', payload: 'StreamHealthOkPayload' },
+        { domain: 'stream', name: 'health-timeout', value: 'stream:health-timeout', payload: 'StreamHealthTimeoutPayload' },
+        { domain: 'capture', name: 'screenshot-triggered', value: 'capture:screenshot-triggered', payload: 'void' },
+        { domain: 'capture', name: 'screenshot-ready', value: 'capture:screenshot-ready', payload: 'ScreenshotReadyPayload' },
+        { domain: 'capture', name: 'recording-started', value: 'capture:recording-started', payload: 'void' },
+        { domain: 'capture', name: 'recording-stopped', value: 'capture:recording-stopped', payload: 'void' },
+        { domain: 'capture', name: 'recording-ready', value: 'capture:recording-ready', payload: 'RecordingReadyPayload' },
+        { domain: 'capture', name: 'recording-error', value: 'capture:recording-error', payload: 'RecordingErrorPayload' },
+        { domain: 'capture', name: 'recording-degraded', value: 'capture:recording-degraded', payload: 'RecordingDegradedPayload' },
+        { domain: 'settings', name: 'volume-changed', value: 'settings:volume-changed', payload: 'number' },
+        { domain: 'settings', name: 'render-preset-changed', value: 'settings:render-preset-changed', payload: 'string' },
+        { domain: 'settings', name: 'brightness-changed', value: 'settings:brightness-changed', payload: 'number' },
+        { domain: 'settings', name: 'performance-mode-changed', value: 'settings:performance-mode-changed', payload: 'boolean' },
+        { domain: 'settings', name: 'cinematic-mode-changed', value: 'settings:cinematic-mode-changed', payload: '{ enabled: boolean }' },
+        { domain: 'settings', name: 'minimalist-fullscreen-changed', value: 'settings:minimalist-fullscreen-changed', payload: 'boolean' },
+        { domain: 'settings', name: 'preferences-loaded', value: 'settings:preferences-loaded', payload: 'Record<string, unknown>' },
+        { domain: 'settings', name: 'recording-format-changed', value: 'settings:recording-format-changed', payload: 'string' },
+        { domain: 'performance', name: 'state-changed', value: 'performance:state-changed', payload: 'PerformanceStatePayload' },
+        { domain: 'performance', name: 'ui-mode-changed', value: 'performance:ui-mode-changed', payload: 'PerformanceUiModePayload' },
+        { domain: 'performance', name: 'render-mode-changed', value: 'performance:render-mode-changed', payload: 'boolean' },
+        { domain: 'performance', name: 'memory-snapshot-requested', value: 'performance:memory-snapshot-requested', payload: 'MemorySnapshotRequestPayload' },
+        { domain: 'render', name: 'pipeline-ready', value: 'render:pipeline-ready', payload: 'RenderPipelineReadyPayload' },
+        { domain: 'render', name: 'pipeline-error', value: 'render:pipeline-error', payload: 'RenderPipelineErrorPayload' },
+        { domain: 'render', name: 'stats-update', value: 'render:stats-update', payload: 'RenderStatsPayload' },
+        { domain: 'render', name: 'canvas-expired', value: 'render:canvas-expired', payload: 'void' },
+        { domain: 'render', name: 'canvas-recreated', value: 'render:canvas-recreated', payload: 'CanvasRecreatedPayload' },
+        { domain: 'ui', name: 'status-message', value: 'ui:status-message', payload: 'UiStatusMessagePayload' },
+        { domain: 'ui', name: 'device-status', value: 'ui:device-status', payload: 'UiDeviceStatusPayload' },
+        { domain: 'ui', name: 'overlay-message', value: 'ui:overlay-message', payload: 'UiOverlayMessagePayload' },
+        { domain: 'ui', name: 'overlay-visible', value: 'ui:overlay-visible', payload: 'UiOverlayVisiblePayload' },
+        { domain: 'ui', name: 'overlay-error', value: 'ui:overlay-error', payload: 'UiOverlayErrorPayload' },
+        { domain: 'ui', name: 'streaming-mode', value: 'ui:streaming-mode', payload: 'UiStreamingModePayload' },
+        { domain: 'ui', name: 'stream-info', value: 'ui:stream-info', payload: 'UiStreamInfoPayload' },
+        { domain: 'ui', name: 'shutter-flash', value: 'ui:shutter-flash', payload: 'void' },
+        { domain: 'ui', name: 'record-button-pop', value: 'ui:record-button-pop', payload: 'void' },
+        { domain: 'ui', name: 'record-button-press', value: 'ui:record-button-press', payload: 'void' },
+        { domain: 'ui', name: 'button-feedback', value: 'ui:button-feedback', payload: 'UiButtonFeedbackPayload' },
+        { domain: 'ui', name: 'recording-state', value: 'ui:recording-state', payload: 'UiRecordingStatePayload' },
+        { domain: 'ui', name: 'record-button-disabled', value: 'ui:record-button-disabled', payload: 'void' },
+        { domain: 'ui', name: 'record-button-enabled', value: 'ui:record-button-enabled', payload: 'void' },
+        { domain: 'ui', name: 'fullscreen-state', value: 'ui:fullscreen-state', payload: 'UiFullscreenStatePayload' },
+        { domain: 'ui', name: 'window-resized', value: 'ui:window-resized', payload: 'void' },
+        { domain: 'ui', name: 'screenshot-requested', value: 'ui:screenshot-requested', payload: 'void' },
+        { domain: 'ui', name: 'recording-toggle-requested', value: 'ui:recording-toggle-requested', payload: 'void' },
+        { domain: 'ui', name: 'fullscreen-toggle-requested', value: 'ui:fullscreen-toggle-requested', payload: 'void' },
+        { domain: 'ui', name: 'cinematic-toggle-requested', value: 'ui:cinematic-toggle-requested', payload: 'void' },
+        { domain: 'ui', name: 'stream-start-requested', value: 'ui:stream-start-requested', payload: 'void' },
+        { domain: 'ui', name: 'stream-stop-requested', value: 'ui:stream-stop-requested', payload: 'void' },
+        { domain: 'update', name: 'available', value: 'update:available', payload: 'UpdateInfoPayload' },
+        { domain: 'update', name: 'not-available', value: 'update:not-available', payload: 'UpdateInfoPayload' },
+        { domain: 'update', name: 'progress', value: 'update:progress', payload: 'UpdateProgressPayload' },
+        { domain: 'update', name: 'downloaded', value: 'update:downloaded', payload: 'UpdateInfoPayload' },
+        { domain: 'update', name: 'error', value: 'update:error', payload: 'UpdateErrorPayload' },
+        { domain: 'update', name: 'state-changed', value: 'update:state-changed', payload: 'unknown' },
+        { domain: 'update', name: 'badge-show', value: 'update:badge-show', payload: 'void' },
+        { domain: 'update', name: 'badge-hide', value: 'update:badge-hide', payload: 'void' },
+        { domain: 'notes', name: 'note-created', value: 'notes:note-created', payload: 'unknown' },
+        { domain: 'notes', name: 'note-updated', value: 'notes:note-updated', payload: 'unknown' },
+        { domain: 'notes', name: 'note-deleted', value: 'notes:note-deleted', payload: 'NotesDeletedPayload' },
+        { domain: 'transcode', name: 'started', value: 'transcode:started', payload: 'TranscodeStartedPayload' },
+        { domain: 'transcode', name: 'progress', value: 'transcode:progress', payload: 'TranscodeProgressPayload' },
+        { domain: 'transcode', name: 'completed', value: 'transcode:completed', payload: 'TranscodeCompletedPayload' },
+        { domain: 'transcode', name: 'error', value: 'transcode:error', payload: 'TranscodeErrorPayload' },
+        { domain: 'transcode', name: 'cancelled', value: 'transcode:cancelled', payload: 'TranscodeCancelledPayload' }
+      ]
+    },
+    {
+      scope: 'main',
+      events: [
+        { domain: 'device', name: 'connection-changed', value: 'device:connection-changed', payload: 'unknown' },
+        { domain: 'device', name: 'check-error', value: 'device:check-error', payload: 'unknown' },
+        { domain: 'update', name: 'state-changed', value: 'update:state-changed', payload: 'unknown' }
+      ]
+    }
+  ]
+} as const;
+
+export type EventManifestShape = typeof EventManifest;
+export type EventScopeManifest = EventManifestShape['scopes'][number];
+export type EventManifestScopeName = EventScopeManifest['scope'];
+export type EventManifestEntryForScope<TScope extends EventManifestScopeName> = Extract<
+  EventScopeManifest,
+  { scope: TScope }
+>['events'][number];
+
+const scopesByName = new Map(EventManifest.scopes.map((scope) => [scope.scope, scope] as const));
+
+export function getEventManifestScope<TScope extends EventManifestScopeName>(
+  scopeName: TScope
+): Extract<EventScopeManifest, { scope: TScope }> {
+  const scope = scopesByName.get(scopeName);
+  if (!scope) {
+    throw new Error(`Event manifest scope "${scopeName}" not found`);
+  }
+  return scope as Extract<EventScopeManifest, { scope: TScope }>;
+}
+
+export function getEventManifestScopeEvents<TScope extends EventManifestScopeName>(
+  scopeName: TScope
+): ReadonlyArray<EventManifestEntryForScope<TScope>> {
+  return getEventManifestScope(scopeName).events as ReadonlyArray<EventManifestEntryForScope<TScope>>;
+}
+
+export function getEventManifestScopeValues(scopeName: EventManifestScopeName): string[] {
+  return getEventManifestScopeEvents(scopeName).map((entry) => entry.value);
+}

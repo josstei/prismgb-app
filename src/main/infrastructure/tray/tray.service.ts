@@ -5,36 +5,27 @@
 
 import { Tray, Menu, app, MenuItemConstructorOptions } from 'electron';
 import path from 'path';
-import { BaseService } from '@shared/base/service.base.js';
+import { injectable, inject } from 'inversify';
+import { BaseService, type LoggerFactoryLike } from '@platform/core';
+import type { DeviceConnectionReason } from '@platform/devices/runtime';
+import { TOKENS } from '@main/application/di/tokens.js';
 
 /**
  * Menu configuration item
  */
 interface MenuConfigItem {
   label: string;
-  service: 'windowService' | 'deviceService';
-  method: string;
+  service: 'windowService' | 'deviceConnectionService';
+  method: 'showWindow' | 'reconcileDeviceStatus';
 }
 
-/**
- * TrayService dependencies
- */
-interface TrayServiceDependencies {
-  windowService: {
-    showWindow: () => void;
-  };
-  deviceService: {
-    refreshDeviceStatus: () => void;
-    isConnected: () => boolean;
-  };
-  loggerFactory: {
-    create: (name: string) => {
-      info: (message: string) => void;
-      error: (message: string) => void;
-      warn: (message: string) => void;
-      debug: (message: string) => void;
-    };
-  };
+interface TrayWindowServiceLike {
+  showWindow: () => void;
+}
+
+interface TrayDeviceConnectionServiceLike {
+  reconcileDeviceStatus: (reason: DeviceConnectionReason) => Promise<unknown>;
+  isConnected: () => boolean;
 }
 
 // Declarative menu configuration
@@ -46,20 +37,21 @@ const MENU_CONFIG: MenuConfigItem[] = [
   },
   {
     label: 'Refresh Devices',
-    service: 'deviceService',
-    method: 'refreshDeviceStatus'
+    service: 'deviceConnectionService',
+    method: 'reconcileDeviceStatus'
   }
 ];
 
+@injectable()
 class TrayService extends BaseService {
   private tray: Tray | null = null;
-  private readonly windowService: TrayServiceDependencies['windowService'];
-  private readonly deviceService: TrayServiceDependencies['deviceService'];
 
-  constructor(dependencies: TrayServiceDependencies) {
-    super(dependencies, ['windowService', 'deviceService', 'loggerFactory'], 'TrayService');
-    this.windowService = dependencies.windowService;
-    this.deviceService = dependencies.deviceService;
+  constructor(
+    @inject(TOKENS.windowService) private readonly windowService: TrayWindowServiceLike,
+    @inject(TOKENS.deviceConnectionService) private readonly deviceConnectionService: TrayDeviceConnectionServiceLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory }, 'TrayService');
   }
 
   /**
@@ -99,15 +91,21 @@ class TrayService extends BaseService {
   updateTrayMenu(): void {
     if (!this.tray) return;
 
-    const isDeviceConnected = this.deviceService ? this.deviceService.isConnected() : false;
+    const isDeviceConnected = this.deviceConnectionService.isConnected();
 
     // Build dynamic menu items from config
     const menuItems: MenuItemConstructorOptions[] = MENU_CONFIG.map(({ label, service, method }) => ({
       label,
       click: () => {
-        const serviceInstance = this[service];
-        if (serviceInstance && typeof serviceInstance[method] === 'function') {
-          serviceInstance[method]();
+        if (service === 'windowService' && method === 'showWindow') {
+          this.windowService.showWindow();
+          return;
+        }
+
+        if (service === 'deviceConnectionService' && method === 'reconcileDeviceStatus') {
+          void this.deviceConnectionService.reconcileDeviceStatus('tray-refresh').catch((error: unknown) => {
+            this.logger.error('Failed to refresh devices from tray', error);
+          });
         }
       }
     }));

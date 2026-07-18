@@ -45,9 +45,7 @@ export default defineConfig({
   // Preserve test output for debugging
   preserveOutput: 'failures-only',
 
-  // Global setup/teardown (if needed)
-  // globalSetup: './tests/e2e/global-setup.js',
-  // globalTeardown: './tests/e2e/global-teardown.js',
+  globalSetup: './tests/e2e/global-setup.js',
 
   // Use custom Electron test fixtures (no browser projects needed)
   use: {

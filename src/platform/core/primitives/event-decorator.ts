@@ -1,0 +1,68 @@
+/**
+ * Typed event-subscription method decorator factory.
+ *
+ * Decoration-time metadata lives in a module-scoped WeakMap keyed by class
+ * constructor, so no reflect-metadata dependency is required and worker
+ * bundles stay clean. Lifecycle hosts (BaseOrchestrator, BaseService) walk
+ * the prototype chain at initialize time and subscribe each binding through
+ * their own bus/disposal machinery.
+ */
+
+export interface EventHandlerBinding {
+  readonly channel: string;
+  readonly methodKey: string | symbol;
+}
+
+type EventHandlerMethod<TPayload> = (payload: TPayload) => void | Promise<void>;
+
+const eventHandlerBindings = new WeakMap<Function, EventHandlerBinding[]>();
+
+/**
+ * Creates a typed @OnEvent method decorator for the given payload map.
+ * The decorated method's payload parameter is compile-checked against the
+ * payload type registered for the subscribed channel.
+ */
+export function createOnEventDecorator<TPayloadMap>() {
+  return function onEvent<TChannel extends Extract<keyof TPayloadMap, string>>(channel: TChannel) {
+    return function registerEventHandler<TMethod extends EventHandlerMethod<TPayloadMap[TChannel]>>(
+      target: object,
+      methodKey: string | symbol,
+      _descriptor: TypedPropertyDescriptor<TMethod>
+    ): void {
+      const constructor = target.constructor;
+      const bindings = eventHandlerBindings.get(constructor);
+      if (bindings) {
+        bindings.push({ channel, methodKey });
+        return;
+      }
+      eventHandlerBindings.set(constructor, [{ channel, methodKey }]);
+    };
+  };
+}
+
+/**
+ * Collects the event-handler bindings declared on a class and its ancestors.
+ * Bindings are deduplicated by (channel, method) so inherited handlers are
+ * reported exactly once even when a subclass re-declares them.
+ */
+export function getEventHandlerBindings(constructor: Function): EventHandlerBinding[] {
+  const collected: EventHandlerBinding[] = [];
+  const seen = new Set<string>();
+
+  let current: Function | null = constructor;
+  while (typeof current === 'function') {
+    const bindings = eventHandlerBindings.get(current);
+    if (bindings) {
+      for (const binding of bindings) {
+        const dedupeKey = `${String(binding.methodKey)}\0${binding.channel}`;
+        if (!seen.has(dedupeKey)) {
+          seen.add(dedupeKey);
+          collected.push(binding);
+        }
+      }
+    }
+    current = Object.getPrototypeOf(current) as Function | null;
+  }
+
+  return collected;
+}

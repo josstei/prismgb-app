@@ -5,12 +5,33 @@
  * Does NOT mutate DOM - returns state that BodyClassManager applies.
  */
 
-import { BaseService } from '@shared/base/service.base.js';
+import { injectable, inject } from 'inversify';
+import { BaseService } from '@platform/core';
+import type { PerformanceStatePayload } from '@platform/events';
+import type { LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
+type AnimationSuppressionReason = 'reducedMotion' | 'weakGPU' | 'performanceMode';
+type AnimationSuppressionState = Record<AnimationSuppressionReason, boolean>;
+
+export interface AnimationPerformanceState {
+  idle: boolean;
+  hidden: boolean;
+  animationsOff: boolean;
+}
+
+function isPerformanceStatePayload(value: unknown): value is PerformanceStatePayload {
+  return typeof value === 'object' && value !== null;
+}
+
+@injectable()
 class PerformanceAnimationService extends BaseService {
+  private readonly _animationSuppression: AnimationSuppressionState;
+  private _isHidden: boolean;
+  private _isIdle: boolean;
 
-  constructor(dependencies) {
-    super(dependencies, ['loggerFactory'], 'PerformanceAnimationService');
+  constructor(@inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike) {
+    super({ loggerFactory }, 'PerformanceAnimationService');
 
     this._animationSuppression = {
       reducedMotion: false,
@@ -18,42 +39,24 @@ class PerformanceAnimationService extends BaseService {
       performanceMode: false
     };
 
-    this._isStreaming = false;
     this._isHidden = false;
     this._isIdle = false;
   }
 
-  /**
-   * Update streaming state
-   * @param {boolean} isStreaming - Whether streaming is active
-   * @returns {Object} Current state: { streaming, idle, hidden, animationsOff }
-   */
-  setStreaming(isStreaming) {
-    this._isStreaming = Boolean(isStreaming);
-    if (this._isStreaming) {
-      this.logger.debug('Streaming started - pausing decorative animations');
-    } else {
-      this.logger.debug('Streaming stopped - starting idle timer');
-    }
-    return this._getState();
-  }
-
-  /**
-   * Update performance state
-   * @param {Object} performanceState - Performance state object
-   * @returns {Object} Current state: { streaming, idle, hidden, animationsOff }
-   */
-  setPerformanceState(performanceState) {
-    const performanceEnabled = Boolean(performanceState.performanceModeEnabled);
-    const weakGpuDetected = Boolean(performanceState.weakGpuDetected);
-    const reducedMotion = Boolean(performanceState.reducedMotion);
+  setPerformanceState(performanceState: unknown): AnimationPerformanceState {
+    const state: PerformanceStatePayload = isPerformanceStatePayload(performanceState)
+      ? performanceState
+      : {};
+    const performanceEnabled = Boolean(state.performanceModeEnabled);
+    const weakGpuDetected = Boolean(state.weakGpuDetected);
+    const reducedMotion = Boolean(state.reducedMotion);
 
     this._setAnimationsSuppressed('performanceMode', performanceEnabled);
     this._setAnimationsSuppressed('weakGPU', performanceEnabled && weakGpuDetected);
     this._setAnimationsSuppressed('reducedMotion', reducedMotion);
 
-    this._isHidden = Boolean(performanceState.hidden);
-    this._isIdle = Boolean(performanceState.idle);
+    this._isHidden = Boolean(state.hidden);
+    this._isIdle = Boolean(state.idle);
 
     if (performanceEnabled) {
       this.logger.info('Performance mode enabled - pausing decorative animations');
@@ -72,25 +75,15 @@ class PerformanceAnimationService extends BaseService {
     return this._getState();
   }
 
-  /**
-   * Get current computed state
-   * @returns {Object} Current state: { streaming, idle, hidden, animationsOff }
-   * @private
-   */
-  _getState() {
+  _getState(): AnimationPerformanceState {
     return {
-      streaming: this._isStreaming,
       idle: this._isIdle,
       hidden: this._isHidden,
       animationsOff: Object.values(this._animationSuppression).some(Boolean)
     };
   }
 
-  /**
-   * Internal method to track animation suppression reasons
-   * @private
-   */
-  _setAnimationsSuppressed(reason, suppressed) {
+  _setAnimationsSuppressed(reason: AnimationSuppressionReason, suppressed: boolean): void {
     this._animationSuppression[reason] = suppressed;
   }
 }

@@ -3,9 +3,9 @@ import electron from 'vite-plugin-electron';
 import renderer from 'vite-plugin-electron-renderer';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
 import path from 'path';
-import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
+import { platformAliasEntries, platformAliasMap } from './scripts/lib/workspace-aliases.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -37,11 +37,9 @@ export default defineConfig({
         vite: {
           resolve: {
             alias: {
-              '@': path.resolve(__dirname, 'src'),
               '@main': path.resolve(__dirname, 'src/main'),
               '@renderer': path.resolve(__dirname, 'src/renderer'),
-              '@preload': path.resolve(__dirname, 'src/preload'),
-              '@shared': path.resolve(__dirname, 'src/shared')
+              ...platformAliasMap(__dirname)
             }
           },
           build: {
@@ -50,22 +48,21 @@ export default defineConfig({
               output: {
                 format: 'es' // Force ESM output
               },
-              external: [
-                'electron',
-                'usb-detection',
-                'winston',
-                'awilix',
-                'joi',
-                'dotenv',
-                'eventemitter3'
-              ]
+              external: (id) => {
+                const externals = [
+                  'electron',
+                  'usb',
+                  'eventemitter3'
+                ];
+                return externals.some(ext => id === ext || id.startsWith(ext + '/') || id.includes('node_modules/' + ext));
+              }
             }
           }
         }
       },
       {
         // Preload script entry
-        entry: 'src/preload/index.js',
+        entry: 'src/preload/index.ts',
         onstart(args) {
           // Reload renderer when preload changes
           args.reload();
@@ -73,11 +70,9 @@ export default defineConfig({
         vite: {
           resolve: {
             alias: {
-              '@': path.resolve(__dirname, 'src'),
               '@main': path.resolve(__dirname, 'src/main'),
               '@renderer': path.resolve(__dirname, 'src/renderer'),
-              '@preload': path.resolve(__dirname, 'src/preload'),
-              '@shared': path.resolve(__dirname, 'src/shared')
+              ...platformAliasMap(__dirname)
             }
           },
           plugins: [
@@ -90,23 +85,6 @@ export default defineConfig({
                   fileName: 'package.json',
                   source: JSON.stringify({ type: 'commonjs' }, null, 2)
                 });
-              }
-            },
-            {
-              // Copy IPC channels.json for preload access
-              name: 'copy-ipc-channels',
-              writeBundle() {
-                const srcPath = path.resolve(__dirname, 'src/shared/ipc/channels.json');
-                const destDir = path.resolve(__dirname, 'dist/shared/ipc');
-                const destPath = path.join(destDir, 'channels.json');
-
-                // Create directory if it doesn't exist
-                if (!fs.existsSync(destDir)) {
-                  fs.mkdirSync(destDir, { recursive: true });
-                }
-
-                // Copy the file
-                fs.copyFileSync(srcPath, destPath);
               }
             }
           ],
@@ -141,8 +119,13 @@ export default defineConfig({
     }
   },
 
+  worker: {
+    format: 'es'
+  },
+
   // Development server
   server: {
+    host: '127.0.0.1',
     port: 3000
   },
 
@@ -151,16 +134,13 @@ export default defineConfig({
 
   // Resolve options
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, 'src'),
-      '@main': path.resolve(__dirname, 'src/main'),
-      '@renderer': path.resolve(__dirname, 'src/renderer'),
-      '@preload': path.resolve(__dirname, 'src/preload'),
-      '@shared': path.resolve(__dirname, 'src/shared'),
-      '@prismgb/gpu': path.resolve(__dirname, 'packages/prismgb-gpu/src/index.ts'),
-      // Provide a browser-friendly URL polyfill so PixiJS doesn't emit raw require('url')
-      url: 'url/'
-    }
+    // Platform module aliases are emitted from scripts/lib/workspace-aliases.mjs
+    // (exact-match entries; deep imports intentionally do not resolve).
+    alias: [
+      ...platformAliasEntries(__dirname),
+      { find: '@main', replacement: path.resolve(__dirname, 'src/main') },
+      { find: '@renderer', replacement: path.resolve(__dirname, 'src/renderer') }
+    ]
   },
 
   // Define global constants

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreExportsUsedInFile": true,
+  "workspaces": {
+    ".": {
+      "entry": [
+        "src/main/index.ts",
+        "src/preload/index.ts",
+        "src/renderer/index.ts",
+        "src/platform/*/index.ts",
+        "src/platform/gpu/runtime.ts",
+        "src/platform/gpu/testkit.ts",
+        "src/platform/devices/runtime.ts",
+        "src/platform/devices/testkit.ts",
+        "src/platform/transcode/service.ts",
+        "src/platform/ui-base/reactive/index.ts",
+        "scripts/*.js",
+        "scripts/lib/*.{js,mjs}",
+        "tests/support/**/*.{js,ts}",
+        "tests/**/*.{test,spec}.{js,ts}"
+      ],
+      "project": ["src/**/*.{ts,js}"],
+      "ignoreDependencies": [
+        "@electron/notarize"
+      ],
+      "ignoreUnresolved": ["/overlay-icons/default.svg?url", "/Logo.png?url"]
+    }
+  }
+}

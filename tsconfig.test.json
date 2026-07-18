@@ -1,0 +1,37 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "useDefineForClassFields": false,
+    "strict": false,
+    "noImplicitAny": false,
+    "strictNullChecks": false,
+    "types": [
+      "node",
+      "@webgpu/types",
+      "vite/client",
+      "vitest/globals"
+    ]
+  },
+  "include": [
+    "src/main/**/*.ts",
+    "src/platform/**/*.ts",
+    "src/preload/**/*.ts",
+    "src/renderer/**/*.ts",
+    "src/types/**/*.d.ts",
+    "tests/devices/**/*.ts",
+    "tests/unit/**/*.ts",
+    "tests/integration/**/*.ts",
+    "tests/workflows/**/*.ts",
+    "tests/factories/**/*.js",
+    "tests/support/**/*.ts",
+    "tests/support/**/*.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

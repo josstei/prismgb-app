@@ -116,30 +116,6 @@
   }
 }
 
-/* Floating pixel particles rising up */
-@keyframes particle-float {
-  0% {
-    transform: translateY(0) translateX(0) scale(0);
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-    transform: translateY(-20px) translateX(5px) scale(1);
-  }
-  50% {
-    transform: translateY(-150px) translateX(-10px) scale(1);
-    opacity: 0.8;
-  }
-  90% {
-    opacity: 0.6;
-    transform: translateY(-280px) translateX(5px) scale(0.8);
-  }
-  100% {
-    transform: translateY(-320px) translateX(0) scale(0);
-    opacity: 0;
-  }
-}
-
 /* =====================================================
    Capture Feedback Animations
    ===================================================== */

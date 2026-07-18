@@ -8,95 +8,148 @@
 // EventBus factories
 export {
   createEventBus,
-  createContractValidatingEventBus,
 } from './event-bus.factory.js';
+
+// UI factories
+export {
+  createDeviceStatusElementsMock,
+  createNotesPanelElementsMock,
+  createShaderSelectorElementsMock,
+  createSettingsMenuElementsMock,
+  createTranscodeToastElementsMock,
+  createMockElement,
+  createUIController,
+  createUISetupControllerMock,
+  createPresentationModeControllerMock,
+  createUIEventBridgeControllerMock,
+  createStatusNotificationComponentMock,
+  createStreamControlsComponentMock,
+  createSettingsMenuComponentMock,
+  createShaderSelectorComponentMock,
+  createUiComponentHostMock,
+  createUIEffectsMock,
+  createUIBodyClassManagerMock,
+
+  createUIEffectsElementsMock,
+  createStreamingControlsElementsMock,
+  createUIControllerElementsMock,
+} from './ui.factory.js';
 
 // Logger factories
 export {
   createLogger,
   createLoggerFactory,
-  LogLevels,
 } from './logger.factory.js';
 
 // Device factories
 export {
   createDeviceInfo,
-  createVideoTrack,
   createMediaStream,
-  createDeviceAdapter,
-  createDeviceService,
-  createAdapterFactory,
-  AdapterState,
+  createRendererDeviceRuntimeMock,
+  createDeviceStatusComponentMock,
 } from './device.factory.js';
 
 // Stream factories
 export {
   createStreamingService,
-  createRenderPipeline,
   createMockCanvas,
   createMockVideo,
   StreamingState,
+  createStreamPayloadMock,
+  createMediaTrackMock,
+  createMediaStreamMock,
+  createCaptureStreamMock,
+  createStreamCapabilitiesMock,
+  createSupportedDevicePayloadMock,
+  createStreamStartedPayloadMock,
+  createDeviceMediaAcquirerMock,
 } from './stream.factory.js';
+
+// Storage factories
+export {
+  createStorageService,
+} from './storage.factory.js';
+
+// Orchestrator factories
+export {
+  createOrchestratorMock,
+  createRendererAppContainerMock,
+} from './orchestrator.factory.js';
 
 // AppState factories
 export {
   createAppState,
   createStreamingAppState,
-  createRecordingAppState,
-  DEFAULT_STATE,
 } from './app-state.factory.js';
 
-// UI factories
+// System factories
 export {
-  createMockElement,
-  createMockButton,
-  createMockInput,
-  createUIController,
-  createCaptureEffects,
-  createButtonFeedback,
-} from './ui.factory.js';
+  createCallbackMap,
+  createMediaQueryListMock,
+  createCanvasRenderingContextMock,
+  createBitmapMock,
+  createPreventDefaultEventMock,
+  createLoginItemServiceMock,
+} from './system.factory.js';
 
-/**
- * Creates all standard dependencies for testing orchestrators/services
- * @param {Object} overrides - Override specific dependencies
- * @returns {Object} All mock dependencies
- */
-export function createMockDependencies(overrides = {}) {
-  const { createEventBus } = require('./event-bus.factory.js');
-  const { createLoggerFactory } = require('./logger.factory.js');
-  const { createAppState } = require('./app-state.factory.js');
-  const { createUIController } = require('./ui.factory.js');
-  const { createStreamingService } = require('./stream.factory.js');
-  const { createDeviceService, createAdapterFactory } = require('./device.factory.js');
+// Settings factories
+export {
+  createSettingsServiceHarness,
+  createSettingsServiceMock,
+  createNotesServiceMock,
+  createSettingsFullscreenServiceMock,
+  createSettingsCinematicModeServiceMock,
+  createPresentationModeServiceMock,
+} from './settings.factory.js';
 
-  return {
-    eventBus: createEventBus(),
-    loggerFactory: createLoggerFactory(),
-    appState: createAppState(),
-    uiController: createUIController(),
-    streamingService: createStreamingService(),
-    deviceService: createDeviceService(),
-    adapterFactory: createAdapterFactory(),
-    ...overrides,
-  };
-}
+// Update factories
+export {
+  createUpdateConfigMock,
+} from './update.factory.js';
 
-/**
- * Creates dependencies suitable for streaming tests
- */
-export function createStreamingDependencies(overrides = {}) {
-  const deps = createMockDependencies();
-  deps.appState._forceSet('deviceConnected', true);
-  deps.appState._forceSet('selectedDeviceId', 'mock-chromatic-device');
-  return { ...deps, ...overrides };
-}
+// Window factories
+export {
+  createWindowServiceMock,
+  createWindowServiceElectronMock,
+} from './window.factory.js';
 
-/**
- * Creates dependencies suitable for capture tests
- */
-export function createCaptureDependencies(overrides = {}) {
-  const deps = createMockDependencies();
-  deps.appState._forceSet('isStreaming', true);
-  deps.appState._forceSet('deviceConnected', true);
-  return { ...deps, ...overrides };
-}
+// Performance factories
+export {
+
+  createPerformanceMetricsAdapterMock,
+  createVisibilityAdapterMock,
+  createUserActivityAdapterMock,
+  createReducedMotionAdapterMock,
+  createPerformanceStateServiceMock,
+  createPerformanceMetricsServiceMock,
+  createPerformanceAnimationServiceMock,
+  createBodyClassManagerMock,
+  createProcessMetricsMock,
+} from './performance.factory.js';
+
+// Capture factories
+export {
+  createRecordingFrameMock,
+  createMediaBlobEventMock,
+  createMediaRecorderMock,
+  createMediaRecorderErrorEventMock,
+  createCaptureUIControllerMock,
+  createTranscodeServiceMock,
+  createCaptureServiceMock,
+  createCaptureGpuRecordingServiceMock,
+  createCaptureSaveServiceMock,
+} from './capture.factory.js';
+
+// Streaming pipeline factories
+export {
+  createStreamingViewControllerMock,
+  createStreamingAudioPipelineServiceMock,
+  createStreamingViewServiceMock,
+  createStreamingViewElementsMock,
+  createViewportServiceMock,
+  createStreamHealthServiceMock,
+  createGpuRendererServiceMock,
+  createStreamingServiceFacadeMock,
+  createStreamingRenderServiceMock,
+  createCanvasLifecycleServiceMock,
+} from './streaming-pipeline.factory.js';

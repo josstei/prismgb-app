@@ -6,8 +6,13 @@
  */
 
 import { vi } from 'vitest';
-import { createMediaStream, createDeviceAdapter, AdapterState } from './device.factory.js';
-import { CHROMATIC_SPECS } from '../mocks/MockDevice.js';
+import { createMediaStream, createDeviceInfo } from './device.factory.js';
+import {
+  CHROMATIC_SPECS,
+  createMediaTrackMock as createDeviceMediaTrackMock,
+  createChromaticStreamCapabilities,
+  createMediaStream as createMediaStreamDouble,
+} from '../devices/media.testkit.ts';
 
 /**
  * Streaming service states
@@ -32,8 +37,8 @@ export function createStreamingService(options = {}) {
 
   let state = initialState;
   let currentStream = null;
-  let currentAdapter = null;
   let currentDeviceId = null;
+  let currentCapabilities = null;
 
   const service = {
     /**
@@ -48,9 +53,8 @@ export function createStreamingService(options = {}) {
       currentDeviceId = deviceId;
 
       try {
-        currentAdapter = createDeviceAdapter({ deviceId });
-        await currentAdapter.initialize();
-        currentStream = await currentAdapter.getStream();
+        currentStream = createMediaStream({ deviceId });
+        currentCapabilities = createStreamCapabilitiesMock();
         state = StreamingState.STREAMING;
         return currentStream;
       } catch (error) {
@@ -69,14 +73,13 @@ export function createStreamingService(options = {}) {
 
       state = StreamingState.STOPPING;
 
-      if (currentAdapter) {
-        currentAdapter.releaseStream();
-        currentAdapter.cleanup();
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
       }
 
       currentStream = null;
-      currentAdapter = null;
       currentDeviceId = null;
+      currentCapabilities = null;
       state = StreamingState.IDLE;
     }),
 
@@ -98,10 +101,7 @@ export function createStreamingService(options = {}) {
     /**
      * Get current capabilities
      */
-    getCapabilities: vi.fn(() => {
-      if (!currentAdapter) return null;
-      return currentAdapter.getCapabilities();
-    }),
+    getCapabilities: vi.fn(() => currentCapabilities),
 
     // ==========================================
     // Test Helpers
@@ -109,107 +109,17 @@ export function createStreamingService(options = {}) {
 
     _getState() { return state; },
     _setState(s) { state = s; },
-    _getAdapter() { return currentAdapter; },
-    _setAdapter(a) { currentAdapter = a; },
     _setStream(s) { currentStream = s; },
     _reset() {
       state = StreamingState.IDLE;
       currentStream = null;
-      currentAdapter = null;
       currentDeviceId = null;
+      currentCapabilities = null;
       vi.clearAllMocks();
     },
   };
 
   return service;
-}
-
-/**
- * Creates a mock RenderPipeline
- * @param {Object} options - Pipeline options
- * @returns {Object} Mock RenderPipeline
- */
-export function createRenderPipeline(options = {}) {
-  const {
-    width = CHROMATIC_SPECS.nativeWidth * 4,
-    height = CHROMATIC_SPECS.nativeHeight * 4,
-  } = options;
-
-  let isRunning = false;
-  let frameCount = 0;
-  let lastFrameTime = 0;
-
-  const pipeline = {
-    /**
-     * Initialize pipeline
-     */
-    initialize: vi.fn(async () => {
-      return true;
-    }),
-
-    /**
-     * Start rendering
-     */
-    start: vi.fn(() => {
-      isRunning = true;
-      frameCount = 0;
-      lastFrameTime = performance.now();
-    }),
-
-    /**
-     * Stop rendering
-     */
-    stop: vi.fn(() => {
-      isRunning = false;
-    }),
-
-    /**
-     * Render a frame
-     */
-    render: vi.fn(() => {
-      if (!isRunning) return;
-      frameCount++;
-      lastFrameTime = performance.now();
-    }),
-
-    /**
-     * Get render stats
-     */
-    getStats: vi.fn(() => ({
-      frameCount,
-      lastFrameTime,
-      isRunning,
-      width,
-      height,
-    })),
-
-    /**
-     * Resize output
-     */
-    resize: vi.fn((w, h) => {
-      // Updates internal dimensions
-    }),
-
-    /**
-     * Cleanup
-     */
-    dispose: vi.fn(() => {
-      isRunning = false;
-      frameCount = 0;
-    }),
-
-    // Test helpers
-    _isRunning() { return isRunning; },
-    _getFrameCount() { return frameCount; },
-    _reset() {
-      isRunning = false;
-      frameCount = 0;
-      lastFrameTime = 0;
-      vi.clearAllMocks();
-    },
-  };
-
-  return pipeline;
 }
 
 /**
@@ -219,8 +129,8 @@ export function createRenderPipeline(options = {}) {
  */
 export function createMockCanvas(options = {}) {
   const {
-    width = 640,
-    height = 576,
+    width = CHROMATIC_SPECS.nativeWidth * 4,
+    height = CHROMATIC_SPECS.nativeHeight * 4,
   } = options;
 
   const drawCalls = [];
@@ -276,6 +186,7 @@ export function createMockVideo(options = {}) {
   const {
     width = CHROMATIC_SPECS.nativeWidth,
     height = CHROMATIC_SPECS.nativeHeight,
+    ...videoOverrides
   } = options;
 
   let srcObject = null;
@@ -320,6 +231,8 @@ export function createMockVideo(options = {}) {
       clearTimeout(id);
     }),
 
+    ...videoOverrides,
+
     // Test helpers
     _triggerEvent(event, data) {
       const handlers = eventListeners.get(event) || [];
@@ -336,10 +249,119 @@ export function createMockVideo(options = {}) {
   return video;
 }
 
-export default {
-  createStreamingService,
-  createRenderPipeline,
-  createMockCanvas,
-  createMockVideo,
-  StreamingState,
-};
+export function createStreamPayloadMock(overrides = {}) {
+  const {
+    id = `stream-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    getAudioTracks = vi.fn(() => []),
+    ...streamOverrides
+  } = overrides;
+
+  return {
+    id,
+    getAudioTracks,
+    ...streamOverrides
+  };
+}
+
+export function createStreamStartedPayloadMock(overrides = {}) {
+  const {
+    stream = createCaptureStreamMock(),
+    device = createDeviceInfo(),
+    settings = {
+      video: {
+        width: CHROMATIC_SPECS.nativeWidth,
+        height: CHROMATIC_SPECS.nativeHeight,
+        frameRate: CHROMATIC_SPECS.defaultFrameRate
+      }
+    },
+    capabilities = createStreamCapabilitiesMock({
+      canvasScale: 4,
+      nativeResolution: {
+        width: CHROMATIC_SPECS.nativeWidth,
+        height: CHROMATIC_SPECS.nativeHeight
+      }
+    }),
+    ...payloadOverrides
+  } = overrides;
+
+  return {
+    stream,
+    device,
+    settings,
+    capabilities,
+    ...payloadOverrides
+  };
+}
+
+export function createSupportedDevicePayloadMock(overrides = {}) {
+  const {
+    device = createDeviceInfo(),
+    ...payloadOverrides
+  } = overrides;
+
+  return {
+    device,
+    ...payloadOverrides
+  };
+}
+
+export function createMediaTrackMock(overrides = {}) {
+  return createDeviceMediaTrackMock(overrides);
+}
+
+export function createMediaStreamMock(overrides = {}) {
+  const tracks = Array.isArray(overrides.tracks) ? [...overrides.tracks] : [];
+  const { tracks: _tracks, ...streamOverrides } = overrides;
+  const stream = createMediaStreamDouble({ ...streamOverrides, tracks });
+
+  return {
+    ...stream,
+    ...streamOverrides
+  };
+}
+
+export function createCaptureStreamMock(overrides = {}) {
+  const {
+    tracks = [],
+    videoTracks = [],
+    audioTracks = [],
+    getVideoTracks = vi.fn(() => [...videoTracks]),
+    getAudioTracks = vi.fn(() => [...audioTracks]),
+    ...streamOverrides
+  } = overrides;
+
+  const baseTracks = tracks.length > 0 ? [...tracks] : [...videoTracks, ...audioTracks];
+
+  return {
+    ...createMediaStreamMock({ ...streamOverrides, tracks: baseTracks }),
+    getVideoTracks,
+    getAudioTracks,
+    ...streamOverrides
+  };
+}
+
+export function createStreamCapabilitiesMock(overrides = {}) {
+  return createChromaticStreamCapabilities(overrides);
+}
+
+export function createDeviceMediaAcquirerMock(overrides = {}) {
+  const stream = createCaptureStreamMock();
+  const capabilities = createStreamCapabilitiesMock({
+    hasAudio: false,
+    hasVideo: true,
+    audioSupport: true,
+    fallbackStrategy: 'audio-simple'
+  });
+
+  return {
+    acquire: vi.fn(async () => ({
+      stream,
+      strategy: 'full',
+      capabilities
+    })),
+    release: vi.fn().mockResolvedValue(undefined),
+    getStreamInfo: vi.fn(() => null),
+    ...overrides
+  };
+}
+

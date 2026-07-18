@@ -1,15 +1,13 @@
 /**
  * Renderer Entry Point
  *
- * Simplified entry point using RendererAppOrchestrator bootstrap
+ * Simplified entry point using RendererBootstrap
  * All DI configuration, service instantiation, and event wiring
- * is handled by RendererAppOrchestrator
+ * is handled by RendererBootstrap
  */
 
 import './presentation/styles/styles.css';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { renderAppShell } from './presentation/shell/app-shell.renderer.js';
-
 // Global error handlers for uncaught errors
 window.addEventListener('unhandledrejection', (event) => {
   console.error('Unhandled promise rejection:', event.reason);
@@ -19,21 +17,13 @@ window.addEventListener('error', (event) => {
   console.error('Uncaught error:', event.error);
 });
 
-// Render templates into app container
-const appContainer = document.getElementById('appContainer');
-if (appContainer) {
-  renderAppShell(appContainer);
-}
-
-// Mark body ready after CSS and templates are loaded (prevents FOUC)
-document.body.classList.add(CSSClasses.BODY_READY);
-
 // Import application bootstrap
-import { createApplication } from './renderer-app.orchestrator';
-import type { RendererAppOrchestrator } from './renderer-app.orchestrator';
+import { createApplication } from './app-bootstrap';
+import type { RendererBootstrap } from './app-bootstrap';
+import { renderFatalError } from './presentation/shell/fatal-error-screen';
 
 // Global application instance
-let app: RendererAppOrchestrator | null = null;
+let app: RendererBootstrap | null = null;
 
 /**
  * Initialize the application
@@ -43,6 +33,8 @@ async function init() {
     // Create and start application
     app = await createApplication();
 
+    // Mark body ready after CSS and templates are loaded (prevents FOUC)
+    document.body.classList.add(CSSClasses.BODY_READY);
   } catch (error) {
     const normalizedError = error instanceof Error ? error : new Error(String(error));
 
@@ -50,25 +42,8 @@ async function init() {
     // and logger is not available at this point in the lifecycle
     console.error('Failed to initialize application:', normalizedError);
 
-    // Show error to user using safe DOM manipulation (prevents XSS)
-    const container = document.createElement('div');
-    container.style.cssText = 'padding: 20px; color: red; font-family: sans-serif;';
-
-    const heading = document.createElement('h2');
-    heading.textContent = 'Failed to initialize application';
-
-    const message = document.createElement('p');
-    message.textContent = normalizedError.message;
-
-    const stack = document.createElement('pre');
-    stack.textContent = normalizedError.stack ?? '';
-
-    container.appendChild(heading);
-    container.appendChild(message);
-    container.appendChild(stack);
-
-    document.body.innerHTML = '';
-    document.body.appendChild(container);
+    // Show fatal error screen
+    renderFatalError(normalizedError);
   }
 }
 
@@ -78,17 +53,6 @@ async function init() {
 async function cleanup() {
   if (app) {
     await app.cleanup();
-  }
-
-  // Cleanup IPC listeners for all APIs
-  if (window.deviceAPI?.removeDeviceListeners) {
-    window.deviceAPI.removeDeviceListeners();
-  }
-  if (window.windowAPI?.removeListeners) {
-    window.windowAPI.removeListeners();
-  }
-  if (window.updateAPI?.removeListeners) {
-    window.updateAPI.removeListeners();
   }
 }
 

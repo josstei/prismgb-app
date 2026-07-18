@@ -1,46 +1,41 @@
-/**
- * Update UI Service
- *
- * Translates update events into UI notifications and badge visibility.
- */
+import { injectable, inject } from 'inversify';
+import { BaseService } from '@platform/core';
+import { EventChannels } from '@platform/events';
+import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
-import { BaseService } from '@shared/base/service.base.js';
-import { EventChannels } from '@renderer/infrastructure/events/event-channels.config.js';
-
+@injectable()
 class UpdateUiService extends BaseService {
-
-  constructor(dependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory'], 'UpdateUiService');
-    this._subscriptions = [];
+  constructor(
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'UpdateUiService');
   }
 
   initialize() {
-    this._subscriptions.push(
-      this.eventBus.subscribe(EventChannels.UPDATE.AVAILABLE, (info) => this._handleUpdateAvailable(info)),
-      this.eventBus.subscribe(EventChannels.UPDATE.NOT_AVAILABLE, () => this._handleNoUpdate()),
-      this.eventBus.subscribe(EventChannels.UPDATE.PROGRESS, (progress) => this._handleProgress(progress)),
-      this.eventBus.subscribe(EventChannels.UPDATE.DOWNLOADED, (info) => this._handleDownloaded(info)),
-      this.eventBus.subscribe(EventChannels.UPDATE.ERROR, (error) => this._handleError(error))
-    );
-
+    this.listen(EventChannels.UPDATE.AVAILABLE, (info: unknown) => this._handleUpdateAvailable(info));
+    this.listen(EventChannels.UPDATE.NOT_AVAILABLE, () => this._handleNoUpdate());
+    this.listen(EventChannels.UPDATE.PROGRESS, (progress: unknown) => this._handleProgress(progress));
+    this.listen(EventChannels.UPDATE.DOWNLOADED, (info: unknown) => this._handleDownloaded(info));
+    this.listen(EventChannels.UPDATE.ERROR, (error: unknown) => this._handleError(error));
     this.logger.info('UpdateUiService initialized');
   }
 
-  dispose() {
-    this._subscriptions.forEach(unsubscribe => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
-    });
-    this._subscriptions = [];
+  override dispose(): void | Promise<void> {
+    const disposed = super.dispose();
     this.logger.info('UpdateUiService disposed');
+    return disposed;
   }
 
-  _handleUpdateAvailable(info) {
-    this.logger.info('Update available', { version: info?.version });
+  _handleUpdateAvailable(info: unknown) {
+    const payload = typeof info === 'object' && info !== null
+      ? info as { version?: string }
+      : {};
+    this.logger.info('Update available', { version: payload.version });
 
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
-      message: `Update v${info?.version} available`,
+      message: `Update v${payload.version ?? 'unknown'} available`,
       type: 'info'
     });
 
@@ -58,26 +53,35 @@ class UpdateUiService extends BaseService {
     this.eventBus.publish(EventChannels.UPDATE.BADGE_HIDE);
   }
 
-  _handleProgress(progress) {
-    this.logger.debug('Download progress', { percent: progress?.percent?.toFixed(1) });
+  _handleProgress(progress: unknown) {
+    const payload = typeof progress === 'object' && progress !== null
+      ? progress as { percent?: number }
+      : {};
+    this.logger.debug('Download progress', { percent: payload.percent?.toFixed(1) });
   }
 
-  _handleDownloaded(info) {
-    this.logger.info('Update downloaded', { version: info?.version });
+  _handleDownloaded(info: unknown) {
+    const payload = typeof info === 'object' && info !== null
+      ? info as { version?: string }
+      : {};
+    this.logger.info('Update downloaded', { version: payload.version });
 
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
-      message: `Update v${info?.version} ready to install`,
+      message: `Update v${payload.version ?? 'unknown'} ready to install`,
       type: 'success'
     });
 
     this.eventBus.publish(EventChannels.UPDATE.BADGE_SHOW);
   }
 
-  _handleError(error) {
+  _handleError(error: unknown) {
+    const payload = typeof error === 'object' && error !== null
+      ? error as { message?: string }
+      : {};
     this.logger.error('Update error', error);
 
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
-      message: `Update failed: ${error?.message || 'Unknown error'}`,
+      message: `Update failed: ${payload.message || 'Unknown error'}`,
       type: 'error'
     });
 

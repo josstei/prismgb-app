@@ -1,0 +1,13 @@
+diff --git a/node_modules/electron-trpc/dist/main.mjs b/node_modules/electron-trpc/dist/main.mjs
+index f420954..ba5e606 100644
+--- a/node_modules/electron-trpc/dist/main.mjs
++++ b/node_modules/electron-trpc/dist/main.mjs
+@@ -8,7 +8,7 @@ var F = (n, r, e) => (S(n, r, "read from private field"), e ? e.call(n) : r.get(
+   r instanceof WeakSet ? r.add(n) : r.set(n, e);
+ }, L = (n, r, e, i) => (S(n, r, "write to private field"), i ? i.call(n, e) : r.set(n, e), e);
+ var v = (n, r, e) => (S(n, r, "access private method"), e);
+-import { ipcMain as ee, contextBridge as re, ipcRenderer as U } from "electron";
++import * as __electron from "electron"; const ee = __electron.ipcMain, re = __electron.contextBridge, U = __electron.ipcRenderer;
+ const T = "electron-trpc";
+ function ne(n) {
+   return !!n && !Array.isArray(n) && typeof n == "object";

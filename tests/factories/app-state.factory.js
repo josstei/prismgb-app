@@ -6,11 +6,12 @@
  */
 
 import { vi } from 'vitest';
+import { PRESET_POLICY } from '@platform/gpu';
 
 /**
  * Default application state
  */
-export const DEFAULT_STATE = {
+const DEFAULT_STATE = {
   isStreaming: false,
   selectedDeviceId: null,
   isCinematicModeEnabled: true,
@@ -18,17 +19,17 @@ export const DEFAULT_STATE = {
   recordingBlob: null,
   deviceConnected: false,
   isFullscreen: false,
-  volume: 100,
+  volume: 70,
   brightness: 1.0,
-  performanceMode: 'balanced',
-  renderPreset: 'sharp',
+  performanceMode: false,
+  renderPreset: PRESET_POLICY.rendererDefaultId,
 };
 
 /**
  * Creates a mock AppState
- * @param {Object} options - Factory options
- * @param {Object} options.initialState - Initial state values
- * @param {boolean} options.trackChanges - Whether to track state changes
+ * @param {Object} [options] - Factory options
+ * @param {Object} [options.initialState] - Initial state values
+ * @param {boolean} [options.trackChanges] - Whether to track state changes
  * @returns {Object} Mock AppState instance
  */
 export function createAppState(options = {}) {
@@ -82,8 +83,7 @@ export function createAppState(options = {}) {
 
     setStreaming: createSetter('isStreaming'),
     setSelectedDeviceId: createSetter('selectedDeviceId'),
-    setCinematicModeEnabled: createSetter('isCinematicModeEnabled'),
-    setCinematicMode: createSetter('isCinematicModeEnabled'), // Alias
+    setCinematicMode: createSetter('isCinematicModeEnabled'),
     setRecording: createSetter('isRecording'),
     setRecordingBlob: createSetter('recordingBlob'),
     setDeviceConnected: createSetter('deviceConnected'),
@@ -194,25 +194,8 @@ export function createStreamingAppState(overrides = {}) {
     initialState: {
       isStreaming: true,
       deviceConnected: true,
-      selectedDeviceId: 'mock-chromatic-device',
+      selectedDeviceId: 'chromatic-video-device',
       ...overrides,
     },
   });
 }
-
-/**
- * Creates AppState with recording mode active
- */
-export function createRecordingAppState(overrides = {}) {
-  return createAppState({
-    initialState: {
-      isStreaming: true,
-      deviceConnected: true,
-      isRecording: true,
-      selectedDeviceId: 'mock-chromatic-device',
-      ...overrides,
-    },
-  });
-}
-
-export default createAppState;

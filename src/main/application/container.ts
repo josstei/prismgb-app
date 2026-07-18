@@ -1,137 +1,56 @@
 /**
  * Dependency Injection Container
- * Central container for all main process dependencies using Awilix
+ * Wires every main-process service onto an Inversify container.
  */
 
-import * as awilix from 'awilix';
-import type { AwilixContainer } from 'awilix';
-const { createContainer, asClass, asValue, InjectionMode } = awilix;
+import { Container } from 'inversify';
 import pkg from '../../../package.json' assert { type: 'json' };
-import { EventBus } from '@main/infrastructure/events/index.js';
-import { WindowService } from '@main/infrastructure/window/index.js';
-import { TrayService } from '@main/infrastructure/tray/index.js';
-import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
-import {
-  DeviceService,
-  DeviceProfileRegistry,
-  DeviceLifecycleService,
-  DeviceBridgeService,
-  type ProfileClass
-} from '@main/infrastructure/devices/index.js';
-import { UpdateService, UpdateBridge } from '@main/infrastructure/updates/index.js';
-import { TranscodeService } from '@main/infrastructure/transcode/index.js';
-import { LoginItemService } from '@main/infrastructure/platform/index.js';
-import { DeviceChromaticProfile } from '@shared/features/devices/profiles/chromatic/device-chromatic.profile.js';
-import type { MainLogger } from '@main/infrastructure/logging/index.js';
+import { TOKENS, TOKEN_KEYS, type TokenKey } from './di/tokens.js';
+import { mainModule } from './di/main.module.js';
+import type { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
+import { applyBindingOverrides } from '@platform/core';
 
 /**
- * Application configuration interface
+ * Main-process DI container, backed by Inversify.
  */
-interface AppConfig {
-  isDevelopment: boolean;
-  appName: string;
-  version: string;
-}
+export type MainServiceContainer = Container;
 
 /**
- * Container dependencies interface
+ * Build the main-process DI container: pre-seeded config + logger constants,
+ * every service bound via {@link mainModule}, then test overrides. No
+ * hand-rolled switch — the binding module is the source of truth.
  */
-export interface ContainerDependencies {
-  config: AppConfig;
-  loggerFactory: MainLogger;
-  eventBus: EventBus;
-  windowService: WindowService;
-  trayService: TrayService;
-  ipcHandlerRegistry: IpcHandlerRegistry;
-  deviceService: DeviceService;
-  profileRegistry: DeviceProfileRegistry;
-  deviceLifecycleService: DeviceLifecycleService;
-  deviceBridgeService: DeviceBridgeService;
-  updateService: UpdateService;
-  updateBridgeService: UpdateBridge;
-  transcodeService: TranscodeService;
-  loginItemService: LoginItemService;
-}
+export function createMainContainer(
+  loggerFactory: MainLogger,
+  overrides: Partial<Record<TokenKey, unknown>> = {}
+): MainServiceContainer {
+  const container = new Container({ defaultScope: 'Singleton' });
 
-/**
- * Create and configure the DI container
- * @param loggerFactory - Pre-configured MainLogger instance from MainAppOrchestrator
- * @returns Configured container
- */
-async function createAppContainer(loggerFactory: MainLogger): Promise<AwilixContainer<ContainerDependencies>> {
-  const container = createContainer<ContainerDependencies>({
-    injectionMode: InjectionMode.PROXY
+  container.bind(TOKENS.config).toConstantValue({
+    isDevelopment: process.env.NODE_ENV === 'development',
+    appName: 'PrismGB',
+    version: pkg.version
   });
+  container.bind(TOKENS.loggerFactory).toConstantValue(loggerFactory);
 
-  // Use provided logger factory (shared with MainAppOrchestrator)
-  const containerLogger = loggerFactory.create('Container');
-  containerLogger.info('Initializing dependency injection container');
+  container.load(mainModule);
 
-  // Register configuration and utilities
-  container.register({
-    // Config - simple value
-    config: asValue<AppConfig>({
-      isDevelopment: process.env.NODE_ENV === 'development',
-      appName: 'PrismGB',
-      version: pkg.version
-    }),
-
-    // Logger factory - singleton instance
-    loggerFactory: asValue(loggerFactory),
-
-    // EventBus - singleton for cross-service communication
-    eventBus: asClass(EventBus).singleton()
-  });
-
-  // Register core services
-  container.register({
-    windowService: asClass(WindowService).singleton(),
-    trayService: asClass(TrayService).singleton(),
-    ipcHandlerRegistry: asClass(IpcHandlerRegistry).singleton(),
-    loginItemService: asClass(LoginItemService).singleton()
-  });
-
-  // Register device components
-  container.register({
-    profileRegistry: asClass(DeviceProfileRegistry).singleton()
-  });
-
-  // Profile classes injected via DI (same pattern as adapterClasses in renderer)
-  const profileClasses = new Map<string, ProfileClass>([
-    ['chromatic-mod-retro', DeviceChromaticProfile]
-  ]);
-
-  // Manual instantiation required because DeviceService.initialize() is async
-  // and must be awaited during container bootstrap (Awilix doesn't support async factories)
-  const deviceService = new DeviceService({
-    profileRegistry: container.resolve('profileRegistry'),
-    eventBus: container.resolve('eventBus'),
-    loggerFactory: container.resolve('loggerFactory')
-  }, profileClasses);
-  await deviceService.initialize();
-
-  container.register({
-    deviceService: asValue(deviceService),
-    deviceLifecycleService: asClass(DeviceLifecycleService).singleton()
-  });
-
-  // Register update components
-  container.register({
-    updateService: asClass(UpdateService).singleton(),
-    deviceBridgeService: asClass(DeviceBridgeService).singleton(),
-    updateBridgeService: asClass(UpdateBridge).singleton()
-  });
-
-  // Register transcode components
-  container.register({
-    transcodeService: asClass(TranscodeService).singleton()
-  });
-
-  // Log registration count
-  const count = Object.keys(container.registrations).length;
-  containerLogger.info(`Registered ${count} dependencies`);
+  applyBindingOverrides(container, TOKENS, overrides);
 
   return container;
 }
 
-export { createAppContainer };
+/**
+ * Create the container. Device monitoring starts from AppOrchestrator after
+ * app-owned integration side effects have subscribed to runtime events.
+ */
+export async function createAppContainer(loggerFactory: MainLogger): Promise<MainServiceContainer> {
+  const containerLogger = loggerFactory.create('Container');
+  containerLogger.info('Initializing dependency injection container');
+
+  const container = createMainContainer(loggerFactory);
+
+  containerLogger.info(`Registered ${TOKEN_KEYS.length} dependencies`);
+
+  return container;
+}

@@ -1,5 +1,7 @@
 # Contributing to PrismGB
 
+<!-- Source: package.json, docs/naming-conventions.md, src/main/application/container.ts, src/renderer/application/di/tokens.ts, src/platform/devices/domain/catalog.json -->
+
 Thank you for your interest in contributing to PrismGB! This document provides guidelines and instructions for contributing.
 
 ## Table of Contents
@@ -40,7 +42,7 @@ Please be respectful and constructive in all interactions. We aim to foster a we
 
 ### Linux Dependencies
 
-Native modules (like `usb-detection`) require build tools and development libraries:
+Native modules (like `usb`) require build tools and development libraries:
 
 ```bash
 # Debian/Ubuntu
@@ -91,18 +93,21 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for the full script list and local setup no
 ## Project Structure
 
 ```
+src/platform/          # Platform modules shared across main and renderer
 src/
 ├── main/               # Electron main process
-├── preload/            # Context bridge APIs
+├── preload/            # Electron tRPC context bridge
 ├── renderer/           # Renderer process and UI
 │   ├── application/    # App orchestrators and state
 │   ├── assets/         # Styles, fonts, images
-│   ├── features/       # Domain features (capture, devices, notes, settings, streaming, updates)
-│   ├── infrastructure/ # Event bus, logging, adapters
-│   ├── ui/             # Templates, components, orchestration
+│   ├── infrastructure/ # Browser adapters and domain services
+│   ├── presentation/   # Templates, components, bridges, effects, styles
 │   └── lib/            # Renderer-only utilities
-├── shared/             # Shared utilities and config
-tests/                  # Unit and integration tests
+tests/
+├── devices/            # Manifest-backed device testkit
+├── e2e/                # Playwright tests and fixtures
+├── integration/        # Integration tests
+└── unit/               # Unit tests
 docs/                   # Architecture and feature docs
 scripts/                # Build and tooling scripts
 ```
@@ -158,7 +163,8 @@ ci: add security scanning to PR workflow
 
 This project uses Husky to enforce commit conventions:
 
-- **pre-commit**: Runs `npm test` (Vitest watch mode)
+- **pre-commit**: Runs `npx lint-staged` and `npm run typecheck:app`
+- **pre-push**: Runs `npm run typecheck`, `npm run lint`, and `npm run test:run`
 - **commit-msg**: Validates commit message format via commitlint
 
 If commits fail validation, check your commit message format against the guidelines above.
@@ -175,8 +181,8 @@ If commits fail validation, check your commit message format against the guideli
 3. **Run quality checks** before pushing:
    ```bash
    npm run lint
-   npm run test:coverage
-   npm run test:integration
+   npm run test:run
+   npm run dev:smoke
    ```
 
 4. **Push your branch** and open a pull request
@@ -190,8 +196,8 @@ If commits fail validation, check your commit message format against the guideli
 All PRs must pass:
 
 - Linting (`npm run lint`)
-- Tests with coverage (`npm run test:coverage`)
-- Integration tests (`npm run test:integration`)
+- Unit and integration tests (`npm run test:run`)
+- Dev boot smoke (`npm run dev:smoke`)
 - Build smoke check (`npm run build:vite`)
 - Conventional commit validation (PR title and commits)
 
@@ -205,18 +211,17 @@ Routine dependency bumps are handled automatically by Dependabot (`.github/depen
 
 Major-version updates for these packages are **ignored** by Dependabot and must be performed manually as coordinated upgrades:
 
-- `electron`, `electron-builder`, `electron-vite`, `vite` — desktop build toolchain
+- `electron`, `electron-builder`, `vite` — desktop build toolchain
 - `typescript`, `@typescript-eslint/eslint-plugin`, `@typescript-eslint/parser` — type-check toolchain
 
 ### Upgrading TypeScript (major)
 
-A TypeScript major bump touches three things at once: the compiler, the lint toolchain, and the strict type-debt baseline. Do it in one branch:
+A TypeScript major bump touches two things at once: the compiler and the lint toolchain. Do it in one branch:
 
 1. **Verify ecosystem support.** Check the peer-dependency ranges on `@typescript-eslint/eslint-plugin`, `@typescript-eslint/parser`, `vitest`, `@vitest/coverage-v8`, and `happy-dom`. If any of them does not yet support the new TS major, wait — do not partially upgrade.
-2. **Bump in lockstep.** Update `typescript` in both `package.json` and `packages/prismgb-gpu/package.json`, and bump the lint/test peers in the same commit. The two workspace `typescript` ranges must agree on a major.
-3. **Review tsconfig.** Inspect `tsconfig.base.json`, `tsconfig.app.json`, and `packages/prismgb-gpu/tsconfig.json` for `target` / `lib` / `module` values deprecated by the new release.
-4. **Re-baseline the type-debt allowlist.** Run `npm run typecheck:app:allowlist` to regenerate `scripts/type-debt-allowlist.json`. Manually review any new diagnostic codes — do not silently widen the allowlist.
-5. **Run the full local gate before pushing:**
+2. **Bump `typescript`.** Update the `typescript` version in root `package.json` and bump the lint/test peers in the same commit.
+3. **Review tsconfig.** Inspect `tsconfig.base.json` for `target` / `lib` / `module` values deprecated by the new release.
+4. **Run the full local gate before pushing:**
    ```bash
    npm run lint
    npm run typecheck
@@ -247,44 +252,52 @@ See `docs/naming-conventions.md` for the full guide. Highlights are below.
 
 ### File Naming
 
-All JavaScript files follow the pattern: `{name}.{type}.js`
+Runtime files follow the pattern: `{name}.{type}.{ext}`
 
 | Suffix | Purpose |
 |--------|---------|
-| `.service.js` | Business logic (extends `BaseService`) |
-| `.orchestrator.js` | Lifecycle coordination (extends `BaseOrchestrator`) |
-| `.adapter.js` | External API wrappers |
-| `.component.js` | UI components |
-| `.handler.js` | IPC handlers |
-| `.factory.js` | Instance creation |
-| `.bridge.js` | Cross-module coordination |
-| `.registry.js` | Collection management |
-| `.interface.js` | Interface definitions |
-| `.worker.js` | Web Workers |
-| `.state.js` | State management |
-| `.config.js` | Configuration constants |
-| `.profile.js` | Device profiles |
-| `.utils.js` | Pure utility functions |
-| `.class.js` | Plain classes (no DI) |
-| `.base.js` | Abstract base classes |
+| `.service.<ext>` | Business logic (extends `BaseService`) |
+| `.orchestrator.<ext>` | Lifecycle coordination (extends `BaseOrchestrator`) |
+| `.adapter.<ext>` | External API wrappers |
+| `.component.<ext>` | UI components |
+| `.handler.<ext>` | IPC handlers |
+| `.factory.<ext>` | Instance creation |
+| `.bridge.<ext>` | Cross-module coordination |
+| `.registry.<ext>` | Collection management |
+| `.interface.<ext>` | Interface definitions |
+| `.worker.<ext>` | Web Workers |
+| `.state.<ext>` | State management |
+| `.config.<ext>` | Configuration constants |
+| `.contract.<ext>` | Public payload and API shapes |
+| `.testkit.ts` | Shared test fixtures and doubles |
+| `.utils.<ext>` | Pure utility functions |
+| `.class.<ext>` | Plain classes (no DI) |
+| `.base.<ext>` | Abstract base classes |
 
 **Rules:**
 - Use kebab-case for filenames
-- Type suffix uses dot separator: `device-profile.registry.js`, `streaming-worker-protocol.config.js`
-- Abstract base classes use `{type}.base.js` pattern: `service.base.js`, `orchestrator.base.js`
-- Entry points (`index.js`) and DI containers (`container.js`) are exceptions
+- Type suffix uses dot separator: `ipc-handler.registry.ts`, `timing.config.ts`
+- Abstract base classes use `{type}.base.ts` pattern: `service.base.ts`, `orchestrator.base.ts`
+- Entry points (`index.ts`) and DI containers (`container.ts`) are exceptions
 
 ### Example Service
 
-```javascript
-import { BaseService } from '@shared/base/service.base.js';
+```ts
+import { inject, injectable } from 'inversify';
+import { BaseService } from '@platform/core';
+import type { EventPublisherLike, LoggerFactoryLike } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens.js';
 
+@injectable()
 export class MyService extends BaseService {
-  constructor(dependencies) {
-    super(dependencies, ['eventBus', 'loggerFactory', 'requiredDep'], 'MyService');
+  constructor(
+    @inject(TOKENS.eventBus) private readonly eventBus: EventPublisherLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+  ) {
+    super({ loggerFactory, eventBus }, 'MyService');
   }
 
-  myMethod() {
+  myMethod(): void {
     this.logger.info('Doing something');
     this.eventBus.publish('my:event', { data: 'value' });
   }
@@ -310,27 +323,34 @@ npm run test:smoke       # Smoke test (requires build)
 
 ### Coverage Requirements
 
-- Lines: 80%
-- Functions: 80%
-- Statements: 80%
-- Branches: 75%
+Coverage is reported via `npm run test:coverage` (v8 provider); no thresholds are currently enforced.
 
 ### Writing Tests
 
 Tests should be placed in:
 - `tests/unit/` for unit tests
 - `tests/integration/` for integration tests
-- Or co-located with source files as `*.test.js`
+- `tests/e2e/` for Playwright workflows
+- `tests/devices/` for shared catalog-backed device fixtures
+- Or co-located with source files as `*.test.ts`, `*.spec.ts`, or the equivalent `.js` form for runtime-only modules
 
-```javascript
+### Device Test Fixtures
+
+Use the canonical device testkit instead of duplicating device constants or fixture classes:
+
+- `tests/devices/media.testkit.ts`: catalog-backed descriptor constants, USB/media specs, payload builders, frame data, and browser media doubles.
+
+Do not hand-write device fixture classes in individual tests.
+
+```ts
 import { describe, it, expect, vi } from 'vitest';
-import { MyService } from './MyService.js';
+import { MyService } from './my.service';
 
 describe('MyService', () => {
   it('should do something', () => {
     const mockDeps = {
       eventBus: { publish: vi.fn(), subscribe: vi.fn() },
-      loggerFactory: { createLogger: () => ({ info: vi.fn() }) }
+      loggerFactory: { create: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) }
     };
 
     const service = new MyService(mockDeps);

@@ -136,13 +136,13 @@ body::after {
 }
 
 /* Pause decorative animations when streaming or idle to save GPU cycles */
-body.app-streaming::after,
+body.streaming-mode::after,
 body.app-idle::after {
   animation-play-state: paused;
 }
 
-body.app-streaming .prismatic-orbs::before,
-body.app-streaming .prismatic-orbs::after,
+body.streaming-mode .prismatic-orbs::before,
+body.streaming-mode .prismatic-orbs::after,
 body.app-idle .prismatic-orbs::before,
 body.app-idle .prismatic-orbs::after {
   animation-play-state: paused;
@@ -200,11 +200,6 @@ body.app-animations-off .scanlines {
 
 body.app-animations-off .btn::before {
   display: none;
-}
-
-body.app-animations-off .btn-rainbow {
-  animation: none;
-  background-size: 100% 100%;
 }
 
 body.app-animations-off .status-indicator {
@@ -298,15 +293,4 @@ h1, h2, h3, h4, h5, h6 {
 :focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
-}
-
-/* Chromatic hover utility */
-.chromatic-hover {
-  transition: text-shadow var(--transition-fast);
-}
-
-.chromatic-hover:hover {
-  text-shadow:
-    -1px 0 var(--chromatic-magenta),
-    1px 0 var(--chromatic-cyan);
 }

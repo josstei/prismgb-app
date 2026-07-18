@@ -1,37 +1,69 @@
+import { Container, type ServiceIdentifier } from 'inversify';
+import { TOKENS, type TokenKey } from './di/tokens.js';
+import { infrastructureModule } from './di/infrastructure.module.js';
+import { applicationModule } from './di/application.module.js';
+import { presentationModule } from './di/presentation.module.js';
+import { StreamingCanvasLifecycleService } from '../infrastructure/services/streaming/canvas-lifecycle.service.js';
+import {
+  UiComponentHost,
+  type RendererUiComponentInstanceMap
+} from '../presentation/controller/ui-component.host.js';
+import { RendererTemplateCoreComponentIds } from '../presentation/primitives/template-dom.contract.js';
+import { applyBindingOverrides } from '@platform/core';
+
+export type RendererServiceContainer = Container;
+
+const ALL_COMPONENT_TOKEN_MAP: Record<keyof RendererUiComponentInstanceMap, ServiceIdentifier> = {
+  statusNotificationComponent: TOKENS.statusNotificationComponent,
+  deviceStatusComponent: TOKENS.deviceStatusComponent,
+  streamControlsComponent: TOKENS.streamControlsComponent,
+  transcodeToastComponent: TOKENS.transcodeToastComponent,
+  settingsMenuComponent: TOKENS.settingsMenuComponent,
+  shaderSelectorComponent: TOKENS.shaderSelectorComponent,
+  notesPanelComponent: TOKENS.notesPanelComponent
+};
+
+const CORE_COMPONENT_TOKEN_MAP: Partial<Record<keyof RendererUiComponentInstanceMap, ServiceIdentifier>> =
+  Object.fromEntries(
+    RendererTemplateCoreComponentIds.map((id) => [id, ALL_COMPONENT_TOKEN_MAP[id]])
+  );
+
 /**
- * Renderer DI container composition shell.
+ * Build a renderer DI container wired onto inversify: layer binding modules
+ * register every token's construction, `canvasLifecycleService` binds here so
+ * its lazy read of `streamingRenderService` can close over this container and
+ * break their circular dependency, then overrides replace bindings for tests.
+ * No code generation — the binding modules are the source of truth.
  */
+export function createRendererContainer(overrides: Partial<Record<TokenKey, unknown>> = {}): RendererServiceContainer {
+  const container = new Container({ defaultScope: 'Singleton' });
+  container.load(infrastructureModule, applicationModule, presentationModule);
 
-import { ServiceContainer, asValue } from '@renderer/infrastructure/di/service-container.factory.js';
-import { PresetRegistry } from '@prismgb/gpu';
-import { registerInfrastructure } from '@renderer/application/di/register-infrastructure';
-import { registerDevices } from '@renderer/application/di/register-devices';
-import { registerStreaming } from '@renderer/application/di/register-streaming';
-import { registerCapture } from '@renderer/application/di/register-capture';
-import { registerUi } from '@renderer/application/di/register-ui';
-import { registerOrchestrators } from '@renderer/application/di/register-orchestrators';
-import type { RendererContainerMap } from '@renderer/application/di/renderer-container-map.type';
+  container.bind(TOKENS.canvasLifecycleService).toDynamicValue(() => new StreamingCanvasLifecycleService({
+    streamViewService: container.get(TOKENS.streamViewService),
+    viewportService: container.get(TOKENS.viewportService),
+    eventBus: container.get(TOKENS.eventBus),
+    loggerFactory: container.get(TOKENS.loggerFactory),
+    get streamingRenderService() {
+      return container.get(TOKENS.streamingRenderService);
+    }
+  })).inSingletonScope();
 
-PresetRegistry.setDefault('vibrant');
+  container.bind(TOKENS.uiComponentHost).toDynamicValue(() => new UiComponentHost<RendererUiComponentInstanceMap>(
+    <TInstance>(token: unknown): TInstance => container.get(token as ServiceIdentifier<TInstance>),
+    CORE_COMPONENT_TOKEN_MAP,
+    ALL_COMPONENT_TOKEN_MAP,
+    container.get(TOKENS.loggerFactory)
+  )).inSingletonScope();
 
-type RendererServiceContainer = ServiceContainer<RendererContainerMap>;
-
-function createRendererContainer(): RendererServiceContainer {
-  const container = new ServiceContainer<RendererContainerMap>();
-
-  registerInfrastructure(container);
-  registerDevices(container);
-  registerStreaming(container);
-  registerCapture(container);
-  registerUi(container);
-  registerOrchestrators(container);
+  applyBindingOverrides(container, TOKENS, overrides);
 
   return container;
 }
 
 let container: RendererServiceContainer | null = null;
 
-function initializeContainer(): RendererServiceContainer {
+export function initializeContainer(): RendererServiceContainer {
   if (container) {
     console.warn('Container already initialized');
     return container;
@@ -41,29 +73,3 @@ function initializeContainer(): RendererServiceContainer {
   console.log('DI Container initialized with domain services');
   return container;
 }
-
-function getContainer(): RendererServiceContainer {
-  if (!container) {
-    throw new Error('Container not initialized. Call initializeContainer() first.');
-  }
-  return container;
-}
-
-function resetContainer() {
-  if (container) {
-    container.dispose();
-    container = null;
-  }
-}
-
-export {
-  createRendererContainer,
-  initializeContainer,
-  getContainer,
-  resetContainer,
-  asValue
-};
-
-export type {
-  RendererServiceContainer
-};

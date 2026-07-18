@@ -12,19 +12,66 @@
 
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
+import { pathToFileURL } from 'url';
 import path from 'path';
 import fs from 'fs';
+import picomatch from 'picomatch';
+import { walkPaths } from './lib/fs-walk.js';
+import { headlessElectronEnv, terminateProcessTree } from './lib/process-runner.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.resolve(__dirname, '..');
+const platformManifestPath = path.join(__dirname, 'manifests/platforms.manifest.json');
 
 const TIMEOUT_MS = 60000; // 1 minute max
 const platform = process.platform;
 
+function loadPlatformManifest(manifestPath = platformManifestPath) {
+  return JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+}
+
+function nodePlatformPrefix(nodePlatform) {
+  if (nodePlatform === 'darwin') return 'macos';
+  if (nodePlatform === 'win32') return 'windows';
+  return nodePlatform;
+}
+
+export function resolveSmokePlatformEntry(
+  manifest = loadPlatformManifest(),
+  { nodePlatform = process.platform, nodeArch = process.arch } = {}
+) {
+  const platformId = `${nodePlatformPrefix(nodePlatform)}-${nodeArch}`;
+  return manifest.platforms.find((entry) => entry.id === platformId) ?? null;
+}
+
+function findFirstPatternMatch(rootDirectory, relativePattern) {
+  const normalizedPattern = relativePattern.split(path.sep).join('/');
+  const absolutePattern = path.resolve(rootDirectory, relativePattern);
+  if (!normalizedPattern.includes('*')) {
+    return fs.existsSync(absolutePattern) ? absolutePattern : null;
+  }
+
+  const searchRoot = path.resolve(rootDirectory, picomatch.scan(normalizedPattern).base);
+  const isMatch = picomatch(normalizedPattern, { dot: true });
+  return walkPaths(searchRoot)
+    .map((absolutePath) => ({
+      absolutePath,
+      relativePath: path.relative(rootDirectory, absolutePath).split(path.sep).join('/')
+    }))
+    .filter(({ relativePath }) => isMatch(relativePath))
+    .sort((left, right) => left.relativePath.localeCompare(right.relativePath))[0]?.absolutePath ?? null;
+}
+
 /**
  * Find the built executable based on platform
  */
-function findExecutable() {
-  const distDir = path.join(__dirname, '..', 'release');
+export function findExecutable({
+  rootDirectory = projectRoot,
+  manifest = loadPlatformManifest(),
+  nodePlatform = process.platform,
+  nodeArch = process.arch
+} = {}) {
+  const distDir = path.join(rootDirectory, 'release');
 
   if (!fs.existsSync(distDir)) {
     console.error(`ERROR: release directory not found at ${distDir}`);
@@ -32,53 +79,18 @@ function findExecutable() {
     return null;
   }
 
-  const files = fs.readdirSync(distDir);
+  const platformEntry = resolveSmokePlatformEntry(manifest, { nodePlatform, nodeArch });
+  if (!platformEntry) {
+    return null;
+  }
 
-  if (platform === 'linux') {
-    // Prefer AppImage, then look in unpacked directory
-    const appImage = files.find(f => f.endsWith('.AppImage'));
-    if (appImage) {
-      const appImagePath = path.join(distDir, appImage);
-      // Make AppImage executable
-      fs.chmodSync(appImagePath, '755');
-      return appImagePath;
-    }
-
-    // Fallback to unpacked directory
-    const unpackedDir = path.join(distDir, 'linux-unpacked');
-    if (fs.existsSync(unpackedDir)) {
-      const executable = path.join(unpackedDir, 'prismgb');
-      if (fs.existsSync(executable)) {
-        return executable;
+  for (const pattern of platformEntry.smokeExecutablePriority) {
+    const executablePath = findFirstPatternMatch(rootDirectory, pattern);
+    if (executablePath) {
+      if (executablePath.endsWith('.AppImage')) {
+        fs.chmodSync(executablePath, '755');
       }
-    }
-  } else if (platform === 'darwin') {
-    // Look for .app bundle
-    const macDir = path.join(distDir, 'mac');
-    const macArmDir = path.join(distDir, 'mac-arm64');
-
-    for (const dir of [macDir, macArmDir]) {
-      if (fs.existsSync(dir)) {
-        const apps = fs.readdirSync(dir).filter(f => f.endsWith('.app'));
-        if (apps.length > 0) {
-          return path.join(dir, apps[0], 'Contents', 'MacOS', 'PrismGB');
-        }
-      }
-    }
-  } else if (platform === 'win32') {
-    // Look for portable exe (not Setup installer)
-    const portableExe = files.find(f => f.endsWith('-portable.exe'));
-    if (portableExe) {
-      return path.join(distDir, portableExe);
-    }
-
-    // Fallback to unpacked directory
-    const unpackedDir = path.join(distDir, 'win-unpacked');
-    if (fs.existsSync(unpackedDir)) {
-      const executable = path.join(unpackedDir, 'PrismGB.exe');
-      if (fs.existsSync(executable)) {
-        return executable;
-      }
+      return executablePath;
     }
   }
 
@@ -109,10 +121,7 @@ async function runSmokeTest() {
   const child = spawn(executable, ['--smoke-test'], {
     stdio: ['ignore', 'pipe', 'pipe'],
     env: {
-      ...process.env,
-      ELECTRON_DISABLE_GPU: '1',
-      ELECTRON_NO_ATTACH_CONSOLE: '1',
-      // Prevent opening dev tools
+      ...headlessElectronEnv(),
       NODE_ENV: 'production'
     },
     // Detach on Windows to allow proper cleanup
@@ -145,12 +154,7 @@ async function runSmokeTest() {
     console.log('');
     console.log('Smoke test timeout reached - app appears to be running successfully');
     console.log('Terminating process...');
-
-    if (platform === 'win32') {
-      spawn('taskkill', ['/pid', child.pid, '/f', '/t']);
-    } else {
-      child.kill('SIGTERM');
-    }
+    terminateProcessTree(child);
   }, TIMEOUT_MS);
 
   return new Promise((resolve) => {
@@ -203,4 +207,7 @@ async function runSmokeTest() {
 }
 
 // Run the test
-runSmokeTest().then(code => process.exit(code));
+const invokedScript = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : '';
+if (import.meta.url === invokedScript) {
+  runSmokeTest().then(code => process.exit(code));
+}

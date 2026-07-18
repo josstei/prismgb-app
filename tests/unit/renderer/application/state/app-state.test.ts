@@ -1,0 +1,448 @@
+/**
+ * StateManager (AppState) Unit Tests
+ */
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { AppState } from '@renderer/application/state/app-state';
+import {
+  createRendererDeviceRuntimeMock,
+  createEventBus,
+  createStreamCapabilitiesMock,
+  createStreamPayloadMock,
+  createStreamingServiceFacadeMock
+} from '../../../../factories/index.js';
+
+describe('AppState', () => {
+  let state;
+  let mockStreamingService;
+  let mockRendererDeviceRuntime;
+  let mockEventBus;
+  let subscribedHandlers;
+
+  function setRuntimeConnected(connected) {
+    mockRendererDeviceRuntime.snapshot.mockReturnValue({
+      status: {
+        state: connected ? 'connected' : 'disconnected',
+        connected,
+        device: null,
+        updatedAt: connected ? 1 : 2
+      },
+      supportedDevices: [],
+      selectedDeviceId: null,
+      hasMediaPermission: false,
+      lastEnumerationAt: connected ? 1 : 2
+    });
+  }
+
+  beforeEach(() => {
+    subscribedHandlers = {};
+
+    // Create mock services
+    mockStreamingService = createStreamingServiceFacadeMock({ isStreaming: false });
+
+    mockRendererDeviceRuntime = createRendererDeviceRuntimeMock({
+      snapshot: vi.fn(() => ({
+        status: {
+          state: 'disconnected',
+          connected: false,
+          device: null,
+          updatedAt: 0
+        },
+        supportedDevices: [],
+        selectedDeviceId: null,
+        hasMediaPermission: false,
+        lastEnumerationAt: null
+      }))
+    });
+
+    mockEventBus = createEventBus({
+      onSubscribe: (event, handler) => {
+        subscribedHandlers[event] = handler;
+      }
+    });
+
+    state = new AppState({
+      streamingService: mockStreamingService,
+      rendererDeviceRuntime: mockRendererDeviceRuntime,
+      eventBus: mockEventBus
+    });
+  });
+
+  describe('Constructor', () => {
+    it('should initialize with default state', () => {
+      expect(state.isStreaming).toBe(false);
+      expect(state.deviceConnected).toBe(false);
+      expect(state.isCinematicModeEnabled).toBe(true);
+    });
+
+    it('should work without dependencies (graceful degradation)', () => {
+      const stateNoDeps = new AppState();
+      expect(stateNoDeps.isStreaming).toBe(false);
+      expect(stateNoDeps.deviceConnected).toBe(false);
+    });
+
+    it('should setup event subscriptions when eventBus provided', () => {
+      expect(mockEventBus.subscribe).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe('Derived State - isStreaming', () => {
+    it('should derive streaming state from StreamingService', () => {
+      expect(state.isStreaming).toBe(false);
+
+      // Change service state
+      mockStreamingService.isStreaming = true;
+      expect(state.isStreaming).toBe(true);
+
+      mockStreamingService.isStreaming = false;
+      expect(state.isStreaming).toBe(false);
+    });
+  });
+
+  describe('Derived State - deviceConnected', () => {
+    it('should derive device connection state from RendererDeviceRuntime', () => {
+      expect(state.deviceConnected).toBe(false);
+
+      setRuntimeConnected(true);
+      expect(state.deviceConnected).toBe(true);
+
+      setRuntimeConnected(false);
+      expect(state.deviceConnected).toBe(false);
+    });
+  });
+
+  describe('setCinematicMode', () => {
+    it('should enable cinematic mode', () => {
+      state.setCinematicMode(false);
+      state.setCinematicMode(true);
+      expect(state.isCinematicModeEnabled).toBe(true);
+    });
+
+    it('should disable cinematic mode', () => {
+      state.setCinematicMode(false);
+      expect(state.isCinematicModeEnabled).toBe(false);
+    });
+  });
+
+  describe('State Integration', () => {
+    it('should maintain independent state values', () => {
+      // Update service/runtime state.
+      mockStreamingService.isStreaming = true;
+      setRuntimeConnected(true);
+      state.setCinematicMode(false);
+
+      expect(state.isStreaming).toBe(true);
+      expect(state.deviceConnected).toBe(true);
+      expect(state.isCinematicModeEnabled).toBe(false);
+    });
+
+    it('should reflect service and runtime state changes', () => {
+      // Start with defaults
+      expect(state.isStreaming).toBe(false);
+      expect(state.deviceConnected).toBe(false);
+
+      // Change services
+      mockStreamingService.isStreaming = true;
+      setRuntimeConnected(true);
+
+      // State reflects service changes
+      expect(state.isStreaming).toBe(true);
+      expect(state.deviceConnected).toBe(true);
+
+      // Reset services
+      mockStreamingService.isStreaming = false;
+      setRuntimeConnected(false);
+
+      expect(state.isStreaming).toBe(false);
+      expect(state.deviceConnected).toBe(false);
+    });
+  });
+
+  describe('EventBus Subscriptions', () => {
+    it('should subscribe to stream and device events', () => {
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:started', expect.any(Function));
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:stopped', expect.any(Function));
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith('device:status-changed', expect.any(Function));
+    });
+
+    it('should cache stream on stream:started', () => {
+      const mockStream = createStreamPayloadMock({ id: 'test-stream' });
+      subscribedHandlers['stream:started']({ stream: mockStream });
+
+      expect(state.currentStream).toBe(mockStream);
+    });
+
+    it('should cache capabilities on stream:started', () => {
+      const mockCapabilities = createStreamCapabilitiesMock();
+      subscribedHandlers['stream:started']({ stream: {}, capabilities: mockCapabilities });
+
+      expect(state.currentCapabilities).toBe(mockCapabilities);
+    });
+
+    it('should clear stream cache on stream:stopped', () => {
+      state._streamCache.value = createStreamPayloadMock({ id: 'test-stream' });
+
+      subscribedHandlers['stream:stopped']();
+
+      expect(state._streamCache.value).toBeNull();
+    });
+
+    it('should clear capabilities cache on stream:stopped', () => {
+      state._capabilitiesCache.value = createStreamCapabilitiesMock();
+
+      subscribedHandlers['stream:stopped']();
+
+      expect(state._capabilitiesCache.value).toBeNull();
+      expect(state.currentCapabilities).toBeNull();
+    });
+
+    it('should not setup subscriptions without eventBus', () => {
+      const stateNoEventBus = new AppState({
+        streamingService: mockStreamingService,
+        rendererDeviceRuntime: mockRendererDeviceRuntime
+      });
+
+      // Should not throw and state should work
+      expect(stateNoEventBus.isStreaming).toBe(false);
+    });
+  });
+
+  describe('currentStream getter', () => {
+    it('should return cached stream when cache is populated', () => {
+      const mockStream = createStreamPayloadMock({ id: 'cached-stream' });
+      state._streamCache.value = mockStream;
+
+      expect(state.currentStream).toBe(mockStream);
+    });
+
+    it('should fallback to streamingService.getStream when cache is null', () => {
+      state._streamCache.value = null;
+      const mockStream = createStreamPayloadMock({ id: 'service-stream' });
+      mockStreamingService.getStream = vi.fn(() => mockStream);
+
+      expect(state.currentStream).toBe(mockStream);
+      expect(mockStreamingService.getStream).toHaveBeenCalled();
+    });
+
+    it('should return null when no cache and no service', () => {
+      state._streamCache.value = null;
+      state.streamingService = null;
+
+      expect(state.currentStream).toBeNull();
+    });
+
+    it('should return null when no cache and service has no getStream', () => {
+      state._streamCache.value = null;
+      mockStreamingService.getStream = undefined;
+
+      expect(state.currentStream).toBeNull();
+    });
+
+    it('should prefer cache over service getStream', () => {
+      const cachedStream = createStreamPayloadMock({ id: 'cached-stream' });
+      const serviceStream = createStreamPayloadMock({ id: 'service-stream' });
+      state._streamCache.value = cachedStream;
+      mockStreamingService.getStream = vi.fn(() => serviceStream);
+
+      expect(state.currentStream).toBe(cachedStream);
+      expect(mockStreamingService.getStream).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('currentCapabilities getter', () => {
+    it('should return cached capabilities when cache is populated', () => {
+      const mockCapabilities = createStreamCapabilitiesMock();
+      state._capabilitiesCache.value = mockCapabilities;
+
+      expect(state.currentCapabilities).toBe(mockCapabilities);
+    });
+
+    it('should fallback to streamingService.currentCapabilities when cache is null', () => {
+      state._capabilitiesCache.value = null;
+      const mockCapabilities = createStreamCapabilitiesMock();
+      mockStreamingService.currentCapabilities = mockCapabilities;
+
+      expect(state.currentCapabilities).toBe(mockCapabilities);
+    });
+
+    it('should return null when no cache and no service', () => {
+      state._capabilitiesCache.value = null;
+      state.streamingService = null;
+
+      expect(state.currentCapabilities).toBeNull();
+    });
+
+    it('should return null when no cache and service has no currentCapabilities', () => {
+      state._capabilitiesCache.value = null;
+      mockStreamingService.currentCapabilities = undefined;
+
+      expect(state.currentCapabilities).toBeNull();
+    });
+
+    it('should prefer cache over service currentCapabilities', () => {
+      const cachedCapabilities = createStreamCapabilitiesMock();
+      const serviceCapabilities = createStreamCapabilitiesMock({ frameRate: 30 });
+      state._capabilitiesCache.value = cachedCapabilities;
+      mockStreamingService.currentCapabilities = serviceCapabilities;
+
+      expect(state.currentCapabilities).toBe(cachedCapabilities);
+    });
+  });
+
+  describe('dispose', () => {
+    it('should unsubscribe from all event subscriptions', () => {
+      const unsubscribe1 = vi.fn();
+      const unsubscribe2 = vi.fn();
+      const unsubscribe3 = vi.fn();
+      let subCount = 0;
+      mockEventBus.subscribe = vi.fn(() => {
+        subCount++;
+        if (subCount === 1) return unsubscribe1;
+        if (subCount === 2) return unsubscribe2;
+        return unsubscribe3;
+      });
+
+      // Re-create state so it registers with our mocked subscribe
+      const testState = new AppState({
+        streamingService: mockStreamingService,
+        rendererDeviceRuntime: mockRendererDeviceRuntime,
+        eventBus: mockEventBus
+      });
+
+      testState.dispose();
+
+      expect(unsubscribe1).toHaveBeenCalled();
+      expect(unsubscribe2).toHaveBeenCalled();
+      expect(unsubscribe3).toHaveBeenCalled();
+    });
+
+    it('should clear stream cache', () => {
+      state._streamCache.value = createStreamPayloadMock({ id: 'test-stream' });
+
+      state.dispose();
+
+      expect(state._streamCache.value).toBeNull();
+    });
+
+    it('should clear capabilities cache', () => {
+      state._capabilitiesCache.value = createStreamCapabilitiesMock();
+
+      state.dispose();
+
+      expect(state._capabilitiesCache.value).toBeNull();
+    });
+
+    it('should handle missing eventBus subscription dispose gracefully', () => {
+      const testState = new AppState({
+        streamingService: mockStreamingService,
+        rendererDeviceRuntime: mockRendererDeviceRuntime
+      });
+
+      expect(() => testState.dispose()).not.toThrow();
+    });
+
+    it('should be idempotent - safe to call multiple times', () => {
+      state.dispose();
+      state.dispose();
+
+      expect(state._streamCache.value).toBeNull();
+      expect(state._capabilitiesCache.value).toBeNull();
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('should handle missing streamingService gracefully', () => {
+      const stateNoService = new AppState({
+        rendererDeviceRuntime: mockRendererDeviceRuntime,
+        eventBus: mockEventBus
+      });
+
+      expect(stateNoService.isStreaming).toBe(false);
+      expect(stateNoService.currentStream).toBeNull();
+      expect(stateNoService.currentCapabilities).toBeNull();
+    });
+
+    it('should handle missing rendererDeviceRuntime gracefully', () => {
+      const stateNoDevice = new AppState({
+        streamingService: mockStreamingService,
+        eventBus: mockEventBus
+      });
+
+      expect(stateNoDevice.deviceConnected).toBe(false);
+    });
+
+    it('should handle completely empty dependencies', () => {
+      const stateEmpty = new AppState({});
+
+      expect(stateEmpty.isStreaming).toBe(false);
+      expect(stateEmpty.deviceConnected).toBe(false);
+      expect(stateEmpty.currentStream).toBeNull();
+      expect(stateEmpty.currentCapabilities).toBeNull();
+    });
+
+    it('should maintain cinematic mode state independently of services', () => {
+      state.streamingService = null;
+      state.rendererDeviceRuntime = null;
+
+      state.setCinematicMode(false);
+      expect(state.isCinematicModeEnabled).toBe(false);
+
+      state.setCinematicMode(true);
+      expect(state.isCinematicModeEnabled).toBe(true);
+    });
+  });
+
+  describe('Cache and Service Interaction', () => {
+    it('should update cache when stream:started event fires', () => {
+      const mockStream = createStreamPayloadMock({ id: 'event-stream' });
+      const mockCapabilities = createStreamCapabilitiesMock({ frameRate: 60 });
+
+      expect(state._streamCache.value).toBeNull();
+      expect(state._capabilitiesCache.value).toBeNull();
+
+      subscribedHandlers['stream:started']({ stream: mockStream, capabilities: mockCapabilities });
+
+      expect(state._streamCache.value).toBe(mockStream);
+      expect(state._capabilitiesCache.value).toBe(mockCapabilities);
+    });
+
+    it('should clear cache when stream:stopped event fires', () => {
+      state._streamCache.value = createStreamPayloadMock({ id: 'test-stream' });
+      state._capabilitiesCache.value = createStreamCapabilitiesMock({ frameRate: 60 });
+
+      subscribedHandlers['stream:stopped']();
+
+      expect(state._streamCache.value).toBeNull();
+      expect(state._capabilitiesCache.value).toBeNull();
+    });
+
+    it('should reflect real-time service state changes', () => {
+      mockStreamingService.isStreaming = false;
+      expect(state.isStreaming).toBe(false);
+
+      mockStreamingService.isStreaming = true;
+      expect(state.isStreaming).toBe(true);
+
+      mockStreamingService.isStreaming = false;
+      expect(state.isStreaming).toBe(false);
+    });
+
+    it('should handle stream:started event without capabilities', () => {
+      const mockStream = createStreamPayloadMock({ id: 'stream-only' });
+
+      subscribedHandlers['stream:started']({ stream: mockStream });
+
+      expect(state._streamCache.value).toBe(mockStream);
+      expect(state._capabilitiesCache.value).toBeNull();
+    });
+
+    it('should handle stream:started event without stream', () => {
+      const mockCapabilities = createStreamCapabilitiesMock();
+
+      subscribedHandlers['stream:started']({ capabilities: mockCapabilities });
+
+      expect(state._streamCache.value).toBeNull();
+      expect(state._capabilitiesCache.value).toBe(mockCapabilities);
+    });
+  });
+});

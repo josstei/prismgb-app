@@ -8,6 +8,8 @@
 export const CSSClasses = {
   // Body state
   BODY_READY: 'ready',
+  APP_IDLE: 'app-idle',
+  APP_HIDDEN: 'app-hidden',
 
   // Connection status
   CONNECTED: 'connected',

@@ -1,5 +1,7 @@
 # PrismGB
 
+<!-- Source: package.json, src/platform/devices/domain/catalog.json, src/platform/devices/domain/catalog.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts -->
+
 <p align="center">
   <img src="assets/Logo.png" alt="PrismGB Logo" width="400">
 </p>
@@ -12,7 +14,7 @@
   <a href="https://github.com/josstei/prismgb-app/releases/latest"><img src="https://img.shields.io/github/v/release/josstei/prismgb-app?label=version" alt="Latest Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License"></a>
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform">
-  <img src="https://img.shields.io/badge/electron-v28-blue" alt="Electron">
+  <img src="https://img.shields.io/badge/electron-v41-blue" alt="Electron">
   <img src="https://img.shields.io/badge/node-%3E%3D22-green" alt="Node.js">
 </p>
 
@@ -47,7 +49,7 @@ PrismGB is a free, open-source desktop application that lets you stream and capt
 | Feature | Description |
 |---------|-------------|
 | **Live Video Streaming** | Stream your Chromatic's 160x144 display to your desktop in real-time |
-| **GPU-Accelerated Rendering** | WebGL2 primary with WebGPU and Canvas2D fallback for broad compatibility |
+| **GPU-Accelerated Rendering** | WebGPU primary with Canvas2D fallback for broad compatibility |
 | **4-Pass Shader Pipeline** | Upscale, Unsharp Mask, Color Elevation, and CRT/LCD effects |
 | **Multiple Output Resolutions** | 160x144 (native), 320x288, 640x576, 1280x1152, 1280x720 (HD) |
 | **Performance Mode** | Reduced rendering effects for weaker GPUs (Canvas2D fallback) |
@@ -94,7 +96,7 @@ PrismGB includes 6 carefully tuned render presets:
 |---------|-------------|
 | **USB Hot-Plug** | Automatic device detection and reconnection |
 | **Auto-Stream** | Optionally start streaming when device connects |
-| **Device Profiles** | Extensible device profile system |
+| **Manifest Device Catalog** | Shared device descriptor drives USB matching, media constraints, and tests |
 
 ## Requirements
 
@@ -256,15 +258,16 @@ Screenshots and recordings are automatically saved to your **Downloads** folder:
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Volume | 100% | Audio playback volume |
+| Volume | 70% | Audio playback volume |
 | Brightness | 1.0x | Display brightness multiplier |
 | Render Preset | Vibrant | Active shader preset |
-| Status Strip | Visible | Show device/FPS footer |
+| Status Strip | Hidden | Show device/FPS footer |
 | Performance Mode | Off | Use Canvas2D instead of GPU |
 | Fullscreen on Startup | Off | Auto-enter fullscreen |
-| Cinematic Mode | Off | Auto-hide toolbar |
-| Auto-Stream | On | Start streaming on device connect |
-| Recording Format | MP4 | Output format for recordings |
+| Minimalist Fullscreen | Off | Hide chrome while fullscreen |
+| Auto-Stream | Off | Start streaming on device connect |
+| Launch on Login | Off | Start app with the operating system |
+| Recording Format | WebM | Output format for recordings |
 
 ### Local Data
 
@@ -279,19 +282,19 @@ PrismGB uses a modern **three-process Electron architecture** with clean separat
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                              Main Process                                │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐│
-│  │   Window    │ │    Tray     │ │   Device    │ │     Transcode       ││
-│  │  Service    │ │   Service   │ │   Service   │ │      Service        ││
-│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────────────┘│
+│  ┌─────────────────┐ ┌─────────────────────┐ ┌───────────────────────┐ │
+│  │ DeviceConnection │ │DeviceIntegrationSvc │ │  IPC Handler Registry │ │
+│  │  USB reconcile   │ │tray/window side fx  │ │  tRPC router + push   │ │
+│  └─────────────────┘ └─────────────────────┘ └───────────────────────┘ │
 │  ┌─────────────┐ ┌─────────────┐ ┌───────────────────────────────────┐  │
-│  │   Update    │ │ Performance │ │         IPC Handler Registry      │  │
-│  │   Service   │ │   Metrics   │ │                                   │  │
+│  │   Window    │ │   Update    │ │         Transcode Service         │  │
+│  │  Service    │ │  Service    │ │          FFmpeg jobs              │  │
 │  └─────────────┘ └─────────────┘ └───────────────────────────────────┘  │
 └────────────────────────────────┬────────────────────────────────────────┘
-                                 │ IPC (contextBridge)
+                                 │ electron-trpc IPC + push subscriptions
 ┌────────────────────────────────┴────────────────────────────────────────┐
 │                            Preload Script                                │
-│                     (Secure IPC bridge, no Node.js)                      │
+│                 exposes electronTRPC only, no Node.js                    │
 └────────────────────────────────┬────────────────────────────────────────┘
                                  │
 ┌────────────────────────────────┴────────────────────────────────────────┐
@@ -300,8 +303,11 @@ PrismGB uses a modern **three-process Electron architecture** with clean separat
 │  │                      Streaming Orchestrator                          ││
 │  │  ┌───────────────┐ ┌───────────────────┐ ┌───────────────────────┐  ││
 │  │  │   Streaming   │ │  Render Pipeline  │ │    GPU Render Loop    │  ││
-│  │  │    Service    │ │  (4-pass shader)  │ │   (WebGL2/WebGPU)     │  ││
+│  │  │    Service    │ │  (4-pass shader)  │ │       (WebGPU)        │  ││
 │  │  └───────────────┘ └───────────────────┘ └───────────────────────┘  ││
+│  │  ┌────────────────────┐ ┌────────────────────────────────────────┐  ││
+│  │  │RendererDeviceRuntime│ │ DeviceMediaAcquirer + platform ports │  ││
+│  │  └────────────────────┘ └────────────────────────────────────────┘  ││
 │  └─────────────────────────────────────────────────────────────────────┘│
 │  ┌─────────────────────────────────────────────────────────────────────┐│
 │  │                       Capture Orchestrator                           ││
@@ -311,8 +317,8 @@ PrismGB uses a modern **three-process Electron architecture** with clean separat
 │  │  └───────────────┘ └───────────────────┘ └───────────────────────┘  ││
 │  └─────────────────────────────────────────────────────────────────────┘│
 │  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────────┐│
-│  │   Device     │ │   Settings   │ │    Notes     │ │      Update      ││
-│  │   Service    │ │   Service    │ │   Service    │ │     Service      ││
+│  │ Device UI    │ │   Settings   │ │    Notes     │ │      Update      ││
+│  │ state stores │ │   Service    │ │   Service    │ │     Service      ││
 │  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────────┘│
 │  ┌─────────────────────────────────────────────────────────────────────┐│
 │  │                          UI Layer                                    ││
@@ -327,7 +333,7 @@ PrismGB uses a modern **three-process Electron architecture** with clean separat
 |---------|-------------|
 | **Orchestrator** | Coordinates services and manages state machines |
 | **Service** | Single-responsibility business logic with event emission |
-| **DI Container** | Awilix-based dependency injection (main process) |
+| **DI Container** | Runtime dependency-injection container (both processes) |
 | **Event Bus** | EventEmitter3 for cross-service communication |
 | **IPC Bridges** | Translate between main/renderer process boundaries |
 
@@ -344,16 +350,16 @@ The 4-pass shader pipeline processes each frame:
 
 | Category | Technology |
 |----------|------------|
-| **Framework** | Electron v28 |
+| **Framework** | Electron v41 |
 | **Build Tool** | Vite v7.3 |
 | **Runtime** | Node.js v22 LTS |
-| **GPU Rendering** | WebGL2, WebGPU, Canvas2D |
+| **GPU Rendering** | WebGPU, Canvas2D |
 | **Audio** | Web Audio API |
 | **Recording** | MediaRecorder API |
 | **Transcoding** | FFmpeg/FFprobe (static binaries) |
-| **USB** | usb-detection, libusb |
-| **DI** | Awilix |
-| **Logging** | Winston |
+| **USB** | node-usb, libusb |
+| **DI** | Runtime DI container |
+| **Logging** | electron-log |
 | **Testing** | Vitest, Playwright |
 
 ## Troubleshooting
@@ -427,7 +433,6 @@ If transcoding fails, ensure FFmpeg binaries are included in the application pac
 | [docs/architecture-diagrams-onboarding.md](docs/architecture-diagrams-onboarding.md) | Architectural onboarding guide |
 | [docs/naming-conventions.md](docs/naming-conventions.md) | Code naming standards |
 | [docs/ci-cd-workflows.md](docs/ci-cd-workflows.md) | GitHub Actions workflows |
-| [docs/plans/2026-02-07-architecture-closure-plan.md](docs/plans/2026-02-07-architecture-closure-plan.md) | Multi-phase architecture closure plan |
 
 ## Testing
 
@@ -435,7 +440,7 @@ PrismGB includes comprehensive test coverage:
 
 | Test Type | Framework | Description |
 |-----------|-----------|-------------|
-| **Unit Tests** | Vitest | 115+ tests for business logic |
+| **Unit Tests** | Vitest | 1,900+ tests for business logic |
 | **Integration Tests** | Vitest | Multi-service workflow testing |
 | **E2E Tests** | Playwright | Full application workflows |
 | **Smoke Tests** | Custom | Post-build validation |
@@ -447,8 +452,6 @@ npm run test:run      # Single run
 npm run test:coverage # Coverage report
 npm run test:e2e      # E2E tests
 ```
-
-Coverage thresholds: 80% line/function/statement, 75% branches.
 
 ## Contributing
 

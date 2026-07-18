@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "mode": "enforced",
+  "definitions": [
+    {
+      "name": "gameVolume",
+      "storageKey": "gameVolume",
+      "type": "number",
+      "default": 70,
+      "validation": { "min": 0, "max": 100, "clamp": true },
+      "event": "settings:volume-changed",
+      "startupPreference": true
+    },
+    {
+      "name": "statusStripVisible",
+      "storageKey": "statusStripVisible",
+      "type": "boolean",
+      "default": false,
+      "startupPreference": true,
+      "ui": { "order": 20, "controlName": "statusStrip", "controlId": "settingStatusStrip", "controlType": "checkbox", "label": "status strip", "title": "Show Status Bar" }
+    },
+    {
+      "name": "renderPreset",
+      "storageKey": "renderPreset",
+      "type": "string",
+      "defaultSource": "PRESET_POLICY.rendererDefaultId",
+      "event": "settings:render-preset-changed"
+    },
+    {
+      "name": "globalBrightness",
+      "storageKey": "globalBrightness",
+      "type": "number",
+      "default": 1,
+      "validation": { "min": 0.5, "max": 1.5, "clamp": true },
+      "event": "settings:brightness-changed"
+    },
+    {
+      "name": "performanceMode",
+      "storageKey": "performanceMode",
+      "type": "boolean",
+      "default": false,
+      "startupPreference": true,
+      "event": "settings:performance-mode-changed",
+      "ui": { "order": 60, "controlName": "animationSaver", "controlId": "settingAnimationSaver", "controlType": "checkbox", "label": "performance mode", "title": "Performance mode", "hintId": "animationSaverHint", "hint": "Use basic renderer for lower CPU." }
+    },
+    {
+      "name": "fullscreenOnStartup",
+      "storageKey": "fullscreenOnStartup",
+      "type": "boolean",
+      "default": false,
+      "ui": { "order": 30, "controlName": "fullscreenOnStartup", "controlId": "settingFullscreenOnStartup", "controlType": "checkbox", "label": "fullscreen on startup", "title": "Fullscreen on startup" }
+    },
+    {
+      "name": "minimalistFullscreen",
+      "storageKey": "minimalistFullscreen",
+      "type": "boolean",
+      "default": false,
+      "startupPreference": true,
+      "event": "settings:minimalist-fullscreen-changed",
+      "ui": { "order": 50, "controlName": "minimalistFullscreen", "controlId": "settingMinimalistFullscreen", "controlType": "checkbox", "label": "minimalist fullscreen", "title": "Minimalist fullscreen", "hintId": "minimalistFullscreenHint", "hint": "Black background while streaming." }
+    },
+    {
+      "name": "autoStreamOnConnect",
+      "storageKey": "autoStreamOnConnect",
+      "type": "boolean",
+      "default": false,
+      "ui": { "order": 40, "controlName": "autoStreamOnConnect", "controlId": "settingAutoStreamOnConnect", "controlType": "checkbox", "label": "auto-stream", "title": "Auto-start stream", "hintId": "autoStreamHint", "hint": "Automatically start streaming when device connects." }
+    },
+    {
+      "name": "recordingFormat",
+      "storageKey": "recordingFormat",
+      "type": "enum",
+      "default": "webm",
+      "allowedValuesSource": "TRANSCODE_CONFIG.formats",
+      "event": "settings:recording-format-changed",
+      "ui": { "order": 70, "controlName": "recordingFormat", "controlId": "settingRecordingFormat", "controlType": "listbox", "label": "recording format", "title": "Recording format", "hintId": "recordingFormatHint", "hint": "Output format for video recordings.", "labelId": "recordingFormatLabel", "menuId": "recordingFormatMenu", "optionLabelFormat": "mediaFormat", "e2eToggle": false }
+    },
+    {
+      "name": "launchOnLogin",
+      "storageKey": "launchOnLogin",
+      "type": "boolean",
+      "default": false,
+      "protected": true,
+      "externalSource": "window.loginItemAPI",
+      "ui": { "order": 10, "controlName": "launchOnLogin", "controlId": "settingLaunchOnLogin", "controlType": "checkbox", "label": "launch on startup", "title": "Launch on startup", "hintId": "launchOnLoginHint", "hint": "Start PrismGB when your computer turns on.", "e2eToggle": false }
+    }
+  ]
+}
