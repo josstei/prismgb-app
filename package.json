@@ -59,7 +59,7 @@
   "license": "MIT",
   "dependencies": {
     "@preact/signals-core": "^1.14.4",
-    "@trpc/client": "^10.45.4",
+    "@trpc/client": "^11.18.0",
     "@trpc/server": "^10.45.4",
     "electron-log": "^5.4.4",
     "electron-trpc": "^0.7.1",
