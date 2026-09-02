@@ -1,9 +1,15 @@
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { IpcPushBridge } from '@main/ipc/ipc-push.bridge.js';
+import { createInjectableHarness } from '../../../support/di/injectable.harness.js';
 
 describe('IpcPushBridge', () => {
+  let bridge: IpcPushBridge;
+
+  beforeEach(() => {
+    bridge = createInjectableHarness(IpcPushBridge).subject;
+  });
+
   it('delivers an emitted payload to a registered listener', () => {
-    const bridge = new IpcPushBridge();
     const listener = vi.fn();
     bridge.on('device:connected', listener);
 
@@ -14,7 +20,6 @@ describe('IpcPushBridge', () => {
   });
 
   it('delivers an undefined payload for void channels', () => {
-    const bridge = new IpcPushBridge();
     const listener = vi.fn();
     bridge.on('window:enter-fullscreen', listener);
 
@@ -24,7 +29,6 @@ describe('IpcPushBridge', () => {
   });
 
   it('fans out to multiple listeners on the same channel', () => {
-    const bridge = new IpcPushBridge();
     const a = vi.fn();
     const b = vi.fn();
     bridge.on('transcode:progress', a);
@@ -37,7 +41,6 @@ describe('IpcPushBridge', () => {
   });
 
   it('stops delivering after a listener is removed', () => {
-    const bridge = new IpcPushBridge();
     const listener = vi.fn();
     bridge.on('transcode:completed', listener);
     bridge.off('transcode:completed', listener);
@@ -48,7 +51,6 @@ describe('IpcPushBridge', () => {
   });
 
   it('does not cross-deliver between channels', () => {
-    const bridge = new IpcPushBridge();
     const listener = vi.fn();
     bridge.on('device:connected', listener);
 

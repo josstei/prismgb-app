@@ -61,6 +61,7 @@
     "@preact/signals-core": "^1.14.4",
     "@trpc/client": "^10.45.4",
     "@trpc/server": "^10.45.4",
+    "comlink": "^4.4.2",
     "electron-log": "^5.4.4",
     "electron-trpc": "^0.7.1",
     "electron-updater": "^6.8.9",

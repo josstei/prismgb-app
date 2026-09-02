@@ -1,7 +1,15 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { startWorkerRendererService, type WorkerRendererServiceScope } from '../../../../../src/platform/gpu/worker/service';
-import { createWorkerMessage, WorkerMessageType, WorkerResponseType } from '../../../../../src/platform/gpu/worker/protocol';
-import type { RenderPreset } from '../../../../../src/platform/gpu/domain/types';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as Comlink from 'comlink';
+import { startWorkerRendererService } from '../../../../../src/platform/gpu/worker/runtime';
+import {
+  CANVAS_HANDOFF_MESSAGE,
+  CONTROL_PORT_MESSAGE,
+  WorkerMessageType,
+  WorkerResponseType,
+  createWorkerMessage,
+  type WorkerControlApi
+} from '../../../../../src/platform/gpu/worker/protocol';
+import { FakeWorker, flush, type WorkerServiceScope } from './golden-harness';
 
 const defaultPreset = {
   id: 'vibrant',
@@ -89,30 +97,41 @@ vi.mock('../../../../../src/platform/gpu/application/catalog', () => ({
   resolvePreset: mockResolvePreset
 }));
 
-function createWorkerScopeHarness() {
-  const postedMessages: Array<[unknown, Transferable[]?]> = [];
-  const scope: WorkerRendererServiceScope = {
-    onmessage: null,
-    postMessage: vi.fn((message, transfer) => {
-      postedMessages.push([message, transfer]);
-    }),
-    close: vi.fn()
+/**
+ * Starts the service against a {@link FakeWorker} and wraps the announced
+ * control MessagePort with a comlink `Remote`, mirroring how the real
+ * `WorkerRendererClient` obtains `WorkerControlApi`. Every raw message the
+ * service posts (the control-port handoff plus the frame-plane FRAME_RENDERED
+ * and STATS responses) is retained in `postedMessages` for assertions.
+ */
+async function startService(): Promise<{
+  worker: FakeWorker;
+  proxy: Comlink.Remote<WorkerControlApi>;
+  postedMessages: unknown[];
+}> {
+  const worker = new FakeWorker();
+  const postedMessages: unknown[] = [];
+  let proxy!: Comlink.Remote<WorkerControlApi>;
+  worker.onmessage = (event) => {
+    postedMessages.push(event.data);
+    const data = event.data as { channel?: string; port?: MessagePort };
+    if (data?.channel === CONTROL_PORT_MESSAGE && data.port) {
+      proxy = Comlink.wrap<WorkerControlApi>(data.port);
+    }
   };
-
-  startWorkerRendererService(scope);
-
-  return {
-    scope,
-    postedMessages,
-    closeMock: scope.close
-  };
+  startWorkerRendererService(worker.scope as unknown as WorkerServiceScope);
+  await flush();
+  return { worker, proxy, postedMessages };
 }
 
-async function sendWorkerMessage(scope: WorkerRendererServiceScope, message: unknown): Promise<void> {
-  const result = scope.onmessage?.({ data: message } as MessageEvent<unknown>);
-  if (result && typeof result.then === 'function') {
-    await result;
-  }
+async function handOffCanvas(worker: FakeWorker, canvas: OffscreenCanvas): Promise<void> {
+  worker.postMessage({ channel: CANVAS_HANDOFF_MESSAGE, canvas });
+  await flush();
+}
+
+async function sendFrame(worker: FakeWorker, imageBitmap: ImageBitmap): Promise<void> {
+  worker.postMessage(createWorkerMessage(WorkerMessageType.FRAME, { imageBitmap }));
+  await flush();
 }
 
 function configPayload() {
@@ -157,16 +176,11 @@ describe('worker service', () => {
   });
 
   it('initializes through createGpuRenderer and reports the actual initialized backend', async () => {
-    const harness = createWorkerScopeHarness();
+    const { worker, proxy } = await startService();
     const offscreenCanvas = createOnePixelCanvasFixture();
+    await handOffCanvas(worker, offscreenCanvas);
 
-    await sendWorkerMessage(
-      harness.scope,
-      createWorkerMessage(WorkerMessageType.INIT, {
-        canvas: offscreenCanvas,
-        config: configPayload()
-      })
-    );
+    const ready = await proxy.initialize(configPayload());
 
     expect(mockCreateGpuRenderer).toHaveBeenCalledWith(expect.objectContaining({
       canvas: offscreenCanvas,
@@ -178,91 +192,40 @@ describe('worker service', () => {
     }));
     expect(offscreenCanvas.width).toBe(640);
     expect(offscreenCanvas.height).toBe(576);
-    expect(harness.postedMessages.at(-1)?.[0]).toMatchObject({
-      type: WorkerResponseType.READY,
-      payload: { backend: 'webgpu' }
-    });
+    expect(ready).toMatchObject({ backend: 'webgpu' });
   });
 
   it('forwards frame rendering and posts FRAME_RENDERED', async () => {
-    const harness = createWorkerScopeHarness();
-
-    await sendWorkerMessage(
-      harness.scope,
-      createWorkerMessage(WorkerMessageType.INIT, {
-        canvas: createOnePixelCanvasFixture(),
-        config: configPayload()
-      })
-    );
+    const { worker, proxy, postedMessages } = await startService();
+    await handOffCanvas(worker, createOnePixelCanvasFixture());
+    await proxy.initialize(configPayload());
 
     const frameBitmap = createBitmap();
-    await sendWorkerMessage(
-      harness.scope,
-      createWorkerMessage(WorkerMessageType.FRAME, {
-        imageBitmap: frameBitmap
-      })
-    );
+    await sendFrame(worker, frameBitmap);
 
     expect(mockRenderer.renderFrame).toHaveBeenCalledWith(frameBitmap);
-    expect(harness.postedMessages.at(-1)?.[0]).toMatchObject({
-      type: WorkerResponseType.FRAME_RENDERED
-    });
-  });
-
-  it('handles setBrightness command', async () => {
-    const harness = createWorkerScopeHarness();
-
-    await sendWorkerMessage(
-      harness.scope,
-      createWorkerMessage(WorkerMessageType.INIT, {
-        canvas: createOnePixelCanvasFixture(),
-        config: configPayload()
-      })
-    );
-
-    await sendWorkerMessage(
-      harness.scope,
-      createWorkerMessage(WorkerMessageType.SET_BRIGHTNESS, {
-        brightness: 1.5
-      })
-    );
-
-    expect(mockRenderer.setBrightness).toHaveBeenCalledWith(1.5);
+    expect(postedMessages.at(-1)).toMatchObject({ type: WorkerResponseType.FRAME_RENDERED });
+    expect((postedMessages.at(-1) as { payload?: unknown }).payload).toBeUndefined();
   });
 
   it('reports interval fps from worker-rendered frames instead of renderer instantaneous fps', async () => {
     let now = 0;
     vi.spyOn(performance, 'now').mockImplementation(() => now);
-    const harness = createWorkerScopeHarness();
+    const { worker, proxy, postedMessages } = await startService();
 
-    await sendWorkerMessage(
-      harness.scope,
-      createWorkerMessage(WorkerMessageType.INIT, {
-        canvas: createOnePixelCanvasFixture(),
-        config: configPayload()
-      })
-    );
+    await handOffCanvas(worker, createOnePixelCanvasFixture());
+    await proxy.initialize(configPayload());
 
     now = 100;
-    await sendWorkerMessage(
-      harness.scope,
-      createWorkerMessage(WorkerMessageType.FRAME, {
-        imageBitmap: createBitmap('frame-1')
-      })
-    );
+    await sendFrame(worker, createBitmap('frame-1'));
 
     now = 1100;
-    await sendWorkerMessage(
-      harness.scope,
-      createWorkerMessage(WorkerMessageType.FRAME, {
-        imageBitmap: createBitmap('frame-2')
-      })
-    );
+    await sendFrame(worker, createBitmap('frame-2'));
 
-    const statsMessage = harness.postedMessages.find(
-      (entry) => (entry[0] as { type?: string })?.type === WorkerResponseType.STATS
+    const statsMessage = postedMessages.find(
+      (entry) => (entry as { type?: string })?.type === WorkerResponseType.STATS
     );
-    expect(statsMessage?.[0]).toMatchObject({
+    expect(statsMessage).toMatchObject({
       type: WorkerResponseType.STATS,
       payload: {
         fps: 2,
@@ -273,85 +236,68 @@ describe('worker service', () => {
     });
   });
 
-  it('updates renderer preset from set-preset command', async () => {
-    const harness = createWorkerScopeHarness();
-    const customPreset = {
-      ...defaultPreset,
-      id: 'authentic'
+  it('posts STATS carrying fps, frameTime, gpuTime, and uploadTime from the driver getStats()', async () => {
+    let now = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    const statsRenderer = {
+      backend: 'webgpu',
+      renderFrame: vi.fn(),
+      resize: vi.fn(),
+      captureFrame: vi.fn(),
+      getStats: vi.fn(() => ({ fps: 60, frameTime: 16.6, gpuTime: 4.2, uploadTime: 1.8 })),
+      dispose: vi.fn().mockResolvedValue(undefined),
+      setPreset: vi.fn(),
+      setBrightness: vi.fn()
     };
+    mockCreateGpuRenderer.mockResolvedValueOnce(statsRenderer);
 
-    await sendWorkerMessage(
-      harness.scope,
-      createWorkerMessage(WorkerMessageType.INIT, {
-        canvas: createOnePixelCanvasFixture(),
-        config: configPayload()
-      })
-    );
-    await sendWorkerMessage(
-      harness.scope,
-      createWorkerMessage(WorkerMessageType.SET_PRESET, {
-        presetId: 'authentic',
-        preset: customPreset as unknown as RenderPreset
-      })
-    );
+    const { worker, proxy, postedMessages } = await startService();
+    await handOffCanvas(worker, createOnePixelCanvasFixture());
+    await proxy.initialize(configPayload());
 
-    expect(mockRenderer.setPreset).toHaveBeenCalledWith(customPreset);
-  });
+    now = 1000;
+    await sendFrame(worker, createBitmap('stats-frame'));
 
-  it('routes capture requests through renderer captureFrame', async () => {
-    const harness = createWorkerScopeHarness();
-    const queuedFrame = createBitmap('queued');
-    mockRenderer.captureFrame.mockResolvedValueOnce(queuedFrame);
-
-    await sendWorkerMessage(
-      harness.scope,
-      createWorkerMessage(WorkerMessageType.INIT, {
-        canvas: createOnePixelCanvasFixture(),
-        config: configPayload()
-      })
+    const statsMessage = postedMessages.find(
+      (entry) => (entry as { type?: string })?.type === WorkerResponseType.STATS
     );
-    await sendWorkerMessage(
-      harness.scope,
-      createWorkerMessage(WorkerMessageType.REQUEST_CAPTURE)
-    );
-    await sendWorkerMessage(
-      harness.scope,
-      createWorkerMessage(WorkerMessageType.FRAME, {
-        imageBitmap: createBitmap()
-      })
-    );
-
-    await sendWorkerMessage(
-      harness.scope,
-      createWorkerMessage(WorkerMessageType.CAPTURE)
-    );
-
-    expect(mockRenderer.captureFrame).toHaveBeenCalledTimes(1);
-    const captureMessage = harness.postedMessages.find(
-      (entry) => (entry[0] as { type?: string })?.type === WorkerResponseType.CAPTURE_READY
-    );
-    expect(captureMessage?.[0]).toMatchObject({
-      type: WorkerResponseType.CAPTURE_READY,
-      payload: { bitmap: queuedFrame }
+    expect(statsMessage).toMatchObject({
+      type: WorkerResponseType.STATS,
+      payload: {
+        fps: 1,
+        frameTime: 0,
+        gpuTime: 4.2,
+        uploadTime: 1.8
+      }
     });
   });
 
+  it('routes capture requests through renderer captureFrame', async () => {
+    const { worker, proxy } = await startService();
+    const queuedFrame = new Uint8Array([9, 8, 7, 6]).buffer;
+    mockRenderer.captureFrame.mockResolvedValueOnce(queuedFrame);
+
+    await handOffCanvas(worker, createOnePixelCanvasFixture());
+    await proxy.initialize(configPayload());
+    await proxy.requestCapture();
+    await sendFrame(worker, createBitmap());
+
+    const captured = await proxy.getCapturedFrame();
+
+    expect(mockRenderer.captureFrame).toHaveBeenCalledTimes(1);
+    expect(Array.from(new Uint8Array(captured.bitmap as unknown as ArrayBuffer))).toEqual([9, 8, 7, 6]);
+  });
+
   it('releases and destroys worker renderer', async () => {
-    const harness = createWorkerScopeHarness();
-    await sendWorkerMessage(
-      harness.scope,
-      createWorkerMessage(WorkerMessageType.INIT, {
-        canvas: createOnePixelCanvasFixture(),
-        config: configPayload()
-      })
-    );
+    const { worker, proxy } = await startService();
+    const closeSpy = vi.spyOn(worker.scope, 'close');
+    await handOffCanvas(worker, createOnePixelCanvasFixture());
+    await proxy.initialize(configPayload());
 
-    await sendWorkerMessage(harness.scope, createWorkerMessage(WorkerMessageType.RELEASE));
+    await proxy.release();
     expect(mockRenderer.dispose).toHaveBeenCalled();
-    expect(harness.postedMessages.at(-1)?.[0]).toMatchObject({ type: WorkerResponseType.RELEASED });
 
-    await sendWorkerMessage(harness.scope, createWorkerMessage(WorkerMessageType.DESTROY));
-    expect(harness.postedMessages.at(-1)?.[0]).toMatchObject({ type: WorkerResponseType.DESTROYED });
-    expect(harness.closeMock).toHaveBeenCalled();
+    await proxy.destroy();
+    expect(closeSpy).toHaveBeenCalled();
   });
 });

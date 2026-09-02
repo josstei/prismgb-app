@@ -5,14 +5,23 @@ import { DeviceCatalog } from '@platform/devices';
 import { getErrorMessage } from '@platform/core';
 import type { TypedEventBusLike } from '@platform/events';
 import type { LoggerFactoryLike } from '@platform/core';
+import type { AppState } from '@renderer/application/state/app-state.js';
 import type {
   Dimensions,
   StreamingCapabilities
 } from '@renderer/infrastructure/services/streaming/streaming.contract.js';
 import { createGpuVideoRendererSession, detectBrowserGpuCapabilities } from '@platform/gpu/runtime';
-import type { GpuVideoRendererSession, GpuVideoRendererStats } from '@platform/gpu/runtime';
+import type {
+  GpuVideoHarnessObservation,
+  GpuVideoFrameMeasurementContext,
+  GpuVideoRendererSession,
+  GpuVideoRendererSessionOptions,
+  GpuVideoRendererStats
+} from '@platform/gpu/runtime';
 import type { RenderCapabilities } from '@platform/gpu';
 import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { PerformanceDiagnosticsSnapshot } from '@renderer/infrastructure/diagnostics/performance-diagnostics.js';
+import type { StreamingPerformanceInstrumentation } from '@renderer/infrastructure/diagnostics/streaming-performance-instrumentation.js';
 
 type VideoFrameCallbackMetadata = {
   mediaTime: number;
@@ -25,9 +34,7 @@ type RenderableVideoElement = HTMLVideoElement & {
   cancelVideoFrameCallback?(handle: number): void;
 };
 
-type AppStateLike = {
-  isStreaming: boolean;
-};
+type AppStateLike = Pick<AppState, 'isStreaming'>;
 
 type StreamViewServiceLike = {
   getVideo(): HTMLVideoElement;
@@ -58,7 +65,15 @@ type SettingsServiceLike = {
   getStringSetting(name: string): string;
 };
 
+type GpuBackend = 'webgpu' | 'canvas2d';
+
 const BRIGHTNESS_SUBSCRIPTION_LIFECYCLE = Symbol('gpuBrightnessSubscription');
+const PERFORMANCE_DIAGNOSTICS_QUERY_KEY = 'prismgb-e2e-diagnostics';
+let performanceControlSourceSequence = 0;
+
+function hasPerformanceDiagnosticsMarker(): boolean {
+  return new URLSearchParams(window.location.search).get(PERFORMANCE_DIAGNOSTICS_QUERY_KEY) === '1';
+}
 
 @injectable()
 export class StreamingRenderService extends BaseService {
@@ -76,6 +91,7 @@ export class StreamingRenderService extends BaseService {
   private _videoElement: HTMLVideoElement | null = null;
   private _rvfcHandle: number | null = null;
   private _gpuCapabilities: RenderCapabilities | null = null;
+  private _performanceInstrumentation?: StreamingPerformanceInstrumentation;
 
   constructor(
     @inject(TOKENS.appState) private readonly appState: AppStateLike,
@@ -187,6 +203,42 @@ export class StreamingRenderService extends BaseService {
     if (this._session) {
       const isGpu = this._session.backend === 'webgpu';
 
+      if (
+        typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+        __PRISMGB_PERF_HARNESS__ &&
+        window.prismgbPerformanceLaunchMarker !== undefined
+      ) {
+        const launchId = window.prismgbPerformanceLaunchMarker.launchId;
+        const writeShutdownBoundary = (boundary: 'before-release' | 'release-dispatched') => {
+          window.prismgbPerformanceControlProbe?.write({
+            kind: 'shutdown-boundary',
+            boundary,
+            launchId,
+            observedAt: performance.now()
+          });
+
+          if (
+            typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+            __PRISMGB_PERF_INSTRUMENTATION__ &&
+            this._performanceInstrumentation !== undefined
+          ) {
+            this.eventBus.publish(EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED, {
+              diagnosticBoundary: {
+                kind: 'performance-shutdown-boundary',
+                boundary,
+                launchId
+              }
+            });
+          }
+        };
+
+        writeShutdownBoundary('before-release');
+        this._session.terminate({ emitCanvasExpired: true });
+        this._session = null;
+        writeShutdownBoundary('release-dispatched');
+        return;
+      }
+
       if (isGpu) {
         this.eventBus.publish(EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED, {
           label: 'before gpu release'
@@ -231,6 +283,8 @@ export class StreamingRenderService extends BaseService {
 
     this.canvasLifecycleService.cleanup();
     this.streamHealthService.cleanup();
+    this._performanceInstrumentation?.dispose();
+    this._performanceInstrumentation = undefined;
   }
 
   override async dispose(): Promise<void> {
@@ -332,6 +386,161 @@ export class StreamingRenderService extends BaseService {
     return this._gpuCapabilities;
   }
 
+  private _createSessionCallbacks(
+    requestedBackend: GpuBackend,
+    selectionReason: import('@renderer/infrastructure/diagnostics/performance-diagnostics.js').PerformanceBackendSelectionReason
+  ): Pick<
+    GpuVideoRendererSessionOptions,
+    'onReady' | 'onStats' | 'onError' | 'onCanvasExpired' | 'onHarnessObservation' | 'onPerformanceObservation'
+  > {
+    const callbacks: Pick<
+      GpuVideoRendererSessionOptions,
+      'onReady' | 'onStats' | 'onError' | 'onCanvasExpired' | 'onHarnessObservation' | 'onPerformanceObservation'
+    > = {
+      onReady: (event) => {
+        this.logger.info(`Session ready (backend: ${event.backend})`);
+        this.eventBus.publish(EventChannels.RENDER.PIPELINE_READY, event);
+        if (
+          typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+          __PRISMGB_PERF_HARNESS__ &&
+          window.prismgbPerformanceLaunchMarker !== undefined &&
+          window.prismgbPerformanceControlProbe !== undefined
+        ) {
+          window.prismgbPerformanceControlProbe.write({
+            kind: 'backend-ready',
+            launchId: window.prismgbPerformanceLaunchMarker.launchId,
+            observedAt: performance.now(),
+            requestedBackend,
+            selectedBackend: event.backend,
+            selectionReason,
+            backendExecutionIdentity: event.backendExecutionIdentity ?? null
+          });
+        }
+        if (
+          (event.backend === 'canvas2d' || event.backend === 'webgpu') &&
+          typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+          __PRISMGB_PERF_HARNESS__ &&
+          typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+          __PRISMGB_PERF_INSTRUMENTATION__
+        ) {
+          this._performanceInstrumentation?.recordBackend(requestedBackend, event.backend, selectionReason);
+        }
+      },
+      onStats: (payload) => {
+        this._publishRenderStats(payload);
+      },
+      onError: (payload) => {
+        this.logger.error('Session error:', payload.message);
+        this.eventBus.publish(EventChannels.RENDER.PIPELINE_ERROR, payload);
+      },
+      onCanvasExpired: () => {
+        this.eventBus.publish(EventChannels.RENDER.CANVAS_EXPIRED);
+      }
+    };
+
+    if (
+      typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+      __PRISMGB_PERF_HARNESS__
+    ) {
+      callbacks.onHarnessObservation = (observation: GpuVideoHarnessObservation) => {
+        const launchId = window.prismgbPerformanceLaunchMarker?.launchId;
+        if (launchId === undefined) return;
+
+        switch (observation.kind) {
+          case 'session-branch':
+            window.prismgbPerformanceControlProbe?.write({
+              kind: 'frame-branch',
+              launchId,
+              sourceSequence: observation.context.sourceSequence,
+              branch: 'session-branch',
+              observedAt: performance.now(),
+              workerPresent: observation.workerPresent,
+              workerReady: observation.workerReady,
+              outstandingFrameCount: observation.outstandingFrameCount,
+              outstandingFrameLimit: observation.outstandingFrameLimit,
+              bitmapOutcome: observation.bitmapOutcome,
+              canvasDrawOutcome: observation.canvasDrawOutcome,
+              framePostOutcome: observation.framePostOutcome
+            });
+            return;
+          case 'canvas-disposition':
+            window.prismgbPerformanceControlProbe?.write({
+              kind: 'frame-branch',
+              launchId,
+              sourceSequence: observation.context.sourceSequence,
+              branch: 'canvas-disposition',
+              outcome: observation.outcome,
+              observedAt: performance.now()
+            });
+            return;
+          case 'bitmap-creation':
+            window.prismgbPerformanceControlProbe?.write({
+              kind: 'frame-branch',
+              launchId,
+              sourceSequence: observation.context.sourceSequence,
+              branch: 'bitmap-creation',
+              outcome: observation.outcome,
+              observedAt: performance.now()
+            });
+            return;
+          case 'worker-frame-submitted':
+            window.prismgbPerformanceControlProbe?.write({
+              kind: 'frame-branch',
+              launchId,
+              sourceSequence: observation.context.sourceSequence,
+              branch: 'worker-frame-submitted',
+              frameToken: observation.frameToken,
+              observedAt: performance.now()
+            });
+            return;
+          case 'worker-frame-acknowledged':
+            window.prismgbPerformanceControlProbe?.write({
+              kind: 'frame-branch',
+              launchId,
+              sourceSequence: observation.context.sourceSequence,
+              branch: 'worker-frame-acknowledged',
+              frameToken: observation.frameToken,
+              observedAt: performance.now(),
+              outcome: observation.outcome
+            });
+            return;
+          case 'worker-terminal-error':
+            window.prismgbPerformanceControlProbe?.write({
+              kind: 'frame-branch',
+              launchId,
+              sourceSequence: observation.context.sourceSequence,
+              branch: 'worker-terminal-error',
+              frameToken: observation.frameToken,
+              observedAt: performance.now()
+            });
+            return;
+          case 'session-disposition':
+            window.prismgbPerformanceControlProbe?.write({
+              kind: 'frame-branch',
+              launchId,
+              sourceSequence: observation.context.sourceSequence,
+              branch: 'session-disposition',
+              observedAt: performance.now(),
+              disposition: observation.disposition
+            });
+        }
+      };
+    }
+
+    if (
+      typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+      __PRISMGB_PERF_HARNESS__ &&
+      typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+      __PRISMGB_PERF_INSTRUMENTATION__
+    ) {
+      callbacks.onPerformanceObservation = (observation) => {
+        this._performanceInstrumentation?.observe(observation);
+      };
+    }
+
+    return callbacks;
+  }
+
   private async _startRendering(capabilities: StreamingCapabilities): Promise<void> {
     this._currentCapabilities = capabilities;
     const nativeRes = capabilities?.nativeResolution || DeviceCatalog.nativeResolution();
@@ -339,6 +548,34 @@ export class StreamingRenderService extends BaseService {
 
     const gpuCapabilities = await this._resolveGpuCapabilities();
     const useGpu = gpuCapabilities.webgpu && !this._performanceModeEnabled;
+    if (
+      typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+      __PRISMGB_PERF_HARNESS__ &&
+      window.prismgbPerformanceLaunchMarker !== undefined &&
+      (
+        typeof __PRISMGB_PERF_INSTRUMENTATION__ === 'undefined' ||
+        !__PRISMGB_PERF_INSTRUMENTATION__ ||
+        this._performanceInstrumentation === undefined
+      )
+    ) {
+      performanceControlSourceSequence = 0;
+    }
+    if (
+      typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+      __PRISMGB_PERF_HARNESS__ &&
+      typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+      __PRISMGB_PERF_INSTRUMENTATION__ &&
+      hasPerformanceDiagnosticsMarker() &&
+      this._performanceInstrumentation === undefined
+    ) {
+      const launchId = window.prismgbPerformanceLaunchMarker?.launchId;
+      if (launchId !== undefined) {
+        const { createStreamingPerformanceInstrumentation } = await import(
+          '@renderer/infrastructure/diagnostics/streaming-performance-instrumentation.js'
+        );
+        this._performanceInstrumentation = createStreamingPerformanceInstrumentation(launchId, this.logger, this.eventBus);
+      }
+    }
 
     this.canvasLifecycleService.setupCanvasSize(nativeRes, useGpu);
 
@@ -371,20 +608,14 @@ export class StreamingRenderService extends BaseService {
           preferredBackend: gpuCapabilities.webgpu ? 'webgpu' : 'canvas2d',
           maxTextureSize: gpuCapabilities.maxTextureSize
         },
-        onReady: (event) => {
-          this.logger.info(`Session ready (backend: ${event.backend})`);
-          this.eventBus.publish(EventChannels.RENDER.PIPELINE_READY, event);
-        },
-        onStats: (payload) => {
-          this._publishRenderStats(payload);
-        },
-        onError: (payload) => {
-          this.logger.error('Session error:', payload.message);
-          this.eventBus.publish(EventChannels.RENDER.PIPELINE_ERROR, payload);
-        },
-        onCanvasExpired: () => {
-          this.eventBus.publish(EventChannels.RENDER.CANVAS_EXPIRED);
-        },
+        ...this._createSessionCallbacks(
+          useGpu ? 'webgpu' : 'canvas2d',
+          this._performanceModeEnabled
+            ? 'performance-mode-canvas2d'
+            : useGpu
+              ? 'webgpu-selected'
+              : 'webgpu-api-unavailable'
+        ),
         logger: this.logger
       });
 
@@ -450,20 +681,7 @@ export class StreamingRenderService extends BaseService {
           preferredBackend: gpuCapabilities.webgpu ? 'webgpu' : 'canvas2d',
           maxTextureSize: gpuCapabilities.maxTextureSize
         },
-        onReady: (event) => {
-          this.logger.info(`Session ready (backend: ${event.backend})`);
-          this.eventBus.publish(EventChannels.RENDER.PIPELINE_READY, event);
-        },
-        onStats: (payload) => {
-          this._publishRenderStats(payload);
-        },
-        onError: (payload) => {
-          this.logger.error('Session error:', payload.message);
-          this.eventBus.publish(EventChannels.RENDER.PIPELINE_ERROR, payload);
-        },
-        onCanvasExpired: () => {
-          this.eventBus.publish(EventChannels.RENDER.CANVAS_EXPIRED);
-        },
+        ...this._createSessionCallbacks('webgpu', 'webgpu-selected'),
         logger: this.logger
       });
 
@@ -501,10 +719,10 @@ export class StreamingRenderService extends BaseService {
           preferredBackend: 'canvas2d',
           maxTextureSize: 4096
         },
-        onReady: (event) => {
-          this.logger.info(`Session ready (backend: ${event.backend})`);
-          this.eventBus.publish(EventChannels.RENDER.PIPELINE_READY, event);
-        },
+        ...this._createSessionCallbacks(
+          'canvas2d',
+          this._performanceModeEnabled ? 'performance-mode-canvas2d' : 'requested-canvas2d'
+        ),
         logger: this.logger
       });
 
@@ -527,6 +745,18 @@ export class StreamingRenderService extends BaseService {
 
   isFallback(): boolean {
     return this._session?.backend === 'canvas2d';
+  }
+
+  getPerformanceDiagnosticsSnapshot(): PerformanceDiagnosticsSnapshot | null {
+    return this._performanceInstrumentation?.getSnapshot() ?? null;
+  }
+
+  resetPerformanceDiagnostics(): boolean {
+    if (this._performanceInstrumentation === undefined) {
+      return false;
+    }
+    this._performanceInstrumentation.reset();
+    return true;
   }
 
   resize(width: number, height: number): void {
@@ -583,12 +813,164 @@ export class StreamingRenderService extends BaseService {
 
     const renderLoop = async (now: number, metadata?: VideoFrameCallbackMetadata) => {
       this._rvfcHandle = null;
+      let controlSourceSequence: number | null = null;
+      if (
+        typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+        __PRISMGB_PERF_HARNESS__ &&
+        this._isRenderLoopActive &&
+        this._videoElement !== null &&
+        window.prismgbPerformanceLaunchMarker !== undefined
+      ) {
+        const videoElement = this._videoElement;
+        const session = this._session;
+        const mediaTime = metadata?.mediaTime ?? null;
+        controlSourceSequence = ++performanceControlSourceSequence;
+        window.prismgbPerformanceControlProbe?.write({
+          kind: 'source-opportunity',
+          launchId: window.prismgbPerformanceLaunchMarker.launchId,
+          sourceSequence: controlSourceSequence,
+          observedAt: performance.now(),
+          mediaTime,
+          sessionPresent: session !== null,
+          sessionActive: session?.isActive === true,
+          duplicateMediaTime: mediaTime !== null && mediaTime === this._lastFrameTime,
+          readyState: videoElement.readyState,
+          hasCurrentData: videoElement.readyState >= videoElement.HAVE_CURRENT_DATA
+        });
+
+        if (session === null) {
+          if (
+            typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+            __PRISMGB_PERF_INSTRUMENTATION__ &&
+            this._performanceInstrumentation !== undefined
+          ) {
+            const callbackStartedAt = performance.now();
+            const measurement = this._performanceInstrumentation.beginSourceOpportunity(controlSourceSequence);
+            this._performanceInstrumentation.recordSource(measurement, 'sessionInactive');
+            this._performanceInstrumentation.recordSourceCallback(measurement, callbackStartedAt, performance.now());
+          }
+          window.prismgbPerformanceControlProbe?.write({
+            kind: 'frame-branch',
+            launchId: window.prismgbPerformanceLaunchMarker.launchId,
+            sourceSequence: controlSourceSequence,
+            branch: 'session-disposition',
+            observedAt: performance.now(),
+            disposition: 'session-inactive'
+          });
+          window.prismgbPerformanceControlProbe?.write({
+            kind: 'advisory-frame-disposition',
+            launchId: window.prismgbPerformanceLaunchMarker.launchId,
+            sourceSequence: controlSourceSequence,
+            observedAt: performance.now(),
+            outcome: 'skipped-inactive',
+            frameToken: null
+          });
+          return;
+        }
+      }
       if (!this._isRenderLoopActive || !this._videoElement || !this._session) return;
 
       const frameTime = metadata?.mediaTime ?? now;
-      if (frameTime !== this._lastFrameTime && this._videoElement.readyState >= this._videoElement.HAVE_CURRENT_DATA) {
-        await this._session.renderFrame(this._videoElement);
+      let measurement: GpuVideoFrameMeasurementContext | undefined;
+      let callbackStartedAt = 0;
+      let advisoryOutcome: 'canvas-draw-completed' | 'webgpu-queue-submit-completed' | 'skipped-inactive' | 'failed' | null = null;
+      if (
+        typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+        __PRISMGB_PERF_HARNESS__
+      ) {
+        if (
+          typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+          __PRISMGB_PERF_INSTRUMENTATION__
+        ) {
+          const instrumentation = this._performanceInstrumentation;
+          if (instrumentation) {
+            if (controlSourceSequence === null) {
+              throw new Error('Performance instrumentation requires a marker-bound source sequence');
+            }
+            measurement = instrumentation.beginSourceOpportunity(controlSourceSequence);
+            callbackStartedAt = performance.now();
+          }
+        } else if (
+          controlSourceSequence !== null &&
+          window.prismgbPerformanceLaunchMarker !== undefined
+        ) {
+          measurement = {
+            sourceSequence: controlSourceSequence,
+            measurementEpochId: window.prismgbPerformanceLaunchMarker.launchId
+          };
+        }
+      }
+      if (frameTime === this._lastFrameTime) {
+        if (
+          typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+          __PRISMGB_PERF_HARNESS__ &&
+          typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+          __PRISMGB_PERF_INSTRUMENTATION__ &&
+          measurement
+        ) {
+          this._performanceInstrumentation?.recordSource(measurement, 'duplicateMediaTime');
+        }
+      } else if (this._videoElement.readyState < this._videoElement.HAVE_CURRENT_DATA) {
+        if (
+          typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+          __PRISMGB_PERF_HARNESS__ &&
+          typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+          __PRISMGB_PERF_INSTRUMENTATION__ &&
+          measurement
+        ) {
+          this._performanceInstrumentation?.recordSource(measurement, 'noCurrentData');
+        }
+      } else {
+        try {
+          if (
+            typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+            __PRISMGB_PERF_HARNESS__
+          ) {
+            const disposition = await this._session.renderFrame(this._videoElement, measurement);
+            advisoryOutcome = disposition?.outcome ?? null;
+          } else {
+            await this._session.renderFrame(this._videoElement);
+          }
+        } catch (error: unknown) {
+          this.logger.error('Render session rejected a source frame:', error);
+          if (
+            typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+            __PRISMGB_PERF_HARNESS__ &&
+            typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+            __PRISMGB_PERF_INSTRUMENTATION__ &&
+            measurement
+          ) {
+            this._performanceInstrumentation?.recordSource(measurement, 'enqueueFailed');
+          }
+          advisoryOutcome = 'failed';
+        }
         this._lastFrameTime = frameTime;
+      }
+
+      if (
+        typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+        __PRISMGB_PERF_HARNESS__ &&
+        controlSourceSequence !== null &&
+        window.prismgbPerformanceLaunchMarker !== undefined
+      ) {
+        window.prismgbPerformanceControlProbe?.write({
+          kind: 'advisory-frame-disposition',
+          launchId: window.prismgbPerformanceLaunchMarker.launchId,
+          sourceSequence: controlSourceSequence,
+          observedAt: performance.now(),
+          outcome: advisoryOutcome,
+          frameToken: null
+        });
+      }
+
+      if (
+        typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+        __PRISMGB_PERF_HARNESS__ &&
+        typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+        __PRISMGB_PERF_INSTRUMENTATION__ &&
+        measurement
+      ) {
+        this._performanceInstrumentation?.recordSourceCallback(measurement, callbackStartedAt, performance.now());
       }
 
       if (this.appState.isStreaming && !this._isHidden) {

@@ -9,8 +9,6 @@ import type { PipelineUniforms } from '../domain/uniforms';
 import { WorkerRendererClient } from '../worker/client';
 import { WorkerResponseType } from '../worker/protocol';
 import type {
-  WorkerMessagePayloadMap,
-  WorkerMessageTypeValue,
   WorkerResponsePayloadMap,
   WorkerResponseTypeValue
 } from '../worker/protocol';
@@ -180,12 +178,6 @@ export function createWorkerRendererClientMock(
       handlers.delete(type);
     };
   };
-  const sendCommand = <K extends WorkerMessageTypeValue>(
-    _type: K,
-    _payload?: WorkerMessagePayloadMap[K],
-    _transferables: Transferable[] = []
-  ): boolean => true;
-
   const mock = {
     isReady: () => false,
     isCanvasTransferred: () => false,
@@ -195,7 +187,6 @@ export function createWorkerRendererClientMock(
     resize: () => true,
     requestCapture: () => true,
     requestCapturedFrame: () => true,
-    sendCommand,
     onMessage,
     onReady: (handler) => onMessage(WorkerResponseType.READY, handler),
     onFrameRendered: (handler) => onMessage(WorkerResponseType.FRAME_RENDERED, handler),

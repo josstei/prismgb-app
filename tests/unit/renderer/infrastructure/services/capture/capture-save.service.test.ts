@@ -7,39 +7,28 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { CaptureSaveService } from '@renderer/infrastructure/services/capture/capture-save.service';
 import { EventChannels } from '@platform/events';
 import { downloadFile } from '@renderer/lib/file-download.utils';
+import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
 
 vi.mock('@renderer/lib/file-download.utils.ts', () => ({
   downloadFile: vi.fn()
 }));
 
 import {
-  createEventBus,
-  createLoggerFactory,
   createTranscodeServiceMock,
   createSettingsServiceMock
 } from '../../../../../factories/index.js';
 
-type CaptureSaveServiceDependencies = {
-  eventBus: ReturnType<typeof createEventBus>;
-  settingsService: ReturnType<typeof createSettingsServiceMock>;
-  transcodeService: ReturnType<typeof createTranscodeServiceMock>;
-};
+type CaptureSaveHarness = ReturnType<typeof createInjectableHarness<CaptureSaveService>>;
 
 describe('CaptureSaveService', () => {
   let service: CaptureSaveService;
-  let mockEventBus: ReturnType<typeof createEventBus>;
+  let h: CaptureSaveHarness;
+  let mockEventBus: CaptureSaveHarness['deps']['eventBus'];
   let mockSettingsService: ReturnType<typeof createSettingsServiceMock>;
   let mockTranscodeService: ReturnType<typeof createTranscodeServiceMock>;
-  let mockLogger: ReturnType<ReturnType<typeof createLoggerFactory>['create']>;
-  let mockLoggerFactory: ReturnType<typeof createLoggerFactory>;
-
-  function serviceDependencies(): CaptureSaveServiceDependencies {
-    return service as unknown as CaptureSaveServiceDependencies;
-  }
+  let mockLogger: CaptureSaveHarness['logger'];
 
   beforeEach(() => {
-    mockEventBus = createEventBus();
-
     mockSettingsService = createSettingsServiceMock({
       values: {
         recordingFormat: 'webm'
@@ -51,8 +40,15 @@ describe('CaptureSaveService', () => {
       transcode: vi.fn().mockResolvedValue({ status: 'ok', value: { jobId: 'job-123' } })
     });
 
-    mockLoggerFactory = createLoggerFactory();
-    mockLogger = mockLoggerFactory.create('CaptureSaveService');
+    h = createInjectableHarness(CaptureSaveService, {
+      overrides: {
+        settingsService: mockSettingsService,
+        transcodeService: mockTranscodeService
+      }
+    });
+    service = h.subject;
+    mockEventBus = h.deps.eventBus;
+    mockLogger = h.logger;
 
     vi.mocked(downloadFile).mockResolvedValue();
 
@@ -63,22 +59,7 @@ describe('CaptureSaveService', () => {
     vi.useRealTimers();
   });
 
-  describe('Constructor', () => {
-    it('should store required dependencies', () => {
-      service = new CaptureSaveService(mockEventBus, mockSettingsService, mockTranscodeService, mockLoggerFactory);
-
-      expect(serviceDependencies().eventBus).toBe(mockEventBus);
-      expect(serviceDependencies().settingsService).toBe(mockSettingsService);
-      expect(serviceDependencies().transcodeService).toBe(mockTranscodeService);
-    });
-
-  });
-
   describe('saveRecording', () => {
-    beforeEach(() => {
-      service = new CaptureSaveService(mockEventBus, mockSettingsService, mockTranscodeService, mockLoggerFactory);
-    });
-
     describe('when format is webm', () => {
       it('should use direct save', async () => {
         mockSettingsService.setSetting('recordingFormat', 'webm');
@@ -218,10 +199,6 @@ describe('CaptureSaveService', () => {
   });
 
   describe('saveScreenshot', () => {
-    beforeEach(() => {
-      service = new CaptureSaveService(mockEventBus, mockSettingsService, mockTranscodeService, mockLoggerFactory);
-    });
-
     it('should use direct save', async () => {
       const mockBlob = new Blob(['image data'], { type: 'image/png' });
 
@@ -234,10 +211,6 @@ describe('CaptureSaveService', () => {
   });
 
   describe('_directSave', () => {
-    beforeEach(() => {
-      service = new CaptureSaveService(mockEventBus, mockSettingsService, mockTranscodeService, mockLoggerFactory);
-    });
-
     it('should call downloadFile', async () => {
       const mockBlob = new Blob(['test'], { type: 'video/webm' });
 
@@ -267,8 +240,6 @@ describe('CaptureSaveService', () => {
 
   describe('dispose', () => {
     it('should log disposal', async () => {
-      service = new CaptureSaveService(mockEventBus, mockSettingsService, mockTranscodeService, mockLoggerFactory);
-
       await service.dispose();
 
       expect(mockLogger.info).toHaveBeenCalledWith('CaptureSaveService disposed');

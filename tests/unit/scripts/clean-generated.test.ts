@@ -9,7 +9,8 @@ import {
   cleanGeneratedOutputs,
   GENERATED_ARTIFACT_PATHS,
   GENERATED_PATHS,
-  getArtifactOwnership
+  getArtifactOwnership,
+  VITE_ELECTRON_RENDERER_PLACEHOLDER
 } from '../../../scripts/clean-generated.js';
 
 function createWorkspace(): string {
@@ -17,8 +18,14 @@ function createWorkspace(): string {
   return fs.mkdtempSync(prefix);
 }
 
-function createFile(root: string, relativePath: string): void {
+function createFile(root: string, relativePath: string, content = 'generated'): void {
   const fullPath = path.join(root, relativePath);
+  if (path.extname(relativePath)) {
+    fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+    fs.writeFileSync(fullPath, content);
+    return;
+  }
+
   fs.mkdirSync(fullPath, { recursive: true });
   fs.writeFileSync(path.join(fullPath, 'artifact.txt'), 'generated');
 }
@@ -71,7 +78,11 @@ describe('clean-generated script', () => {
 
   it('removes configured build output directories through the build cleanup path', () => {
     BUILD_OUTPUT_ARTIFACT_PATHS.forEach((entry) => {
-      createFile(workspace, entry.path);
+      createFile(
+        workspace,
+        entry.path,
+        entry.path === 'index.html' ? VITE_ELECTRON_RENDERER_PLACEHOLDER : 'generated'
+      );
     });
     GENERATED_PATHS.forEach((relativePath) => {
       createFile(workspace, relativePath);
@@ -94,6 +105,18 @@ describe('clean-generated script', () => {
     for (const relativePath of GENERATED_PATHS) {
       expect(fs.existsSync(path.join(workspace, relativePath))).toBe(true);
     }
+  });
+
+  it('preserves non-placeholder root index files during build cleanup', () => {
+    createFile(workspace, 'dist');
+    createFile(workspace, 'index.html', '<!doctype html><title>PrismGB</title>');
+
+    const result = cleanBuildOutputs({ root: workspace });
+
+    expect(fs.existsSync(path.join(workspace, 'dist'))).toBe(false);
+    expect(fs.existsSync(path.join(workspace, 'index.html'))).toBe(true);
+    expect(result.deleted).toContainEqual(expect.objectContaining({ target: 'dist' }));
+    expect(result.deleted).not.toContainEqual(expect.objectContaining({ target: 'index.html' }));
   });
 
   it('does not delete generated artifacts in dry-run mode', () => {

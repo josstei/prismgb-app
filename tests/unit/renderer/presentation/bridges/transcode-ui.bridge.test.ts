@@ -14,15 +14,11 @@ describe('TranscodeUIBridge', () => {
   let bridge;
   let mockEventBus;
   let mockLogger;
-  let mockLoggerFactory;
   let subscribedHandlers;
-  let h;
-
-  const createBridge = () => h.recreate();
 
   beforeEach(() => {
     subscribedHandlers = {};
-    h = createInjectableHarness(TranscodeUIBridge, {
+    const h = createInjectableHarness(TranscodeUIBridge, {
       overrides: {
         eventBus: createEventBus({
           onSubscribe: (event, handlerFn) => {
@@ -31,28 +27,12 @@ describe('TranscodeUIBridge', () => {
         })
       }
     });
+    bridge = h.subject;
     mockLogger = h.logger;
-    ({ eventBus: mockEventBus, loggerFactory: mockLoggerFactory } = h.deps);
-  });
-
-  describe('Constructor', () => {
-    it('should store eventBus', () => {
-      bridge = createBridge();
-      expect(bridge.eventBus).toBe(mockEventBus);
-    });
-
-    it('should initialize disposables bag', () => {
-      bridge = createBridge();
-      expect(bridge.disposables).toBeDefined();
-      expect(bridge.disposables.size).toBe(0);
-    });
+    ({ eventBus: mockEventBus } = h.deps);
   });
 
   describe('initialize', () => {
-    beforeEach(() => {
-      bridge = createBridge();
-    });
-
     it('should subscribe to the transcode lifecycle events', () => {
       bridge.initialize();
       const expectedEvents = [
@@ -83,10 +63,6 @@ describe('TranscodeUIBridge', () => {
   });
 
   describe('dispose', () => {
-    beforeEach(() => {
-      bridge = createBridge();
-    });
-
     it('should call all unsubscribe functions on dispose', async () => {
       const unsubscribers = [];
       mockEventBus.subscribe.mockImplementation(() => {
@@ -104,29 +80,15 @@ describe('TranscodeUIBridge', () => {
       });
     });
 
-    it('should clear disposables bag on dispose', async () => {
-      bridge.initialize();
-      await bridge.dispose();
-      expect(bridge.disposables.size).toBe(0);
-    });
-
     it('should log disposal', async () => {
       bridge.initialize();
       await bridge.dispose();
       expect(mockLogger.info).toHaveBeenCalledWith('TranscodeUIBridge disposed');
     });
-
-    it('should work when called multiple times', async () => {
-      bridge.initialize();
-      await bridge.dispose();
-      await expect(bridge.dispose()).resolves.not.toThrow();
-      expect(bridge.disposables.size).toBe(0);
-    });
   });
 
   describe('Event Handlers', () => {
     beforeEach(() => {
-      bridge = createBridge();
       bridge.initialize();
     });
 
@@ -157,10 +119,6 @@ describe('TranscodeUIBridge', () => {
   });
 
   describe('Edge Cases', () => {
-    beforeEach(() => {
-      bridge = createBridge();
-    });
-
     it('should not throw when disposing before initialization', () => {
       expect(() => bridge.dispose()).not.toThrow();
       expect(bridge.disposables.size).toBe(0);

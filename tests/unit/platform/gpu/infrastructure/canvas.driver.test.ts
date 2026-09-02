@@ -34,6 +34,9 @@ describe('CanvasDriver', () => {
     await renderer.initialize();
     expect(context.imageSmoothingEnabled).toBe(false);
 
+    expect(renderer.renderFrame({} as TexImageSource)).toBeUndefined();
+    expect(context.drawImage).toHaveBeenCalledTimes(1);
+
     context.imageSmoothingEnabled = true;
     renderer.resize(320, 288);
 

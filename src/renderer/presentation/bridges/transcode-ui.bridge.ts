@@ -18,8 +18,7 @@ class TranscodeUIBridge extends BaseService {
     super({ loggerFactory, eventBus }, 'TranscodeUIBridge');
   }
 
-  initialize() {
-    this.bindEventHandlers();
+  protected override onInitialize(): void {
     this.logger.info('TranscodeUIBridge initialized');
   }
 

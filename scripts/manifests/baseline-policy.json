@@ -1,0 +1,717 @@
+{
+  "schemaVersion": 2,
+  "programOriginSha": "9a7839ce47c61982f6eab836c496b8469f01a9ca",
+  "analysisSha256": "0c6a4ccbe48b9b12e4c58bd153ae6f5c04bed82fb489c5a2402d21934b4c8fba",
+  "outputRoot": "artifacts/codebase-baseline",
+  "sourcePolicy": {
+    "version": 1,
+    "countedExtensions": {
+      "source": [".ts", ".tsx", ".js", ".mjs", ".cjs", ".css", ".html", ".json", ".wgsl"],
+      "test": [".ts", ".tsx", ".js", ".mjs", ".cjs", ".css", ".html", ".json", ".wgsl"],
+      "script": [".js", ".mjs", ".cjs", ".ts", ".json", ".sh"],
+      "document": [".md", ".mdx"]
+    },
+    "generatedArtifactPaths": [
+      "artifacts",
+      ".vitest",
+      "playwright-report",
+      "tests/e2e/test-results",
+      "tests/e2e/screenshots",
+      "tests/e2e/.generated"
+    ],
+    "buildOutputArtifactPaths": ["dist", "release", "index.html"],
+    "generatedResidue": {
+      "index.html": "vite-electron-placeholder-only"
+    },
+    "vendoredDirectoryPrefixes": ["node_modules", "vendor", ".cache"],
+    "phase0OwnedPathPrefixes": [
+      "scripts/lib/baseline-",
+      "scripts/lib/performance-controller-audit.js",
+      "scripts/lib/performance-evidence.js",
+      "scripts/lib/performance-external-metric-capture.js",
+      "scripts/lib/performance-metric-session-capture.js",
+      "scripts/lib/performance-pair-plan.js",
+      "scripts/lib/performance-raw-capture-manifest.js",
+      "scripts/lib/performance-sentinel-capture.js",
+      "scripts/lib/performance-workload-capture.js",
+      "scripts/codebase-baseline.js",
+      "scripts/validate-baseline-evidence-capacity.js",
+      "scripts/manifests/baseline-policy.json",
+      "tests/unit/scripts/baseline-",
+      "tests/unit/scripts/performance-evidence.test.ts",
+      "tests/unit/scripts/performance-external-metric-capture.test.ts",
+      "tests/unit/scripts/performance-metric-session-capture.test.ts",
+      "tests/unit/scripts/performance-pair-plan.test.ts",
+      "tests/unit/scripts/performance-raw-capture-manifest.test.ts",
+      "tests/unit/scripts/performance-sentinel-capture.test.ts",
+      "tests/unit/scripts/performance-workload-capture.test.ts",
+      "tests/unit/scripts/codebase-baseline.test.ts",
+      "tests/unit/scripts/validate-baseline-evidence-capacity.test.ts",
+      "CODEBASE_NORMALIZATION_AND_REDUCTION_ANALYSIS.md",
+      "playwright.performance.config.js",
+      "scripts/lib/process-runner.js",
+      "scripts/run-performance-baseline.js",
+      "src/main/index.ts",
+      "src/main/infrastructure/diagnostics/",
+      "src/main/infrastructure/window/window.service.ts",
+      "src/main/ipc/router.ts",
+      "src/platform/events/event-payloads.ts",
+      "src/platform/gpu/application/renderer.service.ts",
+      "src/platform/gpu/application/video-session.ts",
+      "src/platform/gpu/domain/types.ts",
+      "src/platform/gpu/index.ts",
+      "src/platform/gpu/infrastructure/canvas.driver.ts",
+      "src/platform/gpu/infrastructure/capabilities.measurement.browser.ts",
+      "src/platform/gpu/infrastructure/pipeline-controller.ts",
+      "src/platform/gpu/infrastructure/webgpu.driver.ts",
+      "src/platform/gpu/runtime.ts",
+      "src/platform/gpu/worker/client.ts",
+      "src/platform/gpu/worker/protocol.ts",
+      "src/platform/gpu/worker/runtime.ts",
+      "src/preload/index.ts",
+      "src/preload/performance-launch-marker.ts",
+      "src/renderer/app-bootstrap.ts",
+      "src/renderer/application/orchestrators/performance/performance-metrics.orchestrator.ts",
+      "src/renderer/infrastructure/diagnostics/",
+      "src/renderer/infrastructure/services/streaming/streaming-render.service.ts",
+      "src/types/electron-extensions.d.ts",
+      "tests/e2e/fixtures/chromatic-device.fixture.js",
+      "tests/e2e/fixtures/performance.fixture.js",
+      "tests/e2e/gpu-performance-baseline.spec.js",
+      "tests/e2e/helpers/gpu-performance-baseline.helper.js",
+      "tests/support/vitest/",
+      "tests/unit/main/infrastructure/diagnostics/",
+      "tests/unit/main/infrastructure/window/window.service.test.ts",
+      "tests/unit/main/ipc/router.test.ts",
+      "tests/unit/performance-harness/",
+      "tests/unit/platform/gpu/application/video-session.test.ts",
+      "tests/unit/platform/gpu/infrastructure/canvas.driver.test.ts",
+      "tests/unit/platform/gpu/infrastructure/capabilities.browser.test.ts",
+      "tests/unit/platform/gpu/infrastructure/capabilities.measurement.browser.test.ts",
+      "tests/unit/platform/gpu/infrastructure/webgpu.driver.test.ts",
+      "tests/unit/platform/gpu/runtime/export-surface.test.ts",
+      "tests/unit/platform/gpu/worker/client.test.ts",
+      "tests/unit/platform/gpu/worker/golden-harness.ts",
+      "tests/unit/platform/gpu/worker/protocol.test.ts",
+      "tests/unit/platform/gpu/worker/service.test.ts",
+      "tests/unit/platform/gpu/worker/split-port.test.ts",
+      "tests/unit/preload/",
+      "tests/unit/renderer/infrastructure/diagnostics/",
+      "tests/unit/renderer/infrastructure/services/streaming/streaming-render.service.test.ts",
+      "tests/unit/scripts/gpu-performance-baseline-helper.test.ts",
+      "tests/unit/scripts/performance-controller-audit.fixture.ts",
+      "tests/unit/scripts/performance.fixture.test.ts",
+      "tests/unit/scripts/process-runner.test.ts",
+      "tests/unit/scripts/run-performance-baseline.test.ts",
+      "tests/unit/scripts/vite-performance-variant.test.ts",
+      "tests/unit/support/production-asset-transform.test.ts",
+      "vite.config.js",
+      "vitest.config.js"
+    ]
+  },
+  "reportPolicy": {
+    "version": 1,
+    "schemaVersion": 1,
+    "kinds": [
+      "source",
+      "events",
+      "lifecycle",
+      "behavior",
+      "package",
+      "performance-experiment",
+      "performance-run",
+      "performance-aggregate",
+      "performance-comparison",
+      "hardware-qualification"
+    ],
+    "experimentRoles": ["ci-integrity", "reference-comparison"],
+    "comparisonKinds": ["harness-overhead", "instrumentation-overhead"],
+    "buildVariants": ["production", "harness-control", "instrumented"],
+    "backends": ["canvas2d", "webgpu"]
+  },
+  "performanceOperationRegistry": {
+    "version": 2,
+    "operations": [
+      { "id": "build-spawn", "variant": "build-spawn", "shapes": [{ "discriminator": { "outcome": "completed" }, "requiredFields": ["buildId", "closure"], "forbiddenFields": ["metricSessionId", "runId"], "terminalField": "closure", "predecessors": ["generic-transport-spawn", "build-spawn"], "successors": ["build-spawn", "electron-harness-spawn"] }] },
+      { "id": "generic-transport-spawn", "variant": "generic-transport-spawn", "shapes": [{ "discriminator": { "outcome": "completed" }, "requiredFields": ["executionIdentity", "markerIdentity", "transportIdentity"], "forbiddenFields": ["metricSessionId", "runId"], "terminalField": "transportClosureEnd", "predecessors": [], "successors": ["build-spawn"] }] },
+      { "id": "metric-adapter-session-open", "variant": "metric-adapter-session-open", "shapes": [{ "discriminator": { "outcome": "ready" }, "requiredFields": ["attemptIndex", "backend", "comparisonKind", "metricSessionId", "pairIndex"], "forbiddenFields": ["runId"], "terminalField": "readyAt", "predecessors": ["electron-harness-spawn", "metric-adapter-session-close"], "successors": ["internal-reset"] }, { "discriminator": { "outcome": "failed-no-resource", "zeroSpawned": true }, "requiredFields": ["attemptIndex", "backend", "comparisonKind", "metricSessionId", "pairIndex"], "forbiddenFields": ["runId"], "terminalField": "failedAt", "predecessors": ["electron-harness-spawn", "metric-adapter-session-close"], "successors": [] }, { "discriminator": { "outcome": "failed-resource-owned" }, "requiredFields": ["abortReason", "attemptIndex", "backend", "comparisonKind", "lastBoundary", "metricSessionId", "pairIndex", "resourceIdentity"], "forbiddenFields": ["runId"], "terminalField": "failedAt", "predecessors": ["electron-harness-spawn", "metric-adapter-session-close"], "successors": ["metric-adapter-session-close"] }] },
+      { "id": "metric-adapter-session-close", "variant": "metric-adapter-session-close", "shapes": [{ "discriminator": { "outcome": "completed" }, "requiredFields": ["closure", "metricSessionId"], "forbiddenFields": ["runId"], "terminalField": "closureEnd", "predecessors": ["electron-harness-spawn", "production-sentinel-spawn"], "successors": ["metric-adapter-session-open"] }, { "discriminator": { "outcome": "aborted" }, "requiredFields": ["abortReason", "closure", "lastBoundary", "metricSessionId"], "forbiddenFields": ["runId"], "terminalField": "closureEnd", "predecessors": ["electron-harness-spawn", "internal-reset", "metric-adapter-session-open", "production-sentinel-spawn"], "successors": [] }] },
+      { "id": "electron-harness-spawn", "variant": "electron-harness-spawn", "shapes": [{ "discriminator": { "purpose": "transport-probe", "outcome": "completed" }, "requiredFields": ["executionIdentity", "markerIdentity", "transportIdentity"], "forbiddenFields": ["attemptIndex", "metricSessionId", "ordinal", "runId"], "terminalField": "applicationDescendantClosureEnd", "predecessors": ["build-spawn"], "successors": ["electron-harness-spawn", "metric-adapter-session-open"] }, { "discriminator": { "purpose": "qualification-probe", "outcome": "completed" }, "requiredFields": ["applicationDescendantClosureEnd", "buildVariant", "capabilityEvidence", "cleanup", "executionId", "executionIdentity", "experimentId", "externalExecutionId", "launchId", "markerIdentity", "observationBoundaryId", "operationMarker", "ownership", "policyHash", "readinessEvidence", "transportIdentity"], "forbiddenFields": ["attemptIndex", "metricSessionId", "ordinal", "runId"], "terminalField": "applicationDescendantClosureEnd", "predecessors": ["electron-harness-spawn"], "successors": ["metric-adapter-session-open"] }, { "discriminator": { "purpose": "measurement-side", "outcome": "completed" }, "requiredFields": ["applicationDescendantClosureEnd", "attemptIndex", "backend", "buildVariant", "cleanup", "comparisonKind", "comparisonSide", "executionId", "experimentId", "experimentRole", "externalExecutionId", "launchId", "ledgerSequence", "metricSessionId", "observationBoundaryId", "ordinal", "ownership", "pairIndex", "pairPlanChecksum", "policyHash", "runId", "sourceSha"], "forbiddenFields": ["browserCreationTime", "browserPid"], "terminalField": "applicationDescendantClosureEnd", "predecessors": ["internal-reset"], "successors": ["internal-reset", "metric-adapter-session-close"] }, { "discriminator": { "purpose": "measurement-side", "outcome": "failed" }, "requiredFields": ["abortReason", "applicationDescendantClosureEnd", "attemptIndex", "backend", "buildVariant", "cleanup", "comparisonKind", "comparisonSide", "executionId", "experimentId", "experimentRole", "externalExecutionId", "lastBoundary", "launchId", "ledgerSequence", "metricSessionId", "observationBoundaryId", "ordinal", "ownership", "pairIndex", "pairPlanChecksum", "policyHash", "runId", "sourceSha"], "forbiddenFields": ["browserCreationTime", "browserPid"], "terminalField": "applicationDescendantClosureEnd", "predecessors": ["internal-reset"], "successors": ["metric-adapter-session-close"] }] },
+      { "id": "production-sentinel-spawn", "variant": "production-sentinel-spawn", "shapes": [{ "discriminator": { "purpose": "measurement-side", "outcome": "completed", "buildVariant": "production" }, "requiredFields": ["applicationDescendantClosureEnd", "attemptIndex", "backend", "browserCreationTime", "browserPid", "buildVariant", "cleanup", "comparisonKind", "comparisonSide", "experimentId", "experimentRole", "externalExecutionId", "ledgerSequence", "metricSessionId", "observationBoundaryId", "ordinal", "ownership", "pairIndex", "pairPlanChecksum", "policyHash", "runId", "sourceSha"], "forbiddenFields": ["controllerAudit", "executionId", "launchId", "marker"], "terminalField": "applicationDescendantClosureEnd", "predecessors": ["internal-reset"], "successors": ["internal-reset", "metric-adapter-session-close"] }, { "discriminator": { "purpose": "measurement-side", "outcome": "failed", "buildVariant": "production" }, "requiredFields": ["abortReason", "applicationDescendantClosureEnd", "attemptIndex", "backend", "browserCreationTime", "browserPid", "buildVariant", "cleanup", "comparisonKind", "comparisonSide", "experimentId", "experimentRole", "externalExecutionId", "lastBoundary", "ledgerSequence", "metricSessionId", "observationBoundaryId", "ordinal", "ownership", "pairIndex", "pairPlanChecksum", "policyHash", "runId", "sourceSha"], "forbiddenFields": ["controllerAudit", "executionId", "launchId", "marker"], "terminalField": "applicationDescendantClosureEnd", "predecessors": ["internal-reset"], "successors": ["metric-adapter-session-close"] }] },
+      { "id": "internal-reset", "variant": "internal-reset", "shapes": [{ "discriminator": { "outcome": "completed" }, "requiredFields": ["resetIdentity"], "forbiddenFields": ["metricSessionId", "runId"], "terminalField": "end", "predecessors": ["electron-harness-spawn", "metric-adapter-session-open", "production-sentinel-spawn"], "successors": ["electron-harness-spawn", "production-sentinel-spawn"] }] }
+    ]
+  },
+  "processAdapterRegistry": {
+    "version": 2,
+    "adapters": [
+      { "id": "linux-procfs-v1", "platform": "linux", "metricSource": "procfs", "counterQuantumSeconds": 0.01 },
+      { "id": "macos-ps-v1", "platform": "darwin", "metricSource": "ps", "counterQuantumSeconds": 0.01 },
+      { "id": "windows-powershell-v1", "platform": "win32", "metricSource": "powershell", "counterQuantumSeconds": 0.0000001 }
+    ],
+    "rawAdapterKinds": [
+      { "adapterId": "linux-procfs-v1", "rawAdapterKind": "linux-procfs-v1", "decoderRule": "linux-procfs-v1", "identityFields": ["pid", "userTicks", "systemTicks", "startTicks", "residentPages", "pageSize", "clockTicks"], "identityOptionalFields": [], "sampleFields": ["pid", "userTicks", "systemTicks", "startTicks", "residentPages", "pageSize", "clockTicks"], "sampleOptionalFields": [], "nestedFields": {} },
+      { "adapterId": "macos-ps-v1", "rawAdapterKind": "macos-ps-v1", "decoderRule": "macos-ps-v1", "identityFields": ["pid", "creationIdentity", "cpuTime", "residentSetKiB"], "identityOptionalFields": [], "sampleFields": ["pid", "creationIdentity", "cpuTime", "residentSetKiB"], "sampleOptionalFields": [], "nestedFields": {} },
+      { "adapterId": "windows-powershell-v1", "rawAdapterKind": "windows-powershell-v1", "decoderRule": "windows-powershell-v1", "identityFields": ["totalProcessorTimeTicks", "workingSetBytes", "sampler"], "identityOptionalFields": [], "sampleFields": ["totalProcessorTimeTicks", "workingSetBytes", "sampler"], "sampleOptionalFields": [], "nestedFields": { "sampler": ["pid", "creationIdentity", "readStartTicks", "readEndTicks", "stopwatchFrequency", "bracketSeconds"] } },
+      { "adapterId": "electron-app-metrics-v1", "rawAdapterKind": "electron-app-metrics-v1", "decoderRule": "electron-app-metrics-v1", "identityFields": ["pid", "creationTime", "type"], "identityOptionalFields": ["cpu", "memory", "integrityLevel", "name", "sandboxed", "serviceName"], "sampleFields": ["pid", "creationTime", "type"], "sampleOptionalFields": ["cpu", "memory", "integrityLevel", "name", "sandboxed", "serviceName"], "nestedFields": {} },
+      { "adapterId": "external-membership-v1", "rawAdapterKind": "external-process-membership", "decoderRule": null, "identityFields": ["pid", "creationIdentity"], "identityOptionalFields": [], "sampleFields": ["spawnBoundary", "rendererEvaluation", "ancestry", "processGroup", "job", "pathIdentity"], "sampleOptionalFields": [], "nestedFields": {} },
+      { "adapterId": "external-health-v1", "rawAdapterKind": "external-process-health", "decoderRule": null, "identityFields": ["pid", "creationIdentity"], "identityOptionalFields": [], "sampleFields": ["alive", "status", "exitObservation"], "sampleOptionalFields": [], "nestedFields": {} },
+      { "adapterId": "external-closure-v1", "rawAdapterKind": "external-process-closure", "decoderRule": null, "identityFields": ["pid", "creationIdentity"], "identityOptionalFields": [], "sampleFields": ["terminalStatus", "exitCode", "signal", "zeroSurvivors"], "sampleOptionalFields": [], "nestedFields": {} }
+    ],
+    "cpuSampleRawAuthorityPolicy": {
+      "version": 1,
+      "wrapperFields": ["adapterSample", "readStart", "readEnd"],
+      "samplePhaseDerivation": { "firstOrdinal": "prime", "interiorOrdinals": "in-window", "terminalOrdinal": "terminal-closure" },
+      "schemas": [
+        { "adapterId": "linux-procfs-v1", "rawAdapterKind": "linux-procfs-v1", "sampleFields": ["pid", "userTicks", "systemTicks", "startTicks", "residentPages", "pageSize", "clockTicks"], "sampleOptionalFields": [], "nestedFields": {} },
+        { "adapterId": "macos-ps-v1", "rawAdapterKind": "macos-ps-v1", "sampleFields": ["pid", "creationIdentity", "cpuTime", "residentSetKiB"], "sampleOptionalFields": [], "nestedFields": {} },
+        { "adapterId": "windows-powershell-v1", "rawAdapterKind": "windows-powershell-v1", "sampleFields": ["totalProcessorTimeTicks", "workingSetBytes", "sampler"], "sampleOptionalFields": [], "nestedFields": { "sampler": ["pid", "creationIdentity", "readStartTicks", "readEndTicks", "stopwatchFrequency", "bracketSeconds"] } }
+      ]
+    },
+    "processObservationSchemas": [
+      { "adapterIds": ["linux-procfs-v1", "macos-ps-v1", "windows-powershell-v1"], "observationKinds": ["membership"], "captureKinds": ["external-metric"], "carrierSchema": "adapter-sample", "processClass": "application-renderer", "ownership": "application-owned", "alive": true, "healthState": null, "closureState": null, "processIdentityRule": "renderer-external-execution" },
+      { "adapterIds": ["linux-procfs-v1", "macos-ps-v1", "windows-powershell-v1"], "observationKinds": ["health"], "captureKinds": ["external-metric"], "carrierSchema": "adapter-sample", "processClass": "application-renderer", "ownership": "application-owned", "alive": true, "healthState": "live", "closureState": null, "processIdentityRule": "renderer-external-execution" },
+      { "adapterIds": ["linux-procfs-v1", "macos-ps-v1", "windows-powershell-v1"], "observationKinds": ["membership"], "captureKinds": ["metric-session"], "carrierSchema": "metric-session-audit", "processClass": "application-renderer", "ownership": "application-owned", "alive": true, "healthState": null, "closureState": null, "processIdentityRule": "metric-session-transition" },
+      { "adapterIds": ["linux-procfs-v1", "macos-ps-v1", "windows-powershell-v1"], "observationKinds": ["closure"], "captureKinds": ["metric-session"], "carrierSchema": "metric-session-audit", "processClass": "application-renderer", "ownership": "application-owned", "alive": false, "healthState": null, "closureState": "detached", "processIdentityRule": "metric-session-transition" },
+      { "adapterIds": ["electron-app-metrics-v1"], "observationKinds": ["membership"], "captureKinds": ["workload"], "carrierSchema": "electron-broker-sample", "processClass": "application-root", "ownership": "application-owned", "alive": true, "healthState": null, "closureState": null, "processIdentityRule": "browser-execution" },
+      { "adapterIds": ["electron-app-metrics-v1"], "observationKinds": ["closure"], "captureKinds": ["workload"], "carrierSchema": "electron-root-exit", "processClass": "application-root", "ownership": "application-owned", "alive": false, "healthState": null, "closureState": "closed", "processIdentityRule": "browser-execution" },
+      { "adapterIds": ["external-membership-v1"], "observationKinds": ["membership"], "captureKinds": ["transport", "qualification"], "carrierSchema": "registered-fields", "processClass": "application-renderer", "ownership": "application-owned", "alive": true, "healthState": null, "closureState": null, "processIdentityRule": "external-carrier" },
+      { "adapterIds": ["external-health-v1"], "observationKinds": ["health"], "captureKinds": ["transport", "qualification"], "carrierSchema": "registered-fields", "processClass": "application-renderer", "ownership": "application-owned", "alive": true, "healthState": "live", "closureState": null, "processIdentityRule": "external-carrier" },
+      { "adapterIds": ["external-closure-v1"], "observationKinds": ["closure"], "captureKinds": ["transport", "qualification"], "carrierSchema": "registered-fields", "processClass": "application-renderer", "ownership": "application-owned", "alive": false, "healthState": null, "closureState": "closed", "processIdentityRule": "external-carrier" }
+    ],
+    "rawProcessClasses": ["Browser", "Tab", "Utility", "Zygote", "Sandbox helper", "GPU", "Pepper Plugin", "Pepper Plugin Broker", "Unknown"],
+    "processClasses": ["application-root", "application-renderer"],
+    "ownershipClasses": ["application-owned"],
+    "healthStates": ["live"],
+    "closureStates": ["closed", "detached"]
+  },
+  "performanceEnvironmentPolicy": {
+    "version": 2,
+    "pollCadenceMs": { "minimum": 900, "maximum": 1100 },
+    "staticIdentityFields": ["host", "runtime", "gpu", "switches"],
+    "dynamicStateFields": ["power", "display", "refreshRate", "devicePixelRatio", "thermal", "gpuSwitch"],
+    "electronEventNames": ["on-ac", "on-battery", "speed-limit-change", "thermal-state-change", "display-added", "display-removed", "display-metrics-changed", "gpu-info-update"],
+    "observationKinds": ["initial-snapshot", "poll-snapshot", "event", "cleanup", "renderer-heap", "renderer-heap-unavailable"],
+    "rendererHeapUnavailableReasons": ["performance-memory-api-unavailable", "used-js-heap-size-unavailable", "used-js-heap-size-nonfinite"],
+    "sources": ["electron-main", "external-monitor", "renderer-heap"],
+    "clockDomainMappings": [
+      { "source": "external-monitor", "observationKinds": ["initial-snapshot", "poll-snapshot"], "rawAdapterKind": "external-host-snapshot-v1", "clockDomain": "runner" },
+      { "source": "external-monitor", "observationKinds": ["event"], "rawAdapterKind": "external-host-transition-v1", "clockDomain": "runner" },
+      { "source": "external-monitor", "observationKinds": ["cleanup"], "rawAdapterKind": "external-host-cleanup-v1", "clockDomain": "runner" },
+      { "source": "electron-main", "observationKinds": ["initial-snapshot", "poll-snapshot"], "rawAdapterKind": "electron-environment-v1", "clockDomain": "electron-main" },
+      { "source": "renderer-heap", "observationKinds": ["renderer-heap", "renderer-heap-unavailable"], "rawAdapterKind": "chromium-performance-memory-v1", "clockDomain": "renderer-performance-now-v1" }
+    ],
+    "rawAdapterShapes": [
+      { "source": "external-monitor", "observationKinds": ["initial-snapshot", "poll-snapshot"], "rawAdapterKind": "external-host-snapshot-v1", "requiredFields": ["staticIdentity", "dynamicState"], "optionalFields": [], "projectionRule": "host-snapshot" },
+      { "source": "external-monitor", "observationKinds": ["event"], "rawAdapterKind": "external-host-transition-v1", "requiredFields": ["eventName", "previousDynamicState", "currentDynamicState"], "optionalFields": [], "literalValues": { "eventName": "poll-transition" }, "projectionRule": "host-transition" },
+      { "source": "external-monitor", "observationKinds": ["cleanup"], "rawAdapterKind": "external-host-cleanup-v1", "requiredFields": ["cleanupState", "lastSourceSequence", "remainingPollTimerCount", "remainingListenerCount"], "optionalFields": [], "literalValues": { "cleanupState": "disposed", "remainingPollTimerCount": 0, "remainingListenerCount": 0 }, "projectionRule": "host-cleanup" },
+      { "source": "electron-main", "observationKinds": ["initial-snapshot", "poll-snapshot"], "rawAdapterKind": "electron-environment-v1", "requiredFields": ["launchId", "callSequence", "phase", "capturedAt", "currentState", "eventBoundary"], "optionalFields": [], "projectionRule": "electron-current-state" },
+      { "source": "renderer-heap", "observationKinds": ["renderer-heap"], "rawAdapterKind": "chromium-performance-memory-v1", "requiredFields": ["observedAt", "usedBytes"], "optionalFields": [], "projectionRule": "renderer-used-bytes" },
+      { "source": "renderer-heap", "observationKinds": ["renderer-heap-unavailable"], "rawAdapterKind": "chromium-performance-memory-v1", "requiredFields": ["availability", "unavailableReason", "observations"], "optionalFields": [], "projectionRule": "renderer-unavailable" }
+    ]
+  },
+  "performanceFailurePolicy": {
+    "version": 2,
+    "qualificationUnavailableReasons": [
+      "webgpu-api-unavailable",
+      "webgpu-adapter-unavailable",
+      "transfer-api-unavailable",
+      "transfer-method-unavailable",
+      "transfer-allowlisted-not-supported",
+      "worker-fallback-adapter"
+    ],
+    "retryableReasons": ["sample-floor", "cadence-insufficient", "host-noise", "cpu-boundary-overlap"],
+    "retryableAuthorityRegistry": [
+      { "reason": "sample-floor", "rawKind": "cpu-sample", "derivation": "minimum-valid-in-window-sample-count" },
+      { "reason": "cadence-insufficient", "rawKind": "cpu-sample", "derivation": "read-bracket-cadence-coverage" },
+      { "reason": "host-noise", "rawKind": "environment-observation", "derivation": "policy-owned-dynamic-state-transition" },
+      { "reason": "cpu-boundary-overlap", "rawKind": "cpu-sample", "derivation": "conservative-lag-window-score-bound-overlap" }
+    ],
+    "measuredDrops": ["duplicateMediaTime", "noCurrentData", "backpressure"],
+    "metricSessionAbortTuples": [
+      { "phase": "close", "backend": "none", "reason": "metric-adapter-close-failure" },
+      { "phase": "open", "backend": "none", "reason": "metric-adapter-resource-owned" },
+      { "phase": "reset-a", "backend": "none", "reason": "reset-failure" },
+      { "phase": "reset-b", "backend": "none", "reason": "reset-failure" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "bitmapCreationFailed" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "cadence-insufficient" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "crash" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "drain-timeout" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "driverFailed" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "driverInactive" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "enqueueFailed" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "environment-drift" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "host-noise" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "membership-failure" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "metrics-broker-interference" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "pid-identity-change" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "sample-floor" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "sessionInactive" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "source-token-span-join-corruption" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "submission-seal-timeout" },
+      { "phase": "side-a", "backend": "canvas2d", "reason": "unclean-shutdown" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "bitmapCreationFailed" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "cadence-insufficient" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "crash" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "drain-timeout" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "driverFailed" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "driverInactive" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "enqueueFailed" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "environment-drift" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "host-noise" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "membership-failure" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "metrics-broker-interference" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "pid-identity-change" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "sample-floor" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "sessionInactive" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "source-token-span-join-corruption" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "submission-seal-timeout" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "unclean-shutdown" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "worker-error" },
+      { "phase": "side-a", "backend": "webgpu", "reason": "workerNotReady" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "bitmapCreationFailed" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "cadence-insufficient" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "crash" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "drain-timeout" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "driverFailed" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "driverInactive" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "enqueueFailed" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "environment-drift" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "host-noise" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "membership-failure" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "metrics-broker-interference" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "pid-identity-change" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "sample-floor" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "sessionInactive" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "source-token-span-join-corruption" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "submission-seal-timeout" },
+      { "phase": "side-b", "backend": "canvas2d", "reason": "unclean-shutdown" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "bitmapCreationFailed" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "cadence-insufficient" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "crash" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "drain-timeout" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "driverFailed" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "driverInactive" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "enqueueFailed" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "environment-drift" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "host-noise" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "membership-failure" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "metrics-broker-interference" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "pid-identity-change" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "sample-floor" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "sessionInactive" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "source-token-span-join-corruption" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "submission-seal-timeout" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "unclean-shutdown" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "worker-error" },
+      { "phase": "side-b", "backend": "webgpu", "reason": "workerNotReady" }
+    ]
+  },
+  "performanceDispositionPolicy": {
+    "version": 2,
+    "sourceDispositions": ["duplicateMediaTime", "noCurrentData", "backpressure", "sessionInactive", "workerNotReady", "bitmapCreationFailed", "enqueueFailed", "drawCompleted", "driverInactive", "driverFailed", "workerFrameSubmitted"],
+    "advisoryDispositionIsAuthority": false
+  },
+  "performanceMetricPolicy": {
+    "version": 2,
+    "workloadId": "phase0-animated-160x144-v1",
+    "cpuWindowLagSamples": 40,
+    "minimumRawSamples": 55,
+    "minimumCpuWindows": 15,
+    "maximumCounterQuantumSeconds": 0.01,
+    "maximumReadDurationMs": 50,
+    "sampleCadenceMs": { "minimum": 450, "maximum": 550 },
+    "sentinelCpuAllowance": 0.02,
+    "instrumentationCpuAllowance": 0.05,
+    "scoreCountByComparisonKind": { "harness-overhead": 5, "instrumentation-overhead": 6 },
+    "allowances": { "sentinelThroughputFraction": 0.02, "sentinelSuccessRatio": 0.01, "sentinelWorkingSetFraction": 0.02, "sentinelWorkingSetMinimumMiB": 4, "instrumentationThroughputFraction": 0.05, "instrumentationLatencyFraction": 0.05, "instrumentationDropMinimum": 0.01, "instrumentationWorkingSetFraction": 0.05, "instrumentationWorkingSetMinimumMiB": 8 },
+    "instrumentationMiddleRanksZeroBased": [2, 3],
+    "sentinelBundleAllowance": { "fraction": 0.01, "minimumBytes": 65536 }
+  },
+  "allocationEvidencePolicy": {
+    "version": 2,
+    "canvas2d": { "state": "not-applicable-no-covered-allocation-request", "operations": [] },
+    "webgpu": {
+      "operations": [
+        "video-frame-image-bitmap-request",
+        "uniform-float32-array",
+        "gpu-buffer-request",
+        "gpu-texture-request",
+        "bind-group-create",
+        "render-pass-plan-materialization"
+      ],
+      "coverage": [
+        { "operationId": "video-frame-image-bitmap-request", "sourceLocationId": "video-session:create-image-bitmap", "carrier": "frame-request", "cardinality": "per-frame", "byteSemantics": "rgba-transfer-footprint" },
+        { "operationId": "uniform-float32-array", "sourceLocationId": "webgpu-driver:uniform-float32-array", "carrier": "frame-request", "cardinality": "per-frame", "byteSemantics": "requested-byte-length" },
+        { "operationId": "gpu-buffer-request", "sourceLocationId": "webgpu-driver:create-buffer", "carrier": "lifecycle-request", "lifecyclePhase": "startup", "cardinality": 4, "byteSemantics": "descriptor-size" },
+        { "operationId": "gpu-texture-request", "sourceLocationId": "webgpu-driver:create-texture", "carrier": "lifecycle-request", "lifecyclePhase": "startup", "cardinality": 3, "byteSemantics": "logical-texel-footprint" },
+        { "operationId": "bind-group-create", "sourceLocationId": "webgpu-driver:create-bind-group", "carrier": "frame-request", "cardinality": "per-frame", "byteSemantics": "count-only-unavailable" },
+        { "operationId": "render-pass-plan-materialization", "sourceLocationId": "webgpu-driver:materialize-render-plan", "carrier": "frame-request", "cardinality": "per-frame", "byteSemantics": "count-only-unavailable" }
+      ],
+      "states": ["measured-request-proxy", "unavailable-incomplete-request-coverage"]
+    }
+  },
+  "capacityFixturePolicy": {
+    "version": 2,
+    "encoding": "synthetic-allocation-coverage-v1",
+    "callbackCohortEncoding": "synthetic-callback-cohort-v1",
+    "provenanceKind": "synthetic-capacity-fixture",
+    "publicationEligible": false,
+    "runtimeMeasurement": false
+  },
+  "comparisonFingerprintPolicy": {
+    "version": 2,
+    "includedFields": ["schemaVersion", "policyHashes", "initialEnvironment", "workload", "reset", "processAdapter", "seed", "backend", "backendExecutionIdentity"],
+    "excludedFields": ["sourceSha", "experimentRole", "experimentId", "captureProvenance", "comparisonKind", "buildVariant", "bundleHash", "pairIndex", "attemptIndex", "executionId", "timestamps", "rawMeasurements"],
+    "canvasBackendExecutionIdentity": "not-applicable"
+  },
+  "qualificationFingerprintPolicy": {
+    "version": 2,
+    "includedFields": ["schemaVersion", "sourceSha", "controlBundle", "workload", "initialEnvironment", "requestedBackend", "selectedBackend", "observedBackend", "qualificationState", "unavailabilityBranch", "adapter", "backendExecutionIdentity", "resetVersion", "policyHashes", "processAdapter", "seedManifestHash"],
+    "excludedFields": ["experimentId", "ledgerSequence", "operationMarker", "launchId", "executionId", "timestamps", "pids", "paths"]
+  },
+  "performanceQualificationCapturePolicy": {
+    "version": 1,
+    "captureBodyFields": ["schemaVersion", "experimentId", "ledgerSequence", "observationBoundaryId", "sourceSha", "policyHash", "buildVariant", "requestedBackend", "readinessEvidence", "capabilityResult", "transferResult", "selectionResult", "adapterIdentity", "fallbackState", "backendExecutionIdentity", "cleanup"],
+    "capabilityStatuses": { "available": ["available"], "unavailable": ["api-unavailable", "adapter-unavailable"], "fatal": ["adapter-error", "device-error"] },
+    "transferStatuses": { "available": ["available"], "unavailable": ["api-unavailable", "method-unavailable", "allowlisted-not-supported"], "fatal": ["unexpected-error"] },
+    "availableCapabilityResultFields": ["status", "adapterIdentity", "limits", "isFallbackAdapter", "strictSelection"],
+    "statusOnlyResultFields": ["status"],
+    "errorResultFields": ["status", "error"],
+    "qualificationStates": ["qualified-webgpu", "hardware-capability-unavailable"],
+    "unavailabilityBranches": ["none", "webgpu-api-unavailable", "webgpu-adapter-unavailable", "transfer-api-unavailable", "transfer-method-unavailable", "transfer-allowlisted-not-supported", "worker-fallback-adapter"],
+    "selectionReasons": ["webgpu-selected", "webgpu-api-unavailable", "webgpu-adapter-unavailable", "transfer-api-unavailable", "transfer-method-unavailable", "transfer-allowlisted-not-supported", "worker-fallback-adapter"],
+    "adapterIdentityFields": ["vendor", "architecture", "device", "description"],
+    "limitFields": ["maxTextureDimension2D", "maxBindGroups"],
+    "backendExecutionIdentityFields": ["backend", "driver", "workerProtocol", "adapterIdentity", "limits", "isFallbackAdapter", "powerPreference"],
+    "strictSelectionFields": ["requestedBackend", "powerPreference", "forceFallbackAdapter"],
+    "errorFields": ["name", "message"],
+    "selectionResultFields": ["qualificationState", "unavailabilityBranch", "requestedBackend", "selectedBackend", "observedBackend", "selectionReason"],
+    "readinessEvidenceFields": ["stages"],
+    "readinessStageFields": ["backend", "backendReadyObservedAt", "sourceSequence", "sourceObservedAt", "terminalFrame"],
+    "canvasTerminalFrameFields": ["kind", "observedAt", "outcome"],
+    "webgpuTerminalFrameFields": ["kind", "frameToken", "submittedAt", "acknowledgedAt", "outcome"],
+    "qualifiedFallbackStateFields": ["isFallbackAdapter", "branch"],
+    "unavailableFallbackStateFields": ["isFallbackAdapter", "branch", "observedBackendExecutionIdentity", "fallbackBackend"],
+    "cleanupFields": ["controllerFatalReasons", "listenersRemoved", "restorationOutcome", "applicationDescendantClosureEnd", "brokerDisposeEnd", "rootExitObservedAt", "terminalClosureEnd"],
+    "qualificationLedgerFields": ["sequence", "operationId", "start", "end", "purpose", "outcome", "experimentId", "policyHash", "buildVariant", "observationBoundaryId", "operationMarker", "launchId", "executionId", "externalExecutionId", "executionIdentity", "markerIdentity", "transportIdentity", "capabilityEvidence", "readinessEvidence", "ownership", "cleanup", "applicationDescendantClosureEnd"],
+    "executionIdentityFields": ["externalExecutionId", "executionId"],
+    "markerIdentityFields": ["operationMarker", "launchId", "preloadEchoLaunchId", "rendererEchoLaunchId"],
+    "transportIdentityFields": ["transportId", "observationBoundaryId"],
+    "capabilityEvidenceFields": ["captureBodyChecksum"],
+    "ownershipFields": ["class"]
+  },
+  "performanceBuildEvidencePolicy": {
+    "version": 1,
+    "buildManifestSchemaVersion": 2,
+    "variantOrder": ["production", "harness-control", "instrumented"],
+    "variantFlags": [{ "id": "production", "harness": false, "instrumentation": false }, { "id": "harness-control", "harness": true, "instrumentation": false }, { "id": "instrumented", "harness": true, "instrumentation": true }],
+    "codeRootOrder": ["main", "preload", "renderer", "worker"],
+    "entrypointPatterns": { "main": "^main/index\\.js$", "preload": "^preload/index\\.js$", "renderer": "^renderer/assets/main-[A-Za-z0-9_-]+\\.js$", "worker": "^renderer/assets/worker-entry-[A-Za-z0-9_-]+\\.js$" },
+    "javascriptExtensions": [".cjs", ".js", ".mjs"]
+  },
+  "performanceCaptureKindRegistry": {
+    "version": 1,
+    "kinds": [
+      { "member": "experimentEvidence.environment", "captureKind": "experiment-environment", "captureSchemaVersion": 1, "indexSchemaVersion": 1, "scopeKind": "experiment" },
+      { "member": "experimentEvidence.transport", "captureKind": "transport", "captureSchemaVersion": 1, "indexSchemaVersion": 1, "scopeKind": "ledger-operation" },
+      { "member": "qualificationEvidence", "captureKind": "qualification", "captureSchemaVersion": 1, "indexSchemaVersion": 1, "scopeKind": "ledger-operation" },
+      { "member": "backendFamilies.*.externalMetric", "captureKind": "external-metric", "captureSchemaVersion": 4, "indexSchemaVersion": 4, "scopeKind": "run" },
+      { "member": "backendFamilies.*.metricSession", "captureKind": "metric-session", "captureSchemaVersion": 2, "indexSchemaVersion": 2, "scopeKind": "metric-session" },
+      { "member": "backendFamilies.*.sentinel", "captureKind": "sentinel", "captureSchemaVersion": 8, "indexSchemaVersion": 7, "scopeKind": "run" },
+      { "member": "backendFamilies.*.workload", "captureKind": "workload", "captureSchemaVersion": 9, "indexSchemaVersion": 9, "scopeKind": "run" }
+    ]
+  },
+  "performanceCaptureAttributionRegistry": {
+    "version": 1,
+    "families": [
+      { "captureKind": "experiment-environment", "scopeKind": "experiment", "variants": [{ "purpose": "experiment-monitor", "buildVariant": null, "rawKinds": ["environment-observation"] }] },
+      { "captureKind": "transport", "scopeKind": "ledger-operation", "variants": [{ "purpose": "generic-transport-probe", "buildVariant": null, "rawKinds": ["process-observation"] }, { "purpose": "electron-transport-probe", "buildVariant": "harness-control", "rawKinds": ["process-observation", "environment-observation", "controller-operation"] }] },
+      { "captureKind": "qualification", "scopeKind": "ledger-operation", "variants": [{ "purpose": "qualification-probe", "buildVariant": "harness-control", "rawKinds": ["process-observation", "environment-observation", "controller-operation"] }] },
+      { "captureKind": "external-metric", "scopeKind": "run", "variants": [{ "purpose": "measurement-side", "buildVariant": "production", "rawKinds": ["process-observation", "cpu-sample"] }, { "purpose": "measurement-side", "buildVariant": "harness-control", "rawKinds": ["process-observation", "cpu-sample"] }, { "purpose": "measurement-side", "buildVariant": "instrumented", "rawKinds": ["process-observation", "cpu-sample"] }] },
+      { "captureKind": "metric-session", "scopeKind": "metric-session", "variants": [{ "purpose": "metric-session", "buildVariant": null, "rawKinds": ["process-observation"] }] },
+      { "captureKind": "sentinel", "scopeKind": "run", "variants": [{ "purpose": "measurement-side", "buildVariant": "production", "rawKinds": ["backend-operation", "worker-message", "sentinel-observation"] }, { "purpose": "measurement-side", "buildVariant": "harness-control", "rawKinds": ["backend-operation", "worker-message", "sentinel-observation", "controller-operation"] }] },
+      { "captureKind": "workload", "scopeKind": "run", "variants": [{ "purpose": "measurement-side", "buildVariant": "harness-control", "rawKinds": ["source-opportunity", "backend-operation", "worker-message", "process-observation", "environment-observation", "controller-operation", "timing-span"] }, { "purpose": "measurement-side", "buildVariant": "instrumented", "rawKinds": ["source-opportunity", "backend-operation", "worker-message", "process-observation", "environment-observation", "controller-operation", "timing-span", "frame-request", "lifecycle-request"] }] }
+    ],
+    "runProjectionFamilies": { "harness-overhead": ["experiment-environment", "external-metric", "metric-session", "sentinel", "transport"], "instrumentation-overhead": ["experiment-environment", "external-metric", "metric-session", "transport", "workload"] },
+    "qualificationProjectionFamilies": ["experiment-environment", "qualification", "transport"]
+  },
+  "performanceComparisonRegistry": {
+    "version": 1,
+    "comparisons": [
+      { "comparisonKind": "harness-overhead", "pairCount": 3, "baselineBuildVariant": "production", "comparedBuildVariant": "harness-control", "attemptCount": 3, "scoreMetricIds": ["callback-throughput", "backend-operation-throughput", "success-ratio", "external-cpu-p95", "external-working-set-p95"], "middleRankAggregate": false },
+      { "comparisonKind": "instrumentation-overhead", "pairCount": 6, "baselineBuildVariant": "harness-control", "comparedBuildVariant": "instrumented", "attemptCount": 3, "scoreMetricIds": ["source-throughput", "backend-success-throughput", "backend-latency-p95", "drop-rate", "external-cpu-p95", "external-working-set-p95"], "middleRankAggregate": true }
+    ],
+    "pairPlanSchemaVersion": 3,
+    "sideOrder": ["A", "B"],
+    "executionOrdinals": [1, 2]
+  },
+  "performanceRunMetricRegistry": {
+    "version": 1,
+    "metrics": [
+      { "comparisonKind": "harness-overhead", "metricId": "callback-throughput", "unit": "callbacks-per-second", "valueShape": "scalar", "rawKind": "sentinel-observation" },
+      { "comparisonKind": "harness-overhead", "metricId": "backend-operation-throughput", "unit": "operations-per-second", "valueShape": "scalar", "rawKind": "backend-operation" },
+      { "comparisonKind": "harness-overhead", "metricId": "success-ratio", "unit": "ratio", "valueShape": "scalar", "rawKind": "worker-message" },
+      { "comparisonKind": "harness-overhead", "metricId": "external-cpu-p95", "unit": "cpu-seconds-per-second", "valueShape": "bounded", "rawKind": "cpu-sample" },
+      { "comparisonKind": "harness-overhead", "metricId": "external-working-set-p95", "unit": "MiB", "valueShape": "scalar", "rawKind": "cpu-sample" },
+      { "comparisonKind": "instrumentation-overhead", "metricId": "source-throughput", "unit": "opportunities-per-second", "valueShape": "scalar", "rawKind": "source-opportunity" },
+      { "comparisonKind": "instrumentation-overhead", "metricId": "backend-success-throughput", "unit": "operations-per-second", "valueShape": "scalar", "rawKind": "backend-operation" },
+      { "comparisonKind": "instrumentation-overhead", "metricId": "backend-latency-p95", "unit": "milliseconds", "valueShape": "scalar", "rawKind": "timing-span" },
+      { "comparisonKind": "instrumentation-overhead", "metricId": "drop-rate", "unit": "ratio", "valueShape": "scalar", "rawKind": "source-opportunity" },
+      { "comparisonKind": "instrumentation-overhead", "metricId": "external-cpu-p95", "unit": "cpu-seconds-per-second", "valueShape": "bounded", "rawKind": "cpu-sample" },
+      { "comparisonKind": "instrumentation-overhead", "metricId": "external-working-set-p95", "unit": "MiB", "valueShape": "scalar", "rawKind": "cpu-sample" }
+    ]
+  },
+  "performanceRunAllocationStateRegistry": {
+    "version": 1,
+    "states": [
+      { "backend": "canvas2d", "buildVariants": ["production", "harness-control", "instrumented"], "states": ["not-applicable-no-covered-allocation-request"] },
+      { "backend": "webgpu", "buildVariants": ["production", "harness-control"], "states": ["not-applicable-build-variant"] },
+      { "backend": "webgpu", "buildVariants": ["instrumented"], "states": ["measured-request-proxy", "unavailable-incomplete-request-coverage"] }
+    ]
+  },
+  "performanceGateRegistry": {
+    "version": 1,
+    "authorityKinds": ["run-raw", "capture-projection", "qualification-capture", "policy-section", "ledger-entry"],
+    "gates": [
+      { "gateId": "raw-join-closure", "authorityKinds": ["run-raw", "capture-projection", "ledger-entry"], "requiredAuthorities": [{ "authorityKind": "run-raw", "rawKind": "source-opportunity" }, { "authorityKind": "capture-projection", "captureKind": "workload" }, { "authorityKind": "ledger-entry" }] },
+      { "gateId": "sentinel-frame-ack-error-balance", "authorityKinds": ["run-raw"], "requiredAuthorities": [{ "authorityKind": "run-raw", "rawKind": "backend-operation" }, { "authorityKind": "run-raw", "rawKind": "worker-message" }] },
+      { "gateId": "sentinel-pre-window-pending", "authorityKinds": ["run-raw"], "requiredAuthorities": [{ "authorityKind": "run-raw", "rawKind": "sentinel-observation" }] },
+      { "gateId": "sentinel-post-window-pending-closure", "authorityKinds": ["run-raw", "ledger-entry"], "requiredAuthorities": [{ "authorityKind": "run-raw", "rawKind": "sentinel-observation" }, { "authorityKind": "ledger-entry" }] },
+      { "gateId": "sentinel-error-count", "authorityKinds": ["run-raw"], "requiredAuthorities": [{ "authorityKind": "run-raw", "rawKind": "sentinel-observation" }, { "authorityKind": "run-raw", "rawKind": "worker-message" }] },
+      { "gateId": "process-health", "authorityKinds": ["run-raw", "policy-section"], "requiredAuthorities": [{ "authorityKind": "run-raw", "rawKind": "process-observation" }, { "authorityKind": "policy-section", "sectionId": "processAdapterRegistry" }] },
+      { "gateId": "environment-stability", "authorityKinds": ["capture-projection", "policy-section"], "requiredAuthorities": [{ "authorityKind": "capture-projection", "captureKind": "experiment-environment" }, { "authorityKind": "policy-section", "sectionId": "performanceEnvironmentPolicy" }] },
+      { "gateId": "clean-shutdown", "authorityKinds": ["run-raw", "ledger-entry"], "requiredAuthorities": [{ "authorityKind": "run-raw", "rawKind": "process-observation" }, { "authorityKind": "ledger-entry" }] },
+      { "gateId": "webgpu-ack-conservation", "authorityKinds": ["run-raw"], "requiredAuthorities": [{ "authorityKind": "run-raw", "rawKind": "backend-operation" }, { "authorityKind": "run-raw", "rawKind": "worker-message" }] },
+      { "gateId": "webgpu-ack-sample-floor", "authorityKinds": ["run-raw", "policy-section"], "requiredAuthorities": [{ "authorityKind": "run-raw", "rawKind": "worker-message" }, { "authorityKind": "policy-section", "sectionId": "performanceMetricPolicy" }] },
+      { "gateId": "production-control-bundle-overhead", "authorityKinds": ["policy-section"], "requiredAuthorities": [{ "authorityKind": "policy-section", "sectionId": "performanceBuildEvidencePolicy" }] },
+      { "gateId": "qualification-state", "authorityKinds": ["qualification-capture", "capture-projection", "policy-section", "ledger-entry"], "requiredAuthorities": [{ "authorityKind": "qualification-capture" }, { "authorityKind": "capture-projection", "captureKind": "qualification" }, { "authorityKind": "policy-section", "sectionId": "qualificationFingerprintPolicy" }, { "authorityKind": "ledger-entry" }] }
+    ]
+  },
+  "performanceControllerAuditPolicy": {
+    "version": 1,
+    "clockDomains": ["electron-main", "renderer-performance-now-v1", "runner"],
+    "channels": ["browser-window", "ipc", "metrics-broker", "power-monitor", "screen"],
+    "operationKinds": ["request", "response", "broker-sample", "control-write", "controller-lifecycle"],
+    "lifecyclePhases": ["install-environment-listeners", "begin-operation", "begin-phase", "open-numeric-epoch", "record-release-dispatched", "sample-post-release-settle", "sample", "unleased-public-metrics-interference", "sample-environment", "close-numeric-epoch", "begin-root-exit-gate", "finalize"],
+    "operationShapes": [
+      { "operationKind": "request", "fields": ["controlSequence", "operationKind", "clockDomain", "controllerRequestId", "channel", "requestKind", "rawRequest", "sentAt"] },
+      { "operationKind": "response", "fields": ["controlSequence", "operationKind", "clockDomain", "controllerRequestId", "channel", "responseKind", "rawResponse", "receivedAt", "outcome"] },
+      { "operationKind": "broker-sample", "fields": ["controlSequence", "operationKind", "clockDomain", "brokerSequence", "sampleKind", "rawSample", "observedAt"] },
+      { "operationKind": "control-write", "fields": ["controlSequence", "operationKind", "clockDomain", "writeKind", "rawWrite", "writtenAt", "outcome"] },
+      { "operationKind": "controller-lifecycle", "fields": ["controlSequence", "operationKind", "clockDomain", "lifecyclePhase", "rawLifecycleEvent", "observedAt", "outcome"] }
+    ],
+    "controlProbePhases": ["start", "activity", "closure"],
+    "controlProbeOutcomes": ["completed", "failed", "pending"],
+    "operationOutcomes": ["recorded"],
+    "requestKinds": ["qualification", "transport"],
+    "responseKinds": ["qualification", "transport"],
+    "sampleKinds": ["startup-identity", "qualification", "warmup", "prime", "measurement", "submission-seal", "drain", "shutdown", "application-descendant-closure", "application-descendant-closure-wait", "pre-exit", "post-release-settle"],
+    "writeKinds": ["source-opportunity", "frame-branch", "advisory-frame-disposition", "shutdown-boundary", "performance-shutdown-boundary", "backend-ready"],
+    "backendReadyFields": ["kind", "launchId", "observedAt", "requestedBackend", "selectedBackend", "selectionReason", "backendExecutionIdentity"],
+    "backendSelectionReasons": ["requested-canvas2d", "performance-mode-canvas2d", "webgpu-api-unavailable", "webgpu-adapter-unavailable", "transfer-api-unavailable", "transfer-method-unavailable", "transfer-allowlisted-not-supported", "webgpu-selected", "fatal-detector-reason"],
+    "requestPayloadFields": { "qualification": [], "transport": [] },
+    "responsePayloadFields": { "qualification": [], "transport": [] },
+    "brokerSampleFields": ["launchId", "callSequence", "phase", "purpose", "capturedAt", "rawAppMetrics", "servedFromCache"],
+    "lifecycleEventRequiredFields": ["sequence", "event", "at"],
+    "lifecycleEventOptionalFields": ["count", "launchId", "phase", "measurementEpochId", "releaseDispatchedReceiptAt", "notBeforeFixtureAt", "purpose", "sampledFixtureAt", "brokerCallSequence", "callSequence", "closedAt", "applicationCleanupCompletedAt", "disposedAt"],
+    "crossClockArithmeticAllowed": false
+  },
+  "performanceEvidenceChunkPolicy": {
+    "version": 2,
+    "chunkRows": 256,
+    "maximumRowsPerRunAndKind": 16384,
+    "maximumRowsPerScopeAndKind": 16384,
+    "maximumRowsAcrossNonRunScopesAndKind": 65536,
+    "maximumExperimentEnvironmentRows": 65536,
+    "maximumDictionaryValuesPerChunk": 65536,
+    "maximumDictionaryUtf8BytesPerChunk": 8388608,
+    "runBindingFields": ["sourceSha", "policyHash", "experimentId", "pairPlanChecksum", "ledgerSequence", "experimentRole", "scopeKind", "scopeId", "captureKind", "runId", "metricSessionId", "comparisonKind", "backend", "pairIndex", "attemptIndex", "comparisonSide", "buildVariant", "launchOrdinal", "externalExecutionId", "observationBoundaryId"],
+    "rawKinds": {
+      "source-opportunity": {
+        "sortKeys": ["runId", "captureOrdinal"],
+        "columns": ["advisoryFrameToken", "advisoryOutcome", "attemptIndex", "backend", "bitmapOutcome", "buildVariant", "canvasDrawOutcome", "captureKind", "captureOrdinal", "comparisonKind", "comparisonSide", "diagnosticFrameId", "duplicateMediaTime", "eventKind", "experimentId", "experimentRole", "externalExecutionId", "framePostOutcome", "hasCurrentData", "launchId", "launchOrdinal", "ledgerSequence", "measurementEpochId", "measurementWindowId", "mediaTime", "metricSessionId", "observationBoundaryId", "outstandingFrameCount", "outstandingFrameLimit", "pairIndex", "pairPlanChecksum", "policyHash", "readyState", "runId", "scopeId", "scopeKind", "sessionActive", "sessionPresent", "sourceSequence", "sourceSha", "workerPresent", "workerReady"],
+        "requiredColumns": ["attemptIndex", "backend", "buildVariant", "captureKind", "captureOrdinal", "comparisonKind", "comparisonSide", "diagnosticFrameId", "eventKind", "experimentId", "experimentRole", "externalExecutionId", "launchId", "launchOrdinal", "ledgerSequence", "measurementEpochId", "measurementWindowId", "metricSessionId", "observationBoundaryId", "pairIndex", "pairPlanChecksum", "policyHash", "runId", "scopeId", "scopeKind", "sourceSequence", "sourceSha"],
+        "referenceColumns": ["experimentId", "policyHash", "runId"],
+        "literalValues": {},
+        "rowShapes": [
+          { "eventKind": "source-opportunity", "fields": ["captureOrdinal", "eventKind", "launchId", "measurementWindowId", "measurementEpochId", "sourceSequence", "diagnosticFrameId", "mediaTime", "sessionPresent", "sessionActive", "duplicateMediaTime", "readyState", "hasCurrentData"], "buildVariants": ["harness-control", "instrumented"] },
+          { "eventKind": "session-branch", "fields": ["captureOrdinal", "eventKind", "launchId", "measurementWindowId", "measurementEpochId", "sourceSequence", "diagnosticFrameId", "workerPresent", "workerReady", "outstandingFrameCount", "outstandingFrameLimit", "bitmapOutcome", "canvasDrawOutcome", "framePostOutcome"], "buildVariants": ["harness-control", "instrumented"] },
+          { "eventKind": "advisory-disposition", "fields": ["captureOrdinal", "eventKind", "launchId", "measurementWindowId", "measurementEpochId", "sourceSequence", "diagnosticFrameId", "advisoryOutcome", "advisoryFrameToken"], "buildVariants": ["harness-control", "instrumented"] }
+        ],
+        "buildFieldRules": { "harness-control": { "measurementEpochId": "null", "diagnosticFrameId": "null" }, "instrumented": { "measurementEpochId": "nonempty", "diagnosticFrameId": "nonempty" } }
+      },
+      "backend-operation": {
+        "sortKeys": ["runId", "captureOrdinal"],
+        "columns": ["attemptIndex", "backend", "buildVariant", "callbackOrdinal", "captureKind", "captureOrdinal", "comparisonKind", "comparisonSide", "diagnosticFrameId", "experimentId", "experimentRole", "externalExecutionId", "frameToken", "launchId", "launchOrdinal", "ledgerSequence", "measurementEpochId", "measurementWindowId", "metricSessionId", "observationBoundaryId", "observedAt", "operationId", "outcome", "pairIndex", "pairPlanChecksum", "policyHash", "runId", "scopeId", "scopeKind", "sourceSequence", "sourceSha", "timingSpanId"],
+        "requiredColumns": ["attemptIndex", "backend", "buildVariant", "captureKind", "captureOrdinal", "comparisonKind", "comparisonSide", "experimentId", "experimentRole", "externalExecutionId", "launchOrdinal", "ledgerSequence", "metricSessionId", "observationBoundaryId", "operationId", "pairIndex", "pairPlanChecksum", "policyHash", "runId", "scopeId", "scopeKind", "sourceSha"],
+        "referenceColumns": ["experimentId", "policyHash", "runId"],
+        "literalValues": {},
+        "rowShapes": [
+          { "comparisonKind": "instrumentation-overhead", "fields": ["captureOrdinal", "launchId", "measurementWindowId", "measurementEpochId", "sourceSequence", "diagnosticFrameId", "operationId", "outcome", "frameToken", "timingSpanId"], "buildVariants": ["harness-control", "instrumented"] },
+          { "comparisonKind": "harness-overhead", "fields": ["captureOrdinal", "callbackOrdinal", "operationId", "observedAt"], "buildVariants": ["production", "harness-control"] }
+        ],
+        "buildFieldRules": { "harness-control": { "measurementEpochId": "null-when-present", "diagnosticFrameId": "null-when-present" }, "instrumented": { "measurementEpochId": "nonempty", "diagnosticFrameId": "nonempty" } }
+      },
+      "worker-message": {
+        "sortKeys": ["runId", "captureOrdinal"],
+        "columns": ["attemptIndex", "backend", "buildVariant", "captureKind", "captureOrdinal", "clockDomain", "comparisonKind", "comparisonSide", "diagnosticFrameId", "experimentId", "experimentRole", "externalExecutionId", "frameToken", "launchId", "launchOrdinal", "ledgerSequence", "measurementEpochId", "measurementWindowId", "messageKind", "messageOrdinal", "metricSessionId", "observationBoundaryId", "observedAt", "outcome", "pairIndex", "pairPlanChecksum", "policyHash", "runId", "scopeId", "scopeKind", "sourceSequence", "sourceSha", "tagged"],
+        "requiredColumns": ["attemptIndex", "backend", "buildVariant", "captureKind", "captureOrdinal", "clockDomain", "comparisonKind", "comparisonSide", "experimentId", "experimentRole", "externalExecutionId", "frameToken", "launchOrdinal", "ledgerSequence", "messageKind", "metricSessionId", "observationBoundaryId", "observedAt", "outcome", "pairIndex", "pairPlanChecksum", "policyHash", "runId", "scopeId", "scopeKind", "sourceSha", "tagged"],
+        "referenceColumns": ["experimentId", "policyHash", "runId"],
+        "literalValues": {},
+        "rowShapes": [
+          { "comparisonKind": "instrumentation-overhead", "messageKind": "acknowledgement", "clockDomain": "renderer-performance-now-v1", "outcome": "webgpu-queue-submit-completed", "fields": ["captureOrdinal", "messageKind", "clockDomain", "observedAt", "launchId", "measurementWindowId", "measurementEpochId", "sourceSequence", "diagnosticFrameId", "frameToken", "tagged", "outcome"], "buildVariants": ["harness-control", "instrumented"] },
+          { "comparisonKind": "instrumentation-overhead", "messageKind": "error", "clockDomain": "renderer-performance-now-v1", "outcome": "worker-terminal-error", "fields": ["captureOrdinal", "messageKind", "clockDomain", "observedAt", "launchId", "measurementWindowId", "measurementEpochId", "sourceSequence", "diagnosticFrameId", "frameToken", "tagged", "outcome"], "buildVariants": ["harness-control", "instrumented"] },
+          { "comparisonKind": "harness-overhead", "messageKind": "acknowledgement", "clockDomain": "external-performance-now-v1", "outcome": "webgpu-queue-submit-completed", "fields": ["captureOrdinal", "messageOrdinal", "messageKind", "clockDomain", "observedAt", "tagged", "frameToken", "outcome"], "buildVariants": ["production", "harness-control"] },
+          { "comparisonKind": "harness-overhead", "messageKind": "error", "clockDomain": "external-performance-now-v1", "outcome": "worker-message-error", "fields": ["captureOrdinal", "messageOrdinal", "messageKind", "clockDomain", "observedAt", "tagged", "frameToken", "outcome"], "buildVariants": ["production", "harness-control"] },
+          { "comparisonKind": "harness-overhead", "messageKind": "error", "clockDomain": "external-performance-now-v1", "outcome": "worker-error-event", "fields": ["captureOrdinal", "messageOrdinal", "messageKind", "clockDomain", "observedAt", "tagged", "frameToken", "outcome"], "buildVariants": ["production", "harness-control"] }
+        ],
+        "buildFieldRules": { "production": { "tagged": false, "frameToken": "null" }, "harness-control": { "measurementEpochId": "null-when-present", "diagnosticFrameId": "null-when-present", "tagged": true, "frameToken": "positive-token" }, "instrumented": { "measurementEpochId": "nonempty", "diagnosticFrameId": "nonempty", "tagged": true, "frameToken": "positive-token" } }
+      },
+      "sentinel-observation": {
+        "sortKeys": ["runId", "captureOrdinal"],
+        "columns": ["attemptIndex", "backend", "boundary", "buildVariant", "callbackOrdinal", "captureKind", "captureOrdinal", "closureReason", "comparisonKind", "comparisonSide", "errorKind", "experimentId", "experimentRole", "externalExecutionId", "launchOrdinal", "ledgerSequence", "mediaTime", "metricSessionId", "observationBoundaryId", "observationKind", "observedAt", "outcome", "pairIndex", "pairPlanChecksum", "pendingCount", "policyHash", "probeOrdinal", "probePhase", "rawProbeEvent", "runId", "scopeId", "scopeKind", "sourceSha"],
+        "requiredColumns": ["attemptIndex", "backend", "buildVariant", "captureKind", "captureOrdinal", "comparisonKind", "comparisonSide", "experimentId", "experimentRole", "externalExecutionId", "launchOrdinal", "ledgerSequence", "metricSessionId", "observationBoundaryId", "observationKind", "observedAt", "pairIndex", "pairPlanChecksum", "policyHash", "runId", "scopeId", "scopeKind", "sourceSha"],
+        "referenceColumns": ["experimentId", "policyHash", "runId"],
+        "literalValues": {},
+        "rowShapes": [
+          { "observationKind": "callback", "fields": ["captureOrdinal", "observationBoundaryId", "observationKind", "observedAt", "callbackOrdinal", "mediaTime"], "buildVariants": ["production", "harness-control"] },
+          { "observationKind": "boundary", "fields": ["captureOrdinal", "observationBoundaryId", "observationKind", "observedAt", "boundary"], "buildVariants": ["production", "harness-control"] },
+          { "observationKind": "pending", "fields": ["captureOrdinal", "observationBoundaryId", "observationKind", "observedAt", "pendingCount"], "buildVariants": ["production", "harness-control"] },
+          { "observationKind": "closure", "fields": ["captureOrdinal", "observationBoundaryId", "observationKind", "observedAt", "closureReason"], "buildVariants": ["production", "harness-control"] },
+          { "observationKind": "error", "fields": ["captureOrdinal", "observationBoundaryId", "observationKind", "observedAt", "errorKind"], "buildVariants": ["production", "harness-control"] },
+          { "observationKind": "control-probe", "fields": ["captureOrdinal", "observationBoundaryId", "observationKind", "observedAt", "probeOrdinal", "probePhase", "rawProbeEvent", "outcome"], "buildVariants": ["harness-control"] }
+        ]
+      },
+      "process-observation": {
+        "sortKeys": ["captureKind", "scopeKind", "scopeId", "observationOrdinal"],
+        "columns": ["adapterId", "alive", "attemptIndex", "backend", "buildVariant", "captureKind", "closureState", "comparisonKind", "comparisonSide", "creationIdentity", "experimentId", "experimentRole", "externalExecutionId", "healthState", "launchOrdinal", "ledgerSequence", "metricSessionId", "metricSessionOpenSequence", "observationBoundaryId", "observationKind", "observationOrdinal", "observationSource", "observedAt", "operationId", "ownership", "pairIndex", "pairPlanChecksum", "pid", "policyHash", "processClass", "processIdentity", "rawAdapterKind", "rawClosure", "rawHealth", "rawIdentity", "rawMembership", "runId", "scopeId", "scopeKind", "sourceSha", "subjectKind"],
+        "requiredColumns": ["adapterId", "alive", "captureKind", "creationIdentity", "experimentId", "experimentRole", "observationKind", "observationOrdinal", "observationSource", "observedAt", "ownership", "pid", "policyHash", "processClass", "processIdentity", "rawAdapterKind", "rawIdentity", "scopeId", "scopeKind", "sourceSha", "subjectKind"],
+        "referenceColumns": ["experimentId", "policyHash", "scopeId"],
+        "literalValues": {},
+        "rowShapes": [
+          { "observationKind": "membership", "fields": ["observationOrdinal", "observedAt", "observationKind", "observationSource", "adapterId", "subjectKind", "pid", "creationIdentity", "processIdentity", "rawAdapterKind", "rawIdentity", "rawMembership", "processClass", "ownership", "alive"] },
+          { "observationKind": "health", "fields": ["observationOrdinal", "observedAt", "observationKind", "observationSource", "adapterId", "subjectKind", "pid", "creationIdentity", "processIdentity", "rawAdapterKind", "rawIdentity", "rawHealth", "processClass", "ownership", "alive", "healthState"] },
+          { "observationKind": "closure", "fields": ["observationOrdinal", "observedAt", "observationKind", "observationSource", "adapterId", "subjectKind", "pid", "creationIdentity", "processIdentity", "rawAdapterKind", "rawIdentity", "rawClosure", "processClass", "ownership", "alive", "closureState"] }
+        ],
+        "bindingShapes": [
+          { "scopeKind": "run", "fields": ["sourceSha", "policyHash", "experimentId", "pairPlanChecksum", "ledgerSequence", "experimentRole", "scopeKind", "scopeId", "captureKind", "runId", "metricSessionId", "comparisonKind", "backend", "pairIndex", "attemptIndex", "comparisonSide", "buildVariant", "launchOrdinal", "externalExecutionId", "observationBoundaryId"] },
+          { "scopeKind": "metric-session", "fields": ["sourceSha", "policyHash", "experimentId", "pairPlanChecksum", "experimentRole", "scopeKind", "scopeId", "captureKind", "metricSessionId", "comparisonKind", "backend", "pairIndex", "attemptIndex", "metricSessionOpenSequence"] },
+          { "scopeKind": "ledger-operation", "fields": ["sourceSha", "policyHash", "experimentId", "experimentRole", "scopeKind", "scopeId", "captureKind", "ledgerSequence", "operationId"] }
+        ]
+      },
+      "environment-observation": {
+        "sortKeys": ["captureKind", "scopeKind", "scopeId", "source", "sourceSequence"],
+        "columns": ["attemptIndex", "backend", "buildVariant", "captureKind", "cleanupState", "clockDomain", "comparisonKind", "comparisonSide", "dynamicState", "eventName", "experimentId", "experimentRole", "externalExecutionId", "launchOrdinal", "ledgerSequence", "metricSessionId", "observationBoundaryId", "observationKind", "observedAt", "operationId", "pairIndex", "pairPlanChecksum", "policyHash", "rawAdapterKind", "rawObservation", "reason", "runId", "runnerReceiptSequence", "scopeId", "scopeKind", "source", "sourceSequence", "sourceSha", "staticIdentity", "usedBytes"],
+        "requiredColumns": ["captureKind", "clockDomain", "experimentId", "experimentRole", "observationKind", "observedAt", "policyHash", "rawAdapterKind", "rawObservation", "runnerReceiptSequence", "scopeId", "scopeKind", "source", "sourceSequence", "sourceSha"],
+        "referenceColumns": ["experimentId", "policyHash", "scopeId"],
+        "literalValues": {},
+        "rowShapes": [
+          { "observationKind": "initial-snapshot", "fields": ["source", "sourceSequence", "clockDomain", "runnerReceiptSequence", "observedAt", "observationKind", "rawAdapterKind", "rawObservation", "staticIdentity", "dynamicState"] },
+          { "observationKind": "poll-snapshot", "fields": ["source", "sourceSequence", "clockDomain", "runnerReceiptSequence", "observedAt", "observationKind", "rawAdapterKind", "rawObservation", "dynamicState"] },
+          { "observationKind": "event", "fields": ["source", "sourceSequence", "clockDomain", "runnerReceiptSequence", "observedAt", "observationKind", "eventName", "rawAdapterKind", "rawObservation", "dynamicState"] },
+          { "observationKind": "cleanup", "fields": ["source", "sourceSequence", "clockDomain", "runnerReceiptSequence", "observedAt", "observationKind", "rawAdapterKind", "rawObservation", "cleanupState"] },
+          { "observationKind": "renderer-heap", "fields": ["source", "sourceSequence", "clockDomain", "runnerReceiptSequence", "observedAt", "observationKind", "rawAdapterKind", "rawObservation", "usedBytes"], "buildVariants": ["instrumented"] },
+          { "observationKind": "renderer-heap-unavailable", "fields": ["source", "sourceSequence", "clockDomain", "runnerReceiptSequence", "observedAt", "observationKind", "rawAdapterKind", "rawObservation", "reason"], "buildVariants": ["instrumented"] }
+        ],
+        "bindingShapes": [
+          { "scopeKind": "experiment", "fields": ["sourceSha", "policyHash", "experimentId", "experimentRole", "scopeKind", "scopeId", "captureKind"] },
+          { "scopeKind": "ledger-operation", "fields": ["sourceSha", "policyHash", "experimentId", "experimentRole", "scopeKind", "scopeId", "captureKind", "ledgerSequence", "operationId", "observationBoundaryId"] },
+          { "scopeKind": "run", "fields": ["sourceSha", "policyHash", "experimentId", "pairPlanChecksum", "ledgerSequence", "experimentRole", "scopeKind", "scopeId", "captureKind", "runId", "metricSessionId", "comparisonKind", "backend", "pairIndex", "attemptIndex", "comparisonSide", "buildVariant", "launchOrdinal", "externalExecutionId", "observationBoundaryId"] }
+        ]
+      },
+      "controller-operation": {
+        "sortKeys": ["captureKind", "scopeKind", "scopeId", "controlSequence"],
+        "columns": ["attemptIndex", "backend", "brokerSequence", "buildVariant", "captureKind", "channel", "clockDomain", "comparisonKind", "comparisonSide", "controlSequence", "controllerRequestId", "experimentId", "experimentRole", "externalExecutionId", "launchOrdinal", "ledgerSequence", "lifecyclePhase", "metricSessionId", "observationBoundaryId", "observedAt", "operationId", "operationKind", "outcome", "pairIndex", "pairPlanChecksum", "policyHash", "rawLifecycleEvent", "rawRequest", "rawResponse", "rawSample", "rawWrite", "receivedAt", "requestKind", "responseKind", "runId", "sampleKind", "scopeId", "scopeKind", "sentAt", "sourceSha", "writeKind", "writtenAt"],
+        "requiredColumns": ["captureKind", "clockDomain", "controlSequence", "experimentId", "experimentRole", "operationKind", "policyHash", "scopeId", "scopeKind", "sourceSha"],
+        "referenceColumns": ["experimentId", "policyHash", "scopeId"],
+        "literalValues": {},
+        "rowShapes": [
+          { "operationKind": "request", "fields": ["controlSequence", "operationKind", "clockDomain", "controllerRequestId", "channel", "requestKind", "rawRequest", "sentAt"] },
+          { "operationKind": "response", "fields": ["controlSequence", "operationKind", "clockDomain", "controllerRequestId", "channel", "responseKind", "rawResponse", "receivedAt", "outcome"] },
+          { "operationKind": "broker-sample", "fields": ["controlSequence", "operationKind", "clockDomain", "brokerSequence", "sampleKind", "rawSample", "observedAt"] },
+          { "operationKind": "control-write", "fields": ["controlSequence", "operationKind", "clockDomain", "writeKind", "rawWrite", "writtenAt", "outcome"] },
+          { "operationKind": "controller-lifecycle", "fields": ["controlSequence", "operationKind", "clockDomain", "lifecyclePhase", "rawLifecycleEvent", "observedAt", "outcome"] }
+        ],
+        "bindingShapes": [
+          { "scopeKind": "ledger-operation", "fields": ["sourceSha", "policyHash", "experimentId", "experimentRole", "scopeKind", "scopeId", "captureKind", "ledgerSequence", "operationId", "observationBoundaryId"] },
+          { "scopeKind": "run", "fields": ["sourceSha", "policyHash", "experimentId", "pairPlanChecksum", "ledgerSequence", "experimentRole", "scopeKind", "scopeId", "captureKind", "runId", "metricSessionId", "comparisonKind", "backend", "pairIndex", "attemptIndex", "comparisonSide", "buildVariant", "launchOrdinal", "externalExecutionId", "observationBoundaryId"] }
+        ]
+      },
+      "timing-span": {
+        "sortKeys": ["runId", "measurementWindowId", "sourceSequence", "metricId", "spanOrdinal"],
+        "columns": ["attemptIndex", "backend", "buildVariant", "captureKind", "clock", "comparisonKind", "comparisonSide", "diagnosticFrameId", "endedAt", "experimentId", "experimentRole", "externalExecutionId", "frameToken", "launchOrdinal", "ledgerSequence", "measurementEpochId", "measurementWindowId", "metricId", "metricSessionId", "observationBoundaryId", "outcome", "pairIndex", "pairPlanChecksum", "policyHash", "runId", "scopeId", "scopeKind", "sourceSequence", "sourceSha", "spanOrdinal", "startedAt", "timingSpanId", "unit"],
+        "requiredColumns": ["attemptIndex", "backend", "buildVariant", "captureKind", "clock", "comparisonKind", "comparisonSide", "diagnosticFrameId", "endedAt", "experimentId", "experimentRole", "externalExecutionId", "frameToken", "launchOrdinal", "ledgerSequence", "measurementEpochId", "measurementWindowId", "metricId", "metricSessionId", "observationBoundaryId", "outcome", "pairIndex", "pairPlanChecksum", "policyHash", "runId", "scopeId", "scopeKind", "sourceSequence", "sourceSha", "spanOrdinal", "startedAt", "timingSpanId", "unit"],
+        "referenceColumns": ["experimentId", "measurementEpochId", "policyHash", "runId"],
+        "literalValues": {},
+        "rowShapes": [{ "fields": ["measurementWindowId", "measurementEpochId", "sourceSequence", "diagnosticFrameId", "metricId", "spanOrdinal", "timingSpanId", "frameToken", "unit", "clock", "startedAt", "endedAt", "outcome"], "comparisonKinds": ["instrumentation-overhead"], "buildVariants": ["harness-control", "instrumented"] }],
+        "buildFieldRules": { "harness-control": { "measurementEpochId": "null", "diagnosticFrameId": "null" }, "instrumented": { "measurementEpochId": "nonempty", "diagnosticFrameId": "nonempty" } }
+      },
+      "cpu-sample": {
+        "sortKeys": ["runId", "ordinal"],
+        "columns": ["adapterId", "attemptIndex", "backend", "buildVariant", "captureKind", "comparisonKind", "comparisonSide", "counterQuantumSeconds", "creationIdentity", "cumulativeCpuSeconds", "experimentId", "experimentRole", "externalExecutionId", "launchOrdinal", "ledgerSequence", "metricSessionId", "observationBoundaryId", "ordinal", "pairIndex", "pairPlanChecksum", "pid", "policyHash", "processIdentity", "rawAdapterKind", "rawAdapterSample", "readEnd", "readStart", "runId", "samplePhase", "scopeId", "scopeKind", "sourceSha", "workingSetMiB"],
+        "requiredColumns": ["adapterId", "attemptIndex", "backend", "buildVariant", "captureKind", "comparisonKind", "comparisonSide", "counterQuantumSeconds", "creationIdentity", "cumulativeCpuSeconds", "experimentId", "experimentRole", "externalExecutionId", "launchOrdinal", "ledgerSequence", "metricSessionId", "observationBoundaryId", "ordinal", "pairIndex", "pairPlanChecksum", "pid", "policyHash", "processIdentity", "rawAdapterKind", "rawAdapterSample", "readEnd", "readStart", "runId", "samplePhase", "scopeId", "scopeKind", "sourceSha", "workingSetMiB"],
+        "referenceColumns": ["experimentId", "policyHash", "runId"],
+        "literalValues": {},
+        "rowShapes": [{ "fields": ["ordinal", "samplePhase", "adapterId", "pid", "creationIdentity", "processIdentity", "readStart", "readEnd", "counterQuantumSeconds", "cumulativeCpuSeconds", "workingSetMiB", "rawAdapterKind", "rawAdapterSample"] }]
+      },
+      "frame-request": {
+        "sortKeys": ["runId", "measurementEpochId", "sourceSequence", "requestOrdinal", "operationId", "sourceLocationId"],
+        "columns": ["attemptIndex", "backend", "buildVariant", "byteKind", "byteValue", "captureKind", "carrier", "comparisonKind", "comparisonSide", "descriptorSize", "diagnosticFrameId", "experimentId", "experimentRole", "externalExecutionId", "frameToken", "launchOrdinal", "ledgerSequence", "measurementEpochId", "measurementWindowId", "metricSessionId", "observationBoundaryId", "operationId", "outcome", "pairIndex", "pairPlanChecksum", "policyHash", "requestOrdinal", "requestedByteLength", "runId", "scopeId", "scopeKind", "sourceHeight", "sourceLocationId", "sourceSequence", "sourceSha", "sourceWidth", "textureDescriptor"],
+        "requiredColumns": ["attemptIndex", "backend", "buildVariant", "captureKind", "carrier", "comparisonKind", "comparisonSide", "diagnosticFrameId", "experimentId", "experimentRole", "externalExecutionId", "frameToken", "launchOrdinal", "ledgerSequence", "measurementEpochId", "measurementWindowId", "metricSessionId", "observationBoundaryId", "operationId", "outcome", "pairIndex", "pairPlanChecksum", "policyHash", "requestOrdinal", "runId", "scopeId", "scopeKind", "sourceLocationId", "sourceSequence", "sourceSha"],
+        "referenceColumns": ["experimentId", "measurementEpochId", "policyHash", "runId"],
+        "literalValues": { "carrier": "frame-request" },
+        "rowShapes": [{ "fields": ["backend", "byteKind", "byteValue", "carrier", "descriptorSize", "diagnosticFrameId", "frameToken", "measurementEpochId", "measurementWindowId", "operationId", "outcome", "requestOrdinal", "requestedByteLength", "sourceHeight", "sourceLocationId", "sourceSequence", "sourceWidth", "textureDescriptor"], "comparisonKinds": ["instrumentation-overhead"], "backends": ["webgpu"], "buildVariants": ["instrumented"] }]
+      },
+      "lifecycle-request": {
+        "sortKeys": ["runId", "executionId", "lifecyclePhase", "phaseSequence", "operationId", "sourceLocationId", "requestOrdinal"],
+        "columns": ["attemptIndex", "backend", "buildVariant", "byteKind", "byteValue", "captureKind", "carrier", "comparisonKind", "comparisonSide", "descriptorSize", "executionId", "experimentId", "experimentRole", "externalExecutionId", "launchOrdinal", "ledgerSequence", "lifecyclePhase", "metricSessionId", "observationBoundaryId", "operationId", "outcome", "pairIndex", "pairPlanChecksum", "phaseSequence", "policyHash", "requestOrdinal", "requestedByteLength", "runId", "scopeId", "scopeKind", "sourceHeight", "sourceLocationId", "sourceSha", "sourceWidth", "textureDescriptor"],
+        "requiredColumns": ["attemptIndex", "backend", "buildVariant", "captureKind", "carrier", "comparisonKind", "comparisonSide", "executionId", "experimentId", "experimentRole", "externalExecutionId", "launchOrdinal", "ledgerSequence", "lifecyclePhase", "metricSessionId", "observationBoundaryId", "operationId", "outcome", "pairIndex", "pairPlanChecksum", "phaseSequence", "policyHash", "requestOrdinal", "runId", "scopeId", "scopeKind", "sourceLocationId", "sourceSha"],
+        "referenceColumns": ["executionId", "experimentId", "policyHash", "runId"],
+        "literalValues": { "carrier": "lifecycle-request" },
+        "rowShapes": [{ "fields": ["backend", "byteKind", "byteValue", "carrier", "descriptorSize", "executionId", "lifecyclePhase", "operationId", "outcome", "phaseSequence", "requestOrdinal", "requestedByteLength", "sourceHeight", "sourceLocationId", "sourceWidth", "textureDescriptor"], "comparisonKinds": ["instrumentation-overhead"], "backends": ["webgpu"], "buildVariants": ["instrumented"] }]
+      }
+    }
+  },
+  "performanceLimits": {
+    "version": 2,
+    "buildSeconds": 600,
+    "seedMaterializationSeconds": 30,
+    "cooldownAndIdleSeconds": 135,
+    "readinessSeconds": 30,
+    "sourceFlowSeconds": 15,
+    "externalSealAndClosureSeconds": 2,
+    "applicationShutdownSeconds": 15,
+    "terminalFrameworkClosureSeconds": 10,
+    "warmup": { "minimumSeconds": 10, "minimumCallbacks": 600, "maximumSeconds": 30, "maximumCallbacks": 900 },
+    "window": { "minimumSeconds": 30, "minimumCallbacks": 1800, "maximumSeconds": 45, "maximumCallbacks": 2048 },
+    "oneLaunchSeconds": 300,
+    "ciExperimentSeconds": 10800,
+    "referenceExperimentSeconds": 28800,
+    "maximumEnvironmentPolls": 300,
+    "maximumSameStateEvents": 4096,
+    "maximumProcessObservations": 1024,
+    "maximumIdentities": 128,
+    "maximumExperimentEnvironmentPollsByRole": { "ci-integrity": 12001, "reference-comparison": 32001 },
+    "maximumExperimentSameStateEvents": 32768,
+    "maximumExperimentEnvironmentObservations": 65536,
+    "maximumRowsPerScopeAndKind": 16384,
+    "maximumRowsAcrossNonRunScopesAndKind": 65536,
+    "maximumIdentifierBytes": 1024,
+    "maximumPathBytes": 4096
+  },
+  "transcodeDecisionPolicy": {
+    "version": 1,
+    "semanticIntegritySha256": "8c53e47b7ba7fe50368e779dc4e1c2028901acf4e546e02679f9a9a3f78e5bb3",
+    "contracts": [
+      { "id": "transcode-start", "path": "src/platform/transcode/transcode.service.ts", "sourceSymbol": "TranscodeService.transcode", "closureTestIds": ["transcode-current-progress-semantics"] },
+      { "id": "transcode-complete", "path": "src/platform/transcode/transcode.service.ts", "sourceSymbol": "TranscodeService.transcode", "closureTestIds": ["transcode-current-progress-semantics"] },
+      { "id": "transcode-error", "path": "src/platform/transcode/transcode.service.ts", "sourceSymbol": "TranscodeService.transcode", "closureTestIds": ["transcode-current-progress-semantics"] },
+      { "id": "transcode-cancel", "path": "src/platform/transcode/transcode.service.ts", "sourceSymbol": "TranscodeService.cancel", "closureTestIds": ["transcode-current-progress-semantics"] }
+    ],
+    "rows": [
+      { "option": "approved-option-a", "strategy": "indeterminate-no-ffprobe", "blocked": false, "impactedContractIds": ["transcode-cancel", "transcode-complete", "transcode-error", "transcode-start"], "impactedTestIds": ["transcode-current-progress-semantics"] },
+      { "option": "approved-option-b", "strategy": "exact-duration-probe", "blocked": false, "impactedContractIds": ["transcode-cancel", "transcode-complete", "transcode-error", "transcode-start"], "impactedTestIds": ["transcode-current-progress-semantics"] },
+      { "option": "unresolved", "strategy": "unresolved", "blocked": true, "impactedContractIds": ["transcode-cancel", "transcode-complete", "transcode-error", "transcode-start"], "impactedTestIds": ["transcode-current-progress-semantics"] }
+    ]
+  }
+}

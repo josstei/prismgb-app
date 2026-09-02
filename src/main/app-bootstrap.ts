@@ -3,61 +3,36 @@ import { createAppContainer } from './application/container.js';
 import { MainLogger } from './infrastructure/logging/logger.factory.js';
 import type { AppOrchestrator } from './application/app.orchestrator.js';
 import { TOKENS } from './application/di/tokens.js';
-import type { LoggerLike } from '@platform/core';
+import { PlatformBootstrap, type LoggerLike } from '@platform/core';
 
-export class MainBootstrap {
-  private container: MainServiceContainer | null = null;
-  private orchestrator: AppOrchestrator | null = null;
-  private isInitialized = false;
+export class MainBootstrap extends PlatformBootstrap<MainServiceContainer, AppOrchestrator> {
   private readonly loggerFactory: MainLogger;
-  private readonly logger: LoggerLike;
 
   constructor() {
-    this.loggerFactory = new MainLogger();
-    this.logger = this.loggerFactory.create('MainBootstrap') as LoggerLike;
+    const loggerFactory = new MainLogger();
+    super(loggerFactory.create('MainBootstrap') as LoggerLike, {
+      alreadyInitialized: 'Main application already initialized',
+      initializing: 'Initializing main application...',
+      initialized: 'Main application initialized successfully',
+      initializeFailed: 'Failed to initialize main application:',
+      cleanupStart: 'Shutting down main application...',
+      cleanupFailed: 'Failed during main application cleanup:',
+      cleanupSkipped: 'Main application not initialized; skipping cleanup'
+    });
+    this.loggerFactory = loggerFactory;
   }
 
-  async initialize(): Promise<void> {
-    if (this.isInitialized) {
-      this.logger.warn('Main application already initialized');
-      return;
-    }
-
-    this.logger.info('Initializing main application...');
-
-    try {
-      // Create DI container with shared logger factory
-      this.container = await createAppContainer(this.loggerFactory);
-
-      // Resolve and initialize AppOrchestrator
-      this.orchestrator = this.container.get(TOKENS.appOrchestrator);
-      await this.orchestrator.initialize();
-
-      this.isInitialized = true;
-      this.logger.info('Main application initialized successfully');
-    } catch (error) {
-      this.logger.error('Failed to initialize main application:', error);
-      throw error;
-    }
+  protected async createContainer(): Promise<MainServiceContainer> {
+    return createAppContainer(this.loggerFactory);
   }
 
-  async cleanup(): Promise<void> {
-    if (!this.isInitialized) {
-      this.logger.info('Main application not initialized; skipping cleanup');
-      return;
-    }
+  protected resolveOrchestrator(container: MainServiceContainer): AppOrchestrator {
+    return container.get(TOKENS.appOrchestrator);
+  }
 
-    this.logger.info('Shutting down main application...');
-    try {
-      if (this.orchestrator) {
-        await this.orchestrator.cleanup();
-      }
-      this.isInitialized = false;
-      this.orchestrator = null;
-      this.container = null;
-    } catch (error) {
-      this.logger.error('Failed during main application cleanup:', error);
-      throw error;
+  protected async cleanupOwnedResources(): Promise<void> {
+    if (this.orchestrator) {
+      await this.orchestrator.cleanup();
     }
   }
 

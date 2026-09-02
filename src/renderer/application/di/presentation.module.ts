@@ -154,6 +154,7 @@ export const presentationModule = new ContainerModule(({ bind }) => {
   })).inSingletonScope();
 
   bind(TOKENS.uiEffects).toDynamicValue((ctx) => new UIEffects({
+    elements: ctx.get(TOKENS.domBindings).flat,
     bodyClassManager: ctx.get(TOKENS.bodyClassManager)
   })).inSingletonScope();
 });

@@ -1,0 +1,551 @@
+import { describe, expect, it, vi } from 'vitest';
+import {
+  createPerformanceElectronLaunchOptions,
+  observePerformanceRootExit,
+  openPerformanceRendererMetricPairSession,
+  openPerformanceRendererMetricCapture,
+  readPerformanceRootExitAudit,
+  resolvePerformanceRendererMetricTarget,
+  waitForObservedProcessTermination
+} from '../../e2e/fixtures/performance.fixture.js';
+import { hasClassToken } from '../../e2e/fixtures/chromatic-device.fixture.js';
+import { createPerformanceControllerAuditFixture } from './performance-controller-audit.fixture.js';
+
+describe('createPerformanceElectronLaunchOptions', () => {
+  const inheritedHarnessEnvironment = {
+    PATH: '/bin',
+    PRISMGB_PERF_MEASUREMENT: '1',
+    PRISMGB_PERF_LAUNCH_ID: 'stale-launch',
+    PRISMGB_PERF_ROOT_EXIT_AUDIT_PATH: '/tmp/stale-root-audit.json',
+    PRISMGB_PERF_HARNESS_BUILD: '1',
+    PRISMGB_PERF_INSTRUMENTATION_BUILD: '1',
+    PRISMGB_PERF_SELECTED_HOST: '1',
+    PRISMGB_E2E_DIAGNOSTICS: '1',
+    PRISMGB_E2E_TEST_CONTROL: '1'
+  };
+
+  it('retains generic device control while removing performance harness state from production', () => {
+    const launch = createPerformanceElectronLaunchOptions({
+      build: { directory: '/fixture/production', harness: false, instrumentation: false },
+      launchId: null,
+      userDataDirectory: '/tmp/production-profile',
+      baseEnvironment: inheritedHarnessEnvironment,
+      performanceDiagnostics: false
+    });
+
+    expect(launch.args).toEqual([
+      '/fixture/production/main/index.js',
+      '--test-mode',
+      '--user-data-dir=/tmp/production-profile',
+      '--no-sandbox',
+      '--disable-dev-shm-usage'
+    ]);
+    expect(launch.env).toMatchObject({
+      PATH: '/bin',
+      NODE_ENV: 'test',
+      ELECTRON_IS_DEV: '0',
+      DISABLE_AUTO_UPDATER: 'true',
+      DISABLE_CRASH_REPORTER: 'true',
+      DISABLE_TRAY: 'true',
+      PRISMGB_E2E_TEST_CONTROL: '1'
+    });
+    expect(launch.env).not.toHaveProperty('PRISMGB_PERF_MEASUREMENT');
+    expect(launch.env).not.toHaveProperty('PRISMGB_PERF_LAUNCH_ID');
+    expect(launch.env).not.toHaveProperty('PRISMGB_E2E_DIAGNOSTICS');
+    expect(launch.env).not.toHaveProperty('PRISMGB_PERF_ROOT_EXIT_AUDIT_PATH');
+    expect(Object.keys(launch.env).filter((key) => key.startsWith('PRISMGB_PERF_'))).toEqual([]);
+    expect(launch.rootExitAuditPath).toBeNull();
+  });
+
+  it('requires an exact connected class token', () => {
+    expect(hasClassToken('status-indicator connected', 'connected')).toBe(true);
+    expect(hasClassToken('status-indicator disconnected', 'connected')).toBe(false);
+    expect(hasClassToken(null, 'connected')).toBe(false);
+  });
+
+  it('adds the marker and harness-only environment for a harness launch', () => {
+    const launch = createPerformanceElectronLaunchOptions({
+      build: { directory: '/fixture/instrumented', harness: true, instrumentation: true },
+      launchId: 'launch-42',
+      userDataDirectory: '/tmp/harness-profile',
+      baseEnvironment: { PATH: '/bin' },
+      performanceDiagnostics: true
+    });
+
+    expect(launch.args).toContain('--prismgb-performance-launch-id=launch-42');
+    expect(launch.env).toMatchObject({
+      PRISMGB_PERF_MEASUREMENT: '1',
+      PRISMGB_PERF_LAUNCH_ID: 'launch-42',
+      PRISMGB_E2E_DIAGNOSTICS: '1',
+      PRISMGB_E2E_TEST_CONTROL: '1',
+      PRISMGB_PERF_ROOT_EXIT_AUDIT_PATH: '/tmp/harness-profile/root-exit-audit.json'
+    });
+    expect(launch.rootExitAuditPath).toBe('/tmp/harness-profile/root-exit-audit.json');
+  });
+
+  it('rejects a launch marker on a production sentinel', () => {
+    expect(() => createPerformanceElectronLaunchOptions({
+      build: { directory: '/fixture/production', harness: false, instrumentation: false },
+      launchId: 'unexpected-marker',
+      userDataDirectory: '/tmp/production-profile',
+      performanceDiagnostics: false
+    })).toThrow(/must not receive a launch ID/);
+  });
+
+  it('waits for every externally observed root-exit PID to terminate', async () => {
+    let now = 0;
+    const isAlive = vi.fn()
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    const wait = vi.fn(async (milliseconds: number) => {
+      now += milliseconds;
+    });
+
+    await expect(waitForObservedProcessTermination({
+      pid: 42,
+      timeoutMs: 50,
+      clock: () => now,
+      isAlive,
+      wait
+    })).resolves.toBe(25);
+    expect(wait).toHaveBeenCalledWith(25);
+  });
+
+  it('binds the post-close root observation to the main-process audit handoff', async () => {
+    const controllerAudit = createPerformanceControllerAuditFixture({
+      launchId: '123e4567-e89b-42d3-a456-426614174000',
+      instrumentation: true
+    });
+    const readFile = vi.fn(async () => JSON.stringify({
+      schemaVersion: 1,
+      launchId: controllerAudit.launchId,
+      controllerAudit
+    }));
+    const audit = await readPerformanceRootExitAudit({
+      auditPath: '/tmp/prismgb-root-exit-audit.json',
+      instrumentation: true,
+      readFile
+    });
+    let now = 200;
+    const waitForTermination = vi.fn(async ({ pid }: { pid: number }) => {
+      expect(pid).toBe(1);
+      now += 1;
+      return now;
+    });
+
+    await expect(observePerformanceRootExit({
+      rootExitAudit: audit,
+      clock: () => now,
+      waitForTermination
+    })).resolves.toEqual({
+      launchId: controllerAudit.launchId,
+      protocol: 'electron-application-close',
+      rootExitObservedAt: 201,
+      terminalClosureEnd: 201,
+      root: { pid: 1, creationTime: 10 },
+      frameworkSurvivors: []
+    });
+    expect(readFile).toHaveBeenCalledWith('/tmp/prismgb-root-exit-audit.json', 'utf8');
+    expect(waitForTermination).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves Linux renderer metrics through external adapter authorities only', async () => {
+    const readLinuxConfiguration = async () => ({ pageSize: 4096, clockTicks: 100, counterQuantumSeconds: 0.01 });
+
+    await expect(resolvePerformanceRendererMetricTarget({
+      platform: 'linux',
+      rendererPid: 4242,
+      externalExecutionId: '123e4567-e89b-42d3-a456-426614174000',
+      readLinuxConfiguration,
+      resolveTarget: async ({ pid, processIdentity }) => ({
+        adapterId: 'linux-procfs-v1' as const,
+        target: {
+          pid,
+          creationIdentity: '30',
+          processIdentity,
+          counterQuantumSeconds: 0.01
+        }
+      })
+    })).resolves.toEqual({
+      adapterId: 'linux-procfs-v1',
+      target: {
+        pid: 4242,
+        creationIdentity: '30',
+        processIdentity: 'renderer:123e4567-e89b-42d3-a456-426614174000:4242',
+        counterQuantumSeconds: 0.01
+      }
+    });
+  });
+
+  it('surfaces pair-session initialization and cleanup failures together', async () => {
+    const openError = new Error('pair open failed');
+    const cleanupError = new Error('pair open cleanup failed');
+    const session = {
+      open: vi.fn(async () => { throw openError; }),
+      close: vi.fn(),
+      abort: vi.fn(async () => { throw cleanupError; })
+    };
+
+    let failure: unknown;
+    try {
+      await openPerformanceRendererMetricPairSession({
+        platform: 'darwin',
+        createSession: async () => ({ adapterId: 'macos-ps-v1', session })
+      });
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(AggregateError);
+    expect((failure as AggregateError).errors).toEqual([openError, cleanupError]);
+    expect(session.abort).toHaveBeenCalledTimes(1);
+  });
+
+  it('surfaces standalone initialization and cleanup failures together', async () => {
+    const openError = new Error('standalone open failed');
+    const cleanupError = new Error('standalone open cleanup failed');
+    const target = {
+      pid: 4242,
+      creationIdentity: 'creation-4242',
+      processIdentity: 'renderer:123e4567-e89b-42d3-a456-426614174000:4242',
+      counterQuantumSeconds: 0.01
+    };
+    const session = {
+      open: vi.fn(async () => { throw openError; }),
+      close: vi.fn(),
+      abort: vi.fn(async () => { throw cleanupError; })
+    };
+
+    let failure: unknown;
+    try {
+      await openPerformanceRendererMetricCapture({
+        platform: 'darwin',
+        rendererPid: 4242,
+        externalExecutionId: '123e4567-e89b-42d3-a456-426614174000',
+        createAdapter: async () => ({ adapterId: 'macos-ps-v1', target, session })
+      });
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(AggregateError);
+    expect((failure as AggregateError).errors).toEqual([openError, cleanupError]);
+    expect(session.abort).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens, primes, finalizes, and closes one externally owned renderer metric capture', async () => {
+    const target = {
+      pid: 4242,
+      creationIdentity: '30',
+      processIdentity: 'renderer:123e4567-e89b-42d3-a456-426614174000:4242',
+      counterQuantumSeconds: 0.01
+    };
+    const sample = (ordinal: number, readStart: number, readEnd: number, cumulativeCpuSeconds: number) => ({
+      sample: {
+        ordinal,
+        readStart,
+        readEnd,
+        cumulativeCpuSeconds,
+        counterQuantumSeconds: 0.01,
+        processIdentity: target.processIdentity,
+        workingSetMiB: 32
+      },
+      raw: { pid: 4242, startTicks: 30, ordinal }
+    });
+    const session = {
+      open: vi.fn(async () => ({ adapterId: 'macos-ps-v1' })),
+      attach: vi.fn(async () => target),
+      prime: vi.fn(async () => sample(0, 0, 0.01, 1)),
+      sample: vi.fn()
+        .mockResolvedValueOnce(sample(1, 1, 1.01, 1.1))
+        .mockResolvedValueOnce(sample(2, 1.5, 1.51, 1.2))
+        .mockResolvedValueOnce(sample(3, 2, 2.01, 1.3)),
+      detach: vi.fn(async () => ({ target })),
+      close: vi.fn(async () => ({ adapterId: 'macos-ps-v1' })),
+      abort: vi.fn(async () => ({ adapterId: 'macos-ps-v1' }))
+    };
+    const createAdapter = vi.fn(async () => ({ adapterId: 'macos-ps-v1', target, session }));
+
+    const capture = await openPerformanceRendererMetricCapture({
+      platform: 'darwin',
+      rendererPid: 4242,
+      externalExecutionId: '123e4567-e89b-42d3-a456-426614174000',
+      createAdapter
+    });
+
+    await capture.beginWindow();
+    await capture.sampleInWindow();
+    capture.markTerminalClosure(1.7);
+    await capture.sampleTerminalClosure();
+    const transcript = await capture.finalize();
+
+    expect(createAdapter).toHaveBeenCalledWith({
+      platform: 'darwin',
+      pid: 4242,
+      processIdentity: target.processIdentity
+    });
+    expect(session.open).toHaveBeenCalledTimes(1);
+    expect(session.attach).toHaveBeenCalledWith(target);
+    expect(session.prime).toHaveBeenCalledTimes(1);
+    expect(session.detach).toHaveBeenCalledTimes(1);
+    expect(session.close).toHaveBeenCalledTimes(1);
+    expect(session.abort).not.toHaveBeenCalled();
+    expect(transcript).toMatchObject({
+      window: { start: 1, terminalClosureEnd: 1.7 },
+      inWindowSamples: [sample(1, 1, 1.01, 1.1), sample(2, 1.5, 1.51, 1.2)],
+      terminalSample: sample(3, 2, 2.01, 1.3)
+    });
+    await expect(capture.abort()).rejects.toThrow(/when it is closed/);
+  });
+
+  it('surfaces finalization and cleanup failures from a standalone metric capture', async () => {
+    const finalizeError = new Error('detach failed');
+    const cleanupError = new Error('abort failed');
+    const target = {
+      pid: 4242,
+      creationIdentity: 'creation-4242',
+      processIdentity: 'renderer:123e4567-e89b-42d3-a456-426614174000:4242',
+      counterQuantumSeconds: 0.01
+    };
+    const sample = (ordinal: number, readStart: number, cumulativeCpuSeconds: number) => ({
+      sample: {
+        ordinal,
+        readStart,
+        readEnd: readStart + 0.01,
+        cumulativeCpuSeconds,
+        counterQuantumSeconds: 0.01,
+        processIdentity: target.processIdentity,
+        workingSetMiB: 32
+      },
+      raw: { pid: target.pid, creationIdentity: target.creationIdentity, ordinal }
+    });
+    const session = {
+      open: vi.fn(async () => ({ adapterId: 'macos-ps-v1' })),
+      attach: vi.fn(async () => target),
+      prime: vi.fn(async () => sample(0, 0, 1)),
+      sample: vi.fn()
+        .mockResolvedValueOnce(sample(1, 1, 1.1))
+        .mockResolvedValueOnce(sample(2, 1.5, 1.2)),
+      detach: vi.fn(async () => { throw finalizeError; }),
+      close: vi.fn(async () => ({ adapterId: 'macos-ps-v1' })),
+      abort: vi.fn(async () => { throw cleanupError; })
+    };
+    const capture = await openPerformanceRendererMetricCapture({
+      platform: 'darwin',
+      rendererPid: 4242,
+      externalExecutionId: '123e4567-e89b-42d3-a456-426614174000',
+      createAdapter: async () => ({ adapterId: 'macos-ps-v1', target, session })
+    });
+    await capture.beginWindow();
+    capture.markTerminalClosure(1.2);
+    await capture.sampleTerminalClosure();
+
+    let failure: unknown;
+    try {
+      await capture.finalize();
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(AggregateError);
+    expect((failure as AggregateError).errors).toEqual([finalizeError, cleanupError]);
+    expect(session.abort).toHaveBeenCalledTimes(1);
+  });
+
+  it('surfaces finalization and cleanup failures from a metric pair side', async () => {
+    const finalizeError = new Error('pair detach failed');
+    const cleanupError = new Error('pair abort failed');
+    const externalExecutionId = '123e4567-e89b-42d3-a456-426614174000';
+    const target = {
+      pid: 4242,
+      creationIdentity: 'creation-4242',
+      processIdentity: `renderer:${externalExecutionId}:4242`,
+      counterQuantumSeconds: 0.01
+    };
+    const sample = (ordinal: number, readStart: number, cumulativeCpuSeconds: number) => ({
+      sample: {
+        ordinal,
+        readStart,
+        readEnd: readStart + 0.01,
+        cumulativeCpuSeconds,
+        counterQuantumSeconds: 0.01,
+        processIdentity: target.processIdentity,
+        workingSetMiB: 32
+      },
+      raw: { pid: target.pid, creationIdentity: target.creationIdentity, ordinal }
+    });
+    const session = {
+      open: vi.fn(async () => ({ adapterId: 'macos-ps-v1' })),
+      attach: vi.fn(async () => target),
+      prime: vi.fn(async () => sample(0, 0, 1)),
+      sample: vi.fn()
+        .mockResolvedValueOnce(sample(1, 1, 1.1))
+        .mockResolvedValueOnce(sample(2, 1.5, 1.2)),
+      detach: vi.fn(async () => { throw finalizeError; }),
+      close: vi.fn(async () => ({ adapterId: 'macos-ps-v1' })),
+      abort: vi.fn(async () => { throw cleanupError; })
+    };
+    const pair = await openPerformanceRendererMetricPairSession({
+      platform: 'darwin',
+      createSession: async () => ({ adapterId: 'macos-ps-v1', session }),
+      resolveTarget: async () => ({ adapterId: 'macos-ps-v1', target })
+    });
+    const side = await pair.openSide({ rendererPid: 4242, externalExecutionId });
+    await side.beginWindow();
+    side.markTerminalClosure(1.2);
+    await side.sampleTerminalClosure();
+
+    let failure: unknown;
+    try {
+      await side.finalize();
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(AggregateError);
+    expect((failure as AggregateError).errors).toEqual([finalizeError, cleanupError]);
+    expect(session.abort).toHaveBeenCalledTimes(1);
+    expect(pair.getState()).toBe('failed');
+  });
+
+  it('classifies a metric pair factory failure as proven zero-spawned', async () => {
+    const factoryFailure = new Error('factory rejected configuration');
+    let failure: any;
+    try {
+      await openPerformanceRendererMetricPairSession({
+        platform: 'darwin',
+        createSession: async () => { throw factoryFailure; }
+      });
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure.performanceMetricZeroSpawned).toBe(true);
+    expect(failure.cause).toBe(factoryFailure);
+  });
+
+  it('retains canonical abort evidence when metric pair close fails', async () => {
+    const closeFailure = new Error('adapter close failed');
+    const closure = {
+      adapterId: 'macos-ps-v1',
+      transitions: [{ operation: 'abort', status: 'completed' }]
+    };
+    const session = {
+      open: vi.fn(async () => ({ adapterId: 'macos-ps-v1' })),
+      close: vi.fn(async () => { throw closeFailure; }),
+      abort: vi.fn(async () => closure)
+    };
+    const pair = await openPerformanceRendererMetricPairSession({
+      platform: 'darwin',
+      createSession: async () => ({ adapterId: 'macos-ps-v1', session })
+    });
+    let failure: any;
+    try {
+      await pair.close();
+    } catch (error) {
+      failure = error;
+    }
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure.cause).toBe(closeFailure);
+    expect(failure.performanceMetricAbortEvidence).toMatchObject({
+      adapterId: 'macos-ps-v1',
+      closure
+    });
+    expect(failure.performanceMetricAbortEvidence.endedAt)
+      .toBeGreaterThanOrEqual(failure.performanceMetricAbortEvidence.startedAt);
+    expect(pair.getTerminalAbortEvidence()).toEqual(failure.performanceMetricAbortEvidence);
+    expect(pair.getState()).toBe('aborted');
+  });
+
+  it('retains one metric adapter session across two detached renderer sides', async () => {
+    const externalExecutionIds = [
+      '123e4567-e89b-42d3-a456-426614174000',
+      '123e4567-e89b-42d3-a456-426614174001'
+    ];
+    const targets = new Map([
+      [4242, {
+        pid: 4242,
+        creationIdentity: 'first',
+        processIdentity: `renderer:${externalExecutionIds[0]}:4242`,
+        counterQuantumSeconds: 0.01
+      }],
+      [4243, {
+        pid: 4243,
+        creationIdentity: 'second',
+        processIdentity: `renderer:${externalExecutionIds[1]}:4243`,
+        counterQuantumSeconds: 0.01
+      }]
+    ]);
+    let activeTarget: (typeof targets extends Map<number, infer Value> ? Value : never) | null = null;
+    const readings = new Map([
+      [4242, [[0, 0, 0.01, 1], [1, 1, 1.01, 1.1], [2, 1.5, 1.51, 1.2], [3, 2, 2.01, 1.3]]],
+      [4243, [[0, 3, 3.01, 2], [1, 4, 4.01, 2.1], [2, 4.5, 4.51, 2.2], [3, 5, 5.01, 2.3]]]
+    ]);
+    const read = () => {
+      if (activeTarget === null) throw new Error('missing active fixture target');
+      const values = readings.get(activeTarget.pid);
+      const next = values?.shift();
+      if (!next) throw new Error('missing fixture metric read');
+      const [ordinal, readStart, readEnd, cumulativeCpuSeconds] = next;
+      return {
+        sample: {
+          ordinal,
+          readStart,
+          readEnd,
+          cumulativeCpuSeconds,
+          counterQuantumSeconds: 0.01,
+          processIdentity: activeTarget.processIdentity,
+          workingSetMiB: 32
+        },
+        raw: { pid: activeTarget.pid, creationIdentity: activeTarget.creationIdentity, ordinal }
+      };
+    };
+    const session = {
+      open: vi.fn(async () => ({ adapterId: 'macos-ps-v1' })),
+      attach: vi.fn(async (target) => {
+        activeTarget = target;
+        return target;
+      }),
+      prime: vi.fn(async () => read()),
+      sample: vi.fn(async () => read()),
+      detach: vi.fn(async () => ({ target: activeTarget })),
+      close: vi.fn(async () => ({ adapterId: 'macos-ps-v1' })),
+      abort: vi.fn(async () => ({ adapterId: 'macos-ps-v1' }))
+    };
+    const createSession = vi.fn(async () => ({ adapterId: 'macos-ps-v1', session }));
+    const resolveTarget = vi.fn(async ({ pid }) => ({ adapterId: 'macos-ps-v1' as const, target: targets.get(pid) }));
+
+    const pair = await openPerformanceRendererMetricPairSession({
+      platform: 'darwin',
+      createSession,
+      resolveTarget
+    });
+    expect(pair.getState()).toBe('open');
+    const first = await pair.openSide({ rendererPid: 4242, externalExecutionId: externalExecutionIds[0] });
+    await expect(pair.openSide({ rendererPid: 4243, externalExecutionId: externalExecutionIds[1] })).rejects.toThrow(/another side is active/);
+    await first.beginWindow();
+    await first.sampleInWindow();
+    first.markTerminalClosure(1.7);
+    await first.sampleTerminalClosure();
+    await expect(first.finalize()).resolves.toMatchObject({ window: { start: 1, terminalClosureEnd: 1.7 } });
+    expect(pair.getState()).toBe('open');
+
+    const second = await pair.openSide({ rendererPid: 4243, externalExecutionId: externalExecutionIds[1] });
+    await second.beginWindow();
+    await second.sampleInWindow();
+    second.markTerminalClosure(4.7);
+    await second.sampleTerminalClosure();
+    await expect(second.finalize()).resolves.toMatchObject({ window: { start: 4, terminalClosureEnd: 4.7 } });
+    await expect(pair.close()).resolves.toEqual({ adapterId: 'macos-ps-v1' });
+    expect(pair.getState()).toBe('closed');
+
+    expect(createSession).toHaveBeenCalledWith({ platform: 'darwin' });
+    expect(resolveTarget).toHaveBeenNthCalledWith(1, {
+      platform: 'darwin',
+      pid: 4242,
+      processIdentity: `renderer:${externalExecutionIds[0]}:4242`
+    });
+    expect(session.open).toHaveBeenCalledTimes(1);
+    expect(session.attach).toHaveBeenNthCalledWith(1, targets.get(4242));
+    expect(session.attach).toHaveBeenNthCalledWith(2, targets.get(4243));
+    expect(session.detach).toHaveBeenCalledTimes(2);
+    expect(session.close).toHaveBeenCalledTimes(1);
+    expect(session.abort).not.toHaveBeenCalled();
+  });
+});

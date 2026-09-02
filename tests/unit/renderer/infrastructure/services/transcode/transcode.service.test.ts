@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
   trpcClient: (await import('../../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
@@ -8,33 +8,28 @@ import { TranscodeService } from '@renderer/infrastructure/services/transcode/tr
 import { EventChannels } from '@platform/events';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { emitTrpcData, getTrpcUnsubscribe } from '../../../../../support/mocks/trpc-client.mock';
-import { createEventBus, createLoggerFactory } from '../../../../../factories/index.js';
+import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+
+type TranscodeHarness = ReturnType<typeof createInjectableHarness<TranscodeService>>;
 
 describe('TranscodeService', () => {
   let service;
+  let h: TranscodeHarness;
   let mockEventBus;
   let mockLogger;
-  let mockLoggerFactory;
 
   beforeEach(() => {
-    mockEventBus = createEventBus();
-    mockLoggerFactory = createLoggerFactory();
-    mockLogger = mockLoggerFactory.create('TranscodeService');
+    h = createInjectableHarness(TranscodeService);
+    service = h.subject;
+    mockEventBus = h.deps.eventBus;
+    mockLogger = h.logger;
 
     vi.mocked(trpcClient.transcode.start.mutate).mockResolvedValue({ jobId: 'job-123' });
     vi.mocked(trpcClient.transcode.cancel.mutate).mockResolvedValue(undefined);
   });
 
   describe('Constructor', () => {
-    it('should store eventBus', () => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
-
-      expect(service.eventBus).toBe(mockEventBus);
-    });
-
     it('should initialize state properties', () => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
-
       expect(service.isTranscoding()).toBe(false);
       expect(service._activeJobId).toBeNull();
       expect(service._initialized).toBe(false);
@@ -42,10 +37,6 @@ describe('TranscodeService', () => {
   });
 
   describe('initialize', () => {
-    beforeEach(() => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
-    });
-
     it('should subscribe to tRPC push events', () => {
       service.initialize();
 
@@ -84,7 +75,6 @@ describe('TranscodeService', () => {
 
   describe('transcode', () => {
     beforeEach(() => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
       service.initialize();
     });
 
@@ -178,7 +168,6 @@ describe('TranscodeService', () => {
 
   describe('cancel', () => {
     beforeEach(() => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
       service.initialize();
     });
 
@@ -211,10 +200,6 @@ describe('TranscodeService', () => {
   });
 
   describe('isTranscoding', () => {
-    beforeEach(() => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
-    });
-
     it('should return false initially', () => {
       expect(service.isTranscoding()).toBe(false);
     });
@@ -230,16 +215,12 @@ describe('TranscodeService', () => {
 
   describe('isAvailable', () => {
     it('should return true', () => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
-
       expect(service.isAvailable()).toBe(true);
     });
   });
 
   describe('tRPC Push Event Handlers', () => {
     beforeEach(() => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
-
       service.initialize();
     });
 
@@ -345,10 +326,6 @@ describe('TranscodeService', () => {
   });
 
   describe('dispose', () => {
-    beforeEach(() => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
-    });
-
     it('should unsubscribe all bridge-owned tRPC subscriptions', () => {
       service.initialize();
       const unsubscribeProgress = getTrpcUnsubscribe(trpcClient.transcode.onProgress);

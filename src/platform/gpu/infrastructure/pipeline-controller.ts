@@ -1,5 +1,15 @@
 import type { PipelineUniforms } from '../domain/uniforms';
-import type { RenderBackend, RenderCanvas, RenderPipeline, RenderPreset, RenderStats } from '../domain/types';
+import type {
+  FrameRenderResult,
+  RenderBackend,
+  RenderCanvas,
+  RenderPipeline,
+  RenderPreset,
+  RenderStats,
+  WebGpuFrameInstrumentationObserver,
+  WebGpuBackendExecutionIdentity,
+  WebGpuLifecycleInstrumentationObserver
+} from '../domain/types';
 import { buildUniforms } from '../application/uniform-builder';
 
 export interface PipelineControllerConfig {
@@ -32,9 +42,14 @@ export interface PipelineState {
  */
 export interface RenderDriver {
   readonly backend: RenderBackend;
-  initialize(state: PipelineState): Promise<void>;
-  renderFrame(source: TexImageSource, state: PipelineState): void;
-  resize(state: PipelineState): void;
+  getBackendExecutionIdentity?(): WebGpuBackendExecutionIdentity | null;
+  initialize(state: PipelineState, lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver): Promise<void>;
+  renderFrame(
+    source: TexImageSource,
+    state: PipelineState,
+    instrumentationObserver?: WebGpuFrameInstrumentationObserver
+  ): FrameRenderResult;
+  resize(state: PipelineState, lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver): void;
   clearFrame(state: PipelineState): void;
   captureFrame(state: PipelineState): Promise<ImageBitmap>;
   onUniformsChanged(): void;
@@ -88,6 +103,13 @@ export class PipelineController implements RenderPipeline, PipelineState {
     return this._isActive;
   }
 
+  getBackendExecutionIdentity(): WebGpuBackendExecutionIdentity | null {
+    if (typeof __PRISMGB_PERF_HARNESS__ === 'undefined' || !__PRISMGB_PERF_HARNESS__) {
+      return null;
+    }
+    return this.driver.getBackendExecutionIdentity?.() ?? null;
+  }
+
   private rebuildUniforms(): PipelineUniforms {
     return buildUniforms({
       preset: this.preset,
@@ -99,16 +121,16 @@ export class PipelineController implements RenderPipeline, PipelineState {
     });
   }
 
-  async initialize(): Promise<void> {
+  async initialize(lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver): Promise<void> {
     if (this._isInitialized) return;
 
-    await this.driver.initialize(this);
+    await this.driver.initialize(this, lifecycleInstrumentationObserver);
     this._isInitialized = true;
     this._isActive = true;
   }
 
-  renderFrame(source: TexImageSource): void {
-    this.driver.renderFrame(source, this);
+  renderFrame(source: TexImageSource, instrumentationObserver?: WebGpuFrameInstrumentationObserver): FrameRenderResult {
+    return this.driver.renderFrame(source, this, instrumentationObserver);
   }
 
   setPreset(preset: RenderPreset): void {
@@ -127,13 +149,13 @@ export class PipelineController implements RenderPipeline, PipelineState {
     this.driver.onUniformsChanged();
   }
 
-  resize(width: number, height: number): void {
+  resize(width: number, height: number, lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver): void {
     this.outputWidth = width;
     this.outputHeight = height;
     this.canvas.width = width;
     this.canvas.height = height;
     this.uniforms = this.rebuildUniforms();
-    this.driver.resize(this);
+    this.driver.resize(this, lifecycleInstrumentationObserver);
   }
 
   pause(): void {

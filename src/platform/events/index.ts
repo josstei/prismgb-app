@@ -2,6 +2,7 @@ export { PlatformEventBus } from './event-bus.js';
 export type { IEventBus } from './event-bus.js';
 export { EventChannels } from './event-channels.js';
 export { OnEvent } from './on-event.js';
+export { readBooleanPayloadField } from './event-payload.utils.js';
 export type {
   EventPayloadMap,
   TypedEventBusLike,

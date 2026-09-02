@@ -1,3 +1,8 @@
+import type {
+  FrameRenderResult,
+  WebGpuFrameInstrumentationObserver,
+  WebGpuLifecycleInstrumentationObserver
+} from '../domain/types';
 import type { PipelineState, RenderDriver } from './pipeline-controller';
 
 export class CanvasDriver implements RenderDriver {
@@ -5,7 +10,10 @@ export class CanvasDriver implements RenderDriver {
 
   private ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null = null;
 
-  async initialize(state: PipelineState): Promise<void> {
+  async initialize(
+    state: PipelineState,
+    _lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver
+  ): Promise<void> {
     this.ctx = state.canvas.getContext('2d', {
       alpha: false,
       desynchronized: true
@@ -18,8 +26,17 @@ export class CanvasDriver implements RenderDriver {
     this.disableImageSmoothing();
   }
 
-  renderFrame(source: TexImageSource, state: PipelineState): void {
-    if (!state.isActive || !this.ctx) return;
+  renderFrame(
+    source: TexImageSource,
+    state: PipelineState,
+    _instrumentationObserver?: WebGpuFrameInstrumentationObserver
+  ): FrameRenderResult {
+    if (!state.isActive || !this.ctx) {
+      if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+        return { outcome: 'skipped-inactive' };
+      }
+      return undefined;
+    }
 
     const startTime = performance.now();
 
@@ -32,6 +49,10 @@ export class CanvasDriver implements RenderDriver {
     );
 
     state.recordFrame(performance.now() - startTime);
+    if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+      return { outcome: 'canvas-draw-completed' };
+    }
+    return undefined;
   }
 
   async captureFrame(state: PipelineState): Promise<ImageBitmap> {
@@ -49,7 +70,7 @@ export class CanvasDriver implements RenderDriver {
     // Canvas2D has no shader uniform state.
   }
 
-  resize(): void {
+  resize(_state: PipelineState, _lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver): void {
     this.disableImageSmoothing();
   }
 

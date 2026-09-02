@@ -1,0 +1,1610 @@
+ ▐▛███▜▌   Claude Code v2.1.201
+▝▜█████▛▘  Fable 5 · Claude Max
+  ▘▘ ▝▝    ~/Development/prismgb-workspace/prismgb-app
+
+ ▎ Fable 5 is back.
+ ▎ Until July 7, you can use up to 50% of your plan's weekly usage limit on Fable 5. If you hit your limit, you can continue on Fable 5 with usage credits. Fable 5 draws down usage faster than Opus 4.8. Learn more (https://support.claude.com/en/articles/15424964-claude-fable-5-promotional-access)
+
+❯ /model                                                                        
+  ⎿  Set model to Fable 5 and saved as your default for new sessions
+
+❯ /superpowers:brainstorming analyze applicatino to look for areas to reduce    
+codebase through normalization, interface / abstraction, DI, decorators, and    
+battle tested frameworks                                                        
+
+⏺ Using superpowers:brainstorming to turn this reduction-analysis idea into a
+  validated design. Memory shows heavy prior art here (the W0–W9 reduction
+  program completed 2026-07-03, prod 27,988→26,754 LOC), so step one is
+  grounding in what's already been executed so we don't re-litigate retired
+  opportunities.
+
+  Let me set up the checklist tasks and explore current project state.
+
+  Listed 1 directory, ran 1 shell command (ctrl+o to expand)
+
+  Read 1 file, ran 3 shell commands (ctrl+o to expand)
+⏺ User answered Claude's questions:
+  ⎿  · The W0–W9 reduction program just executed this same mission and logged 
+     evidence-based retirements (autowiring impossible, comlink failed risk bar,
+     Lit/NestJS kept-rejected with revisit thresholds, own-the-trpc-transport 
+     deferred). How should this new analysis relate to that program? → Fresh 
+     audit + reopen framework options
+
+⏺ User answered Claude's questions:
+  ⎿  · The prior framework rejections were largely risk-bar calls, not 
+     feasibility calls (comlink: hot-path rework unprotected by a perf gate; 
+     Lit: e2e selector surface at risk; NestJS: below the ~20-service revisit 
+     threshold). What risk posture should the re-evaluation use? → Pay churn for
+     end-state (Recommended)
+
+⏺ User answered Claude's questions:
+  ⎿  · How should the analysis run, and what should it produce? → 1, use opus 
+     4.8 xhigh for explorations
+
+⏺ User answered Claude's questions:
+  ⎿  · May the audit run code spikes to evidence the framework verdicts, or is 
+     it read-only with spikes deferred to execution waves? → Spikes authorized 
+     in audit (Recommended)
+
+⏺ Design — Section 1 of 2: Mission, scope, and rules of engagement
+
+  Mission. A zero-based reduction audit of the post-W0–W9 tree, producing the
+  2026-07-05 opportunity catalog — the successor to the 2026-07-03 catalog that
+  W0–W9 executed. Reduction levers are the five you named: normalization,
+  interface/abstraction, DI deepening, decorators, and battle-tested framework
+  adoption. Output feeds wave-style execution plans, same as last cycle.
+
+  Baseline. main @ 9ae170c5 (H2 and the e2e flake fixes are merged; main is the
+  working base). Measured now: prod 26,709 LOC (src/**/*.ts), tests 162 files /
+  ~2,026 tests / 37,558 LOC, e2e 89 tests / 9 files. The audit re-baselines
+  these exactly at kickoff.
+
+  Reopened for re-evaluation (owner decision, this session): the four
+  retired/deferred framework options — Lit for the presentation layer (the one
+  id-preserving candidate), NestJS in main (recount services against the ~20
+  revisit threshold), comlink for the GPU worker RPC (now evaluable with the
+  golden byte-test + perf gate the prior rejection lacked), and owning/replacing
+  the electron-trpc transport (the falsy-input-drop gotcha made this a deferred
+  end-state). The framework lens may also surface new candidates — any
+  hand-rolled subsystem with a battle-tested replacement.
+
+  Standing retirements — not re-litigated. These died on definitional evidence,
+  not risk-bar judgment, so they stay dead: A11 autowiring (TypeScript erases
+  interface-typed ctor params to Object — permanent floor), B3 relay tables
+  (premise falsified by field-read analysis), and z.infer type derivation
+  (collapses under tsconfig.test's strictNullChecks:false, tsc-probe-proven).
+
+  Risk posture. Verification gates are mandatory and unchanged: dev:smoke for
+  any platform/DI-touching change, typecheck/lint/test:run, full e2e, golden
+  byte-test + perf gate on the GPU path, packaged smoke where packaging is
+  touched. Within those gates, one-time migration churn — e2e selector rewrites,
+  hot-path rework, test rewrites — is acceptable when the end-state is
+  meaningfully more framework-owned. One standing caveat baked in: e2e runs
+  --disable-gpu, so WebGPU-only behavior is invisible to Playwright — any
+  GPU-path swap must carry unit-level guards.
+
+  Ranking axes carry over from the prior catalog: hand-written LOC eliminated
+  (prod + tests) and declarative-conversion density, equal weight.
+  Framework/generated/declarative code does not count against totals.
+
+  Out of scope. Product-feature deletion (notes, GPU worker path as features —
+  product decisions, F4 precedent) and the pending H3 hygiene work (failure-path
+  e2e + nightly CI — separate line, unaffected).
+
+  Does Section 1 look right, or should anything change before I present Section
+  2 (audit architecture: lenses, spike protocol, verification, deliverables)?
+
+✻ Crunched for 4m 28s
+
+❯ good                                                                          
+
+⏺ Design — Section 2 of 2: Audit architecture
+
+  Lens structure. Four parallel exploration lenses, each an Opus 4.8 xhigh
+  agent, each primed with the exact baseline numbers, the 2026-07-03 catalog,
+  and its execution corrections — so nobody re-reports executed or
+  definitionally-retired items:
+
+  1. Normalization & boilerplate — fresh-eyes repetition/residue sweep of the
+  post-W9 tree (the W0–W9 waves themselves left seams: new primitives with
+  near-miss consumers, half-migrated patterns).
+  2. Abstraction, DI & decorator deepening — residual hand-wired seams the
+  inversify/@OnEvent/tRPC spine hasn't absorbed yet: remaining manual lifecycle
+  rituals, AOP candidates (@NotifiesFailure-class patterns), declarative-table
+  conversions.
+  3. Architecture-breaking — structural moves the finished spine newly enables
+  (the prior cycle's biggest finds — A8, A9 — were of this class).
+  4. Framework adoption — the four reopened options plus a scan for new
+  candidates (any hand-rolled subsystem with a battle-tested replacement). Every
+  claim ships with its verification command embedded.
+
+  Spike protocol. Spikes run in isolated git worktrees (one executor per tree —
+  standing rule), are throwaway, and nothing merges. Each has a pre-declared
+  pass/fail criterion:
+  - comlink: golden byte-test parity on the frame path + perf within a declared
+  budget; transferable handling confirmed.
+  - own-transport: minimal typed IPC link over ipcMain/MessagePorts that
+  provably fixes the falsy-input drop; LOC of the owned transport vs. the
+  electron-trpc surface it deletes.
+  - Lit: render one real component preserving all id= attrs; e2e
+  selector-survival check.
+  - NestJS: service recount against the ~20 threshold first; bootstrap probe
+  only if it crosses.
+
+  Verification. Same discipline as last cycle: I re-run every load-bearing count
+  deterministically myself (scripts in session scratchpad), log corrections in
+  the catalog header, and personally review all lens output — review is never
+  delegated. Lens-overlap gets deduplicated in the totals; anything I can't
+  independently reproduce is marked as agent-confidence, explicitly.
+
+  Deliverables & sequence. (1) This design doc →
+  docs/superpowers/specs/2026-07-05-<topic>-design.md; (2) the audit runs; (3)
+  2026-07-05 opportunity catalog lands beside it — ranked table, framework
+  verdicts with spike evidence, verification appendix; (4) you review the
+  catalog at explicit decision points (accept/reject each framework verdict,
+  approve ranking); (5) accepted items become wave execution plans via
+  writing-plans, same cadence as W0–W9.
+
+  Look right? If so, I'll write the design doc and run the spec self-review.
+
+✻ Brewed for 32s
+
+❯ good                                                                          
+
+⏺ Design approved. Writing the design doc now — first checking whether
+  docs/superpowers/specs/ is tracked or local-only (memory says the prior
+  catalog is local-only), so the commit step matches house practice.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Write(docs/superpowers/specs/2026-07-05-codebase-opportunity-audit-cycle-2-des
+       ign.md)
+  ⎿  Wrote 117 lines to docs/superpowers/specs/2026-07-05-codebase-opportun
+     ity-audit-cycle-2-design.md
+      1 # Codebase Opportunity Audit — Cycle 2 Design (2026-07-05)
+      3 **Status:** Approved design, pre-plan. Successor to `2026-07-03-c
+        odebase-opportunity-audit-design.md`, whose catalog W0–W9 execute
+      4 
+      6 
+      7 A zero-based reduction audit of the post-W0–W9 tree, producing th
+        tion, interface/abstraction, DI deepening, decorators, and battle
+        -tested framework adoption. The catalog feeds wave-style executio
+        r wave, owner decision points between.
+      9 ## Baseline
+     … +174 lines (ctrl+o to expand)
+
+⏺ Update(docs/superpowers/specs/2026-07-05-codebase-opportunity-audit-cycle-2-de
+        sign.md)
+  ⎿  Added 1 line, removed 1 line
+      86  
+      87  | Spike | Pass/fail criterion |
+      88  |-------|---------------------|
+      89 -| comlink | Golden byte-test parity on the frame path + perf wi
+         -thin a declared budget; transferable handling confirmed. |     
+      89 +| comlink | Golden byte-test parity on the frame path + perf wi
+         +thin a numeric budget declared at spike kickoff from a fresh ba
+         +seline measurement of the current pipeline; transferable handli
+         +ng confirmed. |                                                
+      90  | own-transport | Minimal typed IPC link over `ipcMain`/Message
+          Ports that provably fixes the falsy-input drop; LOC of the owne
+          d transport vs. the electron-trpc surface it deletes. |
+      91  | Lit | Render one real component preserving all `id=` attrs; e
+          2e selector-survival check. |
+      92  | NestJS | Service recount against the ~20 threshold first; boo
+          tstrap probe only if crossed. |
+
+⏺ Update(docs/superpowers/specs/2026-07-05-codebase-opportunity-audit-cycle-2-de
+        sign.md)  ⎿  Added 1 line
+      80  
+      81  Spikes are authorized during the audit (owner decision). Rules:
+      82  
+      83 +- Spike agents run on **Opus 4.8 xhigh**, same as the lenses, u
+         +nless the owner names a different implementer.                 
+      84  - Each spike runs in an **isolated git worktree** — one executo
+          r per tree, no exceptions.
+      85  - Spikes are throwaway; nothing merges. Worktrees are removed a
+          fter evidence capture.
+      86  - Each spike declares its pass/fail criterion **before** it run
+          s:
+
+⏺ Spec written and self-reviewed at
+  docs/superpowers/specs/2026-07-05-codebase-opportunity-audit-cycle-2-design.md
+  (local-only — docs/superpowers/ is gitignored by house practice, so there's
+  no commit; the doc records that). The self-review pass fixed the two issues
+  above; the rest checked clean — no placeholders, sections internally
+  consistent, and the scope is right for a single implementation plan (the plan
+  will be "run the audit"; wave plans come later, per accepted catalog item).
+
+  Please review the spec file and let me know if you want any changes before I
+  invoke writing-plans to build the audit execution plan.
+
+✻ Brewed for 1m 27s
+
+❯ good to go                                                                    
+
+⏺ Spec approved — invoking writing-plans to build the audit execution plan.
+
+⏺ Skill(superpowers:writing-plans)
+  ⎿  Successfully loaded skill
+
+⏺ Write(docs/superpowers/plans/2026-07-05-opportunity-audit-cycle-2.md)
+  ⎿  Wrote 503 lines to
+     docs/superpowers/plans/2026-07-05-opportunity-audit-cycle-2.md
+      1 # Opportunity Audit Cycle 2 — Execution Plan
+      3 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:ex
+        ecuting-plans to implement this plan task-by-task. Steps use chec
+        : the deliverables are measurement artifacts, lens reports, spike
+        ler (main session) personally executes every verification step; r
+        eview is never delegated.
+      5 **Goal:** Produce the verified, ranked **2026-07-05 opportunity c
+        atalog** for the post-W0–W9 tree, including evidence-backed adopt
+        tJS, comlink, own-transport).
+      7 *
+     … +816 lines (ctrl+o to expand)
+
+⏺ Update(docs/superpowers/plans/2026-07-05-opportunity-audit-cycle-2.md)
+  ⎿  Added 1 line
+      20  - e2e runs `--disable-gpu`: any GPU-path claim must note its un
+          it-level guard story.
+      21  - All audit artifacts live under gitignored `docs/superpowers/`
+           — no commits for artifacts. The only tree mutations are new fi
+          les under `docs/superpowers/` and temporary worktrees.
+      22  - A spike may be skipped only if Lens 4 produces *definitional*
+           (not risk-bar) disqualifying evidence, logged as such in the c
+          atalog.
+      23 +- A spike that needs to grow beyond its pre-declared criterion 
+         +STOPS and surfaces to the owner — scope growth is an owner deci
+         +sion (spec §Decision points).                                  
+      24  
+      25  **Artifact root (all tasks):** `docs/superpowers/audit-raw/2026
+          -07-05/` (create once in Task 1; `AR/` below abbreviates it).
+      26  
+
+⏺ Update(docs/superpowers/plans/2026-07-05-opportunity-audit-cycle-2.md)
+  ⎿  Added 1 line, removed 1 line
+      408  
+      409  For each lens report: list every finding whose Δ or rank rests
+            on a number; copy its embedded command into `AR/verification/
+           verify-lens-N.sh` (plain command list via Write tool — no here
+           docs); run the script:
+      410  `bash docs/superpowers/audit-raw/2026-07-05/verification/verif
+           y-lens-N.sh > docs/superpowers/audit-raw/2026-07-05/logs/verif
+           y-lens-N.log 2>&1; echo exit=$?`
+      411 -Compare observed vs claimed. Log every mismatch in `correction
+          -s.md`. A finding whose evidence does not reproduce and cannot 
+          -be corrected from the actual output is struck (recorded as str
+          -uck, not silently dropped).                                   
+      411 +Compare observed vs claimed. Log every mismatch in `correction
+          +s.md`. A finding whose evidence does not reproduce and cannot 
+          +be corrected from the actual output is struck (recorded as str
+          +uck, not silently dropped). Exception — claims too large to fu
+          +lly re-verify (e.g., a per-symbol census): spot-sample ≥5 entr
+          +ies; if the samples reproduce, carry the finding at agent-conf
+          +idence, marked explicitly in the catalog's verification append
+          +ix (prior-cycle E8 precedent).                                
+      412  
+      413  - [ ] **Step 2: Spot-verify spike evidence in the retained wor
+           ktrees**
+      414  
+
+⏺ Update(docs/superpowers/plans/2026-07-05-opportunity-audit-cycle-2.md)
+  ⎿  Added 3 lines, removed 1 line
+      288  - NESTJS_SERVICE_COUNT: <n>  (rule: <how counted>)  → NESTJS_P
+           ROBE: yes|no
+      289  - COMLINK_BASELINE_MS: <n> (median of 3; logs/golden-run-*.log
+           ) → COMLINK_BUDGET_MS: <n>
+      290  - GOLDEN_TEST: <path>
+      291 -- LIT_COMPONENT: <name> @ <src path>, <n> id refs, e2e: <spec 
+          -path(s)>                                                      
+      291 +- LIT_COMPONENT: <name> (<n> id refs)                         
+      292 +- LIT_SRC: <src path>                                         
+      293 +- LIT_E2E: <covering e2e spec path(s)>                        
+      294  - Skips (if any): <spike> — definitional evidence: <summary>
+      295  ```
+      296  
+
+⏺ Plan complete and saved to 
+  docs/superpowers/plans/2026-07-05-opportunity-audit-cycle-2.md (local-only,
+  like all docs/superpowers/ artifacts). Eight tasks: re-baseline → context pack
+  → four-lens dispatch (Opus 4.8 xhigh, full charters embedded) → spike-kickoff
+  measurements with pre-declared criteria → three-to-four spikes in detached
+  worktrees → controller verification pass → catalog assembly → owner decision
+  points.
+
+  Two execution options:
+
+  1. Inline Execution (recommended for this plan) — I execute tasks in this
+  session using executing-plans, with checkpoints between tasks. This fits the
+  audit's shape: the tasks themselves already dispatch the Opus xhigh lens/spike
+  agents, and your standing directive that the controller personally verifies
+  every count means the verification work can't be handed to a per-task subagent
+  anyway.
+
+  2. Subagent-Driven — fresh subagent per task with review between tasks. Works
+  for Tasks 1–2 and 7, but Tasks 3–6 would have a subagent orchestrating other
+  subagents and doing verification you've directed the controller to own
+  personally.
+
+  Which approach?
+
+✻ Cogitated for 6m 58s
+
+❯ 1                                                                             
+⏺ Skill(superpowers:executing-plans)
+  ⎿  Successfully loaded skill
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+⏺ Baseline measurements so far: HEAD 9ae170c5 (clean apart from your own
+  .gitignore edit), prod 26,709 LOC, 162 test files / 37,558 test LOC, e2e 91 
+  tests in 10 files (the live-device e2e additions are in main — this is why we
+  re-measure rather than trust remembered numbers). The full unit suite is
+  running in the background for the test count; I'll finish baseline.md and move
+  to the context pack when it completes.
+
+✻ Brewed for 57s
+
+⏺ Background command "Run full unit test suite for baseline count" completed
+(exit code 0)
+
+  Read 1 file (ctrl+o to expand)
+
+⏺ Write(docs/superpowers/audit-raw/2026-07-05/baseline.md)
+  ⎿  Wrote 8 lines to docs/superpowers/audit-raw/2026-07-05/baseline.md
+      1 # Audit Cycle 2 Baseline — measured 2026-07-05
+      2 
+      3 - HEAD: 9ae170c5 (main)
+      4 - PROD_LOC: 26709   (src/**/*.ts excl. .d.ts)
+      5 - TEST_FILES: 162 / TEST_COUNT: 2030 / TEST_LOC: 37558
+      7 - PROD_DEPS: @preact/signals-core, @trpc/client, @trpc/server, el
+        ectron-log, electron-trpc, electron-updater, eventemitter3, ffmpe
+        g-static, ffprobe-static, inversify, usb, zod
+      8 - Gate logs: logs/test-run.log (exit=0), logs/e2e-list.log (exit=
+        0)
+⏺ Write(docs/superpowers/audit-raw/2026-07-05/context-pack.md)
+  ⎿  Wrote 70 lines to
+     docs/superpowers/audit-raw/2026-07-05/context-pack.md
+       1 # Context Pack — Opportunity Audit Cycle 2 (2026-07-05)
+       2 
+       3 You are one exploration lens in a multi-lens reduction audit of 
+       4 (Electron + TypeScript GameBoy capture/streaming app). Read this
+          whole file
+       5 before touching the tree.
+       6 
+       7 ## Baseline (measured at kickoff)
+       9 - HEAD: 9ae170c5 (main)
+      10 - PROD_LOC: 26709   (src/**/*.ts excl. .d.ts)
+     … +89 lines (ctrl+o to expand)
+
+⏺ Workflow(Four parallel Opus xhigh exploration lenses over the post-W9 tree)
+  ⎿  /workflows to view dynamic workflow runs
+
+  Searched for 6 patterns, read 1 file, ran 2 shell commands (ctrl+o to expand)
+
+⏺ User answered Claude's questions:
+  ⎿  · The comlink spike's pass/fail criterion requires a golden byte-test 
+     (deterministic frame in → byte-exact output hash through the GPU worker 
+     pipeline), but none exists in the tree — it was never built because the 
+     prior comlink evaluation was retired before its wave ran. How should the 
+     spike proceed? → Spike builds the byte-test first (Recommended)
+
+⏺ Write(docs/superpowers/audit-raw/2026-07-05/spike-criteria.md)
+  ⎿  Wrote 25 lines to
+     docs/superpowers/audit-raw/2026-07-05/spike-criteria.md
+       1 # Spike Criteria — declared before dispatch, 2026-07-05
+       3 - NESTJS_SERVICE_COUNT: 12  (rule: distinct `bind(TOKENS.x).to/.
+       4   bindings in src/main/application/di/main.module.ts + src/main/
+         application/container.ts,
+         actory values;
+         hreshold; count FELL from
+         4 paper verdict + this
+       8   recount are the NestJS evidence.
+         .log, exit=1; GPU tests
+         ECISIO
+     … +34 lines (ctrl+o to expand)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Worktrees ready at ../prismgb-app-spike-{transport,comlink,lit}, all detached
+  @ 9ae170c5. Task 4 is complete except its final step — the cross-check of
+  spike plans against Lens 4's draft verdicts — which waits on the lens workflow
+  still running in the background. I'll do that check and dispatch the spikes
+  as soon as the lenses land.
+
+  One housekeeping flag while it runs: the retained prismgb-app-h2 worktree
+  (branch fix/e2e-fullscreen-reveal-race) was kept pending PR #200/#204 merges —
+  both are now merged into main, so it's removable whenever you want; I won't
+  touch it since it's yours.
+
+✻ Crunched for 3m 32s
+
+⏺ Dynamic workflow "Four parallel Opus xhigh exploration lenses over the post-W9
+tree" completed · 15m 21s
+
+⏺ All four lenses landed (4 agents, ~522k tokens, 15 min). Lens 4's verdict
+  summary was truncated in the notification — reading the full return and
+  confirming the report files:
+
+  Read 2 files, ran 2 shell commands (ctrl+o to expand)
+⏺ Update(docs/superpowers/audit-raw/2026-07-05/spike-criteria.md)
+  ⎿  Added 26 lines, removed 8 lines
+      15    on the unmodified worktree, pre-port. → COMLINK_BUDGET_MS: ba
+          seline median × 1.05.
+      16  - GOLDEN_TEST: built by the spike (report must state its path +
+           reproduce commands).
+      17    Reference point: full GPU unit suite = 60 tests / 1.83s wall 
+          (logs/gpu-suite-run-1.log).
+      18 -- LIT_COMPONENT: device-status (shell ref group; 3 id refs: sta
+         -tusIndicator, statusText,                                      
+      19 -  statusMessage)                                               
+      20 -- LIT_SRC: src/renderer/presentation/shared/device-status.compo
+         -nent.ts (50 LOC; shell                                         
+      21 -  template markup in src/renderer/presentation/shell/header.tem
+         -plate.ts, 37 LOC)                                              
+      22 -- LIT_E2E: tests/e2e/app-launch.spec.js, tests/e2e/device-conne
+         -ction.spec.js                                                  
+      23 -- Skips: spike-nestjs NOT dispatched — threshold rule (12 < 20)
+         -, recount is the evidence.                                     
+      24 -  No definitional skips of transport/comlink/lit spikes.       
+      25 -- Pending before dispatch: Task 4 Step 4 cross-check against Le
+         -ns 4 draft verdicts.                                           
+      18 +- LIT_COMPONENT: toolbar (streaming ref group; ~15+ id= attrs i
+         +n toolbar.template.ts)                                         
+      19 +  — AMENDED during the pre-declared Task-4-Step-4 cross-check: 
+         +Lens 4's declared                                              
+      20 +  criterion requires a component large enough to answer the net
+         +-LOC question                                                  
+      21 +  (device-status's 3 ids cannot); criterion SHAPE unchanged (DO
+         +M parity + e2e                                                 
+      22 +  survival + net-LOC threshold).                               
+      23 +- LIT_SRC: src/renderer/presentation/features/toolbar/ (templat
+         +e:                                                             
+      24 +  toolbar.template.ts) — spike agent maps the exact component f
+         +iles.                                                          
+      25 +- LIT_E2E: tests/e2e/device-streaming.spec.js + tests/e2e/app-l
+         +aunch.spec.js                                                  
+      26 +  (whichever pass on the UNMODIFIED worktree form the control s
+         +et; the spiked                                                 
+      27 +  tree must match the control results exactly).                
+      28 +- LIT_NET_RULE (Lens 4, declared): extrapolated net hand-writte
+         +n LOC ≥ −150 after                                             
+      29 +  Lit wiring + signals bridge ⇒ REJECT; only comfortably below 
+         +−150 promotes.                                                 
+      30 +- COMLINK_NET_RULE (declared): net hand-written LOC across clie
+         +nt/protocol/service                                            
+      31 +  ≤ −150 after two-port setup cost, else REJECT.               
+      32 +- Skips:                                                       
+      33 +  - spike-nestjs NOT dispatched — threshold rule (12 < 20), rec
+         +ount is the evidence;                                          
+      34 +    Lens 4 verdict REJECT-DEFINITIONAL (count moved 13→12, away
+         + from threshold).                                              
+      35 +  - spike-transport NOT dispatched — DEFINITIONAL SKIP, control
+         +ler-verified 2026-07-05:                                       
+      36 +    `npm view electron-trpc versions` → 0.7.1 latest stable (1.
+         +0.0-alpha.0 only newer;                                        
+      37 +    lens-verified same bug in alpha src, carried at agent-confi
+         +dence with citation);                                          
+      38 +    installed dist/main.mjs contains the literal `deserialize(g
+         +) : void 0` drop;                                              
+      39 +    bug footprint = enabledFlagSchema (common.schemas.ts:16, ON
+         +E line) at 2 of 5                                              
+      40 +    `.input()` sites (router.ts:115,205). Owning the transport 
+         +is net-ADD by orders                                           
+      41 +    of magnitude — falsified-premise class, same as B3. patch-p
+         +ackage one-liner                                               
+      42 +    documented as the escape hatch if boxing ever burdens.     
+      43 +- Cross-check completed 2026-07-05: dispatching spike-comlink +
+         + spike-lit only.                                               
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Write(docs/superpowers/audit-raw/2026-07-05/verification/notes.md)
+  ⎿  Wrote 26 lines to
+     docs/superpowers/audit-raw/2026-07-05/verification/notes.md
+       1 # Controller verification notes — running log
+       3 ## From Task 3 Step 3 report review (2026-07-05)
+       4 
+         -class lifecycle
+         …−450). Lens 3
+       7   says C2/C4 were deliberately evidence-retired INSIDE W9 (W9 pl
+       8   ~4–8 exact-duplicate blocks / ~40–65 LOC true overlap; helper 
+         net-positive) and
+         residue as
+         -program.md
+     … +34 lines (ctrl+o to expand)
+
+⏺ Workflow(Throwaway framework spikes (comlink, Lit) in isolated worktrees,
+          pre-declared criteria)
+  ⎿  /workflows to view dynamic workflow runs
+
+⏺ Spikes are running. Using the wait to finish my personal review of lenses 1
+  and 2, then starting the lens-verification legwork that doesn't depend on
+  spike output:
+
+  Read 2 files (ctrl+o to expand)
+
+⏺ Write(docs/superpowers/audit-raw/2026-07-05/verification/verify-lens-1.sh)
+  ⎿  Wrote 29 lines to
+     docs/superpowers/audit-raw/2026-07-05/verification/verify-lens-1.sh
+       1 #!/bin/bash
+         /verification/verify-lens-1.sh
+       3 echo "## L1-1 blocks claimed=78"
+         up)['\"]" tests --include='*.test.*' | awk '{s+=$1} END{print s}
+       5 echo "## L1-1 files claimed=45"
+       6 grep -rlE "describe\(['\"](constructor|dispose|initialize|cleanu
+       7 echo "## L1-1 helper hits claimed=0"
+       8 grep -rln "describeLifecycleContract\|lifecycleContract" tests |
+       9 echo "## L1-2 harness suites claimed=34"
+         wc -l
+     … +28 lines (ctrl+o to expand)
+
+⏺ Write(docs/superpowers/audit-raw/2026-07-05/verification/verify-lens-2.sh)
+  ⎿  Wrote 16 lines to
+     docs/superpowers/audit-raw/2026-07-05/verification/verify-lens-2.sh
+       1 #!/bin/bash
+         /verification/verify-lens-2.sh
+       3 echo "## LN2-1 subscription procedures claimed=14"
+       5 echo "## LN2-1 pushSubscription refs claimed=15 (14 sites + 1 de
+         f)"
+       7 echo "## LN2-2 bindEventHandlers lines claimed=6 (5 sites + 1 de
+         f)"
+       9 echo "## LN2-3 AppStateLike declarations (claimed 4 Pick vs 2 li
+         teral)"
+         e|type '
+     … +10 lines (ctrl+o to expand)
+
+⏺ Write(docs/superpowers/audit-raw/2026-07-05/verification/verify-lens-3.sh)
+  ⎿  Wrote 26 lines to
+     docs/superpowers/audit-raw/2026-07-05/verification/verify-lens-3.sh
+       1 #!/bin/bash
+         /verification/verify-lens-3.sh
+       3 echo "## L3-1 ui.controller LOC claimed=162"
+       4 wc -l src/renderer/presentation/controller/ui.controller.ts
+       6 grep -cE "this\.(host|effects)\?\.|downloadFile\(" src/renderer/
+         presentation/controller/ui.controller.ts
+       8 grep -rln "@inject(TOKENS.uiController)" src --include='*.ts' | 
+         wc -l
+       9 echo "## L3-1 catalog/registry files claimed=0"
+         istry.ts' | wc -l
+     … +27 lines (ctrl+o to expand)
+
+⏺ Write(docs/superpowers/audit-raw/2026-07-05/verification/verify-lens-4.sh)
+  ⎿  Wrote 22 lines to
+     docs/superpowers/audit-raw/2026-07-05/verification/verify-lens-4.sh
+      1 #!/bin/bash
+        verification/verify-lens-4.sh
+      3 echo "## L4-1 GPU RPC LOC claimed 318/345/454/436=1553"
+      4 wc -l src/platform/gpu/worker/client.ts src/platform/gpu/worker/p
+        plication/video-session.ts
+      5 echo "## L4-2 plumbing LOC claimed 52/88/90/17=247"
+         src/platform/ui-base/reactive/dom-bindings.ts src/renderer/prese
+        ntation/primitives/dom-bindings.utils.ts src/renderer/presentatio
+        n/primitives/template-dom.contract.ts
+      8 find src -name 'template-ref.ut
+     … +22 lines (ctrl+o to expand)
+
+  Read 2 files, ran 1 shell command (ctrl+o to expand)
+
+⏺ Lenses 1 and 2 reproduce perfectly — every count exact. Checking 3 and 4:
+
+  Searched for 3 patterns, read 3 files, listed 1 directory (ctrl+o to expand)
+⏺ Write(docs/superpowers/audit-raw/2026-07-05/verification/corrections.md)
+  ⎿  Wrote 43 lines to
+     docs/superpowers/audit-raw/2026-07-05/verification/corrections.md
+       1 # Controller corrections — 2026-07-05 verification pass
+       3 Every lens count re-run via verification/verify-lens-{1..4}.sh (
+         logs/verify-lens-*.log,
+         xactly. Corrections
+       6 
+       7 - **C-1 [lens-4/preamble] REFUTED — tree-state note wrong.** Cla
+       8   framework spine (A1/A2 decorator-DI, A6, A8-controller) is unb
+         uilt." Actual:
+         src/platform/core
+         ×15 in router.ts (A6).
+     … +68 lines (ctrl+o to expand)
+
+⏺ Write(docs/superpowers/audit-raw/2026-07-05/verification/overlap-map.md)
+  ⎿  Wrote 21 lines to
+     docs/superpowers/audit-raw/2026-07-05/verification/overlap-map.md
+       1 # Overlap map — clusters sharing LOC pools (number appears ONCE 
+       2 
+          L1-1 (corrected
+       4   −40…−90, rides inside C1 batches). Same suites. CARRIER: L1-2 
+       5   **−100…−250 tests** ceiling (the C2 residual only materializes
+       6   adoption batches). Naive sum forbidden.
+         0…−70), L1-5
+       8   (−40…−80), LN2-2 (−5…−15; same base files, distinct mechanism)
+       9   number. CARRIER: combined **−80…−160 prod** (lens-1's own bund
+      10   −80…−150 + LN2-2's low end).
+     … +27 lines (ctrl+o to expand)
+
+⏺ Lens verification is complete ahead of the spikes. Status for the running
+  audit:
+
+  Verification pass so far (Tasks 6.1/6.3 done):
+  - All 4 lens scripts ran clean; lenses 1–3 reproduced every single count 
+  exactly, and lens 4 reproduced all measurements.
+  - 7 corrections logged, all verdict-level, the big three being: Lens 4's
+  "framework spine unbuilt" preamble refuted (A1/A2/A6 are in the tree — 123
+  @inject sites, Container deleted, rethrowAsTrpcError ×15); Lens 1's headline
+  test win (L1-1, −250…−450) struck as re-litigation of W9's measured demotion
+  (§0b: extractable duplication is 4–8 blocks / ~40–65 LOC → carried at
+  −40…−90); and L1-2 re-bounded −300…−700 → −80…−200 because W9 §0a deliberately
+  scoped the C1 harness to the 42 @injectable classes (toDynamicValue classes
+  are out by design, not by neglect).
+  - Overlap map built: 4 clusters, each with a single carrier number (test-pool,
+  base-class rework, GPU-worker surface pending the comlink verdict, renderer
+  boot/presentation plane).
+
+  Shape of the verified catalog so far (pre-spike): the biggest confirmed
+  non-framework item is Lens 3's UIController dissolution cluster (−140…−240 
+  prod / −150…−280 tests), then the base-class rework (−80…−160 prod), the
+  C1-residual test work (−100…−250 tests), and small verified items (~−40…−65).
+  NestJS and own-transport are already REJECT-DEFINITIONAL with
+  controller-verified evidence.
+
+  Waiting on the two spikes (comlink split-adoption with byte-test build, Lit
+  toolbar) — catalog assembly starts when their evidence lands.
+
+✻ Brewed for 7m 59s
+
+❯ what is it looking like so far                                                
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Here's the picture at the halfway mark — headline: the tree is much closer to 
+  "done" than cycle 1's, and the audit is proving it. The W0–W9 + H2 program
+  genuinely consumed most of the reduction surface; what's left is one good
+  structural find, one solid test-residue item, a base-class cleanup, and the
+  two framework bets now being spiked.
+
+  Framework verdicts — 2 of 4 already decided, evidence verified by me 
+  personally:
+  - NestJS in main: REJECT. Service count went down since the original rejection
+  (13 → 12, vs the ~20 revisit threshold) because W4b dissolved orchestrators.
+  The whole main-process DI surface is one 60-LOC module; Nest can only add
+  ceremony.
+  - Own the electron-trpc transport: REJECT. The falsy-input bug has no upstream
+  fix (I checked the versions list and the installed dist myself; the lens even
+  read the 1.0.0-alpha source — same bug), but its entire footprint turned out
+  to be one 1-line schema used at 2 call sites. Owning the transport means
+  hundreds of added LOC to delete one line. If it ever irritates you, a
+  patch-package one-liner kills it.
+  - comlink: spike running now. The reopened split design looks genuinely
+  promising — of 9 worker message types only FRAME is hot-path, so control-plane
+  RPC (~the INIT handshake's 55 LOC of hand-rolled promise correlation, plus
+  ~150 LOC of control envelopes/guards) moves to comlink over a dedicated
+  MessagePort while the streaming frame path isn't touched at all. That
+  structurally dissolves the old "streaming-shaped, not RPC-shaped" objection.
+  Estimated −200…−350 if it passes its gates. The agent is currently building
+  the golden byte-test you approved (probe files visible in its worktree).
+  - Lit: spike running, leaning REJECT. The honest measurement hurt it: only 247
+  LOC of deletable plumbing remains (D3 already ate the options ritual), and
+  your 78 id= attrs / 34 e2e selectors force light-DOM mode, which strips Lit of
+  encapsulation — leaving it roughly equivalent to the signals+templates you
+  already have. The spike's declared rule: extrapolated net better than −150 or
+  it's a REJECT.
+
+  Verified non-framework catalog (every count re-ran clean; 7 corrections 
+  logged, all estimate-level):
+
+  ┌────────────────────────────────────────────────────────┬────────────────┐
+  │                          Item                          │       Δ        │
+  ├────────────────────────────────────────────────────────┼────────────────┤
+  │ Dissolve UIController facade (the fold A8 never        │ −140…−240      │
+  │ finished — 162 LOC, 11 pure pass-throughs) + unify the │ prod,          │
+  │  two bootstrap roots                                   │ −150…−280      │
+  │                                                        │ tests          │
+  ├────────────────────────────────────────────────────────┼────────────────┤
+  │ Base-class rework bundle (event-binding scan           │                │
+  │ implemented twice, ManagedLifecycleHost forwarders ×3, │ −80…−160 prod  │
+  │  37 trivial dispose() overrides, BaseService           │                │
+  │ auto-@OnEvent)                                         │                │
+  ├────────────────────────────────────────────────────────┼────────────────┤
+  │ C1 harness residue (W9's measured scope minus the 34   │ −100…−250      │
+  │ suites already adopted)                                │ tests          │
+  ├────────────────────────────────────────────────────────┼────────────────┤
+  │ Small verified items (tRPC subscription table ×14,     │ −40…−65 prod   │
+  │ boolean-guard dedup, Pick<> stragglers)                │                │
+  └────────────────────────────────────────────────────────┴────────────────┘
+
+  The most useful correction of the pass: Lens 1 claimed the big
+  lifecycle-contract test win (−250…−450) — that's a re-litigation of something
+  W9 measured and demoted (only 4–8 blocks are true duplicates). Without the
+  verification pass, that phantom number would've been the catalog's #1 row.
+
+  Realistic cycle-2 total: roughly −260…−465 prod / −250…−530 tests, plus 
+  −200…−350 more if comlink passes. Compare cycle 1's −2,600…−3,200 projection —
+  this is the long tail, which is itself evidence the codebase has converged.
+  Catalog assembly starts as soon as the two spikes report.
+
+✻ Worked for 37s
+
+❯ is this full Nestjs adoption ?                                                
+  ⎿  Interrupted · What should Claude do instead?
+
+❯ fully leveraging its bolierplate reduction                                    
+
+⏺ Good challenge — and yes, the REJECT holds even for maximal adoption, because
+  the boilerplate Nest is famous for deleting is either already deleted here, or
+  unavailable for the same reasons it's unavailable to inversify. Itemized
+  against Nest's actual reduction levers:
+
+  1. Autowired constructor injection — unavailable, definitionally. Nest's
+  headline win (no explicit tokens) rides on design:paramtypes metadata, exactly
+  like inversify's autowiring. Your codebase injects interface-typed structural
+  ports (-Like types, the inversify-free @platform rule), and TypeScript erases
+  those to Object — the A11 standing retirement. Nest hits the identical wall:
+  every one of those injections needs an explicit @Inject(TOKEN), which is
+  precisely what you write today. Nest's wiring floor equals your current floor.
+  2. Lifecycle hooks (OnModuleInit/OnModuleDestroy) — already built, and Nest's 
+  version can't replace it. Your BaseService/BaseOrchestrator lifecycle template
+  is the in-house equivalent, and it must keep existing regardless, because
+  Nest doesn't run in the renderer — where most of your services live. Adopting
+  Nest hooks for main's 12 services deletes nothing (the bases stay for the
+  other ~30+ classes) and forks the framework model across processes, the exact
+  grounds "no-container-in-main" was rejected last cycle. The real
+  lifecycle-boilerplate win in the tree is the base-class rework bundle
+  (−80…−160), which fixes it for both processes.
+  3. @nestjs/event-emitter-style @OnEvent — you already shipped it. The typed
+  @OnEvent + auto-bind spine landed in W4a. The residue (BaseService's manual
+  bindEventHandlers at 5 sites) is a 10-line fix in the existing base, already
+  in the catalog.
+  4. Module system / request pipeline (guards, interceptors, pipes, middleware) 
+  — no surface to bite. That machinery deletes boilerplate in apps with routing
+  and request-scoped cross-cutting concerns. Main has no routes; its IPC
+  pipeline is 14 tRPC procedures already folded through rethrowAsTrpcError and
+  zod schemas. The thing Nest's pipeline would replace is ~60 LOC of module
+  bindings — replaced with more ceremony (@Module graphs, a Nest bootstrap,
+  provider arrays).
+  5. Nest as the IPC transport (custom microservice strategy) — that's 
+  own-transport wearing a uniform. Building an Electron-IPC transport strategy
+  for Nest re-implements everything the own-transport verdict just rejected on
+  arithmetic, and additionally loses tRPC's end-to-end renderer type inference
+  (Nest controllers don't project typed clients without codegen bolt-ons).
+
+  The honest framing: NestJS's boilerplate reduction is real in the environment
+  it targets — many-module server apps with HTTP/microservice surfaces and
+  class-typed injection. This app is a two-process Electron system whose main
+  side is 12 services and one 60-LOC binding module, whose injection style is
+  structurally incompatible with autowiring (by deliberate architecture, not
+  accident), and whose event/lifecycle/error decorators were already
+  purpose-built in W1–W6. Full leverage was the evaluation — there's simply
+  nothing left on the table for it to lift.
+
+  I'll make sure the catalog's NestJS verdict block records this fully-leveraged
+  inventory explicitly (lever-by-lever, not just the service count) so the
+  rejection is durable against this exact question next cycle. Spikes are still
+  running in the background — I'll pick up catalog assembly when they land.
+
+✻ Baked for 48s
+
+❯ ok, what else could we do vs nest to further reduce                           
+
+⏺ That question has a precise answer now, because the audit was effectively
+  designed to find "Nest-class value without Nest." Mapping each thing Nest
+  would theoretically give you to the verified in-house move that actually
+  captures it:
+
+  Nest lever: Lifecycle hooks (OnModuleInit/OnDestroy)
+  The in-house move that captures it: Base-class rework bundle: BaseService
+    auto-binds @OnEvent (kills 5 manual bindEventHandlers + their wholesale
+    initialize() overrides), base-owned name-stamped init/dispose logging (kills
+
+    37 trivial dispose() overrides + 22 log rituals), one shared handler-scan
+    helper instead of two implementations, ManagedLifecycleHost forwarder dedup
+    across the 3 bases
+  Verified Δ: −80…−160 prod, both processes (Nest could only ever touch main's
+    12)
+  ────────────────────────────────────────
+  Nest lever: Module system dissolving hand-wiring
+  The in-house move that captures it: Your wiring is already 60 LOC — but the
+    declarative-density equivalent is the tRPC subscription factory: 14
+    byte-uniform 3-line procedures → 14 one-liners
+  Verified Δ: −20…−25 prod
+  ────────────────────────────────────────
+  Nest lever: Controller/facade layer conventions
+  The in-house move that captures it: Dissolve the UIController facade (the fold
+
+    A8 never finished: 162 LOC, 11 pure pass-throughs, plus the out-of-container
+
+    bootstrap dance) + unify the two bootstrap roots on a PlatformBootstrap base
+  Verified Δ: −140…−240 prod / −150…−280 tests — the biggest verified item
+  ────────────────────────────────────────
+  Nest lever: Nest's TestingModule
+  The in-house move that captures it: C1 harness residue: your metadata-driven
+    createInjectableHarness is the TestingModule equivalent; finish adoption
+  over
+     W9's measured scope + delete the 4–8 true-duplicate lifecycle blocks as
+    batches touch suites
+  Verified Δ: −100…−250 tests
+  ────────────────────────────────────────
+  Nest lever: Interceptors/AOP
+  The in-house move that captures it: Honestly: already mined out — W6
+    measured-and-retired the log+toast decorator; what's left is the small
+    boolean-payload guard dedup
+  Verified Δ: −15…−30 prod
+  ────────────────────────────────────────
+  Nest lever: Transport abstraction
+  The in-house move that captures it: comlink split on the GPU worker
+    control-plane (spike running) — deletes the  hand-rolled INIT
+    promise-correlation + control envelopes while leaving the streaming frame
+    path untouched
+  Verified Δ: −200…−350 prod if the spike passes its byte-parity + perf gates
+
+  Two things worth saying plainly:
+
+  1. The base-class rework is the real "Nest replacement." Nest's value
+  proposition is "the framework owns lifecycle/wiring ceremony so classes
+  don't." You already own a framework — the platform/core/primitives bases.
+  Every ceremony Nest would absorb for 12 main services, the bases can absorb
+  for all ~40+ classes in both processes. That's the structural reason in-house
+  wins here.
+  2. The new-candidate scan came back empty, and that's meaningful. Lens 4
+  explicitly hunted for other battle-tested swaps — settings persistence, USB
+  watching, update plumbing, state stores, job queues — and every one is already
+  lib-backed (usb, electron-updater, @preact/signals-core) behind thin
+  adapters. There's no hidden framework dividend left; after this program
+  (~−260…−465 prod / −250…−530 tests, plus comlink's −200…−350 if it passes),
+  the remaining reduction levers are product-level (feature deletion), which
+  you've kept out of scope.
+
+  The two spikes are still running — once they land I'll verify their evidence
+  in the worktrees, finish the catalog, and bring you the decision points.
+
+✻ Worked for 34s
+
+❯ what other language could we use ?                                            
+
+⏺ Short answer: for this app, none of the credible alternatives pass the
+  reduction test — and the reason is structural, not taste. The app's core
+  capability is Chromium's media stack: the GameBoy capture device comes in
+  through getUserMedia/MediaStream, recording through MediaRecorder, rendering
+  through WebGPU-in-Chromium. Any language that takes you off Electron takes you
+  off Chromium, and that's the one dependency you can't rewrite. Candidate by
+  candidate:
+
+  - Rust (Tauri v2) — the only alternative worth taking seriously. It replaces
+  the main process with Rust and keeps a TS renderer over the system webview.
+  Two problems. First, it attacks the smallest part of your codebase: main is 12
+  services and a 60-LOC module; the renderer + platform TS (the overwhelming
+  bulk) stays TS regardless. Second, it swaps Chromium for WKWebView/WebView2,
+  where UVC getUserMedia behavior, codec availability, and WebGPU maturity are
+  inconsistent across platforms — it puts the capture path itself at risk to
+  rewrite the part that's already small. It's a rewrite wearing a reduction
+  costume: LOC doesn't shrink, it relocates into a second toolchain plus an FFI
+  seam.
+  - Go (Wails) — same webview story as Tauri with a weaker desktop ecosystem for
+  this domain. Same verdict, less upside.
+  - Native Swift/AVFoundation (or C++/Qt) — genuinely excellent capture stacks,
+  but it's a different product: platform-locked (you ship cross-platform,
+  including AppImage) or a multi-year Qt rewrite that would balloon LOC, and
+  you'd forfeit a working 2,030-unit/91-e2e verification estate to re-earn it
+  from zero.
+  - Compile-to-JS alternatives (ReScript, Elm, etc.) — lateral. Same platform,
+  different syntax, total churn, and you'd orphan the exact libraries doing your
+  heavy lifting (zod, tRPC, inversify, signals).
+  - WASM (Rust/Zig) for hot paths — the frame path is GPU-bound, not CPU-bound,
+  and the GPU math already lives in your actual second language: WGSL. A WASM
+  module would add a marshalling boundary to a path whose bottleneck isn't
+  JavaScript.
+
+  The deeper point: this codebase already delegates everything native-worthy to 
+  native. Transcoding is ffmpeg (C, behind a binary boundary), USB hotplug is
+  the usb native module, pixel work is WGSL on the GPU, media ingest is Chromium
+  itself. The 26.7k LOC of TypeScript that remains is orchestration, policy,
+  and UI — the exact layer where TS with strict contracts is the strongest tool
+  available, and the layer a language swap would force you to rewrite rather
+  than delete.
+
+  So the language answer mirrors the Nest answer: the wins that look like
+  "switch technology" are actually "finish the architecture you built" — the
+  verified catalog items plus whatever the two spikes earn. If a second language
+  ever enters this repo on merit, it'll be a small Rust sidecar for some
+  specific device quirk the usb lib can't handle — a bounded tool, not a
+  platform.
+
+  Meanwhile both spikes are still running in their worktrees; I'll resume the
+  catalog the moment their evidence lands.
+
+✻ Crunched for 48s
+
+⏺ Dynamic workflow "Throwaway framework spikes (comlink, Lit) in isolated
+worktrees, pre-declared criteria" completed · 38m 59s
+
+⏺ Both spikes are done — comlink is a CRITERION: PASS with wide margins (net
+  −435 src LOC vs the −150 bar, 0.991× wall-clock vs 1.05 budget, golden-hash
+  parity, frame path byte-unchanged, video-session.ts untouched). The Lit report
+  was truncated in the notification — reading the full output before saving
+  evidence:
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Heredoc blocked (as my own plan warns — my mistake). The file is small;
+  reading directly:
+
+  Read 1 file, ran 4 shell commands (ctrl+o to expand)
+
+⏺ Parity confirmed bidirectionally — pre-port hash is also afa9ed05. My pre-port
+  timing median is 277.8ms (absolute numbers differ from the agent's run —
+  machine load — only the ratio matters). Completing my own ratio with the
+  ported timing run:
+
+  Ran 5 shell commands (ctrl+o to expand)
+
+⏺ Update(docs/superpowers/audit-raw/2026-07-05/verification/corrections.md)
+  ⎿  Added 19 lines, removed 1 line
+      40  - **C-7 [lens-3/L3-1] phantom-methods claim VERIFIED.** The 4 `
+          UiControllerLike`
+      41    methods (ui-event.bridge.ts:13-16) exist nowhere on `UIContro
+          ller` (0 hits).
+      42  
+      43 -Struck findings: none dropped silently; L1-1 carried at correct
+         -ed value inside OV-1.                                          
+      43 +- **C-8 [lens-1/L1-7] STRUCK — re-litigates a recorded owner de
+         +cision.** W9 §0h                                               
+      44 +  (docs/superpowers/plans/2026-07-03-w9-test-program.md:28): "t
+         +ranscode.css STAYS                                             
+      45 +  in toolbar/styles (controller decision: it styles `.toolbar-b
+         +tn` DOM — location                                             
+      46 +  follows what it styles; record, no move)." Not an opportunity
+         +.                                                              
+      47 +                                                               
+      48 +## Spike verification (controller-reproduced 2026-07-06, worktr
+         +ees since removed)                                             
+      49 +- **comlink**: LOC diff exact (+103/−151, +63/−259, +132/−323 =
+         + −435; video-session                                           
+      50 +  byte-unchanged); golden hash `afa9ed05` identical pre-port AN
+         +D post-port in MY                                              
+      51 +  runs (stash-dance); split-port 4/4; timing ratio 280.30/277.8
+         +5 = **1.009×** vs                                              
+      52 +  1.05 budget (agent measured 0.991×; both in-budget, delta is 
+         +run noise).                                                    
+      53 +  CRITERION: PASS **CONFIRMED**.                               
+      54 +- **lit**: 11/11 parity+reactive unit tests; build:vite exit=0 
+         +with `prism-toolbar`                                           
+      55 +  in bundle; spiked e2e app-launch + device-streaming **50/50 p
+         +assed** in MY run.                                             
+      56 +  Technical PASS + net-rule REJECT **CONFIRMED** (measured net 
+         +≈ 0 wash; only                                                 
+      57 +  speculative assumptions clear −150; burden on PROMOTE unmet).
+      58 +- Spike diffs preserved: audit-raw/2026-07-05/patches/spike-{co
+         +mlink,lit}-full.patch.                                         
+      59 +                                                               
+      60 +Struck findings: L1-7 (C-8, recorded-decision re-litigation). L
+         +1-1 carried at                                                 
+      61 +corrected value inside OV-1 — not struck silently.             
+
+⏺ Write(docs/superpowers/specs/2026-07-05-opportunity-catalog.md)
+  ⎿  Wrote 91 lines to
+     docs/superpowers/specs/2026-07-05-opportunity-catalog.md
+      1 # Unified Opportunity Catalog — 2026-07-05 (Cycle 2)
+      3 **Baseline:** main @ `9ae170c5`. Prod **26,709** LOC (`src/**/*.t
+        s` excl. `.d.ts`), tests **162 files / 2,030 tests / 37,558 LOC**
+        , e2e **91 / 10**.
+        s in isolated worktrees (2 spikes definitionally skipped with con
+        troller-verified evidence), per `2026-07-05-codebase-opportunity-
+        verified (`audit-raw/2026-07-05/verification/`, logs `verify-lens
+        -{1..4}.log` all exit=0; spike criteria controller-reproduced end
+        -to-end including a 50/50 spiked e2e run and a bidirectional gold
+      5 **Ranking 
+     … +223 lines (ctrl+o to expand)
+
+⏺ User answered Claude's questions:
+  ⎿  · comlink split adoption passed its spike with wide margins (−435 LOC vs 
+     −150 bar; 1.009× timing vs 1.05 budget; byte parity both directions; frame 
+     path untouched). Adopt as wave X1? → Adopt (Recommended)
+     · Ratify the three framework rejections as recorded (Lit with its revisit 
+     condition; NestJS full-leverage inventory; own-transport with the 
+     patch-package escape hatch)? → Ratify all three (Recommended)
+     · L1-6 naming decision: the platform node-heavy subpath entry is runtime.ts
+     in two modules and service.ts in two others. Standardize on which? → 
+     runtime.ts (Recommended)
+     · LN2-4 (base-ctor cradle-spread hazard-hardening: explicit typed base 
+     params, 44 super() call sites touched, −5…−10 LOC, High risk, retires the 
+     green-typecheck-≠-boots hazard class): include as an X3 rider or defer? → 
+     Include in X3 (Recommended)
+
+⏺ All decisions in. Recording them into the catalog and updating memory, then
+  closing out:
+⏺ Update(docs/superpowers/specs/2026-07-05-opportunity-catalog.md)
+  ⎿  Added 6 lines, removed 6 lines
+      76  | X4 | C1 residue test wave (OV-1; test-count parity discipline
+           per W9 precedent) | −100…−250 tests | test:run parity + typech
+          eck |
+      77  | X5 | Smalls: LN2-1 sub-factory, L1-8 guard dedup, LN2-3 verif
+          ied subset, L1-6 after naming decision | −35…−55 prod | typeche
+          ck/lint/test:run + e2e wire-shape (LN2-1) |
+      78  
+      79 -## Decision points for the owner                               
+      79 +## Decision points — OWNER DECISIONS RECORDED 2026-07-06       
+      80  
+      81 -1. **comlink: adopt or reject** (spike PASS with ×2.9 LOC margi
+         -n; conditions listed in verdict §1).                           
+      82 -2. **Ratify the three rejections** (Lit with recorded revisit-c
+         -ondition; NestJS; own-transport with patch-package escape hatch
+         -).                                                             
+      83 -3. **L1-6 naming decision:** standardize platform node-heavy en
+         -try on `runtime.ts` (recommended — 2 renames) or `service.ts`. 
+      84 -4. **LN2-4:** include cradle-spread hazard-hardening as X3 ride
+         -r, or defer.                                                   
+      85 -5. **Approve ranking + wave sequence** → each accepted wave get
+         -s a writing-plans cycle.                                       
+      81 +1. **comlink: ADOPTED** — wave X1 authorized per verdict §1's c
+         +onditions (frame-error signal, one transferable rule, 16-test m
+         +igration budget, golden byte-test as permanent gate).          
+      82 +2. **Rejections RATIFIED (all three)** — Lit (revisit condition
+         + stands), NestJS (full-leverage inventory), own-transport (patc
+         +h-package escape hatch). These are now standing retirements cit
+         +able by future cycles.                                         
+      83 +3. **L1-6: `runtime.ts` standard** — rename `transcode/service.
+         +ts` + `gpu/worker/service.ts`; alias table in same commit (X5).
+      84 +4. **LN2-4: INCLUDED as X3 rider** — cradle-spread hazard-harde
+         +ning ships with the base rework, `dev:smoke` gated.            
+      85 +5. Ranking + wave sequence X1–X5 stand as proposed; each wave g
+         +ets its own writing-plans cycle, X1 first.                     
+      86  
+      87  ## Verification appendix
+      88  
+
+  Recalled 1 memory, wrote 1 memory (ctrl+o to expand)
+
+⏺ MEMORY.md needs the new entry plus three stale-status fixes (H2/#204 are
+  merged; own-transport is no longer "deferred"):
+
+  Wrote 3 memories (ctrl+o to expand)
+
+⏺ Audit Cycle 2 is closed — all eight plan tasks complete, decisions recorded in
+  the catalog, memory updated. One deviation from the executing-plans template
+  to note plainly: there's no finishing-a-development-branch step because this
+  plan intentionally produced zero tracked changes — everything lives in
+  gitignored docs/superpowers/ and the throwaway worktrees are gone. Your
+  working tree is exactly as you left it (only your own .gitignore edit).
+
+  What you now have:
+  - docs/superpowers/specs/2026-07-05-opportunity-catalog.md — the verified
+  catalog with your decisions stamped: comlink ADOPTED (X1),
+  Lit/NestJS/own-transport rejections ratified as standing retirements,
+  runtime.ts naming standard, cradle-hardening riding X3.
+  - docs/superpowers/audit-raw/2026-07-05/ — lens reports, spike evidence,
+  verification scripts/logs, and crucially patches/spike-comlink-full.patch (the
+  working −435 port + the golden byte-test) and patches/spike-lit-full.patch as
+  reference material.
+  - An approved wave program: X1 comlink port (−400…−435) → X2 UIController
+  dissolution + bootstrap base (−140…−240 prod, −150…−280 tests) → X3 base-class
+  rework + cradle rider (−80…−160) → X4 C1 test residue (−100…−250 tests) → X5
+  smalls + renames (−35…−55). Program total ≈ −660…−900 prod / −250…−530 tests.
+
+  Housekeeping reminder: the prismgb-app-h2 worktree is still sitting there and
+  everything it carried is merged — removable whenever you like.
+
+  Next step when you're ready: I'll run the writing-plans cycle for wave X1 (the
+  comlink port — production re-port from the spike patch, frame-error signal
+  restored, one transferable rule, the 16-test migration, and the golden
+  byte-test landing as a permanent gate). Say the word.
+
+✻ Sautéed for 1h 27m 55s
+
+❯ summarize plan                                                                
+
+⏺ Here's the approved program in brief:
+
+  Goal: Execute the Cycle 2 catalog — roughly −660…−900 prod LOC and −250…−530 
+  test LOC across five gated waves, each run as its own plan → execute → verify
+  cycle, on the W0–W9 cadence.
+
+  X1 — comlink split adoption (next up, −400…−435 prod)
+  Port the GPU worker's control plane (init handshake, resize, presets, capture
+  requests) to comlink over a dedicated MessagePort; the 60fps frame path stays
+  byte-for-byte on raw postMessage. Production re-port uses the preserved spike
+  patch as reference, plus the four adoption conditions: restore the
+  frame-render error signal, pick one transferable-routing rule, migrate ~16
+  tests + testkit fixtures to the comlink shape, keep the init timeout. The
+  spike's golden byte-test lands as a permanent unit gate (e2e is
+  --disable-gpu-blind to this path). Gates: byte parity, 1.05× timing budget,
+  GPU suite, dev:smoke, full e2e.
+
+  X2 — Presentation plane second fold (−140…−240 prod, −150…−280 tests)
+  Dissolve the UIController facade (162 LOC, 11 pure pass-throughs — consumers
+  inject uiComponentHost/uiEffects/domBindings directly, real coordination
+  methods relocate to their owning services, the out-of-container bootstrap
+  dance dies), then unify the two app-bootstrap.ts roots onto an inversify-free
+  PlatformBootstrap base. Strict order: facade first, base second.
+
+  X3 — Base-class rework (−80…−160 prod)
+  One shared @OnEvent handler-scan (BaseService gets auto-bind, killing 5 manual
+  calls and their initialize() overrides), ManagedLifecycleHost forwarder dedup
+  across the three bases, base-owned init/dispose logging (kills 37 trivial
+  dispose() overrides + 22 log rituals). Rider per your decision: replace the
+  Object.assign(this, dependencyMap) cradle spread with explicit typed base
+  params — retires the green-typecheck-≠-boots hazard class. dev:smoke
+  mandatory.
+
+  X4 — C1 test-harness residue (−100…−250 tests)
+  Finish createInjectableHarness adoption over W9's measured scope (the ~8
+  remaining @injectable suites plus preamble trims), deleting the 4–8
+  true-duplicate lifecycle blocks as batches touch suites. Test-count parity
+  discipline throughout.
+
+  X5 — Smalls (−35…−55 prod)
+  The sub<T>() factory collapsing 14 byte-uniform tRPC subscription procedures,
+  boolean-payload guard dedup into @platform/events, the verified Pick<>
+  conversions, and the runtime.ts entry renames (transcode + gpu/worker, alias
+  table in the same commit).
+
+  Not happening, by ratified decision: Lit (net wash, measured), NestJS (nothing
+  to lift at full leverage), owning the electron-trpc transport (1-line bug
+  footprint; patch-package if it ever bites). L1-9's switch-tables row is void
+  once X1 lands.
+
+  Ready to write the X1 plan whenever you are.
+
+✻ Cooked for 21s
+
+❯ write plan                                                                    
+
+⏺ Skill(superpowers:writing-plans)
+  ⎿  Successfully loaded skill
+
+⏺ I'm using the writing-plans skill to create the implementation plan. First,
+  ground truth extraction — the plan must embed the real interfaces from the
+  spike patch and the current build wiring, not reconstructions:
+
+  Searched for 3 patterns, listed 1 directory, ran 4 shell commands (ctrl+o to expand)
+
+⏺ Ground truth complete. Writing the X1 plan:
+
+⏺ Write(docs/superpowers/plans/2026-07-06-x1-comlink-split-port.md)
+  ⎿  Wrote 352 lines to
+     docs/superpowers/plans/2026-07-06-x1-comlink-split-port.md
+      1 # Wave X1 — comlink Split-Port Implementation Plan
+      3 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:su
+        bagent-driven-development (recommended) or superpowers:executing-
+         [ ]`) syntax for tracking.
+      4 
+        /brightness/capture/release/destroy) from hand-rolled postMessage
+         envelopes to comlink over a dedicated MessagePort, leaving the 6
+        rod LOC — and land the golden byte-test as a permanent gate.
+      6 
+         carries the *frame plane* 
+     … +586 lines (ctrl+o to expand)
+
+⏺ Update(docs/superpowers/plans/2026-07-06-x1-comlink-split-port.md)
+  ⎿  Added 3 lines, removed 1 line
+      265  git commit -m "test(gpu): migrate client/video-session doubles
+            and testkit mock to comlink handshake"
+      266  ```
+      267  
+      268 ----### Task 4: Prune the deleted-with-machinery tests (service
+          -, protocol) with coverage-parity arithmetic                   
+      268 +---                                                           
+      269  
+      270 +### Task 4: Prune the deleted-with-machinery tests (service, p
+          +rotocol) with coverage-parity arithmetic                      
+      271 +                                                              
+      272  **Files:**
+      273  - Modify: `tests/unit/platform/gpu/worker/service.test.ts` (7 
+           failing cases), `tests/unit/platform/gpu/worker/protocol.test.
+           ts` (2 failing cases)
+      274  
+
+⏺ Plan complete and saved to 
+  docs/superpowers/plans/2026-07-06-x1-comlink-split-port.md.
+
+  Five tasks, each with its own gate and commit:
+  1. Golden gate first — land the transport-agnostic byte-test/timing harness on
+  the unmodified tree (hash afa9ed05 must reproduce before anything moves),
+  recording this machine's timing budget.
+  2. The atomic split-port — apply the three src hunks from the verified spike
+  patch, then the three production deltas: transferProbe removed, frame-error
+  signal restored on the raw channel, plane-rule JSDoc. Gated by golden parity,
+  the adapted split-port test, timing budget, an exact expected-failure census
+  (the 16 known legacy tests and nothing else), build:vite (first real proof
+  comlink bundles into the worker), dev:smoke, and a byte-empty video-session.ts
+  diff.
+  3. Migrate the broken-by-transport tests — client/video-session doubles get a
+  real comlink handshake stub; createWorkerRendererClientMock keeps its frozen
+  export surface but drops envelope injection internally.
+  4. Prune the deleted-with-machinery tests — service's 7 envelope-dispatch
+  cases become direct WorkerControlApi cases; dead validation asserts deleted
+  with coverage-parity arithmetic in the commit body.
+  5. Wave exit — full ladder + unpiped e2e, LOC accounting vs the −400…−435
+  catalog target, hygiene sweeps, PR for your squash-merge, hard STOP before X2.
+
+  Two execution options:
+
+  1. Subagent-Driven — I dispatch a fresh subagent per task and personally
+  review each diff between tasks (your standing review rule holds either way).
+
+  2. Inline Execution — I execute the tasks myself in this session via
+  executing-plans, with checkpoints at each task boundary.
+
+  Which approach?
+
+✻ Crunched for 6m 15s
+❯ 1                                                                             
+
+⏺ Skill(superpowers:subagent-driven-development)
+  ⎿  Successfully loaded skill
+
+  Read 1 file, ran 2 shell commands (ctrl+o to expand)
+
+⏺ The ledger on disk is H2's completed record — archiving it and starting the X1
+  ledger. Then dispatching Task 1 on Sonnet:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Agent(Implement X1 Task 1: golden gate) Sonnet 5
+  ⎿  Backgrounded agent (↓ to manage · ctrl+o to expand)
+
+⏺ Task 1 implementer dispatched (Sonnet, background). It's branching off main
+  and landing the golden byte-test safety net on the unmodified tree — hash
+  afa9ed05 must reproduce before any porting begins. I'll personally review its
+  diff when it reports, then chain Task 2.
+
+✻ Cogitated for 1m 53s
+
+⏺ Agent "Implement X1 Task 1: golden gate" finished · 3m 33s
+
+⏺ Task 1 reports DONE — commit f2a7a361, hash afa9ed05 reproduced, budget
+  263.632ms recorded, suite arithmetic clean (162+2 test files → 164 / 2,030+2
+  tests → 2,032). Now my personal review of the diff:
+
+  Searched for 1 pattern, read 1 file, ran 2 shell commands (ctrl+o to expand)
+
+⏺ Agent(Implement X1 Task 2: split-port) Sonnet 5
+  ⎿  Backgrounded agent (↓ to manage · ctrl+o to expand)
+⏺ Task 2 implementer dispatched — the atomic port itself: comlink dep, the three
+  src hunks from the verified patch, transferProbe removal, frame-error
+  restoration (wired to the resolved onError surface), plane-rule JSDoc, and the
+  adapted split-port test, gated by golden parity, the timing budget
+  (263.632ms), the exact-16 failure census, build:vite, dev:smoke, and a
+  byte-empty video-session.ts. I'll review the full diff personally when it
+  reports.
+
+✻ Brewed for 2m 12s
+
+❯ status update please                                                          
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Wave X1 status: Task 1 complete and reviewed; Task 2 (the port itself) is 
+  mid-flight and well along.
+
+  - Task 1 — done, personally reviewed, clean. Golden gate landed on the
+  unmodified tree at commit f2a7a361: hash afa9ed05 reproduced exactly, timing
+  baseline 251.1ms → budget 263.6ms recorded in the commit body, suite green at
+  164 files / 2,032 tests. The three files are byte-verbatim from the verified
+  spike patch (the harness blob hash matches the patch's index line literally).
+  Two Minors logged for the end-of-wave sweep: the timing test is assertion-free
+  by design (measurement fixture — accepted), and two inherited // comments
+  violate the JSDoc-only rule.
+  - Task 2 — in progress (Sonnet implementer, background). Live tree evidence
+  shows it's past the halfway mark: comlink is installed (package.json/lockfile
+  modified), all three worker src files (client.ts, protocol.ts, service.ts) are
+  ported, split-port.test.ts is landed, and the gate logs show it's through
+  typecheck (with a couple of iterations on test typing — normal) and currently
+  in the post-port timing measurement. Still ahead of it: the exact-16 failure
+  census, build:vite, dev:smoke, and the commit.
+  - One anomaly noted for my review: an untracked index.html appeared at repo
+  root — likely a build artifact landing in the wrong place. It can't leak into
+  the commit (staging is by explicit path only), but I'll chase its origin when
+  I review the diff.
+
+  Remaining after Task 2: test migration (Task 3), machinery-test pruning (Task
+  4), then the full ladder + LOC accounting + PR (Task 5). You'll get the
+  wave-exit summary with the net-LOC actuals against the −400…−435 target before
+  anything is pushed.
+
+✻ Cogitated for 30s
+
+⏺ Agent "Implement X1 Task 2: split-port" finished · 25m 35s
+
+⏺ Task 2 is BLOCKED on a genuine plan-sequencing flaw of mine, well-diagnosed by
+  the implementer: every behavioral gate passed (golden afa9ed05, timing 255.1
+  vs 263.6, exact-16 census, build, dev:smoke, frozen contract) — but
+  testkit/fixtures.ts is src (covered by typecheck:app, which pre-commit runs),
+  and its mock references the removed sendCommand, so no commit is mechanically
+  possible until it's touched. My plan put the fixtures rewrite in Task 3; the
+  hook makes that ordering impossible. Checking the minimal-collateral shape
+  before amending:
+
+  Searched for 1 pattern, ran 1 shell command (ctrl+o to expand)
+
+⏺ The stray index.html was already cleaned up by the agent itself. Amending the
+  plan to encode the resolved sequencing, then resuming the implementer:
+
+⏺ Update(docs/superpowers/plans/2026-07-06-x1-comlink-split-port.md)
+  ⎿  Added 1 line
+      90  - Modify: `src/platform/gpu/worker/protocol.ts`, `src/platform/
+          gpu/worker/service.ts`, `src/platform/gpu/worker/client.ts`
+      91  - Create: `tests/unit/platform/gpu/worker/split-port.test.ts` (
+          from patch, adapted)
+      92  - Modify: `package.json` (+`comlink` prod dep)
+      93 +- Modify (minimal collateral, amended 2026-07-06): `src/platfor
+         +m/gpu/testkit/fixtures.ts` + `tests/unit/platform/gpu/testkit/f
+         +ixtures.test.ts` — remove ONLY the `sendCommand` helper/member 
+         +(fixtures.ts:183,198) and its 3 assertions (fixtures.test.ts:40
+         +,55,58). Reason: fixtures.ts is src, `typecheck:app` runs in pr
+         +e-commit, and its mock references the deleted client method — n
+         +o commit is possible without this. The FULL mock rewrite stays 
+         +in Task 3.                                                     
+      94  
+      95  **Interfaces:**
+      96  - Produces (Tasks 3–4 depend on these exact names from `protoco
+          l.ts`):
+
+⏺ Update(docs/superpowers/plans/2026-07-06-x1-comlink-split-port.md)
+  ⎿  Added 1 line, removed 1 line
+      180  - [ ] **Step 7: Gate — typecheck, golden parity, split-port, t
+           iming, expected-failure census**
+      181  
+      182  ```bash
+      183 -npm run typecheck > /tmp/x1-t2-tc.log 2>&1; echo exit=$?      
+          -                              # exit=0                        
+      183 +npm run typecheck:app > /tmp/x1-t2-tc.log 2>&1; echo exit=$?  
+          +                              # exit=0 (amended: full `typeche
+          +ck` includes typecheck:tests, which CANNOT pass until Tasks 3-
+          +4 migrate the 16 legacy tests; typecheck:app is the pre-commit
+          + gate and must be green)                                      
+      184  npx vitest run tests/unit/platform/gpu/worker/golden-bytes.tes
+           t.ts > /tmp/x1-golden-post.log 2>&1; echo exit=$?   # exit=0, 
+           hash=afa9ed05
+      185  npx vitest run tests/unit/platform/gpu/worker/split-port.test.
+           ts > /tmp/x1-split.log 2>&1; echo exit=$?           # exit=0
+      186  npx vitest run tests/unit/platform/gpu/worker/golden-timing.te
+           st.ts > /tmp/x1-timing-post.log 2>&1; echo exit=$?  # medianMs
+            ≤ Task-1 budget
+
+⏺ Update(docs/superpowers/plans/2026-07-06-x1-comlink-split-port.md)
+  ⎿  Added 1 line, removed 1 line
+      199  - [ ] **Step 9: Commit**
+      200  
+      201  ```bash
+      202 -git add package.json package-lock.json src/platform/gpu/worker
+          -/ tests/unit/platform/gpu/worker/split-port.test.ts           
+      202 +git add package.json package-lock.json src/platform/gpu/worker
+          +/ tests/unit/platform/gpu/worker/split-port.test.ts src/platfo
+          +rm/gpu/testkit/fixtures.ts tests/unit/platform/gpu/testkit/fix
+          +tures.test.ts                                                 
+      203  git commit -m "refactor(gpu): port worker control plane to com
+           link over dedicated MessagePort"
+      204  ```
+      205  Body: `frame path untouched; golden hash afa9ed05 held; net sr
+           c -<n> LOC; 16 legacy tests migrate in follow-up commits`.
+  ⎿  Agent "af816dbb1dd17434f" had no active task; resumed from transcript 
+     in the background with your message. You'll be notified when it 
+     finishes. Output: /private/tmp/claude-501/-Users-josstei-Development-p
+     rismgb-workspace-prismgb-app/26abffd8-38fe-4e43-9cce-c61aeb5cf5fc/task
+     s/af816dbb1dd17434f.output
+
+⏺ Blocker resolved and the implementer is resumed with full context intact. The
+  resolution: the sendCommand removal in testkit/fixtures.ts (+ its own test's 3
+  references) is pulled into Task 2 as minimal collateral — it's the only path
+  to a committable tree since fixtures.ts is src and pre-commit runs
+  typecheck:app — while the full mock rewrite stays in Task 3 as planned. The
+  plan file now documents the amendment, the corrected typecheck:app gate (full
+  typecheck can't be green until Tasks 3–4 migrate the 16 legacy tests — that's
+  accepted wave-stage state), and the expanded staging list.
+
+  Worth noting what the blocker wasn't: every behavioral gate had already passed
+  — golden hash held at afa9ed05, timing 255.1ms vs the 263.6ms budget, the
+  failure census came back exactly the predicted 16, build:vite proved comlink
+  bundles into the worker, dev:smoke booted, and video-session.ts is
+  byte-unchanged. This was purely a commit-mechanics sequencing flaw in my plan,
+  and the implementer's diagnosis (including reading the hook itself to prove
+  it was mechanical, not gate-strictness) was exactly right. I'll review the
+  complete diff personally once the commit lands.
+
+✻ Worked for 1m 50s
+
+⏺ Agent "Implement X1 Task 2: split-port" finished · 5m 58s
+
+⏺ Task 2 hit a second, narrower blocker — and this one is genuinely yours to
+  decide, because it's your own hard rule. The staged tree is commit-ready and
+  fully green on its gates (typecheck:app 0, fixtures 2/2, census exactly-16),
+  but pre-commit's lint-staged lane runs vitest related on staged files, which
+  drags in the 16 legacy tests that import the ported worker src — red until
+  Tasks 3–4 migrate them, and no commit ordering escapes this (migrated tests
+  are equally red against unported src). The implementer proved it against the
+  real hook, and --no-verify is forbidden by your standing rule, which only you
+  can waive.
+
+  One fact that shapes the choice: I traced the subsequent commits — Task 3
+  stages only files whose related tests go green with it, and likewise Task 4 —
+  so only this one commit needs relief. And the pre-push hook plus Task 5's full
+  ladder re-verify everything before anything leaves the machine.
+
+⏺ User answered Claude's questions:
+  ⎿  · Task 2's commit is blocked by pre-commit's `vitest related` lane (16 
+     legacy tests import the ported src; they migrate in Tasks 3–4; no commit 
+     ordering avoids it). How should the wave proceed? → One-time bypass, this 
+     commit only (Recommended)
+
+⏺ Owner-approved one-time bypass recorded. Resuming the implementer to land the
+  commit:
+
+  Ran 1 shell command (ctrl+o to expand)
+  ⎿  Agent "af816dbb1dd17434f" had no active task; resumed from transcript 
+     in the background with your message. You'll be notified when it 
+     finishes. Output: /private/tmp/claude-501/-Users-josstei-Development-p
+     rismgb-workspace-prismgb-app/26abffd8-38fe-4e43-9cce-c61aeb5cf5fc/task
+     s/af816dbb1dd17434f.output
+
+⏺ Bypass decision logged in the ledger and the implementer is resumed with the
+  exact commit command — same briefed message, with the bypass and its
+  justification documented in the commit body itself. Once the commit lands I'll
+  do my personal review of the complete Task 2 diff (the port is the wave's
+  load-bearing change, so that review gets the close read), then chain Task 3.
+✻ Churned for 1m 8s
+
+⏺ Agent "Implement X1 Task 2: split-port" finished · 1m 33s
+
+⏺ Task 2 committed: 86efa1ef, net −411 across the three worker files (+320/−731;
+  the delta vs the spike's −435 is the production additions — frame-error
+  signal, plane JSDoc). The implementer even post-validated commitlint since the
+  bypass skipped commit-msg. Now my close personal review of the port diff:
+
+  Searched for 1 pattern, read 1 file, ran 1 shell command (ctrl+o to expand)
+
+⏺ Update(docs/superpowers/plans/2026-07-06-x1-comlink-split-port.md)
+  ⎿  Added 1 line
+      272  
+      273  **Files:**
+      274  - Modify: `tests/unit/platform/gpu/worker/service.test.ts` (7 
+           failing cases), `tests/unit/platform/gpu/worker/protocol.test.
+           ts` (2 failing cases)
+      275 +- Modify (controller review finding from Task 2, amended 2026-
+          +07-06): `src/platform/gpu/worker/service.ts` — `maybePostStats
+          +` dropped `uploadTime: stats.uploadTime` from the STATS payloa
+          +d (consumed by video-session.ts:207 → streaming-render.service
+          +.ts:566). Re-add the field, and the service.test.ts rewrite MU
+          +ST include a stats-content case asserting a posted STATS paylo
+          +ad carries `fps`, `frameTime`, `gpuTime`, AND `uploadTime` fro
+          +m the driver's getStats(). This src fix rides THIS task's comm
+          +it because staging service.ts + its green rewritten test passe
+          +s the vitest-related pre-commit lane honestly.                
+      276  
+      277  **Interfaces:**
+      278  - Consumes: `FakeWorker`, `flush`, `createRecordingDriver` fro
+           m `./golden-harness`; `WorkerControlApi` from `protocol.ts`.
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Agent(Implement X1 Task 3: test migration) Sonnet 5
+  ⎿  Backgrounded agent (↓ to manage · ctrl+o to expand)
+
+⏺ Task 2 is closed with my review verdict recorded — spec compliant, one
+  Important finding (uploadTime dropped from stats posts, consumed downstream by
+  video-session and streaming-render) routed to Task 4's commit where it lands
+  hook-honestly with a covering assertion, plus three Minors ledgered for the
+  final sweep. Task 3 is now dispatched: migrating the client/video-session
+  doubles to the real comlink handshake and rewriting the testkit mock's
+  internals under its frozen export surface — fully hook-gated this time, no
+  bypass. I'll review its diff personally when it lands.
+
+✻ Cogitated for 3m 34s
+
+⏺ Agent "Implement X1 Task 3: test migration" finished · 23m 40s
+
+⏺ Task 3 reports DONE with a hook-gated commit and one notable claim to verify —
+  that the testkit mock needed zero edits because its internals were already
+  direct-triggering (the envelope coupling died with sendCommand in Task 2).
+  Reviewing personally:
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Zero-edit claim verified — the mock is a pure handler-map + emit, keyed by
+  response types that still exist in protocol for the frozen callback surface.
+  Reading the migration diff:
+
+  Read 1 file, ran 1 shell command (ctrl+o to expand)
+
+⏺ Agent(Implement X1 Task 4: prune tests) Sonnet 5
+  ⎿  Backgrounded agent (↓ to manage · ctrl+o to expand)
+
+⏺ Task 4 dispatched — the last red tests: service's 7 envelope cases become 5
+  control-API cases + 2 principled deletions, protocol's 2 dead-validator cases
+  get refreshed to the surviving guard surface, and the uploadTime fix lands
+  TDD-style (failing stats-content assertion first, then the one-line re-add)
+  inside a fully hook-gated commit. After this, the whole tree should be green
+  for the first time this wave — then Task 5 runs the exit ladder and my final
+  whole-branch review before the PR.
+✻ Crunched for 2m 24s
+
+⏺ Agent "Implement X1 Task 4: prune tests" finished · 24m 28s
+
+⏺ Task 4 reports done with the first full-green tree of the wave, plus two
+  documented deviations my review needs to adjudicate: a different
+  coverage-parity mapping than briefed (the 2 deletions are redundancy-based,
+  not impossibility-based), and the uploadTime fix needing a type-widening
+  second line. Reviewing:
+
+  Read 1 file, ran 3 shell commands (ctrl+o to expand)
+
+  Ran 1 shell command (ctrl+o to expand)
+
+⏺ Agent(Implement X1 Task 5: wave exit) Sonnet 5
+  ⎿  Backgrounded agent (↓ to manage · ctrl+o to expand)
+
+⏺ Task 5 dispatched — the wave-exit run: my two Minor fixes land first as a
+  hook-gated commit, then the full ladder (typecheck, lint, test:run, dev:smoke,
+  all 91 e2e tests unpiped with the documented flake-isolation protocol), LOC
+  accounting against the −419 measured net, hygiene sweeps, and the PR to main
+  with the complete disclosure package — including the one-time bypass, the
+  accepted post-port notes, and the test-count arithmetic. It stops hard after
+  PR creation; the merge is yours. I'll verify its work when it reports and then
+  close out the wave.
+
+✻ Churned for 3m 8s
+
+⏺ Agent "Implement X1 Task 5: wave exit" failed: Agent terminated early due to
+an API error: API Error: Response stalled mid-stream. The response above may be
+incomplete.
+
+⏺ The Task 5 agent died mid-run on an API stall — right after discovering an e2e
+  failure it had verified as environmental via a clean-main control worktree
+  (sound methodology, the H2 precedent). Checking artifacts before resuming —
+  trust git and logs, not narration:
+
+  Ran 3 shell commands (ctrl+o to expand)
+  ⎿  Agent "a0f5c67da6343faab" had no active task; resumed from transcript 
+     in the background with your message. You'll be notified when it 
+     finishes. Output: /private/tmp/claude-501/-Users-josstei-Development-p
+     rismgb-workspace-prismgb-app/26abffd8-38fe-4e43-9cce-c61aeb5cf5fc/task
+     s/a0f5c67da6343faab.output
+
+⏺ Agent resumed with the adjudicated verdict and the remaining steps: cleanup,
+  LOC accounting, hygiene sweeps, then push and PR with the amended e2e
+  disclosure — hard stop after PR creation. One more report and my final look at
+  the PR, then the wave closes for your merge.
+
+✻ Baked for 2m 27s
+
+⏺ Agent "Implement X1 Task 5: wave exit" finished · 3m 41s
+
+⏺ Wave exit reported complete — PR #205 up. Final verification pass on the
+  Minors commit and the PR before closing out:
+
+  Ran 1 shell command (ctrl+o to expand)
+⏺ All verified — closing the wave:
+
+  Ran 1 shell command, wrote 2 memories (ctrl+o to expand)
+
+⏺ Wave X1 is complete — PR #205 is open and waiting for your merge: 
+  https://github.com/josstei/prismgb-app/pull/205
+
+  The bottom line: the GPU worker's control plane now rides comlink over a
+  dedicated MessagePort, the 60fps frame path is byte-for-byte untouched, and
+  the branch nets −419 src LOC (+320/−739) — inside the catalog's −400…−435
+  target. video-session.ts is byte-identical to main, exactly as the
+  frozen-contract rule demanded.
+
+  Quality evidence, all controller-verified personally:
+  - Golden byte-test held afa9ed05 pre- and post-port and now lives in the tree
+  as a permanent gate (with the timing fixture and split-port plane-separation
+  tests).
+  - Full ladder green: typecheck, lint, 165 files / 2,033 tests, dev:smoke. e2e
+  90/91 — the one failure is the fullscreen reveal-race spec, proven
+  environmental three ways (fails identically in branch isolation, on the
+  agent's clean-main control, and on my pre-comlink control at the H2 worktree;
+  the wave is structurally unreachable from e2e under --disable-gpu).
+  - Five commits, each personally reviewed. One owner-approved pre-commit bypass
+  (the atomic port commit, fully disclosed in the PR body); every other commit
+  fully hook-gated.
+  - My reviews caught and fixed one real spike-inherited regression (uploadTime
+  silently dropped from STATS — consumed downstream by video-session and
+  streaming-render; restored RED→GREEN), plus the Minor sweep (JSDoc-only
+  comments, stubControlWorker hoisted).
+
+  Two H3 candidates surfaced for later (recorded in memory): the fullscreen-exit
+  spec needs real hardening — it fails under machine load even with the #204
+  fix — and the golden-timing baseline should be re-measured on an idle machine
+  before its history is cited.
+
+  Everything's ledgered and memory is updated. Once you merge #205, say the word
+  and I'll start the X2 plan (UIController dissolution + PlatformBootstrap 
+  base, −140…−240 prod / −150…−280 tests).
+
+✻ Crunched for 2h 6m 46s

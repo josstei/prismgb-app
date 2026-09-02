@@ -11,7 +11,53 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const pkg = require('./package.json');
 
-export default defineConfig({
+function readBooleanBuildFlag(value, label) {
+  if (value === undefined || value === '0') return false;
+  if (value === '1') return true;
+  throw new Error(`${label} must be 0 or 1 when set`);
+}
+
+export function createPerformanceVariant({ harness = false, instrumentation = false } = {}) {
+  if (typeof harness !== 'boolean' || typeof instrumentation !== 'boolean') {
+    throw new TypeError('Performance build flags must be booleans');
+  }
+  if (instrumentation && !harness) {
+    throw new Error('Performance instrumentation requires the harness build');
+  }
+  return Object.freeze({ harness, instrumentation });
+}
+
+export function getPerformanceVariantFromEnvironment(environment = process.env) {
+  return createPerformanceVariant({
+    harness: readBooleanBuildFlag(environment.PRISMGB_PERF_HARNESS_BUILD, 'PRISMGB_PERF_HARNESS_BUILD'),
+    instrumentation: readBooleanBuildFlag(
+      environment.PRISMGB_PERF_INSTRUMENTATION_BUILD,
+      'PRISMGB_PERF_INSTRUMENTATION_BUILD'
+    )
+  });
+}
+
+export function createVariantDefine(variant) {
+  const normalized = createPerformanceVariant(variant);
+  return {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+    __PRISMGB_PERF_HARNESS__: JSON.stringify(normalized.harness),
+    __PRISMGB_PERF_INSTRUMENTATION__: JSON.stringify(normalized.instrumentation)
+  };
+}
+
+export function createPerformanceBuildDefines(variant) {
+  const define = createVariantDefine(variant);
+  return Object.freeze({
+    main: Object.freeze({ ...define }),
+    preload: Object.freeze({ ...define }),
+    renderer: Object.freeze({ ...define })
+  });
+}
+
+export function createViteConfig(variant = getPerformanceVariantFromEnvironment()) {
+  const defines = createPerformanceBuildDefines(variant);
+  return {
   plugins: [
     // Copy assets and JSON files
     viteStaticCopy({
@@ -35,6 +81,7 @@ export default defineConfig({
           args.startup();
         },
         vite: {
+          define: defines.main,
           resolve: {
             alias: {
               '@main': path.resolve(__dirname, 'src/main'),
@@ -68,6 +115,7 @@ export default defineConfig({
           args.reload();
         },
         vite: {
+          define: defines.preload,
           resolve: {
             alias: {
               '@main': path.resolve(__dirname, 'src/main'),
@@ -145,6 +193,9 @@ export default defineConfig({
 
   // Define global constants
   define: {
-    __APP_VERSION__: JSON.stringify(pkg.version)
+    ...defines.renderer
   }
-});
+  };
+}
+
+export default defineConfig(() => createViteConfig());

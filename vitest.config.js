@@ -7,6 +7,7 @@ import { defineConfig } from 'vitest/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { platformAliasMap } from './scripts/lib/workspace-aliases.mjs';
+import { createProductionAssetTransform } from './tests/support/vitest/production-asset-transform.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const sharedAlias = {
@@ -14,6 +15,18 @@ const sharedAlias = {
   '@renderer': path.resolve(__dirname, 'src/renderer'),
   ...platformAliasMap(__dirname)
 };
+
+const standardPerformanceDefines = {
+  __PRISMGB_PERF_HARNESS__: 'false',
+  __PRISMGB_PERF_INSTRUMENTATION__: 'false'
+};
+
+const harnessPerformanceDefines = {
+  __PRISMGB_PERF_HARNESS__: 'true',
+  __PRISMGB_PERF_INSTRUMENTATION__: 'true'
+};
+
+const productionAssetTransform = createProductionAssetTransform({ root: __dirname });
 
 const baseCoverageConfig = {
   provider: 'v8',
@@ -29,10 +42,6 @@ const baseCoverageConfig = {
     '**/index.{js,ts}',
     // Auto-update feature requires Electron autoUpdater API
     'src/renderer/infrastructure/services/updates/**',
-    // UI templates use Vite ?raw imports for SVGs not available in vitest
-    'src/renderer/presentation/shell/*.{js,ts}',
-    'src/renderer/presentation/icons/*.{js,ts}',
-    'src/renderer/presentation/features/**/*.template.{js,ts}',
     // Type declaration files
     'src/**/*.d.ts',
     // JSON configuration files
@@ -58,6 +67,7 @@ export default defineConfig({
     exclude: ['tests/e2e/**'],
     projects: [
       {
+        define: standardPerformanceDefines,
         test: {
           alias: sharedAlias,
           name: 'scripts-node',
@@ -69,6 +79,10 @@ export default defineConfig({
             'tests/unit/scripts/**/*.{test,spec}.{js,ts}',
             'tests/unit/support/**/*.{test,spec}.{js,ts}'
           ],
+          exclude: [
+            'tests/e2e/**',
+            'tests/unit/scripts/validate-baseline-evidence-capacity.test.ts'
+          ],
           setupFiles: [
             path.resolve(__dirname, 'tests/setup.js'),
             path.resolve(__dirname, 'tests/support/mocks/node-browser-mocks.setup.js')
@@ -76,6 +90,27 @@ export default defineConfig({
         }
       },
       {
+        define: standardPerformanceDefines,
+        test: {
+          alias: sharedAlias,
+          name: 'baseline-capacity-node',
+          globals: true,
+          clearMocks: true,
+          restoreMocks: true,
+          environment: 'node',
+          maxWorkers: 1,
+          fileParallelism: false,
+          sequence: { groupOrder: 1 },
+          include: ['tests/unit/scripts/validate-baseline-evidence-capacity.test.ts'],
+          setupFiles: [
+            path.resolve(__dirname, 'tests/setup.js'),
+            path.resolve(__dirname, 'tests/support/mocks/node-browser-mocks.setup.js')
+          ]
+        }
+      },
+      {
+        define: standardPerformanceDefines,
+        plugins: [productionAssetTransform],
         test: {
           alias: sharedAlias,
           name: 'renderer-happy-dom',
@@ -96,6 +131,7 @@ export default defineConfig({
         }
       },
       {
+        define: standardPerformanceDefines,
         test: {
           alias: sharedAlias,
           name: 'main-node',
@@ -112,6 +148,7 @@ export default defineConfig({
         }
       },
       {
+        define: standardPerformanceDefines,
         test: {
           alias: sharedAlias,
           name: 'platform-node',
@@ -129,6 +166,7 @@ export default defineConfig({
         }
       },
       {
+        define: standardPerformanceDefines,
         test: {
           alias: sharedAlias,
           name: 'platform-dom',
@@ -137,6 +175,38 @@ export default defineConfig({
           restoreMocks: true,
           environment: 'happy-dom',
           include: ['tests/unit/platform/{gpu,ui-base}/**/*.{test,spec}.{js,ts}']
+        }
+      },
+      {
+        define: standardPerformanceDefines,
+        test: {
+          alias: sharedAlias,
+          name: 'preload-node',
+          globals: true,
+          clearMocks: true,
+          restoreMocks: true,
+          environment: 'node',
+          include: ['tests/unit/preload/**/*.{test,spec}.{js,ts}'],
+          setupFiles: [
+            path.resolve(__dirname, 'tests/setup.js')
+          ]
+        }
+      },
+      {
+        define: harnessPerformanceDefines,
+        plugins: [productionAssetTransform],
+        test: {
+          alias: sharedAlias,
+          name: 'performance-harness',
+          globals: true,
+          clearMocks: true,
+          restoreMocks: true,
+          environment: 'happy-dom',
+          include: ['tests/unit/performance-harness/**/*.{test,spec}.{js,ts}'],
+          setupFiles: [
+            path.resolve(__dirname, 'tests/setup.js'),
+            path.resolve(__dirname, 'tests/support/mocks/renderer-browser-mocks.setup.js')
+          ]
         }
       }
     ]

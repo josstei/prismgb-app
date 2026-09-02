@@ -6,7 +6,6 @@ import {
   createRenderStatsFixture,
   createWorkerRendererClientMock
 } from '@platform/gpu/testkit';
-import type { FramePayload } from '../../../../../src/platform/gpu/worker/protocol';
 
 describe('platform/gpu/testkit/fixtures', () => {
   it('creates overridable domain fixtures from final GPU types', () => {
@@ -37,10 +36,6 @@ describe('platform/gpu/testkit/fixtures', () => {
       readyEvents.push(payload);
     });
 
-    expect(client.sendCommand('frame', {
-      imageBitmap: {} as ImageBitmap,
-      uniforms: createPipelineUniformsFixture()
-    } as FramePayload)).toBe(true);
     expect(client.renderFrame({} as ImageBitmap)).toBe(true);
 
     client.emit('ready', { backend: 'webgpu' });
@@ -48,13 +43,5 @@ describe('platform/gpu/testkit/fixtures', () => {
     client.emit('ready', { backend: 'webgpu' });
 
     expect(readyEvents).toEqual([{ backend: 'webgpu' }]);
-  });
-
-  it('allows worker renderer client method overrides', () => {
-    const client = createWorkerRendererClientMock({
-      sendCommand: () => false
-    });
-
-    expect(client.sendCommand('release')).toBe(false);
   });
 });

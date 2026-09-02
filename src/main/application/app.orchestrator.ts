@@ -17,7 +17,7 @@ import type { DeviceIntegrationService } from '@main/infrastructure/devices/devi
 import type { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
 import type { UpdateService } from '@platform/updates';
-import type { TranscodeService } from '@platform/transcode/service';
+import type { TranscodeService } from '@platform/transcode/runtime';
 import type { LoginItemService } from '@main/infrastructure/window/login-item.service.js';
 
 function resolveDevDockIconPath(appPath: string): string | null {

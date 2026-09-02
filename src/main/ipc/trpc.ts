@@ -4,7 +4,7 @@ import { getErrorMessage } from '@platform/core';
 import type { LoggerLike } from '@platform/core';
 import type { DeviceStatus } from '@platform/devices';
 import type { UpdateStatusPayload, TranscodeFormat } from '@platform/ipc';
-import type { TranscodeResult, CancelResult, StatusResult } from '@platform/transcode/service';
+import type { TranscodeResult, CancelResult, StatusResult } from '@platform/transcode/runtime';
 import type { IpcPushBridge } from './ipc-push.bridge.js';
 import type { MainProcessTestControlPort } from './test-control.port.js';
 

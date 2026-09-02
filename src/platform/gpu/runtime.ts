@@ -1,8 +1,12 @@
-import type { RenderCapabilities } from './domain/types';
+import type { BrowserCapabilityProbeResult, RenderCapabilities } from './domain/types';
 
 export {
   createGpuVideoRendererSession,
-  type GpuVideoRendererSession
+  type GpuVideoRendererSession,
+  type GpuVideoRendererSessionOptions,
+  type GpuVideoHarnessObservation,
+  type GpuVideoFrameMeasurementContext,
+  type GpuVideoPerformanceObservation
 } from './application/video-session';
 
 export async function detectBrowserGpuCapabilities(): Promise<RenderCapabilities> {
@@ -10,4 +14,26 @@ export async function detectBrowserGpuCapabilities(): Promise<RenderCapabilities
   return detect();
 }
 
-export type { GpuVideoRendererStats } from './domain/types';
+export async function probeBrowserGpuCapabilitiesForMeasurement(): Promise<BrowserCapabilityProbeResult | null> {
+  if (
+    typeof __PRISMGB_PERF_HARNESS__ === 'undefined' ||
+    !__PRISMGB_PERF_HARNESS__ ||
+    typeof window === 'undefined' ||
+    window.prismgbPerformanceLaunchMarker === undefined
+  ) {
+    return null;
+  }
+
+  const { probeBrowserGpuCapabilities } = await import('./infrastructure/capabilities.measurement.browser');
+  return probeBrowserGpuCapabilities();
+}
+
+export type {
+  BrowserCapabilityProbeResult,
+  BrowserGpuAdapterIdentity,
+  BrowserGpuQualificationLimits,
+  BrowserGpuStrictSelection,
+  GpuVideoRendererStats,
+  OffscreenCanvasTransferProbeResult,
+  WebGpuCapabilityProbeResult
+} from './domain/types';

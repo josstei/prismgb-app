@@ -1,13 +1,7 @@
 import { signal, computed, type ReadonlySignal } from '@platform/ui-base/reactive';
-import { EventChannels } from '@platform/events';
+import { EventChannels, readBooleanPayloadField } from '@platform/events';
 import type { EventBusLike } from '@platform/core';
 import { ReactiveStore } from './reactive-store.base.js';
-
-function readBooleanField(payload: unknown, key: string): boolean | null {
-  if (typeof payload !== 'object' || payload === null) return null;
-  const value = (payload as Record<string, unknown>)[key];
-  return typeof value === 'boolean' ? value : null;
-}
 
 export interface PresentationModeStoreDependencies {
   eventBus: EventBusLike;
@@ -54,12 +48,12 @@ export class PresentationModeStore extends ReactiveStore {
   }
 
   private applyStreaming(payload: unknown): void {
-    const enabled = readBooleanField(payload, 'enabled');
+    const enabled = readBooleanPayloadField(payload, 'enabled');
     if (enabled !== null) this._streamingActive.value = enabled;
   }
 
   private applyFullscreen(payload: unknown): void {
-    const active = readBooleanField(payload, 'active');
+    const active = readBooleanPayloadField(payload, 'active');
     if (active !== null) this._fullscreenActive.value = active;
   }
 

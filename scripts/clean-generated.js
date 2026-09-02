@@ -4,8 +4,32 @@ import { fileURLToPath } from 'url';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
+export const VITE_ELECTRON_RENDERER_PLACEHOLDER = `<!doctype html>
+<html lang="en">
+  <head>
+    <title>vite-plugin-electron</title>
+  </head>
+  <body>
+    <div>An entry file for electron renderer process.</div>
+  </body>
+</html>`;
+
 function normalizeRelativePath(relativePath) {
   return relativePath.split(path.sep).join('/');
+}
+
+function findArtifactEntry(pathName, paths) {
+  const normalizedPath = normalizeRelativePath(pathName);
+  return paths.find((entry) => entry.path === normalizedPath);
+}
+
+function isViteElectronRendererPlaceholder(targetPath) {
+  try {
+    const stats = fs.statSync(targetPath);
+    return stats.isFile() && fs.readFileSync(targetPath, 'utf8').trim() === VITE_ELECTRON_RENDERER_PLACEHOLDER.trim();
+  } catch {
+    return false;
+  }
 }
 
 export const GENERATED_ARTIFACT_PATHS = [
@@ -44,13 +68,17 @@ export const BUILD_OUTPUT_ARTIFACT_PATHS = [
   {
     path: 'release',
     owner: 'Electron Builder release output'
+  },
+  {
+    path: 'index.html',
+    owner: 'Vite Electron renderer placeholder',
+    canRemove: isViteElectronRendererPlaceholder
   }
 ];
 export const BUILD_OUTPUT_PATHS = BUILD_OUTPUT_ARTIFACT_PATHS.map(({ path: artifactPath }) => artifactPath);
 
 export function getArtifactOwnership(pathName, paths = GENERATED_ARTIFACT_PATHS) {
-  const normalizedPath = normalizeRelativePath(pathName);
-  const match = paths.find((entry) => entry.path === normalizedPath);
+  const match = findArtifactEntry(pathName, paths);
   return match ? match.owner : 'custom-path';
 }
 
@@ -98,6 +126,11 @@ export function cleanGeneratedOutputs(options = {}) {
     }
 
     const relativePath = normalizeRelativePath(path.relative(root, generatedPath));
+    const artifactEntry = findArtifactEntry(relativePath, ownershipPaths);
+    if (artifactEntry?.canRemove && !artifactEntry.canRemove(generatedPath)) {
+      continue;
+    }
+
     if (dryRun) {
       deleted.push(toDeletionSummary(relativePath, true, false, ownershipPaths));
       continue;

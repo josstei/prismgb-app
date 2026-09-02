@@ -1,6 +1,12 @@
 import type { PipelineState, RenderDriver } from './pipeline-controller';
 import { loadWebGpuShaders } from './shaders';
 import { RecoverableBackendInitializationError } from '../domain/errors';
+import type {
+  FrameRenderResult,
+  WebGpuBackendExecutionIdentity,
+  WebGpuFrameInstrumentationObserver,
+  WebGpuLifecycleInstrumentationObserver
+} from '../domain/types';
 import type { PipelineUniforms } from '../domain/uniforms';
 import {
   compileRenderPasses,
@@ -35,6 +41,10 @@ type WebGpuRenderPass = CompiledRenderPass<WebGpuPassState>;
 type RenderPipelines = Map<string, GPURenderPipeline>;
 type UniformBuffers = Map<string, GPUBuffer>;
 const CREATE_NATIVE_RENDER_PIPELINE_ASYNC = ['create', 'Render', 'PipelineAsync'].join('') as keyof GPUDevice;
+const PERFORMANCE_HARNESS_IDENTITIES: WeakMap<object, WebGpuBackendExecutionIdentity> | null =
+  typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__
+    ? new WeakMap<object, WebGpuBackendExecutionIdentity>()
+    : null;
 
 class BindGroupStore {
   private readonly cache = new Map<string, GPUBindGroup>();
@@ -195,14 +205,24 @@ export class WebGpuDriver implements RenderDriver {
   private uniformChangeTracker = new UniformChangeTracker();
 
   private hasError = false;
+  getBackendExecutionIdentity(): WebGpuBackendExecutionIdentity | null {
+    return PERFORMANCE_HARNESS_IDENTITIES?.get(this) ?? null;
+  }
 
-  async initialize(state: PipelineState): Promise<void> {
+  async initialize(
+    state: PipelineState,
+    lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver
+  ): Promise<void> {
     if (!navigator.gpu) {
       throw new RecoverableBackendInitializationError('WebGPU not supported');
     }
 
-    const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'low-power' })
-      ?? await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+    let powerPreference: 'low-power' | 'high-performance' = 'low-power';
+    let adapter = await navigator.gpu.requestAdapter({ powerPreference });
+    if (!adapter) {
+      powerPreference = 'high-performance';
+      adapter = await navigator.gpu.requestAdapter({ powerPreference });
+    }
 
     if (!adapter) {
       throw new RecoverableBackendInitializationError('WebGPU adapter not available');
@@ -215,6 +235,32 @@ export class WebGpuDriver implements RenderDriver {
     }
 
     const initializedDevice = this.device;
+    if (
+      typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+      __PRISMGB_PERF_HARNESS__
+    ) {
+      const sanitize = (value: string): string | null => {
+        const normalized = value.trim().replace(/\s+/g, ' ');
+        return normalized.length === 0 ? null : normalized;
+      };
+      PERFORMANCE_HARNESS_IDENTITIES?.set(this, Object.freeze({
+        backend: 'webgpu',
+        driver: 'webgpu-driver-v1',
+        workerProtocol: 'webgpu-worker-ready-v1',
+        adapterIdentity: Object.freeze({
+          vendor: sanitize(adapter.info.vendor),
+          architecture: sanitize(adapter.info.architecture),
+          device: sanitize(adapter.info.device),
+          description: sanitize(adapter.info.description)
+        }),
+        limits: Object.freeze({
+          maxTextureDimension2D: this.device.limits.maxTextureDimension2D,
+          maxBindGroups: this.device.limits.maxBindGroups
+        }),
+        isFallbackAdapter: adapter.info.isFallbackAdapter,
+        powerPreference
+      }));
+    }
     this.device.lost.then(() => {
       if (this.device === initializedDevice) {
         this.hasError = true;
@@ -236,7 +282,7 @@ export class WebGpuDriver implements RenderDriver {
 
     await this.createPipelines();
     this.createSamplers();
-    this.createResources(state);
+    this.createResources(state, lifecycleInstrumentationObserver);
   }
 
   private async createPipelines(): Promise<void> {
@@ -324,16 +370,47 @@ export class WebGpuDriver implements RenderDriver {
     });
   }
 
-  private createResources(state: PipelineState): void {
+  private createResources(
+    state: PipelineState,
+    lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver
+  ): void {
     const device = this.device!;
     const [targetWidth, targetHeight] = state.uniforms.upscale.outputSize;
 
-    this.sourceTexture = device.createTexture({
+    const sourceTexture = device.createTexture({
       label: 'Source Texture',
       size: [state.nativeWidth, state.nativeHeight],
       format: 'rgba8unorm',
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT
     });
+    if (
+      typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+      __PRISMGB_PERF_HARNESS__ &&
+      typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+      __PRISMGB_PERF_INSTRUMENTATION__
+    ) {
+      const logicalTexelFootprint = state.nativeWidth * state.nativeHeight * 4;
+      if (!Number.isSafeInteger(logicalTexelFootprint) || logicalTexelFootprint <= 0) {
+        throw new RangeError('Source texture request footprint must be a positive safe integer');
+      }
+      lifecycleInstrumentationObserver?.recordWebGpuLifecycleRequestProxy({
+        lifecyclePhase: 'startup',
+        operationId: 'gpu-texture-request',
+        sourceLocationId: 'webgpu-driver:create-texture',
+        outcome: 'success',
+        byteKind: 'logical-texel-footprint',
+        byteValue: logicalTexelFootprint,
+        textureDescriptor: {
+          width: state.nativeWidth,
+          height: state.nativeHeight,
+          depth: 1,
+          format: 'rgba8unorm',
+          usage: 'texture-binding-copy-dst-render-attachment',
+          logicalTexelFootprint
+        }
+      });
+    }
+    this.sourceTexture = sourceTexture;
 
     this.intermediateTextures = [];
     this.intermediateTextureViews = [];
@@ -344,6 +421,33 @@ export class WebGpuDriver implements RenderDriver {
         format: 'rgba8unorm',
         usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT
       });
+      if (
+        typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+        __PRISMGB_PERF_HARNESS__ &&
+        typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+        __PRISMGB_PERF_INSTRUMENTATION__
+      ) {
+        const logicalTexelFootprint = targetWidth * targetHeight * 4;
+        if (!Number.isSafeInteger(logicalTexelFootprint) || logicalTexelFootprint <= 0) {
+          throw new RangeError('Intermediate texture request footprint must be a positive safe integer');
+        }
+        lifecycleInstrumentationObserver?.recordWebGpuLifecycleRequestProxy({
+          lifecyclePhase: 'startup',
+          operationId: 'gpu-texture-request',
+          sourceLocationId: 'webgpu-driver:create-texture',
+          outcome: 'success',
+          byteKind: 'logical-texel-footprint',
+          byteValue: logicalTexelFootprint,
+          textureDescriptor: {
+            width: targetWidth,
+            height: targetHeight,
+            depth: 1,
+            format: 'rgba8unorm',
+            usage: 'texture-binding-render-attachment',
+            logicalTexelFootprint
+          }
+        });
+      }
 
       this.intermediateTextures.push(texture);
       this.intermediateTextureViews.push(texture.createView());
@@ -351,19 +455,56 @@ export class WebGpuDriver implements RenderDriver {
 
     const uniformBuffers = new Map<string, GPUBuffer>();
     for (const pass of WEBGPU_RENDER_PASSES) {
-      uniformBuffers.set(pass.passId, device.createBuffer({
+      const buffer = device.createBuffer({
         label: `${pass.passId} uniform buffer`,
         size: pass.backend.layout.byteLength,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-      }));
+      });
+      if (
+        typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+        __PRISMGB_PERF_HARNESS__ &&
+        typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+        __PRISMGB_PERF_INSTRUMENTATION__
+      ) {
+        lifecycleInstrumentationObserver?.recordWebGpuLifecycleRequestProxy({
+          lifecyclePhase: 'startup',
+          operationId: 'gpu-buffer-request',
+          sourceLocationId: 'webgpu-driver:create-buffer',
+          outcome: 'success',
+          byteKind: 'descriptor-size',
+          byteValue: pass.backend.layout.byteLength,
+          descriptorSize: pass.backend.layout.byteLength
+        });
+      }
+      uniformBuffers.set(pass.passId, buffer);
     }
 
     this.uniformBuffers = uniformBuffers;
   }
 
-  renderFrame(source: TexImageSource, state: PipelineState): void {
-    if (!state.isActive || !this.device || !this.context || this.hasError) return;
-    if (!this.renderPipelines || !this.uniformBuffers || !this.sourceTexture) return;
+  renderFrame(
+    source: TexImageSource,
+    state: PipelineState,
+    instrumentationObserver?: WebGpuFrameInstrumentationObserver
+  ): FrameRenderResult {
+    if (!state.isActive || !this.device || !this.context) {
+      if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+        return { outcome: 'skipped-inactive' };
+      }
+      return undefined;
+    }
+    if (this.hasError) {
+      if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+        return { outcome: 'failed' };
+      }
+      return undefined;
+    }
+    if (!this.renderPipelines || !this.uniformBuffers || !this.sourceTexture) {
+      if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+        return { outcome: 'skipped-inactive' };
+      }
+      return undefined;
+    }
 
     const startTime = performance.now();
 
@@ -374,13 +515,27 @@ export class WebGpuDriver implements RenderDriver {
         [state.nativeWidth, state.nativeHeight]
       );
 
-      this.uploadUniforms(state);
+      this.uploadUniforms(state, instrumentationObserver);
 
       const commandEncoder = this.device.createCommandEncoder();
       const plan = createRenderPassPlan(
         getEnabledRenderPasses(WEBGPU_RENDER_PASSES, state.uniforms, state.preset),
         this.intermediateTextures.length
       );
+      if (
+        typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+        __PRISMGB_PERF_HARNESS__ &&
+        typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+        __PRISMGB_PERF_INSTRUMENTATION__
+      ) {
+        instrumentationObserver?.recordWebGpuFrameRequestProxy({
+          operationId: 'render-pass-plan-materialization',
+          sourceLocationId: 'webgpu-driver:materialize-render-plan',
+          outcome: 'success',
+          byteKind: 'count-only-unavailable',
+          byteValue: null
+        });
+      }
 
       for (const step of plan.steps) {
         const { pass } = step;
@@ -408,14 +563,32 @@ export class WebGpuDriver implements RenderDriver {
       this.present(
         commandEncoder,
         this.resolvePlanTexture(plan.presentSource),
-        this.context.getCurrentTexture()
+        this.context.getCurrentTexture(),
+        instrumentationObserver
       );
 
+      const queueSubmitStartedAt = performance.now();
       this.device.queue.submit([commandEncoder.finish()]);
+      if (
+        typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+        __PRISMGB_PERF_HARNESS__ &&
+        typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+        __PRISMGB_PERF_INSTRUMENTATION__
+      ) {
+        instrumentationObserver?.recordWebGpuQueueSubmitTiming(queueSubmitStartedAt, performance.now());
+      }
       state.recordFrame(performance.now() - startTime);
+      if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+        return { outcome: 'webgpu-queue-submit-completed' };
+      }
+      return undefined;
     } catch {
       this.hasError = true;
       state.deactivate();
+      if (typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' && __PRISMGB_PERF_HARNESS__) {
+        return { outcome: 'failed' };
+      }
+      return undefined;
     }
   }
 
@@ -471,7 +644,8 @@ export class WebGpuDriver implements RenderDriver {
   private present(
     commandEncoder: GPUCommandEncoder,
     inputTexture: GPUTexture,
-    canvasTexture: GPUTexture
+    canvasTexture: GPUTexture,
+    instrumentationObserver?: WebGpuFrameInstrumentationObserver
   ): void {
     const bindGroup = this.device!.createBindGroup({
       label: 'Present BindGroup',
@@ -481,6 +655,20 @@ export class WebGpuDriver implements RenderDriver {
         { binding: 1, resource: this.linearSampler! }
       ]
     });
+    if (
+      typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+      __PRISMGB_PERF_HARNESS__ &&
+      typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+      __PRISMGB_PERF_INSTRUMENTATION__
+    ) {
+      instrumentationObserver?.recordWebGpuFrameRequestProxy({
+        operationId: 'bind-group-create',
+        sourceLocationId: 'webgpu-driver:create-bind-group',
+        outcome: 'success',
+        byteKind: 'count-only-unavailable',
+        byteValue: null
+      });
+    }
 
     const passEncoder = commandEncoder.beginRenderPass({
       colorAttachments: [{
@@ -497,10 +685,22 @@ export class WebGpuDriver implements RenderDriver {
     passEncoder.end();
   }
 
-  private uploadUniforms(state: PipelineState): void {
+  private uploadUniforms(
+    state: PipelineState,
+    instrumentationObserver?: WebGpuFrameInstrumentationObserver
+  ): void {
     const device = this.device!;
+    const collectUniformRequest =
+      typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+      __PRISMGB_PERF_HARNESS__ &&
+      typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+      __PRISMGB_PERF_INSTRUMENTATION__;
+    let requestedByteLength = 0;
     for (const pass of WEBGPU_RENDER_PASSES) {
       const uniformData = pass.backend.uniformData(state.uniforms);
+      if (collectUniformRequest) {
+        requestedByteLength += uniformData.byteLength;
+      }
       const buffer = this.uniformBuffers!.get(pass.passId);
       if (!buffer) {
         throw new Error(`Missing uniform buffer for pass '${pass.passId}'`);
@@ -510,13 +710,26 @@ export class WebGpuDriver implements RenderDriver {
         device.queue.writeBuffer(buffer, 0, uniformData as unknown as ArrayBuffer);
       }
     }
+    if (collectUniformRequest) {
+      instrumentationObserver?.recordWebGpuFrameRequestProxy({
+        operationId: 'uniform-float32-array',
+        sourceLocationId: 'webgpu-driver:uniform-float32-array',
+        outcome: 'success',
+        byteKind: 'requested-byte-length',
+        byteValue: requestedByteLength,
+        requestedByteLength
+      });
+    }
   }
 
   onUniformsChanged(): void {
     this.uniformChangeTracker.invalidateAll();
   }
 
-  resize(state: PipelineState): void {
+  resize(
+    state: PipelineState,
+    lifecycleInstrumentationObserver?: WebGpuLifecycleInstrumentationObserver
+  ): void {
     if (!this.device || !this.context) return;
 
     this.intermediateTextures.forEach((texture) => texture.destroy());
@@ -531,6 +744,33 @@ export class WebGpuDriver implements RenderDriver {
         format: 'rgba8unorm',
         usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT
       });
+      if (
+        typeof __PRISMGB_PERF_HARNESS__ !== 'undefined' &&
+        __PRISMGB_PERF_HARNESS__ &&
+        typeof __PRISMGB_PERF_INSTRUMENTATION__ !== 'undefined' &&
+        __PRISMGB_PERF_INSTRUMENTATION__
+      ) {
+        const logicalTexelFootprint = targetWidth * targetHeight * 4;
+        if (!Number.isSafeInteger(logicalTexelFootprint) || logicalTexelFootprint <= 0) {
+          throw new RangeError('Resized texture request footprint must be a positive safe integer');
+        }
+        lifecycleInstrumentationObserver?.recordWebGpuLifecycleRequestProxy({
+          lifecyclePhase: 'resize',
+          operationId: 'gpu-texture-request',
+          sourceLocationId: 'webgpu-driver:create-texture',
+          outcome: 'success',
+          byteKind: 'logical-texel-footprint',
+          byteValue: logicalTexelFootprint,
+          textureDescriptor: {
+            width: targetWidth,
+            height: targetHeight,
+            depth: 1,
+            format: 'rgba8unorm',
+            usage: 'texture-binding-render-attachment',
+            logicalTexelFootprint
+          }
+        });
+      }
       this.intermediateTextures.push(texture);
       this.intermediateTextureViews.push(texture.createView());
     }
@@ -578,6 +818,7 @@ export class WebGpuDriver implements RenderDriver {
 
     this.device?.destroy();
     this.device = null;
+    PERFORMANCE_HARNESS_IDENTITIES?.delete(this);
     this.context = null;
     this.canvasFormat = null;
     this.renderPipelines = null;

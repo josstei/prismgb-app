@@ -12,9 +12,24 @@ import { createInjectableHarness, type LoggerMockLike } from '../../../../suppor
 type UrlModuleWithDefault = typeof import('node:url') & { default: typeof import('node:url') };
 type PathModuleWithDefault = typeof import('node:path') & { default: typeof import('node:path') };
 
+const browserWindowInvocation = vi.hoisted(() => ({
+  options: undefined as unknown
+}));
+
 // Mock electron - need to use class syntax
 vi.mock('electron', () => {
-  return createWindowServiceElectronMock();
+  const electronMock = createWindowServiceElectronMock();
+  const BaseBrowserWindow = electronMock.BrowserWindow;
+
+  return {
+    ...electronMock,
+    BrowserWindow: class MockBrowserWindow extends BaseBrowserWindow {
+      constructor(options: unknown) {
+        super();
+        browserWindowInvocation.options = options;
+      }
+    }
+  };
 });
 
 vi.mock('url', async (importOriginal) => {
@@ -53,7 +68,7 @@ vi.mock('path', async (importOriginal) => {
   };
 });
 
-import { WindowService } from '@main/infrastructure/window/window.service.js';
+import { loadRendererContent, WindowService } from '@main/infrastructure/window/window.service.js';
 import { app } from 'electron';
 
 type MockFn = ReturnType<typeof vi.fn>;
@@ -99,6 +114,7 @@ describe('WindowService', () => {
   let originalPlatform: NodeJS.Platform;
 
   beforeEach(() => {
+    browserWindowInvocation.options = undefined;
     const h = createInjectableHarness(WindowService, {
       overrides: {
         ipcPushBridge: { emit: vi.fn(), on: vi.fn(), off: vi.fn() }
@@ -200,6 +216,60 @@ describe('WindowService', () => {
       windowService.createWindow();
 
       expect(mockLogger.info).toHaveBeenCalledWith('Creating main window');
+    });
+
+    it('does not add a performance marker argument when no marker is installed', () => {
+      windowService.createWindow();
+
+      const browserWindowOptions = browserWindowInvocation.options as {
+        webPreferences: { additionalArguments?: string[] };
+      };
+
+      expect(browserWindowOptions.webPreferences.additionalArguments).toBeUndefined();
+    });
+  });
+
+  describe('performance diagnostics navigation', () => {
+    it('adds the marker query to the development URL only when diagnostics are enabled', () => {
+      const window = { loadURL: vi.fn(), loadFile: vi.fn() };
+
+      loadRendererContent(window as never, {
+        isDev: true,
+        rendererFilePath: '/app/renderer/index.html',
+        diagnosticsEnabled: false
+      });
+      expect(window.loadURL).toHaveBeenCalledWith('http://127.0.0.1:3000/src/renderer/index.html');
+
+      window.loadURL.mockClear();
+      loadRendererContent(window as never, {
+        isDev: true,
+        rendererFilePath: '/app/renderer/index.html',
+        diagnosticsEnabled: true
+      });
+      expect(window.loadURL).toHaveBeenCalledWith(
+        'http://127.0.0.1:3000/src/renderer/index.html?prismgb-e2e-diagnostics=1'
+      );
+    });
+
+    it('adds the marker query to packaged loads only when diagnostics are enabled', () => {
+      const window = { loadURL: vi.fn(), loadFile: vi.fn() };
+
+      loadRendererContent(window as never, {
+        isDev: false,
+        rendererFilePath: '/app/renderer/index.html',
+        diagnosticsEnabled: false
+      });
+      expect(window.loadFile).toHaveBeenCalledWith('/app/renderer/index.html');
+
+      window.loadFile.mockClear();
+      loadRendererContent(window as never, {
+        isDev: false,
+        rendererFilePath: '/app/renderer/index.html',
+        diagnosticsEnabled: true
+      });
+      expect(window.loadFile).toHaveBeenCalledWith('/app/renderer/index.html', {
+        query: { 'prismgb-e2e-diagnostics': '1' }
+      });
     });
   });
 

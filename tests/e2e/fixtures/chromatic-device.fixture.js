@@ -14,6 +14,10 @@ import {
   setTestDeviceStatus,
 } from '../helpers/device-ipc.helper.js';
 
+export function hasClassToken(classes, token) {
+  return (classes?.split(/\s+/) ?? []).includes(token);
+}
+
 export class ChromaticDeviceFixture {
   constructor(electronApp, page) {
     this.electronApp = electronApp;
@@ -82,7 +86,7 @@ export class ChromaticDeviceFixture {
   async expectConnected() {
     await expect(async () => {
       const classes = await this.appShell.statusIndicator.getAttribute('class');
-      expect(classes).toContain('connected');
+      expect(hasClassToken(classes, 'connected')).toBe(true);
     }).toPass({ timeout: 5000 });
 
     await expect(async () => {
@@ -112,9 +116,8 @@ export class ChromaticDeviceFixture {
   async expectDisconnected() {
     await expect(async () => {
       const classes = await this.appShell.statusIndicator.getAttribute('class');
-      const classList = classes?.split(/\s+/) ?? [];
-      expect(classList).toContain('disconnected');
-      expect(classList).not.toContain('connected');
+      expect(hasClassToken(classes, 'disconnected')).toBe(true);
+      expect(hasClassToken(classes, 'connected')).toBe(false);
     }).toPass({ timeout: 5000 });
   }
 

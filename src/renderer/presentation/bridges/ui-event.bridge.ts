@@ -1,6 +1,6 @@
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import { EventChannels, OnEvent } from '@platform/events';
+import { EventChannels, OnEvent, readBooleanPayloadField } from '@platform/events';
 import type {
   TypedEventBusLike,
   UiButtonFeedbackPayload,
@@ -8,21 +8,14 @@ import type {
 } from '@platform/events';
 import type { LoggerFactoryLike } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { DomBindings } from '@renderer/presentation/primitives/dom-bindings.utils.js';
 
-type UiControllerLike = {
-  updateDeviceStatus(status: unknown): void;
-  updateOverlayMessage(deviceConnected?: boolean): void;
-  showErrorOverlay(message: string): void;
-  updateStreamInfo(settings: unknown): void;
+type UIEffectsLike = {
   triggerShutterFlash(): void;
   triggerRecordButtonPop(): void;
   triggerRecordButtonPress(): void;
   triggerButtonFeedback(elementKey: string, className: string, duration: number): void;
-  updateRecordingButtonState(active: boolean): void;
-  setRecordButtonDisabled(disabled: boolean): void;
-  deviceStatus?: {
-    setOverlayVisible(visible: boolean): void;
-  } | null;
+  setRecordingButtonState(recordButton: HTMLButtonElement | null, isActive: boolean): void;
 };
 
 type PresentationModeServiceLike = {
@@ -30,28 +23,19 @@ type PresentationModeServiceLike = {
   handleFullscreenState(active: boolean): void;
 };
 
-function getBooleanPayloadValue(data: unknown, key: string): boolean | null {
-  if (typeof data !== 'object' || data === null || !(key in data)) {
-    return null;
-  }
-
-  const value = (data as Record<string, unknown>)[key];
-  return typeof value === 'boolean' ? value : null;
-}
-
 @injectable()
 export class UIEventBridge extends BaseService {
   constructor(
     @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.uiController) private readonly uiController: UiControllerLike,
+    @inject(TOKENS.uiEffects) private readonly uiEffects: UIEffectsLike,
+    @inject(TOKENS.domBindings) private readonly domBindings: DomBindings,
     @inject(TOKENS.presentationModeService) private readonly presentationModeService: PresentationModeServiceLike,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
   ) {
     super({ loggerFactory, eventBus }, 'UIEventBridge');
   }
 
-  initialize(): void {
-    this.bindEventHandlers();
+  protected override onInitialize(): void {
     this.logger.info('UIEventBridge initialized');
   }
 
@@ -62,17 +46,17 @@ export class UIEventBridge extends BaseService {
 
   @OnEvent(EventChannels.UI.SHUTTER_FLASH)
   private _handleShutterFlash(): void {
-    this.uiController.triggerShutterFlash();
+    this.uiEffects.triggerShutterFlash();
   }
 
   @OnEvent(EventChannels.UI.RECORD_BUTTON_POP)
   private _handleRecordButtonPop(): void {
-    this.uiController.triggerRecordButtonPop();
+    this.uiEffects.triggerRecordButtonPop();
   }
 
   @OnEvent(EventChannels.UI.RECORD_BUTTON_PRESS)
   private _handleRecordButtonPress(): void {
-    this.uiController.triggerRecordButtonPress();
+    this.uiEffects.triggerRecordButtonPress();
   }
 
   @OnEvent(EventChannels.UI.BUTTON_FEEDBACK)
@@ -83,7 +67,7 @@ export class UIEventBridge extends BaseService {
     if (!payload.elementKey) {
       return;
     }
-    this.uiController.triggerButtonFeedback(
+    this.uiEffects.triggerButtonFeedback(
       payload.elementKey,
       payload.className ?? 'active',
       payload.duration ?? 200
@@ -92,27 +76,27 @@ export class UIEventBridge extends BaseService {
 
   @OnEvent(EventChannels.UI.RECORDING_STATE)
   private _handleRecordingState(data: unknown): void {
-    const active = getBooleanPayloadValue(data, 'active');
+    const active = readBooleanPayloadField(data, 'active');
     if (active === null) {
       this.logger.warn('Ignoring invalid recording state payload');
       return;
     }
-    this.uiController.updateRecordingButtonState(active);
+    this.uiEffects.setRecordingButtonState(this.domBindings.flat.recordBtn, active);
   }
 
   @OnEvent(EventChannels.UI.RECORD_BUTTON_DISABLED)
   private _handleRecordButtonDisabled(): void {
-    this.uiController.setRecordButtonDisabled(true);
+    this._setRecordButtonDisabled(true);
   }
 
   @OnEvent(EventChannels.UI.RECORD_BUTTON_ENABLED)
   private _handleRecordButtonEnabled(): void {
-    this.uiController.setRecordButtonDisabled(false);
+    this._setRecordButtonDisabled(false);
   }
 
   @OnEvent(EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED)
   private _handleCinematicMode(data: unknown): void {
-    const enabled = getBooleanPayloadValue(data, 'enabled');
+    const enabled = readBooleanPayloadField(data, 'enabled');
     if (enabled === null) {
       this.logger.warn('Ignoring invalid cinematic mode payload');
       return;
@@ -124,7 +108,7 @@ export class UIEventBridge extends BaseService {
 
   @OnEvent(EventChannels.UI.FULLSCREEN_STATE)
   private _handleFullscreenState(data: unknown): void {
-    const active = getBooleanPayloadValue(data, 'active');
+    const active = readBooleanPayloadField(data, 'active');
     if (active === null) {
       this.logger.warn('Ignoring invalid fullscreen state payload');
       return;
@@ -136,5 +120,15 @@ export class UIEventBridge extends BaseService {
     const disposed = super.dispose();
     this.logger.info('UIEventBridge disposed');
     return disposed;
+  }
+
+  private _setRecordButtonDisabled(disabled: boolean): void {
+    const recordBtn = this.domBindings.flat.recordBtn;
+    if (!recordBtn) {
+      return;
+    }
+
+    recordBtn.disabled = disabled;
+    recordBtn.classList.toggle('disabled', disabled);
   }
 }
