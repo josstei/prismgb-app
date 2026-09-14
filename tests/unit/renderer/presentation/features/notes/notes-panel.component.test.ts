@@ -580,7 +580,7 @@ describe('NotesPanelComponent', () => {
         </div>
       `;
       const listItem = mockElements.notesList.querySelector('.note-list-item');
-      mockElements.notesList._triggerEvent('click', { target: listItem });
+      listItem?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       expect(component.currentNoteId).toBe('note_1');
 
       component.currentNoteId = 'old_note';
@@ -599,7 +599,7 @@ describe('NotesPanelComponent', () => {
         </div>
       `;
       const nextListItem = mockElements.notesList.querySelector('.note-list-item');
-      mockElements.notesList._triggerEvent('click', { target: nextListItem });
+      nextListItem?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       expect(mockNotesService.updateNoteWithChangeDetection).toHaveBeenCalledWith('old_note', {
         title: 'Old Title',
         content: 'Old Content',
