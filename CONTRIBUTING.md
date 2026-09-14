@@ -213,6 +213,14 @@ Major-version updates for these packages are **ignored** by Dependabot and must 
 
 - `electron`, `electron-builder`, `vite` — desktop build toolchain
 - `typescript`, `@typescript-eslint/eslint-plugin`, `@typescript-eslint/parser` — type-check toolchain
+- `@trpc/client`, `@trpc/server` — renderer↔main IPC contract; the two require each other at the exact same version
+- `vitest`, `@vitest/coverage-v8`, `@vitest/ui` — test runner; the plugins require vitest at the exact same version
+
+Their minor and patch updates still arrive through Dependabot groups.
+
+### Packages Dependabot does not update
+
+- `@inversifyjs/core` — must be the exact core that `inversify` depends on, because the DI test harness reads the metadata inversify writes. When an `inversify` update changes that core, `tests/unit/scripts/dependency-singletons.test.ts` fails on the update PR; set the devDependency to inversify's core version in the same PR.
 
 ### Upgrading TypeScript (major)
 
