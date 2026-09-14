@@ -210,10 +210,3 @@ export function createFixtureFrameData(
     timestamp: overrides.timestamp ?? fixtureTimestamp()
   };
 }
-
-export type {
-  DeviceFixtureFrameData,
-  DeviceFixtureProfile,
-  DeviceFixtureSpecs,
-  DeviceFixtureTrackSettings
-} from '../domain/types.js';

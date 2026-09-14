@@ -422,30 +422,46 @@ export function createSettingsMenuElementsMock(overrides = {}) {
   };
 }
 
+/**
+ * Creates a real element in the active test document. Fixtures handed to code that calls
+ * native DOM APIs (e.g. `window.getComputedStyle`) must be real elements: the DOM
+ * implementation rejects the plain-object fakes built by `createMockElement`.
+ */
+function createDocumentElement(tagName, { className = '', type } = {}) {
+  const element = document.createElement(tagName);
+  if (className) element.className = className;
+  if (type) element.type = type;
+  return element;
+}
+
+/**
+ * Creates the notes panel element set as real document elements. The notes panel layout reads
+ * `window.getComputedStyle` on the panel element during initialization.
+ */
 export function createNotesPanelElementsMock(overrides = {}) {
   const elements = {
-    notesBtn: createMockButton({ className: 'notes-btn' }),
-    notesPanel: createMockElement('div', { className: 'notes-panel' }),
-    notesPanelContent: createMockElement('div', { className: 'notes-panel-content' }),
-    notesListWrapper: createMockElement('div', { className: 'notes-list-wrapper' }),
-    notesSearchInput: createMockInput({ type: 'text' }),
-    notesGameFilter: createMockButton({ className: 'notes-game-filter' }),
-    notesGameFilterLabel: createMockElement('span', { className: 'notes-game-filter-label' }),
-    notesGameFilterMenu: createMockElement('div', { className: 'notes-game-filter-menu' }),
-    notesListToggle: createMockButton({ className: 'notes-list-toggle' }),
-    notesList: createMockElement('div', { className: 'notes-list' }),
-    notesEditor: createMockElement('div', { className: 'notes-editor' }),
-    notesGameAddBtn: createMockButton({ className: 'notes-game-add-btn' }),
-    notesGameTagRow: createMockElement('div', { className: 'notes-game-tag-row' }),
-    notesGameTag: createMockButton({ className: 'notes-game-tag' }),
-    notesGameInput: createMockInput({ type: 'text' }),
-    notesGameAutocomplete: createMockElement('div', { className: 'notes-game-autocomplete' }),
-    notesTitleInput: createMockInput({ type: 'text' }),
-    notesContentArea: createMockElement('textarea', { className: 'notes-content-area' }),
-    notesNewBtn: createMockButton({ className: 'notes-new-btn' }),
-    notesDeleteBtn: createMockButton({ className: 'notes-delete-btn' }),
-    streamContainer: createMockElement('div', { className: 'stream-container' }),
-    streamToolbar: createMockElement('div', { className: 'stream-toolbar' }),
+    notesBtn: createDocumentElement('button', { className: 'notes-btn' }),
+    notesPanel: createDocumentElement('div', { className: 'notes-panel' }),
+    notesPanelContent: createDocumentElement('div', { className: 'notes-panel-content' }),
+    notesListWrapper: createDocumentElement('div', { className: 'notes-list-wrapper' }),
+    notesSearchInput: createDocumentElement('input', { type: 'text' }),
+    notesGameFilter: createDocumentElement('button', { className: 'notes-game-filter' }),
+    notesGameFilterLabel: createDocumentElement('span', { className: 'notes-game-filter-label' }),
+    notesGameFilterMenu: createDocumentElement('div', { className: 'notes-game-filter-menu' }),
+    notesListToggle: createDocumentElement('button', { className: 'notes-list-toggle' }),
+    notesList: createDocumentElement('div', { className: 'notes-list' }),
+    notesEditor: createDocumentElement('div', { className: 'notes-editor' }),
+    notesGameAddBtn: createDocumentElement('button', { className: 'notes-game-add-btn' }),
+    notesGameTagRow: createDocumentElement('div', { className: 'notes-game-tag-row' }),
+    notesGameTag: createDocumentElement('button', { className: 'notes-game-tag' }),
+    notesGameInput: createDocumentElement('input', { type: 'text' }),
+    notesGameAutocomplete: createDocumentElement('div', { className: 'notes-game-autocomplete' }),
+    notesTitleInput: createDocumentElement('input', { type: 'text' }),
+    notesContentArea: createDocumentElement('textarea', { className: 'notes-content-area' }),
+    notesNewBtn: createDocumentElement('button', { className: 'notes-new-btn' }),
+    notesDeleteBtn: createDocumentElement('button', { className: 'notes-delete-btn' }),
+    streamContainer: createDocumentElement('div', { className: 'stream-container' }),
+    streamToolbar: createDocumentElement('div', { className: 'stream-toolbar' }),
   };
 
   return {

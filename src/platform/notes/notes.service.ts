@@ -284,4 +284,4 @@ class NotesService extends BaseService {
 }
 
 export { NotesService };
-export type { UserNote, NoteUpdates, NotesServiceDependencies, StorageServiceLike };
+export type { UserNote, NoteUpdates, NotesServiceDependencies };
