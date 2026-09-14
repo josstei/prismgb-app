@@ -2,6 +2,8 @@
  * FilenameGenerator Unit Tests
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { FilenameGenerator } from '@renderer/lib/filename-generator.utils';
 
@@ -90,6 +92,50 @@ describe('FilenameGenerator', () => {
       const filename2: string = FilenameGenerator.forScreenshot();
 
       expect(filename1).toBe(filename2);
+    });
+  });
+
+  // README.md's File Locations section is how users find their captures, so it
+  // must describe exactly what the generator emits.
+  describe('README File Locations', () => {
+    const readme = fs.readFileSync(path.resolve(process.cwd(), 'README.md'), 'utf8');
+
+    function documentedCapture(label: string): { template: string; example: string } {
+      const entry = readme.match(new RegExp(`^- ${label}: \`([^\`]+)\`.*, for example \`([^\`]+)\`$`, 'm'));
+      expect(entry, `README.md File Locations has no "- ${label}:" entry with an example`).not.toBeNull();
+      return { template: entry![1], example: entry![2] };
+    }
+
+    function templatePattern(template: string): RegExp {
+      const tokens: Record<string, string> = {
+        YYYYMMDD: '\\d{8}',
+        HHMMSS: '\\d{6}',
+        mmm: '\\d{3}',
+        '<format>': '[a-z0-9]+'
+      };
+      const source = template
+        .split(/(YYYYMMDD|HHMMSS|mmm|<format>)/)
+        .map((part) => tokens[part] ?? part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .join('');
+      return new RegExp(`^${source}$`);
+    }
+
+    beforeEach(() => {
+      vi.setSystemTime(new Date('2025-01-20T14:30:22.123'));
+    });
+
+    it('documents the screenshot filename the generator emits', () => {
+      const { template, example } = documentedCapture('Screenshots');
+      const filename: string = FilenameGenerator.forScreenshot();
+      expect(example).toBe(filename);
+      expect(filename).toMatch(templatePattern(template));
+    });
+
+    it('documents the recording filename the generator emits', () => {
+      const { template, example } = documentedCapture('Recordings');
+      const filename: string = FilenameGenerator.forRecording();
+      expect(example).toBe(filename);
+      expect(filename).toMatch(templatePattern(template));
     });
   });
 });

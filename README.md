@@ -251,8 +251,10 @@ Screenshots and recordings are automatically saved to your **Downloads** folder:
 | macOS    | `~/Downloads/` |
 | Linux    | `~/Downloads/` |
 
-- Screenshots: `prismgb-screenshot-YYYYMMDD-HHMMSS.png`
-- Recordings: `prismgb-recording-YYYYMMDD-HHMMSS.<format>` (WebM, MP4, or MOV based on settings)
+- Screenshots: `prismgb-screenshot-YYYYMMDD-HHMMSS-mmm.png`, for example `prismgb-screenshot-20250120-143022-123.png`
+- Recordings: `prismgb-recording-YYYYMMDD-HHMMSS-mmm.<format>` (WebM, MP4, or MOV based on settings), for example `prismgb-recording-20250120-143022-123.webm`
+
+The timestamp is local time, and `mmm` is milliseconds.
 
 ### Settings
 
