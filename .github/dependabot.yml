@@ -30,7 +30,31 @@ updates:
       - dependency-name: "@typescript-eslint/parser"
         update-types: ["version-update:semver-major"]
 
+    # A dependency joins the first group it matches, so group order is load-bearing:
+    # lockstep groups come first, catch-all groups by dependency type come last.
     groups:
+      # @trpc/client and @trpc/server require each other at the exact same version, so an
+      # update to either alone cannot install. Majors included: they must still travel together.
+      trpc:
+        patterns:
+          - "@trpc/*"
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
+
+      # The test DI harness reads inversify's constructor metadata through @inversifyjs/core,
+      # which must resolve to the same single copy inversify depends on
+      # (enforced by tests/unit/scripts/dependency-singletons.test.ts).
+      inversify:
+        patterns:
+          - "inversify"
+          - "@inversifyjs/*"
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
+
       # TypeScript ecosystem - keep TS, its lint tooling, and @types/* in sync
       typescript-ecosystem:
         patterns:
@@ -50,20 +74,14 @@ updates:
           - "minor"
           - "patch"
 
-      # Dev dependencies (excluding electron-related and typescript-ecosystem)
+      # Remaining dev dependencies
       dev-dependencies:
         dependency-type: "development"
         update-types:
           - "minor"
           - "patch"
-        exclude-patterns:
-          - "electron*"
-          - "vite-plugin-electron*"
-          - "typescript"
-          - "@typescript-eslint/*"
-          - "@types/*"
 
-      # Production dependencies
+      # Remaining production dependencies
       production-dependencies:
         dependency-type: "production"
         update-types:
@@ -72,7 +90,10 @@ updates:
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
-    directory: "/"
+    # "/" covers .github/workflows only; composite actions each live in their own directory.
+    directories:
+      - "/"
+      - "/.github/actions/*"
     schedule:
       interval: "weekly"
       day: "monday"
