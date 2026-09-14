@@ -12,8 +12,10 @@ updates:
     labels:
       - "dependencies"
 
-    # Ignore major updates for build-critical packages
-    # These require manual review due to potential breaking changes
+    # Majors of these packages are coordinated manual upgrades (CONTRIBUTING.md →
+    # "Packages excluded from automatic major bumps"). Ignoring the major also keeps their
+    # minor and patch updates flowing: Dependabot only proposes a dependency's latest
+    # non-ignored version, and skips it when that version is outside the group's update-types.
     ignore:
       - dependency-name: "electron-builder"
         update-types: ["version-update:semver-major"]
@@ -29,17 +31,28 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "@typescript-eslint/parser"
         update-types: ["version-update:semver-major"]
+      # @trpc/client and @trpc/server require each other at the exact same version, and a
+      # tRPC major also changes the contract of the Electron IPC transport.
+      - dependency-name: "@trpc/*"
+        update-types: ["version-update:semver-major"]
+      # @vitest/coverage-v8 and @vitest/ui require vitest at the exact same version.
+      - dependency-name: "vitest"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@vitest/*"
+        update-types: ["version-update:semver-major"]
+      # @inversifyjs/core must be the exact core inversify depends on, which Dependabot cannot
+      # derive. tests/unit/scripts/dependency-singletons.test.ts fails when the two diverge.
+      - dependency-name: "@inversifyjs/core"
 
-    # A dependency joins the first group it matches, so group order is load-bearing:
-    # lockstep groups come first, catch-all groups by dependency type come last.
+    # A dependency matching several groups joins the most specific one: an exact name outranks
+    # a dependency-type group, which outranks a wildcard pattern. The dependency-type groups
+    # therefore exclude the patterns of every group above them.
     groups:
-      # @trpc/client and @trpc/server require each other at the exact same version, so an
-      # update to either alone cannot install. Majors included: they must still travel together.
+      # @trpc/client and @trpc/server require each other at the exact same version.
       trpc:
         patterns:
           - "@trpc/*"
         update-types:
-          - "major"
           - "minor"
           - "patch"
 
@@ -49,19 +62,6 @@ updates:
           - "vitest"
           - "@vitest/*"
         update-types:
-          - "major"
-          - "minor"
-          - "patch"
-
-      # The test DI harness reads inversify's constructor metadata through @inversifyjs/core,
-      # which must resolve to the same single copy inversify depends on
-      # (enforced by tests/unit/scripts/dependency-singletons.test.ts).
-      inversify:
-        patterns:
-          - "inversify"
-          - "@inversifyjs/*"
-        update-types:
-          - "major"
           - "minor"
           - "patch"
 
@@ -84,19 +84,35 @@ updates:
           - "minor"
           - "patch"
 
-      # Remaining dev dependencies
       dev-dependencies:
         dependency-type: "development"
         update-types:
           - "minor"
           - "patch"
+        exclude-patterns:
+          - "@trpc/*"
+          - "vitest"
+          - "@vitest/*"
+          - "typescript"
+          - "@typescript-eslint/*"
+          - "@types/*"
+          - "electron*"
+          - "vite-plugin-electron*"
 
-      # Remaining production dependencies
       production-dependencies:
         dependency-type: "production"
         update-types:
           - "minor"
           - "patch"
+        exclude-patterns:
+          - "@trpc/*"
+          - "vitest"
+          - "@vitest/*"
+          - "typescript"
+          - "@typescript-eslint/*"
+          - "@types/*"
+          - "electron*"
+          - "vite-plugin-electron*"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
