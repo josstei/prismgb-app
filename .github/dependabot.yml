@@ -43,6 +43,16 @@ updates:
           - "minor"
           - "patch"
 
+      # @vitest/coverage-v8 and @vitest/ui require vitest at the exact same version.
+      vitest:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
+        update-types:
+          - "major"
+          - "minor"
+          - "patch"
+
       # The test DI harness reads inversify's constructor metadata through @inversifyjs/core,
       # which must resolve to the same single copy inversify depends on
       # (enforced by tests/unit/scripts/dependency-singletons.test.ts).
