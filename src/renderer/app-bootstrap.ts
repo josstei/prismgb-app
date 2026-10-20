@@ -27,7 +27,7 @@ class RendererBootstrap {
 
     try {
       // Settings definitions resolve these sources when they are first read.
-      registerAllowedValuesSource('TRANSCODE_CONFIG.formats', () => [...TRANSCODE_FORMATS]);
+      registerAllowedValuesSource('TRANSCODE_FORMATS', () => [...TRANSCODE_FORMATS]);
       registerDefaultValueSource('PRESET_POLICY.rendererDefaultId', () => PRESET_POLICY.rendererDefaultId);
 
       const appContainer = document.getElementById('appContainer');

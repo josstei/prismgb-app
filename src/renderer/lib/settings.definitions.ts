@@ -13,7 +13,7 @@ const SETTINGS_EVENT_CHANNELS = new Set<string>(Object.values(EventChannels.SETT
 
 // DYNAMIC OPTION REGISTRY IMPLEMENTATION
 const ALLOWED_VALUE_SOURCES: Record<string, () => string[]> = {
-  'TRANSCODE_CONFIG.formats': () => ['webm', 'mp4', 'mov'] // Default fallback allowed formats
+  TRANSCODE_FORMATS: () => ['webm', 'mp4', 'mov'] // Default fallback allowed formats
 };
 const DEFAULT_VALUE_SOURCES: Record<string, () => string | number | boolean> = {
   'PRESET_POLICY.rendererDefaultId': () => 'vibrant' // Default fallback preset
