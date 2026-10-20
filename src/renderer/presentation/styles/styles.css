@@ -13,7 +13,6 @@
 @import '../features/updates/styles/updates.css';
 @import '../features/streaming/styles/overlays.css';
 @import '../features/streaming/styles/streaming-states.css';
-@import '../features/toolbar/styles/capture-effects.css';
 @import '../features/toolbar/styles/toolbar-base.css';
 @import '../features/toolbar/styles/toolbar-capture.css';
 @import '../features/toolbar/styles/shader-panel.css';
