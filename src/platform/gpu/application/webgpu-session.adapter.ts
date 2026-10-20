@@ -102,13 +102,14 @@ export class WebGpuSessionAdapter implements GpuVideoRendererSession {
           brightness: options.brightness ?? 1.0
         }
       };
-      worker.postMessage(init, [offscreenCanvas]);
 
+      // The pending entry exists before posting so a synchronous reply still settles it.
       await new Promise<void>((resolve, reject) => {
         const timeoutId = setTimeout(() => {
           this.settleReady(new Error('Worker initialization timed out'));
         }, WORKER_INIT_TIMEOUT_MS);
         this.pendingReady = { resolve, reject, timeoutId };
+        worker.postMessage(init, [offscreenCanvas]);
       });
     } catch (error) {
       this.logger.error('Failed to initialize worker renderer:', error);
@@ -133,7 +134,11 @@ export class WebGpuSessionAdapter implements GpuVideoRendererSession {
         this.pendingFrames = Math.max(0, this.pendingFrames - 1);
         break;
       case 'captured':
-        this.settleCapture(response.bitmap);
+        if (this.pendingCapture) {
+          this.settleCapture(response.bitmap);
+        } else {
+          response.bitmap.close();
+        }
         break;
       case 'error':
         this.logger.error('Render worker error:', response.message);

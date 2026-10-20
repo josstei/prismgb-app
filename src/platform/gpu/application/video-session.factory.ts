@@ -27,7 +27,7 @@ export type GpuVideoRendererSessionOptions = {
   onReady?: (event: { backend: RenderBackend }) => void;
   onError?: (error: { message: string; code?: string }) => void;
   onCanvasExpired?: () => void;
-  logger?: Pick<Console, 'debug' | 'error' | 'info' | 'warn'>;
+  logger?: Pick<Console, 'error' | 'info'>;
 };
 
 export async function detectBrowserGpuCapabilities(): Promise<RenderCapabilities> {

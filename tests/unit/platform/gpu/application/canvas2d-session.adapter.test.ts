@@ -50,7 +50,7 @@ describe('Canvas2dSessionAdapter', () => {
   });
 
   it('logs, reports INIT_FAILED and rethrows when the canvas has no 2D context', () => {
-    const logger = { debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn() };
+    const logger = { error: vi.fn(), info: vi.fn() };
     const onReady = vi.fn();
     const onError = vi.fn();
 

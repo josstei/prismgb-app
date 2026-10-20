@@ -14,7 +14,7 @@ function createWorkerMock(): Worker {
 }
 
 function createLogger() {
-  return { debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn() };
+  return { error: vi.fn(), info: vi.fn() };
 }
 
 function startSession(options: Partial<GpuVideoRendererSessionOptions> = {}) {
@@ -145,6 +145,23 @@ describe('WebGpuSessionAdapter', () => {
     ]);
   });
 
+  it('resolves when the worker answers ready synchronously while init is posted', async () => {
+    const worker = createWorkerMock();
+    vi.mocked(worker.postMessage).mockImplementation(() => {
+      worker.onmessage?.({ data: { type: 'ready' } } as MessageEvent);
+    });
+
+    const session = await WebGpuSessionAdapter.create({
+      canvas: Object.assign(createMockCanvas(), { clientWidth: 480, clientHeight: 432 }) as unknown as HTMLCanvasElement,
+      nativeResolution: { width: 160, height: 144 },
+      createWorker: () => worker,
+      logger: createLogger()
+    });
+
+    expect(session.isActive).toBe(true);
+    expect(worker.terminate).not.toHaveBeenCalled();
+  });
+
   it('rejects initialization when the worker itself fails', async () => {
     const { sessionPromise, worker } = startSession();
 
@@ -253,6 +270,19 @@ describe('WebGpuSessionAdapter', () => {
     await vi.advanceTimersByTimeAsync(1000);
 
     await expectation;
+  });
+
+  it('closes a captured bitmap that arrives after its capture timed out', async () => {
+    const { session, respond } = await createReadySession();
+    vi.useFakeTimers();
+    const late = createBitmap();
+
+    const expectation = expect(session.captureFrame()).rejects.toThrow('Capture request timed out');
+    await vi.advanceTimersByTimeAsync(1000);
+    await expectation;
+    respond({ type: 'captured', bitmap: late });
+
+    expect(late.close).toHaveBeenCalledTimes(1);
   });
 
   it('rejects a pending capture, reports the message and stops sending after a worker error', async () => {

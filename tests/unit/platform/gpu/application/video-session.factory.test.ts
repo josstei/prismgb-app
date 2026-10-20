@@ -44,7 +44,7 @@ async function createSession(capabilities: RenderCapabilities | undefined, prefe
     preferredBackend,
     capabilities,
     createWorker: createWorkerMock,
-    logger: { debug: vi.fn(), error: vi.fn(), info: vi.fn(), warn: vi.fn() }
+    logger: { error: vi.fn(), info: vi.fn() }
   });
 
   return { canvas, session };
