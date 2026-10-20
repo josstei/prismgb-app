@@ -2,6 +2,13 @@ import { describe, it, expect, vi } from 'vitest';
 import { createNodeUsbMonitor, type UsbModule } from '@main/infrastructure/devices/usb.monitor';
 import { CHROMATIC_DESCRIPTOR } from '../../../../devices/media.testkit';
 
+const { requireNative } = vi.hoisted(() => ({ requireNative: vi.fn() }));
+
+vi.mock('node:module', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('node:module')>()),
+  createRequire: () => requireNative
+}));
+
 const chromaticUsb = CHROMATIC_DESCRIPTOR.usb;
 
 function makeNodeUsbDevice(overrides: Record<string, unknown> = {}) {
@@ -92,6 +99,27 @@ describe('usb.monitor', () => {
     const monitor = createNodeUsbMonitor(() => usb as unknown as UsbModule);
 
     expect(() => monitor.watch(vi.fn())()).not.toThrow();
+  });
+
+  it('loads the native addon by default', () => {
+    const usb = createUsbModule();
+    usb.getDeviceList.mockReturnValue([makeNodeUsbDevice()]);
+    requireNative.mockReturnValue(usb);
+
+    expect(createNodeUsbMonitor().find()).toHaveLength(1);
+    expect(requireNative).toHaveBeenCalledWith('usb');
+  });
+
+  it('warns and falls back to a no-op monitor when the native addon fails to load', () => {
+    requireNative.mockImplementation(() => {
+      throw new Error('addon missing');
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const monitor = createNodeUsbMonitor();
+
+    expect(monitor.find()).toEqual([]);
+    expect(warn).toHaveBeenCalledWith('[usb.monitor] Failed to load native C++ "usb" module. Falling back to no-op monitor.');
   });
 
   it('returns a no-op monitor when the native module is unavailable', () => {
