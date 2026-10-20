@@ -1,5 +1,5 @@
 import type { RenderCapabilities, RenderCanvas } from '../domain/types';
-import type { PipelineUniforms } from '../domain/uniforms';
+import type { PipelineUniforms } from '../infrastructure/webgpu-passes.definitions';
 import { WorkerRendererClient } from '../worker/client';
 import { WorkerResponseType } from '../worker/protocol';
 import type {

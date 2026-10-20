@@ -1,6 +1,5 @@
-import type { PipelineUniforms } from '../domain/uniforms';
 import type { RenderBackend, RenderCanvas, RenderPipeline, RenderPreset } from '../domain/types';
-import { buildUniforms } from '../application/uniform-builder';
+import { buildUniforms, type PipelineUniforms } from './webgpu-passes.definitions';
 
 export interface PipelineControllerConfig {
   canvas: RenderCanvas;

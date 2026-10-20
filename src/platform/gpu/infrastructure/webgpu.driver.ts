@@ -1,36 +1,6 @@
 import type { PipelineState, RenderDriver } from './pipeline-controller';
-import { loadWebGpuShaders } from './shaders';
 import { RecoverableBackendInitializationError } from '../domain/errors';
-import type { PipelineUniforms } from '../domain/uniforms';
-import {
-  compileRenderPasses,
-  createRenderPassPlan,
-  getEnabledRenderPasses,
-  readFiniteNumber,
-  readFiniteNumberPair,
-  readUniformSourceValue,
-  type CompiledRenderPass,
-  type RenderPlanSource,
-  type RenderPlanTarget
-} from '../application/passes';
-import type { RenderPassDefinition, WebGpuUniformMemberSpec } from '../domain/pass-specs';
-
-type WebGpuUniformMember = WebGpuUniformMemberSpec;
-
-type WebGpuUniformLayout = {
-  passId: string;
-  uniformBlock: string;
-  byteLength: number;
-  members: readonly WebGpuUniformMember[];
-};
-
-type WebGpuPassState = {
-  shaderFile: string;
-  layout: WebGpuUniformLayout;
-  uniformData(uniforms: PipelineUniforms): Float32Array;
-};
-
-type WebGpuRenderPass = CompiledRenderPass<WebGpuPassState>;
+import { PRESENT_SHADER, WEBGPU_PASSES, type WebGpuPass } from './webgpu-passes.definitions';
 
 type RenderPipelines = Map<string, GPURenderPipeline>;
 type UniformBuffers = Map<string, GPUBuffer>;
@@ -110,68 +80,6 @@ class UniformChangeTracker {
   }
 }
 
-function normalizeWebGpuUniformLayout(pass: RenderPassDefinition): WebGpuUniformLayout {
-  return {
-    passId: pass.id,
-    uniformBlock: pass.uniformBlock,
-    byteLength: pass.webgpuUniformLayout.byteLength,
-    members: pass.webgpuUniformLayout.members
-  };
-}
-
-function writeWebGpuUniformMember(
-  output: Float32Array,
-  member: WebGpuUniformMember,
-  uniforms: PipelineUniforms
-): void {
-  const outputIndex = member.offsetBytes / Float32Array.BYTES_PER_ELEMENT;
-  if (!Number.isInteger(outputIndex)) {
-    throw new Error(`WebGPU uniform member '${member.name}' offset must be 4-byte aligned`);
-  }
-
-  const value = readUniformSourceValue(uniforms, member.source);
-  if (member.type === 'vec2<f32>') {
-    const [x, y] = readFiniteNumberPair(value, `WebGPU uniform member '${member.name}'`);
-    output[outputIndex] = x;
-    output[outputIndex + 1] = y;
-    return;
-  }
-
-  output[outputIndex] = readFiniteNumber(value, `WebGPU uniform member '${member.name}'`);
-}
-
-function buildWebGpuUniformDataBuilder(
-  layout: WebGpuUniformLayout
-): (uniforms: PipelineUniforms) => Float32Array {
-  if (layout.byteLength % Float32Array.BYTES_PER_ELEMENT !== 0) {
-    throw new Error(`WebGPU uniform layout for pass '${layout.passId}' must be 4-byte aligned`);
-  }
-
-  return (uniforms) => {
-    const output = new Float32Array(layout.byteLength / Float32Array.BYTES_PER_ELEMENT);
-    for (const member of layout.members) {
-      writeWebGpuUniformMember(output, member, uniforms);
-    }
-
-    return output;
-  };
-}
-
-function compileWebGpuPassState(pass: RenderPassDefinition): WebGpuPassState {
-  const layout = normalizeWebGpuUniformLayout(pass);
-
-  return {
-    shaderFile: pass.webgpuShader,
-    layout: { ...layout },
-    uniformData: buildWebGpuUniformDataBuilder(layout)
-  };
-}
-
-export const WEBGPU_RENDER_PASSES = compileRenderPasses<WebGpuPassState>({
-  backendName: 'webgpu',
-  compile: compileWebGpuPassState
-});
-
 export class WebGpuDriver implements RenderDriver {
   readonly backend = 'webgpu' as const;
 
@@ -241,7 +149,6 @@ export class WebGpuDriver implements RenderDriver {
 
   private async createPipelines(): Promise<void> {
     const device = this.device!;
-    const shaders = loadWebGpuShaders();
 
     const createAndValidate = async (label: string, code: string): Promise<GPUShaderModule> => {
       const module = device.createShaderModule({ label, code });
@@ -264,15 +171,10 @@ export class WebGpuDriver implements RenderDriver {
     }
 
     const pipelines = new Map<string, GPURenderPipeline>();
-    for (const pass of WEBGPU_RENDER_PASSES) {
-      const shaderSource = shaders.byFileName[pass.backend.shaderFile];
-      if (!shaderSource) {
-        throw new Error(`Missing WebGPU shader source for pass '${pass.passId}'`);
-      }
-
-      const shaderModule = await createAndValidate(`${pass.passId} shader`, shaderSource);
-      pipelines.set(pass.passId, await createNativeRenderPipelineAsync.call(device, {
-        label: `${pass.passId} pipeline`,
+    for (const pass of WEBGPU_PASSES) {
+      const shaderModule = await createAndValidate(`${pass.id} shader`, pass.shader);
+      pipelines.set(pass.id, await createNativeRenderPipelineAsync.call(device, {
+        label: `${pass.id} pipeline`,
         layout: 'auto',
         vertex: { module: shaderModule, entryPoint: 'vertexMain' },
         fragment: {
@@ -284,11 +186,7 @@ export class WebGpuDriver implements RenderDriver {
       }));
     }
 
-    const presentShaderSource = shaders.byFileName['present.wgsl'];
-    if (!presentShaderSource) {
-      throw new Error('Missing WebGPU present shader source');
-    }
-    const presentModule = await createAndValidate('present shader', presentShaderSource);
+    const presentModule = await createAndValidate('present shader', PRESENT_SHADER);
     this.presentPipeline = await createNativeRenderPipelineAsync.call(device, {
       label: 'present pipeline',
       layout: 'auto',
@@ -350,10 +248,10 @@ export class WebGpuDriver implements RenderDriver {
     }
 
     const uniformBuffers = new Map<string, GPUBuffer>();
-    for (const pass of WEBGPU_RENDER_PASSES) {
-      uniformBuffers.set(pass.passId, device.createBuffer({
-        label: `${pass.passId} uniform buffer`,
-        size: pass.backend.layout.byteLength,
+    for (const pass of WEBGPU_PASSES) {
+      uniformBuffers.set(pass.id, device.createBuffer({
+        label: `${pass.id} uniform buffer`,
+        size: pass.byteLength,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
       }));
     }
@@ -375,39 +273,16 @@ export class WebGpuDriver implements RenderDriver {
       this.uploadUniforms(state);
 
       const commandEncoder = this.device.createCommandEncoder();
-      const plan = createRenderPassPlan(
-        getEnabledRenderPasses(WEBGPU_RENDER_PASSES, state.uniforms, state.preset),
-        this.intermediateTextures.length
-      );
-
-      for (const step of plan.steps) {
-        const { pass } = step;
-        const pipeline = this.renderPipelines.get(pass.passId);
-        const uniformBuffer = this.uniformBuffers.get(pass.passId);
-        const sampler = pass.sampler === 'nearest'
-          ? this.nearestSampler!
-          : this.linearSampler!;
-
-        if (!pipeline || !uniformBuffer || !sampler) {
-          throw new Error(`Missing pass runtime state for '${pass.passId}'`);
-        }
-
-        this.renderPass(
-          commandEncoder,
-          pass,
-          pipeline,
-          this.resolvePlanTexture(step.source),
-          this.resolvePlanTargetTexture(step.target),
-          uniformBuffer,
-          sampler
-        );
+      let input = this.sourceTexture;
+      let target = 0;
+      for (const pass of WEBGPU_PASSES) {
+        if (!pass.isEnabled(state.uniforms)) continue;
+        this.renderPass(commandEncoder, pass, input, target);
+        input = this.intermediateTextures[target];
+        target ^= 1;
       }
 
-      this.present(
-        commandEncoder,
-        this.resolvePlanTexture(plan.presentSource),
-        this.context.getCurrentTexture()
-      );
+      this.present(commandEncoder, input, this.context.getCurrentTexture());
 
       this.device.queue.submit([commandEncoder.finish()]);
     } catch {
@@ -416,43 +291,24 @@ export class WebGpuDriver implements RenderDriver {
     }
   }
 
-  private resolvePlanTexture(source: RenderPlanSource): GPUTexture {
-    return source.kind === 'source'
-      ? this.sourceTexture!
-      : this.intermediateTextures[source.index];
-  }
-
-  private resolvePlanTargetTexture(target: RenderPlanTarget): GPUTexture {
-    return this.intermediateTextures[target.index];
-  }
-
   private renderPass(
     commandEncoder: GPUCommandEncoder,
-    pass: WebGpuRenderPass,
-    pipeline: GPURenderPipeline,
+    pass: WebGpuPass,
     inputTexture: GPUTexture,
-    outputTexture: GPUTexture,
-    uniformBuffer: GPUBuffer,
-    sampler: GPUSampler
+    target: number
   ): void {
+    const pipeline = this.renderPipelines!.get(pass.id)!;
     const bindGroup = this.bindGroupStore.getOrCreate(
       this.device!,
       pipeline,
-      uniformBuffer,
+      this.uniformBuffers!.get(pass.id)!,
       inputTexture,
-      sampler
+      pass.sampler === 'nearest' ? this.nearestSampler! : this.linearSampler!
     );
-
-    const outputIndex = this.intermediateTextures.indexOf(outputTexture);
-    const outputView = this.intermediateTextureViews[outputIndex];
-
-    if (!outputView) {
-      throw new Error(`Invalid output target for pass '${pass.passId}'`);
-    }
 
     const passEncoder = commandEncoder.beginRenderPass({
       colorAttachments: [{
-        view: outputView,
+        view: this.intermediateTextureViews[target],
         loadOp: 'clear',
         storeOp: 'store',
         clearValue: { r: 0, g: 0, b: 0, a: 1 }
@@ -496,15 +352,10 @@ export class WebGpuDriver implements RenderDriver {
 
   private uploadUniforms(state: PipelineState): void {
     const device = this.device!;
-    for (const pass of WEBGPU_RENDER_PASSES) {
-      const uniformData = pass.backend.uniformData(state.uniforms);
-      const buffer = this.uniformBuffers!.get(pass.passId);
-      if (!buffer) {
-        throw new Error(`Missing uniform buffer for pass '${pass.passId}'`);
-      }
-
-      if (this.uniformChangeTracker.hasChanged(pass.passId, uniformData)) {
-        device.queue.writeBuffer(buffer, 0, uniformData as unknown as ArrayBuffer);
+    for (const pass of WEBGPU_PASSES) {
+      const uniformData = pass.pack(state.uniforms);
+      if (this.uniformChangeTracker.hasChanged(pass.id, uniformData)) {
+        device.queue.writeBuffer(this.uniformBuffers!.get(pass.id)!, 0, uniformData as unknown as ArrayBuffer);
       }
     }
   }
