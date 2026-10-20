@@ -9,8 +9,12 @@ vi.mock('../../../../src/platform/gpu/infrastructure/webgpu.driver', () => {
   throw new Error('webgpu driver imported');
 });
 
+vi.mock('../../../../src/platform/gpu/infrastructure/webgpu-passes.definitions', () => {
+  throw new Error('webgpu pass table imported');
+});
+
 describe('@platform/gpu/runtime import safety', () => {
-  it('creates a Canvas2D session without importing browser capability detection or the WebGPU driver', async () => {
+  it('creates a Canvas2D session without importing browser capability detection, the WebGPU driver or its pass table', async () => {
     const { createGpuVideoRendererSession } = await import('@platform/gpu/runtime');
     const canvas = createMockCanvas(160, 144, {
       '2d': {
