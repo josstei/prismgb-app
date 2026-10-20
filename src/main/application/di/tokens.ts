@@ -40,6 +40,3 @@ export const TOKENS = {
   loginItemService: token<LoginItemService>('loginItemService'),
   appOrchestrator: token<AppOrchestrator>('appOrchestrator')
 } as const;
-
-export type TokenKey = keyof typeof TOKENS;
-export const TOKEN_KEYS = Object.keys(TOKENS) as readonly TokenKey[];

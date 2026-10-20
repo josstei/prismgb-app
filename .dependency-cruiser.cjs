@@ -131,13 +131,6 @@ module.exports = {
       to: { path: '^src/main/index\\.ts$' }
     },
     {
-      name: 'main-bootstrap-only-from-entry',
-      severity: 'error',
-      comment: 'Only the main entry wires the bootstrap.',
-      from: { path: '^src/', pathNot: ['^src/main/index\\.ts$'] },
-      to: { path: '^src/main/app-bootstrap\\.ts$' }
-    },
-    {
       name: 'platform-not-to-app',
       severity: 'error',
       comment: 'Platform modules are the foundation; they never import app code.',
