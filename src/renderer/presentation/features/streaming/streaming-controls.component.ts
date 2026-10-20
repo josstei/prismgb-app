@@ -8,28 +8,13 @@ const STREAM_TRANSITION_DURATION = 1000;
 const STREAMING_HIDE_TIMEOUT = Symbol('streaming-controls-hide-timeout');
 const STREAMING_TRANSITION_TIMEOUT = Symbol('streaming-controls-transition-timeout');
 
-type ClassListLike = {
-  add(...tokens: string[]): void;
-  remove(...tokens: string[]): void;
-  contains?(token: string): boolean;
-};
-
-type ButtonElementLike = {
-  disabled: boolean;
-  classList: ClassListLike;
-};
-
-type TextElementLike = {
-  textContent: string | null;
-};
-
 export interface StreamingControlsElements {
-  streamOverlay?: { classList: ClassListLike } | null;
-  screenshotBtn?: ButtonElementLike | null;
-  recordBtn?: ButtonElementLike | null;
-  shaderControls?: { classList: ClassListLike } | null;
-  currentResolution?: TextElementLike | null;
-  currentFPS?: TextElementLike | null;
+  streamOverlay?: HTMLElement | null;
+  screenshotBtn?: HTMLButtonElement | null;
+  recordBtn?: HTMLButtonElement | null;
+  shaderControls?: HTMLElement | null;
+  currentResolution?: HTMLElement | null;
+  currentFPS?: HTMLElement | null;
 }
 
 export interface StreamingControlsComponentOptions {
