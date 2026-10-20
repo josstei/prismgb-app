@@ -148,12 +148,12 @@ export class CaptureOrchestrator extends BaseOrchestrator {
   }
 
   @OnEvent(EventChannels.CAPTURE.RECORDING_STARTED)
-  _handleRecordingStarted(): void {
+  private handleRecordingStarted(): void {
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Recording started' });
   }
 
   @OnEvent(EventChannels.CAPTURE.RECORDING_DEGRADED)
-  _handleRecordingDegraded(data: RecordingDegradedPayload): void {
+  private handleRecordingDegraded(data: RecordingDegradedPayload): void {
     const message = `Recording quality degraded: ${data.droppedFrames ?? 0} frames dropped`;
     this.logger.warn('Recording degraded:', message);
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message, type: 'warning' });
