@@ -101,5 +101,11 @@ async function main() {
 }
 
 if (fileURLToPath(import.meta.url) === process.argv[1]) {
-  main().then((code) => process.exit(code));
+  main().then(
+    (code) => process.exit(code),
+    (error) => {
+      console.error(`dev boot smoke preflight setup failed: ${error.message}`);
+      process.exit(1);
+    }
+  );
 }
