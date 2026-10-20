@@ -45,12 +45,12 @@ import type { FeedbackEffect } from '../../presentation/effects/feedback.effect'
 import type { TrpcDeviceStatusPort } from '../../infrastructure/services/devices/trpc-device-status.port';
 import type { BrowserMediaDevicesPort } from '../../infrastructure/services/devices/browser-media-devices.port';
 import type { StorageDevicePreferenceStore } from '../../infrastructure/services/devices/storage-device-preference.store';
-import type { UiComponentHost, RendererUiComponentInstanceMap } from '../../presentation/controller/ui-component.host';
+import type { UiComponentHost } from '../../presentation/ui-component.host';
 import type { DomBindings } from '../../presentation/primitives/dom-bindings.utils';
 import type { StatusNotificationComponent } from '../../presentation/shared/status-notification.component';
 import type { DeviceStatusComponent } from '../../presentation/shared/device-status.component';
 import type { StreamingControlsComponent } from '../../presentation/features/streaming/streaming-controls.component';
-import type { TranscodeToastComponent } from '../../presentation/features/transcode/transcode-toast.component';
+import type { TranscodeProgressComponent } from '../../presentation/features/toolbar/transcode-progress.component';
 import type { SettingsMenuComponent } from '../../presentation/features/settings/settings-menu.component';
 import type { ShaderSelectorComponent } from '../../presentation/features/toolbar/shader-selector.component';
 import type { NotesPanelComponent } from '../../presentation/features/notes/notes-panel.component';
@@ -110,12 +110,12 @@ export const TOKENS = {
   domBindings: token<DomBindings>('domBindings'),
   statusNotificationComponent: token<StatusNotificationComponent>('statusNotificationComponent'),
   deviceStatusComponent: token<DeviceStatusComponent>('deviceStatusComponent'),
-  streamControlsComponent: token<StreamingControlsComponent>('streamControlsComponent'),
-  transcodeToastComponent: token<TranscodeToastComponent>('transcodeToastComponent'),
+  streamingControlsComponent: token<StreamingControlsComponent>('streamingControlsComponent'),
+  transcodeProgressComponent: token<TranscodeProgressComponent>('transcodeProgressComponent'),
   settingsMenuComponent: token<SettingsMenuComponent>('settingsMenuComponent'),
   shaderSelectorComponent: token<ShaderSelectorComponent>('shaderSelectorComponent'),
   notesPanelComponent: token<NotesPanelComponent>('notesPanelComponent'),
-  uiComponentHost: token<UiComponentHost<RendererUiComponentInstanceMap>>('uiComponentHost')
+  uiComponentHost: token<UiComponentHost>('uiComponentHost')
 } as const;
 
 export type TokenKey = keyof typeof TOKENS;

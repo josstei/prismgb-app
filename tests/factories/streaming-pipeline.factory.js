@@ -159,6 +159,7 @@ export function createGpuRendererServiceMock(overrides = {}) {
  */
 export function createStreamingServiceFacadeMock(overrides = {}) {
   return /** @type {any} */ ({
+    isStreaming: false,
     start: vi.fn().mockResolvedValue({}),
     stop: vi.fn().mockResolvedValue(),
     getStream: vi.fn(),

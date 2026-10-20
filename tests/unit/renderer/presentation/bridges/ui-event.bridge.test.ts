@@ -94,7 +94,7 @@ describe('UiEventBridge', () => {
   });
 
   it('enters streaming mode on the controls, then enables toolbar and cursor auto-hide', () => {
-    const streamingControls = components.get('streamControlsComponent');
+    const streamingControls = components.get('streamingControlsComponent');
 
     eventBus.publish(EventChannels.UI.STREAMING_MODE, { enabled: true });
 
@@ -107,7 +107,7 @@ describe('UiEventBridge', () => {
   });
 
   it('leaves streaming mode, then disables cursor and toolbar auto-hide and hides the shader selector', () => {
-    const streamingControls = components.get('streamControlsComponent');
+    const streamingControls = components.get('streamingControlsComponent');
     const shaderSelector = components.get('shaderSelectorComponent');
 
     eventBus.publish(EventChannels.UI.STREAMING_MODE, { enabled: false });

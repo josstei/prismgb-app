@@ -1,15 +1,10 @@
-/**
- * TranscodeToastComponent Unit Tests
- * Reactive bindings from TranscodeProgressStore onto the record button
- */
-
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { TranscodeToastComponent } from '@renderer/presentation/features/transcode/transcode-toast.component';
+import { TranscodeProgressComponent } from '@renderer/presentation/features/toolbar/transcode-progress.component';
 import { TranscodeProgressStore } from '@renderer/presentation/state/transcode-progress.store';
-import { createTranscodeToastElementsMock, createEventBus } from '../../../../../factories/index.js';
+import { createTranscodeProgressElementsMock, createEventBus } from '../../../../../factories/index.js';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 
-describe('TranscodeToastComponent', () => {
+describe('TranscodeProgressComponent', () => {
   let mockElements;
   let mockEventBus;
   let store;
@@ -17,10 +12,10 @@ describe('TranscodeToastComponent', () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
-    mockElements = createTranscodeToastElementsMock();
+    mockElements = createTranscodeProgressElementsMock();
     mockEventBus = createEventBus();
     store = new TranscodeProgressStore({ eventBus: mockEventBus });
-    component = new TranscodeToastComponent({ elements: mockElements, store });
+    component = new TranscodeProgressComponent({ elements: mockElements, store });
   });
 
   afterEach(() => {
@@ -62,7 +57,7 @@ describe('TranscodeToastComponent', () => {
     expect(mockElements.transcodePercentLabel.textContent).toBe('');
   });
 
-  it('clears the toast immediately on cancel', () => {
+  it('clears the progress immediately on cancel', () => {
     mockEventBus.publish(EventChannels.TRANSCODE.STARTED, { jobId: 'j1', format: 'mp4' });
     mockEventBus.publish(EventChannels.TRANSCODE.PROGRESS, { percent: 45 });
     mockEventBus.publish(EventChannels.TRANSCODE.CANCELLED, {});
@@ -80,7 +75,7 @@ describe('TranscodeToastComponent', () => {
 
   it('does not throw when target elements are missing', () => {
     const bareStore = new TranscodeProgressStore({ eventBus: mockEventBus });
-    const bareComponent = new TranscodeToastComponent({ elements: {}, store: bareStore });
+    const bareComponent = new TranscodeProgressComponent({ elements: {}, store: bareStore });
     expect(() =>
       mockEventBus.publish(EventChannels.TRANSCODE.STARTED, { jobId: 'j1', format: 'mp4' })
     ).not.toThrow();

@@ -16,7 +16,7 @@ export {
   createNotesPanelElementsMock,
   createShaderSelectorElementsMock,
   createSettingsMenuElementsMock,
-  createTranscodeToastElementsMock,
+  createTranscodeProgressElementsMock,
   createMockElement,
   createUiComponentHostMock,
   createAutoHideEffectMock,

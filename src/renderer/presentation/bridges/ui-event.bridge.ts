@@ -7,17 +7,14 @@ import { TOKENS } from '@renderer/application/di/tokens';
 import type { AutoHideEffect } from '@renderer/presentation/effects/auto-hide.effect';
 import type { FeedbackEffect } from '@renderer/presentation/effects/feedback.effect';
 import type { DomBindings } from '@renderer/presentation/primitives/dom-bindings.utils';
-import type {
-  RendererUiComponentInstanceMap,
-  UiComponentHost
-} from '@renderer/presentation/controller/ui-component.host';
+import type { UiComponentHost } from '@renderer/presentation/ui-component.host';
 
 /** The presentation layer's only domain-event sink: maps domain events onto components and effects. */
 @injectable()
 export class UiEventBridge extends BaseService {
   constructor(
     @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
-    @inject(TOKENS.uiComponentHost) private readonly components: UiComponentHost<RendererUiComponentInstanceMap>,
+    @inject(TOKENS.uiComponentHost) private readonly components: UiComponentHost,
     @inject(TOKENS.domBindings) private readonly dom: DomBindings,
     @inject(TOKENS.autoHideEffect) private readonly autoHide: AutoHideEffect,
     @inject(TOKENS.feedbackEffect) private readonly feedback: FeedbackEffect,
@@ -68,7 +65,7 @@ export class UiEventBridge extends BaseService {
 
   @OnEvent(EventChannels.UI.STREAMING_MODE)
   private handleStreamingMode({ enabled }: UiStreamingModePayload): void {
-    this.components.get('streamControlsComponent').setStreamingMode(enabled);
+    this.components.get('streamingControlsComponent').setStreamingMode(enabled);
     if (enabled) {
       this.autoHide.enableToolbar(this.dom.streaming.streamToolbar);
       this.autoHide.enableCursor();

@@ -365,7 +365,7 @@ export function createDeviceStatusElementsMock(overrides = {}) {
   };
 }
 
-export function createTranscodeToastElementsMock(overrides = {}) {
+export function createTranscodeProgressElementsMock(overrides = {}) {
   const recordBtn = createMockButton({ className: 'record-btn' });
   const transcodeRing = createMockElement('div', { className: 'transcode-ring' });
   transcodeRing.style = {
@@ -476,7 +476,7 @@ function createStatusNotificationComponentMock(overrides = {}) {
   };
 }
 
-function createStreamControlsComponentMock(overrides = {}) {
+function createStreamingControlsComponentMock(overrides = {}) {
   return {
     setStreamingMode: vi.fn(),
     dispose: vi.fn(),
@@ -484,7 +484,7 @@ function createStreamControlsComponentMock(overrides = {}) {
   };
 }
 
-function createTranscodeToastComponentMock(overrides = {}) {
+function createTranscodeProgressComponentMock(overrides = {}) {
   return {
     dispose: vi.fn(),
     ...overrides
@@ -524,12 +524,13 @@ export function createUiComponentHostMock(overrides = {}) {
   const {
     statusNotificationComponent = createStatusNotificationComponentMock(),
     deviceStatusComponent = createDeviceStatusComponentMock(),
-    streamControlsComponent = createStreamControlsComponentMock(),
-    transcodeToastComponent = createTranscodeToastComponentMock(),
+    streamingControlsComponent = createStreamingControlsComponentMock(),
+    transcodeProgressComponent = createTranscodeProgressComponentMock(),
     settingsMenuComponent = createSettingsMenuComponentMock(),
     shaderSelectorComponent = createShaderSelectorComponentMock(),
     notesPanelComponent = createNotesPanelComponentMock(),
     resolveCore = vi.fn(),
+    resolveDeferred = vi.fn(),
     dispose = vi.fn(),
     get,
     ...hostOverrides
@@ -538,8 +539,8 @@ export function createUiComponentHostMock(overrides = {}) {
   const componentMap = {
     statusNotificationComponent,
     deviceStatusComponent,
-    streamControlsComponent,
-    transcodeToastComponent,
+    streamingControlsComponent,
+    transcodeProgressComponent,
     settingsMenuComponent,
     shaderSelectorComponent,
     notesPanelComponent
@@ -548,7 +549,7 @@ export function createUiComponentHostMock(overrides = {}) {
   return {
     get: get ?? vi.fn((id) => componentMap[id]),
     resolveCore,
-    resolvedIds: vi.fn(() => Object.keys(componentMap)),
+    resolveDeferred,
     dispose,
     ...hostOverrides
   };
