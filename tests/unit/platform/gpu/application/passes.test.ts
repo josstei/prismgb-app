@@ -9,7 +9,7 @@ import {
 } from '../../../../../src/platform/gpu/application/passes';
 import { PASS_SPECS } from '../../../../../src/platform/gpu/domain/pass-specs';
 import { buildUniforms } from '../../../../../src/platform/gpu/application/uniform-builder';
-import { getPreset } from '../../../../../src/platform/gpu/application/catalog';
+import { resolvePreset } from '../../../../../src/platform/gpu/domain/presets.definitions';
 import type { PipelineUniforms } from '../../../../../src/platform/gpu/domain/uniforms';
 
 const WEBGPU_UNIFORM_TYPE_BYTES: Record<string, number> = {
@@ -31,7 +31,7 @@ function pass(id: string): { id: string } {
 }
 
 function buildFixtureUniforms(presetId = 'vibrant'): PipelineUniforms {
-  const preset = getPreset(presetId)!;
+  const preset = resolvePreset(presetId);
 
   return buildUniforms({
     preset,
@@ -85,7 +85,7 @@ describe('compileRenderPasses', () => {
     const compiledPasses = compileWebGpuContractPasses();
 
     for (const { presetId, expectedPassIds } of cases) {
-      const preset = getPreset(presetId)!;
+      const preset = resolvePreset(presetId);
       const uniforms = buildFixtureUniforms(presetId);
 
       expect(getEnabledRenderPasses(compiledPasses, uniforms, preset).map((candidate) => candidate.passId)).toEqual(expectedPassIds);

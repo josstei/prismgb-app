@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getPreset } from '../../../../../src/platform/gpu/application/catalog';
+import { resolvePreset } from '../../../../../src/platform/gpu/domain/presets.definitions';
 import { WebGpuDriver } from '../../../../../src/platform/gpu/infrastructure/webgpu.driver';
 import { PipelineController } from '../../../../../src/platform/gpu/infrastructure/pipeline-controller';
 
@@ -120,7 +120,7 @@ describe('WebGpuDriver', () => {
       canvas: canvas as unknown as HTMLCanvasElement,
       nativeWidth: 160,
       nativeHeight: 144,
-      preset: getPreset('vibrant')!
+      preset: resolvePreset('vibrant')
     }, new WebGpuDriver());
 
     await renderer.initialize();
@@ -161,7 +161,7 @@ describe('WebGpuDriver', () => {
       canvas: canvas as unknown as HTMLCanvasElement,
       nativeWidth: 160,
       nativeHeight: 144,
-      preset: getPreset('vibrant')!
+      preset: resolvePreset('vibrant')
     }, new WebGpuDriver());
 
     await renderer.initialize();
@@ -198,7 +198,7 @@ describe('WebGpuDriver', () => {
       canvas: canvas as unknown as HTMLCanvasElement,
       nativeWidth: 160,
       nativeHeight: 144,
-      preset: getPreset('vibrant')!
+      preset: resolvePreset('vibrant')
     }, new WebGpuDriver());
 
     await renderer.initialize();

@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   createPipelineUniformsFixture,
   createRenderCapabilitiesFixture,
-  createRenderPresetFixture,
   createWorkerRendererClientMock
 } from '@platform/gpu/testkit';
 import type { FramePayload } from '../../../../../src/platform/gpu/worker/protocol';
@@ -15,7 +14,6 @@ describe('platform/gpu/testkit/fixtures', () => {
         webgpu: true
       })
     );
-    expect(createRenderPresetFixture({ color: { enabled: false } }).color.enabled).toBe(false);
     expect(createPipelineUniformsFixture({ upscale: { scaleFactor: 2 } }).upscale).toEqual({
       inputSize: [160, 144],
       outputSize: [640, 576],

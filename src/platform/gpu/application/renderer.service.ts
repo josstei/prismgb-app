@@ -1,4 +1,3 @@
-import { getPackageDefaultPreset } from './catalog';
 import { RecoverableBackendInitializationError } from '../domain/errors';
 import type { RenderBackend, RenderCapabilities, RenderPipeline, RenderPipelineConfig } from '../domain/types';
 import { CanvasDriver } from '../infrastructure/canvas.driver';
@@ -13,7 +12,7 @@ function createBaseConfig(options: CreateGpuRendererOptions) {
     canvas: options.canvas,
     nativeWidth: options.nativeWidth,
     nativeHeight: options.nativeHeight,
-    preset: options.preset ?? getPackageDefaultPreset()
+    preset: options.preset
   };
 }
 
@@ -76,7 +75,7 @@ async function createCanvasRenderer(options: CreateGpuRendererOptions): Promise<
     canvas: options.canvas,
     nativeWidth: options.nativeWidth,
     nativeHeight: options.nativeHeight,
-    preset: options.preset ?? getPackageDefaultPreset()
+    preset: options.preset
   }, new CanvasDriver());
   await renderer.initialize();
   return renderer;

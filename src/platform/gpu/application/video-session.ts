@@ -1,4 +1,4 @@
-import { resolvePreset, getRendererDefaultPreset } from './catalog';
+import { resolvePreset } from '../domain/presets.definitions';
 import { createGpuRenderer } from './renderer.service';
 import { WorkerRendererClient } from '../worker/client';
 import type {
@@ -81,8 +81,8 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
     this.nativeHeight = options.nativeResolution.height;
     this.targetWidth = this.nativeWidth;
     this.targetHeight = this.nativeHeight;
-    this.presetId = options.presetId || getRendererDefaultPreset().id;
-    this.currentPreset = resolvePreset(this.presetId);
+    this.currentPreset = resolvePreset(options.presetId);
+    this.presetId = this.currentPreset.id;
     this.brightness = options.brightness !== undefined ? options.brightness : 1.0;
 
     this.onReadyCb = options.onReady;

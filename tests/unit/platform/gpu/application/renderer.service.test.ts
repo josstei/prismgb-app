@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createGpuRenderer } from '../../../../../src/platform/gpu/application/renderer.service';
 import { createMockCanvas, createRenderCapabilitiesFixture } from '@platform/gpu/testkit';
+import { resolvePreset } from '@platform/gpu';
 
 function createCanvas2DRenderFixture() {
   const canvas2dContext = {
@@ -31,6 +32,7 @@ describe('renderer service', () => {
       canvas,
       nativeWidth: 160,
       nativeHeight: 144,
+      preset: resolvePreset('true-color'),
       preferredBackend: 'canvas2d',
       capabilities: createRenderCapabilitiesFixture({
         webgpu: false,
@@ -55,6 +57,7 @@ describe('renderer service', () => {
       canvas,
       nativeWidth: 160,
       nativeHeight: 144,
+      preset: resolvePreset('true-color'),
       capabilities: createRenderCapabilitiesFixture({
         webgpu: false,
         offscreenCanvas: false,
@@ -80,6 +83,7 @@ describe('renderer service', () => {
       canvas,
       nativeWidth: 160,
       nativeHeight: 144,
+      preset: resolvePreset('true-color'),
       allowCanvas2D: false,
       capabilities: createRenderCapabilitiesFixture({
         webgpu: false,
@@ -107,6 +111,7 @@ describe('renderer service', () => {
       canvas,
       nativeWidth: 160,
       nativeHeight: 144,
+      preset: resolvePreset('true-color'),
       capabilities: {
         ...createRenderCapabilitiesFixture(),
         webgpu: true,

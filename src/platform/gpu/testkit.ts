@@ -1,6 +1,5 @@
 export {
   createRenderCapabilitiesFixture,
-  createRenderPresetFixture,
   createPipelineUniformsFixture,
   createMockOffscreenCanvas,
   createMockCanvas,

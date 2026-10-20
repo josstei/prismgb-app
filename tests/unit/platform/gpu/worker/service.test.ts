@@ -84,7 +84,7 @@ vi.mock('../../../../../src/platform/gpu/application/renderer.service', () => ({
   createGpuRenderer: mockCreateGpuRenderer
 }));
 
-vi.mock('../../../../../src/platform/gpu/application/catalog', () => ({
+vi.mock('../../../../../src/platform/gpu/domain/presets.definitions', () => ({
   resolvePreset: mockResolvePreset
 }));
 

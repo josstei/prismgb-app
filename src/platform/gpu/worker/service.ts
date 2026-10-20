@@ -1,4 +1,4 @@
-import { resolvePreset } from '../application/catalog';
+import { resolvePreset } from '../domain/presets.definitions';
 import { createGpuRenderer } from '../application/renderer.service';
 import { detectWorkerGpuCapabilities } from '../infrastructure/capabilities.worker';
 import type { RenderCanvas, RenderPipeline, RenderPreset } from '../domain/types';
@@ -28,7 +28,7 @@ type WorkerRendererPipelineOptions = {
   backend?: WorkerRenderBackend;
   nativeSize: readonly [number, number];
   outputSize: readonly [number, number];
-  preset?: RenderPreset;
+  preset: RenderPreset;
 };
 
 type WorkerRendererPipeline = {

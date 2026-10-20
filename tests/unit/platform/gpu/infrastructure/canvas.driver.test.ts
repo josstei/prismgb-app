@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CanvasDriver } from '../../../../../src/platform/gpu/infrastructure/canvas.driver';
 import { PipelineController } from '../../../../../src/platform/gpu/infrastructure/pipeline-controller';
-import { getPackageDefaultPreset } from '../../../../../src/platform/gpu/application/catalog';
+import { resolvePreset } from '../../../../../src/platform/gpu/domain/presets.definitions';
 import { createMockCanvas } from '@platform/gpu/testkit';
 
 function createCanvas2DTestFixture() {
@@ -22,7 +22,7 @@ describe('CanvasDriver', () => {
       canvas: canvas as unknown as HTMLCanvasElement,
       nativeWidth: 160,
       nativeHeight: 144,
-      preset: getPackageDefaultPreset()
+      preset: resolvePreset('true-color')
     }, new CanvasDriver());
 
     await renderer.initialize();

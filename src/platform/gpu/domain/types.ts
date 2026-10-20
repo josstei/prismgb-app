@@ -6,10 +6,6 @@ export interface RenderCanvas {
   getContext(...args: readonly unknown[]): unknown;
 }
 
-export interface UpscaleConfig {
-  readonly enabled: boolean;
-}
-
 export interface UnsharpConfig {
   readonly enabled: boolean;
   readonly strength: number;
@@ -36,27 +32,16 @@ export interface CRTConfig {
 export interface RenderPreset {
   readonly id: string;
   readonly name: string;
-  readonly description: string;
-  readonly upscale: UpscaleConfig;
   readonly unsharp: UnsharpConfig;
   readonly color: ColorConfig;
   readonly crt: CRTConfig;
-}
-
-export type RenderPresetSummary = Pick<RenderPreset, 'id' | 'name' | 'description'>;
-
-export interface ShaderPresetCatalog {
-  readonly presets: readonly RenderPreset[];
-  readonly packageDefaultPresetId: string;
-  readonly rendererDefaultPresetId: string;
-  readonly uiPresetIds: readonly string[];
 }
 
 export interface RenderPipelineConfig {
   canvas: RenderCanvas;
   nativeWidth: number;
   nativeHeight: number;
-  preset?: RenderPreset;
+  preset: RenderPreset;
   preferredBackend?: RenderBackend;
   allowCanvas2D?: boolean;
 }

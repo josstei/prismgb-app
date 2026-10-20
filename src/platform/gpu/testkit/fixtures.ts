@@ -1,9 +1,4 @@
-import { getRendererDefaultPreset } from '../application/catalog';
-import type {
-  RenderCapabilities,
-  RenderCanvas,
-  RenderPreset
-} from '../domain/types';
+import type { RenderCapabilities, RenderCanvas } from '../domain/types';
 import type { PipelineUniforms } from '../domain/uniforms';
 import { WorkerRendererClient } from '../worker/client';
 import { WorkerResponseType } from '../worker/protocol';
@@ -42,33 +37,6 @@ export function createRenderCapabilitiesFixture(
     preferredBackend: 'canvas2d',
     maxTextureSize: 4096,
     ...overrides
-  };
-}
-
-export function createRenderPresetFixture(
-  overrides: DeepPartial<RenderPreset> = {}
-): RenderPreset {
-  const preset = getRendererDefaultPreset();
-
-  return {
-    ...preset,
-    ...overrides,
-    upscale: {
-      ...preset.upscale,
-      ...overrides.upscale
-    },
-    unsharp: {
-      ...preset.unsharp,
-      ...overrides.unsharp
-    },
-    color: {
-      ...preset.color,
-      ...overrides.color
-    },
-    crt: {
-      ...preset.crt,
-      ...overrides.crt
-    }
   };
 }
 

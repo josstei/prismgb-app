@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { buildUniforms, calculateScaleFactor } from '../../../../../src/platform/gpu/application/uniform-builder';
-import { getPreset } from '../../../../../src/platform/gpu/application/catalog';
+import { resolvePreset } from '../../../../../src/platform/gpu/domain/presets.definitions';
 
 describe('calculateScaleFactor', () => {
   it('should calculate integer scale factor', () => {
@@ -20,7 +20,7 @@ describe('calculateScaleFactor', () => {
 
 describe('buildUniforms', () => {
   it('should build uniforms from preset and dimensions', () => {
-    const preset = getPreset('true-color')!;
+    const preset = resolvePreset('true-color');
 
     const uniforms = buildUniforms({
       preset,
@@ -41,7 +41,7 @@ describe('buildUniforms', () => {
   });
 
   it('should apply brightness multiplier', () => {
-    const preset = getPreset('true-color')!;
+    const preset = resolvePreset('true-color');
 
     const uniforms = buildUniforms({
       preset,
@@ -56,7 +56,7 @@ describe('buildUniforms', () => {
   });
 
   it('should disable effects when preset has them disabled', () => {
-    const preset = getPreset('performance')!;
+    const preset = resolvePreset('performance');
 
     const uniforms = buildUniforms({
       preset,
@@ -75,7 +75,7 @@ describe('buildUniforms', () => {
   });
 
   it('should include scaleFactor in unsharp uniforms', () => {
-    const preset = getPreset('true-color')!;
+    const preset = resolvePreset('true-color');
 
     const uniforms = buildUniforms({
       preset,
@@ -90,7 +90,7 @@ describe('buildUniforms', () => {
   });
 
   it('should include scaleFactor and resolution in crt uniforms', () => {
-    const preset = getPreset('vintage')!;
+    const preset = resolvePreset('vintage');
 
     const uniforms = buildUniforms({
       preset,
@@ -107,7 +107,7 @@ describe('buildUniforms', () => {
   });
 
   it('should include enabled flags from preset', () => {
-    const preset = getPreset('vintage')!;
+    const preset = resolvePreset('vintage');
 
     const uniforms = buildUniforms({
       preset,
