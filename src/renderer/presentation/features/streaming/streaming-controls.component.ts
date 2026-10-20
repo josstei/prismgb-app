@@ -1,7 +1,7 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import { bindText } from '@renderer/presentation/primitives/signal-bindings.utils';
-import type { StreamInfoStore } from '@renderer/presentation/state/stream-info.store.js';
+import type { StreamInfoStore } from '@renderer/presentation/state/stream-info.store';
 
 const STREAM_TRANSITION_DURATION = 1000;
 const STREAMING_HIDE_TIMEOUT = Symbol('streaming-controls-hide-timeout');

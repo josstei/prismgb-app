@@ -1,7 +1,7 @@
 import { TIMING } from '@renderer/lib/timing.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
-import type { DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils.js';
+import type { DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils';
 
 type ButtonElements = DomBindingsFlat;
 

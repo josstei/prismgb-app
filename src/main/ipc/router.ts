@@ -18,7 +18,7 @@ import type {
   TranscodeCancelledPayload
 } from '@platform/ipc';
 
-import { router, publicProcedure, rethrowAsTrpcError, type IpcContext } from './trpc.js';
+import { router, publicProcedure, rethrowAsTrpcError, type IpcContext } from './trpc';
 import {
   externalUrlSchema,
   enabledFlagSchema,
@@ -35,7 +35,7 @@ import {
   transcodeCancelledSchema,
   loginItemGetResponseSchema,
   deviceStatusPayloadSchema
-} from './schemas/index.js';
+} from './schemas/index';
 
 function toBuffer(inputBuffer: ArrayBuffer): Buffer {
   return Buffer.from(inputBuffer);

@@ -6,7 +6,7 @@ import { ControlsAutoHide } from '@renderer/presentation/effects/controls-auto-h
 import { TIMING } from '@renderer/lib/timing.config';
 import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import { ActivityAutoHideController } from '@renderer/presentation/widgets/activity-auto-hide.controller';
-import type { DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils.js';
+import type { DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils';
 
 type BodyClassManagerLike = {
   dispose?: () => void | Promise<void>;

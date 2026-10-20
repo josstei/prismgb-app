@@ -1,6 +1,6 @@
 import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import { bindText, bindProperty } from '@renderer/presentation/primitives/signal-bindings.utils';
-import type { StatusNotificationStore } from '@renderer/presentation/state/status-notification.store.js';
+import type { StatusNotificationStore } from '@renderer/presentation/state/status-notification.store';
 
 interface StatusMessageElementLike {
   textContent: string | null;

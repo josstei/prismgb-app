@@ -2,7 +2,7 @@ import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import { bindText, bindClass } from '@renderer/presentation/primitives/signal-bindings.utils';
 import { computed } from '@preact/signals-core';
-import type { DeviceStatusStore } from '@renderer/presentation/state/device-status.store.js';
+import type { DeviceStatusStore } from '@renderer/presentation/state/device-status.store';
 
 export interface DeviceStatusElements {
   statusIndicator?: { classList: any } | null;

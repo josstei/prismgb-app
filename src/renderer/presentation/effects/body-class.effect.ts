@@ -4,7 +4,7 @@ import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import { bindClass } from '@renderer/presentation/primitives/signal-bindings.utils';
 import { effect } from '@preact/signals-core';
-import type { PresentationModeStore } from '@renderer/presentation/state/presentation-mode.store.js';
+import type { PresentationModeStore } from '@renderer/presentation/state/presentation-mode.store';
 
 const MINIMALIST_TRANSITION_TIMEOUT = Symbol('minimalist-transition-timeout');
 

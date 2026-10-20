@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { TRANSCODE_FORMATS } from '@platform/ipc';
-import { updateErrorSchema } from './update.schemas.js';
+import { updateErrorSchema } from './update.schemas';
 
 const supportedTranscodeFormats = new Set<string>(TRANSCODE_FORMATS);
 

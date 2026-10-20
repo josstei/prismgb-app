@@ -1,5 +1,5 @@
 import type { DeviceStatusPayload } from '@platform/devices';
-import type { IpcPushBridge } from './ipc-push.bridge.js';
+import type { IpcPushBridge } from './ipc-push.bridge';
 
 export const TEST_CONTROL_CHANNELS = Object.freeze({
   SET_DEVICE_STATUS: 'prismgb:test-control:set-device-status',
