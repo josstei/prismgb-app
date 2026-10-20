@@ -2,7 +2,7 @@
  * Device Factory
  *
  * Creates mock device-related instances for testing.
- * Includes device directory, media stream, and device info mocks.
+ * Includes device runtime, device status and device info mocks.
  */
 
 import { vi } from 'vitest';
@@ -12,11 +12,8 @@ import {
   getDeviceStreamProfile,
 } from '@platform/devices';
 import {
-  CHROMATIC_SPECS,
   createChromaticAudioDeviceInfo,
-  createChromaticMediaStream,
   createChromaticVideoDeviceInfo,
-  createChromaticVideoTrack,
 } from '../devices/media.testkit.ts';
 
 /**
@@ -26,71 +23,6 @@ import {
  */
 export function createDeviceInfo(overrides = {}) {
   return createChromaticVideoDeviceInfo(overrides);
-}
-
-/**
- * Creates a mock video track
- * @param {Object} options - Track options
- * @returns {Object} Mock video track
- */
-export function createVideoTrack(options = {}) {
-  const {
-    width = CHROMATIC_SPECS.nativeWidth,
-    height = CHROMATIC_SPECS.nativeHeight,
-    frameRate = CHROMATIC_SPECS.defaultFrameRate,
-    deviceId = CHROMATIC_SPECS.deviceId,
-    label = CHROMATIC_SPECS.label,
-    settings = {},
-    capabilities = {},
-    constraints = {},
-    ...trackOverrides
-  } = options;
-
-  return createChromaticVideoTrack({
-    label,
-    settings: {
-      deviceId,
-      width,
-      height,
-      frameRate,
-      aspectRatio: width / height,
-      ...settings
-    },
-    capabilities: {
-      deviceId,
-      width: { min: width, max: width },
-      height: { min: height, max: height },
-      frameRate: { min: Math.min(...CHROMATIC_SPECS.frameRates), max: Math.max(...CHROMATIC_SPECS.frameRates) },
-      ...capabilities
-    },
-    constraints: {
-      deviceId: { exact: deviceId },
-      width: { exact: width },
-      height: { exact: height },
-      frameRate: { ideal: frameRate },
-      ...constraints
-    },
-    ...trackOverrides
-  });
-}
-
-/**
- * Creates a mock MediaStream
- * @param {Object} options - Stream options
- * @returns {Object} Mock MediaStream
- */
-export function createMediaStream(options = {}) {
-  const videoTrack = createVideoTrack(options);
-  const stream = createChromaticMediaStream({
-    ...options,
-    includeAudio: false,
-    tracks: [videoTrack]
-  });
-
-  return {
-    ...stream,
-    _videoTrack: videoTrack,
-  };
 }
 
 /**
