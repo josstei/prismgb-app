@@ -53,13 +53,12 @@
   border: 1px solid rgba(var(--color-primary-rgb), 0.2);
   border-radius: var(--radius-lg);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  margin-left: 0;
   transition: opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .status-message {
   flex: 1 1 120px;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   color: var(--color-text-primary);
 }
@@ -79,7 +78,7 @@
   background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.12) 0%, rgba(var(--color-primary-darker-rgb), 0.08) 100%);
   border: 1px solid rgba(var(--color-primary-rgb), 0.22);
   border-radius: var(--radius-full);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   letter-spacing: 0.3px;
   color: var(--color-text-primary);
 }
@@ -95,13 +94,13 @@
   font-variant-numeric: tabular-nums;
 }
 
-.metric-chip.status-state.connected {
+.metric-chip.connected {
   border-color: rgba(var(--color-success-rgb), 0.35);
   background: linear-gradient(135deg, rgba(var(--color-success-rgb), 0.16) 0%, rgba(5, 150, 105, 0.12) 100%);
   color: var(--color-success-light);
 }
 
-.metric-chip.status-state.disconnected {
+.metric-chip.disconnected {
   border-color: rgba(var(--color-danger-rgb), 0.3);
   background: linear-gradient(135deg, rgba(var(--color-danger-rgb), 0.16) 0%, rgba(244, 63, 94, 0.12) 100%);
   color: var(--color-danger-light);

@@ -8,10 +8,7 @@
    ===================================================== */
 .stream-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background: var(--color-bg-overlay-light);
   backdrop-filter: blur(8px);
   display: flex;
@@ -67,10 +64,7 @@
 .stream-overlay::after {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background: radial-gradient(
     ellipse at center,
     transparent 40%,
@@ -106,10 +100,7 @@
    ===================================================== */
 .overlay-particles {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   pointer-events: none;
   z-index: 5;
 }
@@ -132,7 +123,6 @@
 .particle-1 {
   left: 15%;
   animation-duration: 8s;
-  animation-delay: 0s;
   --drift-a: 5px;
   --drift-b: -10px;
 }
@@ -188,7 +178,6 @@
    ===================================================== */
 .overlay-content {
   text-align: center;
-  padding: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -209,8 +198,6 @@
   /* Match gem dimensions for proper centering of effects */
   width: 150px;
   height: 150px;
-  /* Allow click indicator to extend below */
-  overflow: visible;
   /* Float animation on wrapper so rings move with gem */
   animation: icon-float 6s ease-in-out infinite;
   will-change: transform;
@@ -240,13 +227,13 @@
   border-radius: 50%;
   background: conic-gradient(
     from 0deg,
-    rgba(255, 0, 128, 0.6),
+    rgba(var(--color-primary-rgb), 0.6),
     rgba(255, 128, 0, 0.6),
     rgba(255, 255, 0, 0.6),
     rgba(0, 255, 128, 0.6),
     rgba(0, 255, 255, 0.6),
     rgba(128, 0, 255, 0.6),
-    rgba(255, 0, 128, 0.6)
+    rgba(var(--color-primary-rgb), 0.6)
   );
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #fff calc(100% - 3px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #fff calc(100% - 3px));
@@ -267,10 +254,10 @@
 .ready-ring-outer {
   background: conic-gradient(
     from 120deg,
-    rgba(255, 0, 128, 0.4),
+    rgba(var(--color-primary-rgb), 0.4),
     rgba(0, 255, 255, 0.4),
     rgba(255, 255, 0, 0.4),
-    rgba(255, 0, 128, 0.4)
+    rgba(var(--color-primary-rgb), 0.4)
   );
   animation: prismatic-ring-expand 2s ease-out infinite;
   animation-play-state: paused;
@@ -281,7 +268,7 @@
   background: conic-gradient(
     from 240deg,
     rgba(0, 255, 255, 0.5),
-    rgba(255, 0, 128, 0.5),
+    rgba(var(--color-primary-rgb), 0.5),
     rgba(128, 0, 255, 0.5),
     rgba(0, 255, 255, 0.5)
   );
@@ -307,7 +294,7 @@
   border-radius: 50%;
   background: radial-gradient(
     circle,
-    rgba(255, 0, 128, 0.35) 0%,
+    rgba(var(--color-primary-rgb), 0.35) 0%,
     rgba(0, 255, 255, 0.2) 40%,
     transparent 70%
   );
@@ -331,7 +318,7 @@
   background: radial-gradient(
     circle,
     rgba(255, 255, 255, 0.9) 0%,
-    rgba(255, 0, 128, 0.5) 20%,
+    rgba(var(--color-primary-rgb), 0.5) 20%,
     rgba(0, 255, 255, 0.3) 50%,
     transparent 70%
   );
@@ -347,10 +334,7 @@
    ===================================================== */
 .scanlines {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   pointer-events: none;
   opacity: 0;
   visibility: hidden;

@@ -19,13 +19,13 @@ body.cinematic-active::after {
   filter: blur(60px);
   background: conic-gradient(
     from 120deg,
-    rgba(255, 0, 128, 0.12),
+    rgba(var(--color-primary-rgb), 0.12),
     rgba(255, 100, 0, 0.10),
     rgba(255, 200, 0, 0.08),
     rgba(0, 255, 100, 0.08),
     rgba(0, 200, 255, 0.10),
     rgba(130, 0, 255, 0.12),
-    rgba(255, 0, 128, 0.12)
+    rgba(var(--color-primary-rgb), 0.12)
   );
 }
 
@@ -37,7 +37,7 @@ body.cinematic-active::before {
 /* Enhance atmospheric orbs in cinematic mode */
 body.cinematic-active .prismatic-orbs::before {
   opacity: 0.5;
-  background: radial-gradient(circle, rgba(255, 0, 128, 0.5) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(var(--color-primary-rgb), 0.5) 0%, transparent 70%);
 }
 
 body.cinematic-active .prismatic-orbs::after {
@@ -70,7 +70,7 @@ body.cinematic-active .footer:hover {
 /* Enhance stream container rainbow glow in cinematic mode */
 body.cinematic-active .stream-container {
   box-shadow:
-    0 0 50px rgba(255, 0, 128, 0.25),
+    0 0 50px rgba(var(--color-primary-rgb), 0.25),
     0 0 80px rgba(0, 200, 255, 0.15),
     0 20px 60px rgba(0, 0, 0, 0.8);
 }
@@ -79,7 +79,7 @@ body.cinematic-active .stream-container {
 body.cinematic-active .stream-container::before {
   background: linear-gradient(
     135deg,
-    rgba(255, 0, 128, 0.8) 0%,
+    rgba(var(--color-primary-rgb), 0.8) 0%,
     rgba(255, 150, 0, 0.7) 25%,
     rgba(0, 255, 100, 0.7) 50%,
     rgba(0, 180, 255, 0.8) 75%,

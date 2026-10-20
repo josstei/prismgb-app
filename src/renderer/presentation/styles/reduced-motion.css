@@ -32,6 +32,5 @@
   .header,
   .stream-overlay {
     backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
   }
 }

@@ -12,7 +12,6 @@
   top: var(--notes-panel-top, 80px);
   right: 8px;
   left: var(--notes-panel-left, 70%);
-  bottom: auto;
 
   height: calc(100vh - 160px);
   max-height: var(--notes-panel-max-height, calc(100vh - 130px));
@@ -26,7 +25,6 @@
   /* Glass morphism background */
   background: var(--glass-bg);
   backdrop-filter: blur(var(--blur-standard));
-  -webkit-backdrop-filter: blur(var(--blur-standard));
 
   border: 1px solid transparent;
   border-radius: var(--notes-panel-radius);

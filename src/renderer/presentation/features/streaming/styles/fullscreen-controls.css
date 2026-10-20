@@ -44,12 +44,11 @@ body.fullscreen-active .fullscreen-controls.fullscreen-hidden {
   justify-content: center;
   width: 44px;
   height: 44px;
-  padding: 0;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: transparent;
   color: var(--color-text-primary);
-  transition: background 0.2s ease, color 0.2s ease, transform 0.1s ease;
+  transition: background var(--transition-fast), color var(--transition-fast), transform 0.1s ease;
   contain: layout style;
 }
 

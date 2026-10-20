@@ -43,7 +43,7 @@
   visibility: hidden;
   pointer-events: none;
   z-index: 2;
-  transition: opacity 0.2s ease, visibility 0.2s ease;
+  transition: opacity var(--transition-fast), visibility var(--transition-fast);
 }
 
 /* =====================================================
@@ -51,7 +51,6 @@
    ===================================================== */
 
 .toolbar-btn.toolbar-record.transcoding {
-  position: relative;
   border-color: rgba(var(--color-primary-rgb), 0.4);
   background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.15) 0%, rgba(var(--color-primary-darker-rgb), 0.1) 100%);
   box-shadow:
@@ -104,7 +103,7 @@
 .toolbar-btn.toolbar-record.transcode-success .transcode-percent-label {
   opacity: 1;
   visibility: visible;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: rgb(var(--color-success-rgb));
   animation: success-check 0.3s ease-out;
 }
@@ -180,7 +179,7 @@
 .toolbar-btn.toolbar-record.transcode-error .transcode-percent-label {
   opacity: 1;
   visibility: visible;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   color: rgb(var(--color-danger-rgb));
 }
 

@@ -39,7 +39,7 @@
   border: none;
   color: var(--color-text-primary);
   font-family: var(--font-display);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   letter-spacing: 0.2px;
   outline: none;
@@ -57,7 +57,7 @@
   padding: 2px 6px;
   background: rgba(var(--color-info-rgb), 0.1);
   border: 1px solid rgba(var(--color-info-rgb), 0.2);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: rgba(var(--color-info-rgb), 0.85);
   font-family: var(--font-display);
   font-size: 9px;
@@ -86,7 +86,6 @@
 .notes-game-add-btn {
   width: 20px;
   height: 20px;
-  padding: 0;
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -168,7 +167,7 @@
   background: transparent;
   border: none;
   color: var(--color-text-primary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   line-height: 1.5;
   resize: none;
   outline: none;
@@ -243,31 +242,13 @@
 
 /* Autocomplete dropdown */
 .notes-game-autocomplete {
-  position: absolute;
   top: 100%;
-  left: 0;
-  right: 0;
   z-index: 10;
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
   border: 1px solid rgba(var(--color-info-rgb), 0.2);
-  border-radius: var(--radius-sm);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   margin-top: 2px;
   max-height: 120px;
   overflow-y: auto;
-  opacity: 0;
-  transform: translateY(-4px);
-  pointer-events: none;
-  transition:
-    opacity 0.15s ease-out,
-    transform 0.15s ease-out;
-}
-
-.notes-game-autocomplete.visible {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
 }
 
 .notes-game-autocomplete-item {
