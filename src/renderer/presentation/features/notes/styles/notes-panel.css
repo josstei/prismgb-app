@@ -82,3 +82,24 @@
 body:not(.streaming-mode) .notes-panel {
   display: none;
 }
+
+/* =====================================================
+   Reduced motion
+   ===================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .notes-panel {
+    transition: none !important;
+  }
+
+  .notes-footer-btn,
+  .note-list-item,
+  .notes-list-wrapper,
+  .notes-list-toggle,
+  .notes-list-toggle .toggle-handle,
+  .notes-game-notes,
+  .notes-game-autocomplete,
+  .notes-game-header .game-chevron {
+    transition: none !important;
+  }
+}

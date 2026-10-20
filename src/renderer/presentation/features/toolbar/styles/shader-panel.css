@@ -190,3 +190,160 @@
     transform: none;
   }
 }
+
+/* =====================================================
+   Brightness & Volume - Vertical Sliders
+   ===================================================== */
+.brightness-control,
+.volume-control-vertical {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.brightness-control {
+  padding: 4px;
+  min-width: 48px;
+}
+
+.brightness-control.hidden {
+  display: none;
+}
+
+.brightness-icon,
+.volume-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
+}
+
+.brightness-slider,
+.volume-slider-vertical {
+  --fill-percent: 50%;
+  appearance: none;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  height: 120px;
+  width: 18px;
+  background: linear-gradient(
+    to top,
+    var(--color-primary) 0%,
+    var(--color-primary) var(--fill-percent),
+    rgba(255, 255, 255, 0.1) var(--fill-percent),
+    rgba(255, 255, 255, 0.1) 100%
+  );
+  outline: none;
+  border-radius: 9px;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* Webkit vertical slider thumb (Electron uses Chromium) */
+.brightness-slider::-webkit-slider-thumb,
+.volume-slider-vertical::-webkit-slider-thumb {
+  appearance: none;
+  width: 21px;
+  height: 21px;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-darker) 100%);
+  cursor: pointer;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease-out;
+  will-change: transform;
+}
+
+.brightness-slider::-webkit-slider-thumb:hover,
+.volume-slider-vertical::-webkit-slider-thumb:hover {
+  background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-primary) 100%);
+  box-shadow: 0 0 8px rgba(var(--color-primary-rgb), 0.6);
+}
+
+.brightness-slider:active::-webkit-slider-thumb,
+.volume-slider-vertical:active::-webkit-slider-thumb {
+  transform: scale(1.2);
+}
+
+.brightness-percentage,
+.volume-percentage-vertical {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  text-align: center;
+  min-width: 36px;
+}
+
+/* =====================================================
+   Cinematic Mode Toggle - Pill Button
+   ===================================================== */
+
+/* Cinematic Toggle Button - matches btn-secondary style when off */
+.cinematic-pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid rgba(var(--color-primary-rgb), 0.3);
+  outline: none;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  cursor: pointer;
+  border-radius: 10px;
+  transition:
+    background 0.1s ease,
+    color 0.1s ease,
+    border-color 0.1s ease,
+    transform 0.1s ease;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.cinematic-pill:hover {
+  background: rgba(var(--color-primary-rgb), 0.15);
+  border-color: rgba(var(--color-primary-rgb), 0.5);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.cinematic-pill:active {
+  transform: scale(0.98);
+}
+
+/* Active/On state - primary purple */
+.cinematic-pill.active {
+  background: rgba(var(--color-primary-rgb), 0.35);
+  border-color: rgba(var(--color-primary-rgb), 0.6);
+  color: white;
+  font-weight: 600;
+}
+
+.cinematic-pill.active:hover {
+  background: rgba(var(--color-primary-rgb), 0.45);
+  border-color: rgba(var(--color-primary-rgb), 0.7);
+}
+
+.cinematic-pill-text {
+  pointer-events: none;
+}
+
+/* =====================================================
+   Reduced Motion Accessibility
+   ===================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .cinematic-pill {
+    transition: none !important;
+  }
+
+  .cinematic-pill:active {
+    transform: none;
+  }
+}

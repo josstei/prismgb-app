@@ -64,7 +64,7 @@
 .toolbar-btn.toolbar-record.transcoding .transcode-ring {
   opacity: 1;
   visibility: visible;
-  animation: transcode-spin 1s linear infinite;
+  animation: spin 1s linear infinite;
 }
 
 /* Show percentage label when transcoding */
@@ -77,16 +77,6 @@
 .toolbar-btn.toolbar-record.transcoding .record-dot,
 .toolbar-btn.toolbar-record.transcoding .record-spinner {
   opacity: 0;
-}
-
-/* Spinning animation */
-@keyframes transcode-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
 }
 
 /* =====================================================

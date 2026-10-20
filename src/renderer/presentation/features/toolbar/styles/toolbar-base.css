@@ -83,12 +83,7 @@ body.cinematic-active .stream-toolbar.toolbar-hidden {
 
 .toolbar-btn:hover::before {
   opacity: 1;
-  animation: toolbar-ring-spin 4s linear infinite;
-}
-
-@keyframes toolbar-ring-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  animation: spin 4s linear infinite;
 }
 
 .toolbar-btn:active {
@@ -166,5 +161,15 @@ body.cinematic-active .stream-toolbar:has(.shader-panel.visible) {
   .toolbar-btn {
     transition: none !important;
     animation: none !important;
+  }
+}
+
+/* Spinning animation for record button */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }

@@ -1,0 +1,868 @@
+/* =====================================================
+   Overlays
+   Stream overlay, particles, icon, ready states
+   ===================================================== */
+
+/* =====================================================
+   Stream Overlay
+   ===================================================== */
+.stream-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-bg-overlay-light);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.5s ease;
+  cursor: default;
+  overflow: hidden;
+  animation: screen-flicker var(--animation-flicker) ease-in-out infinite;
+  /* Performance: isolate repaints to this container */
+  contain: layout style paint;
+}
+
+/* Transitioning state - soft fade with gentle rise */
+.stream-overlay.transitioning-to-stream {
+  animation: overlay-exit 1000ms ease-out forwards !important;
+  pointer-events: none;
+}
+
+/* Icon wrapper - gentle rise and fade */
+.stream-overlay.transitioning-to-stream .icon-wrapper {
+  animation: icon-rise-fade 1000ms ease-out forwards !important;
+}
+
+/* Overlay icon inherits parent animation */
+.stream-overlay.transitioning-to-stream .overlay-icon {
+  animation: none !important;
+}
+
+/* Force rings visible during transition */
+.stream-overlay.transitioning-to-stream .ready-ring {
+  opacity: 1 !important;
+  visibility: visible !important;
+  animation: ring-fade 1000ms ease-out forwards !important;
+}
+
+/* Particles fade out smoothly */
+.stream-overlay.transitioning-to-stream .particle {
+  opacity: 0 !important;
+  transition: opacity 400ms ease-out !important;
+}
+
+/* Other effects fade out cleanly */
+.stream-overlay.transitioning-to-stream .gem-glow,
+.stream-overlay.transitioning-to-stream .ready-flash,
+.stream-overlay.transitioning-to-stream .scanlines {
+  animation: none !important;
+  opacity: 0 !important;
+  transition: opacity 300ms ease-out !important;
+}
+
+/* Vignette Effect */
+.stream-overlay::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 40%,
+    rgba(0, 0, 0, 0.3) 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+.stream-overlay.hidden {
+  opacity: 0 !important;
+  visibility: hidden;
+  pointer-events: none;
+  animation: none !important;
+  content-visibility: hidden;
+}
+
+/* Stop all child animations when overlay is hidden (conserve resources) */
+.stream-overlay.hidden .overlay-particles,
+.stream-overlay.hidden .particle,
+.stream-overlay.hidden .overlay-icon,
+.stream-overlay.hidden .overlay-content,
+.stream-overlay.hidden .ready-ring,
+.stream-overlay.hidden .gem-glow,
+.stream-overlay.hidden .ready-flash,
+.stream-overlay.hidden .scanlines {
+  animation: none !important;
+  display: none !important;
+}
+
+/* =====================================================
+   Floating Particles
+   ===================================================== */
+.overlay-particles {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.particle {
+  position: absolute;
+  bottom: 20px;
+  width: 4px;
+  height: 4px;
+  background: rgba(var(--color-primary-rgb), 0.8);
+  border-radius: 50%;
+  animation: particle-float-rainbow linear infinite;
+  opacity: 0;
+  will-change: transform, opacity;
+  filter: drop-shadow(0 0 4px rgba(var(--color-primary-rgb), 0.6));
+  contain: layout style;
+}
+
+/* Particle positioning, timing, and drift variations */
+.particle-1 {
+  left: 15%;
+  animation-duration: 8s;
+  animation-delay: 0s;
+  --drift-a: 5px;
+  --drift-b: -10px;
+}
+
+.particle-2 {
+  left: 30%;
+  animation-duration: 10s;
+  animation-delay: 2s;
+  width: 3px;
+  height: 3px;
+  --drift-a: -5px;
+  --drift-b: 10px;
+}
+
+.particle-3 {
+  left: 50%;
+  animation-duration: 7s;
+  animation-delay: 1s;
+  --drift-a: 8px;
+  --drift-b: -15px;
+}
+
+.particle-4 {
+  left: 65%;
+  animation-duration: 9s;
+  animation-delay: 3s;
+  width: 5px;
+  height: 5px;
+  --drift-a: -8px;
+  --drift-b: 12px;
+}
+
+.particle-5 {
+  left: 80%;
+  animation-duration: 11s;
+  animation-delay: 0.5s;
+  width: 3px;
+  height: 3px;
+  --drift-a: 3px;
+  --drift-b: -8px;
+}
+
+.particle-6 {
+  left: 45%;
+  animation-duration: 12s;
+  animation-delay: 4s;
+  --drift-a: -3px;
+  --drift-b: 8px;
+}
+
+/* =====================================================
+   Overlay Content & Cartridge
+   ===================================================== */
+.overlay-content {
+  text-align: center;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  z-index: 10;
+}
+
+/* Icon Wrapper - Contains glow effects and ready rings */
+.icon-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Match gem dimensions for proper centering of effects */
+  width: 150px;
+  height: 150px;
+  /* Allow click indicator to extend below */
+  overflow: visible;
+  /* Float animation on wrapper so rings move with gem */
+  animation: icon-float 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+.overlay-icon {
+  /* Default: waiting state - filter animation only (float is on wrapper) */
+  animation: retro-glow-purple 4s ease-in-out infinite;
+  will-change: filter;
+  /* Block display prevents baseline alignment issues */
+  display: block;
+  /* Centered via flexbox parent, but needs z-index above glow */
+  z-index: 2;
+  /* Base opacity for waiting state */
+  opacity: 0.85;
+}
+
+/* =====================================================
+   Ready State Rings
+   ===================================================== */
+.ready-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(255, 0, 128, 0.6),
+    rgba(255, 128, 0, 0.6),
+    rgba(255, 255, 0, 0.6),
+    rgba(0, 255, 128, 0.6),
+    rgba(0, 255, 255, 0.6),
+    rgba(128, 0, 255, 0.6),
+    rgba(255, 0, 128, 0.6)
+  );
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #fff calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #fff calc(100% - 3px));
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  z-index: var(--z-base);
+  transform: translate(-50%, -50%);
+  will-change: transform, opacity;
+  contain: layout style;
+}
+
+.ready-ring-inner {
+  animation: prismatic-ring-pulse 2s ease-in-out infinite;
+  animation-play-state: paused;
+}
+
+.ready-ring-outer {
+  background: conic-gradient(
+    from 120deg,
+    rgba(255, 0, 128, 0.4),
+    rgba(0, 255, 255, 0.4),
+    rgba(255, 255, 0, 0.4),
+    rgba(255, 0, 128, 0.4)
+  );
+  animation: prismatic-ring-expand 2s ease-out infinite;
+  animation-play-state: paused;
+}
+
+/* Third ripple ring - continuous outward expansion */
+.ready-ring-ripple {
+  background: conic-gradient(
+    from 240deg,
+    rgba(0, 255, 255, 0.5),
+    rgba(255, 0, 128, 0.5),
+    rgba(128, 0, 255, 0.5),
+    rgba(0, 255, 255, 0.5)
+  );
+  animation: prismatic-ring-ripple 2.5s ease-out infinite;
+  animation-play-state: paused;
+}
+
+.ready-ring-outer,
+.ready-ring-ripple {
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #fff calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #fff calc(100% - 2px));
+}
+
+/* =====================================================
+   Gem Glow Effect
+   ===================================================== */
+.gem-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 0, 128, 0.35) 0%,
+    rgba(0, 255, 255, 0.2) 40%,
+    transparent 70%
+  );
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+  will-change: transform, opacity;
+}
+
+/* =====================================================
+   Ready Flash Overlay
+   ===================================================== */
+.ready-flash {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(255, 255, 255, 0.9) 0%,
+    rgba(255, 0, 128, 0.5) 20%,
+    rgba(0, 255, 255, 0.3) 50%,
+    transparent 70%
+  );
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 15;
+  will-change: transform, opacity;
+}
+
+/* =====================================================
+   Scanline Shimmer Effect
+   ===================================================== */
+.scanlines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  z-index: 3;
+  /* Performance optimizations */
+  will-change: opacity;
+  contain: strict;
+  /* Scanline pattern - repeating horizontal lines (more visible) */
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0px,
+    transparent 2px,
+    rgba(255, 255, 255, 0.08) 2px,
+    rgba(255, 255, 255, 0.08) 4px
+  );
+}
+
+/**
+ * STREAMING STATE MANAGEMENT VIA :has() SELECTORS
+ *
+ * This file uses CSS :has() selectors to style parent elements based on
+ * child state. This creates implicit coupling but provides cleaner HTML
+ * (state classes only on the element that changes).
+ *
+ * OVERLAY STATES:
+ * - .stream-overlay:has(#overlayMessage.waiting) - Device disconnected
+ * - .stream-overlay:has(#overlayMessage.ready) - Device connected, ready to stream
+ *
+ * When modifying #overlayMessage classes, these selectors will update:
+ * - Icon wrapper animations (icon-float, retro-glow)
+ * - Ready rings visibility and animation
+ * - Gem glow and flash effects
+ * - Scanline shimmer
+ */
+
+/* =====================================================
+   Overlay State Animations
+   Visual-only states (no text) for waiting vs ready
+   Default CSS is "waiting" appearance - ready state overrides
+   ===================================================== */
+
+/* --- WAITING STATE (Default - Device Disconnected) --- */
+/* Dimmed, sleeping, clearly inactive appearance */
+
+/* Enhanced waiting state - slower float on wrapper, dimmer breathing on icon */
+.stream-overlay:has(#overlayMessage.waiting) .icon-wrapper {
+  animation: icon-float 8s ease-in-out infinite;
+}
+
+.stream-overlay:has(#overlayMessage.waiting) .overlay-icon {
+  animation: waiting-sleep-breathe 5s ease-in-out infinite;
+  opacity: 0.6;
+}
+
+/* Dimmer particles for waiting state - use filter for GPU-accelerated glow */
+.stream-overlay:has(#overlayMessage.waiting) .particle {
+  background: rgba(var(--color-primary-rgb), 0.4);
+  filter: drop-shadow(0 0 3px rgba(var(--color-primary-rgb), 0.3));
+  animation-name: particle-drift;
+}
+
+/* --- READY STATE TRANSITION --- */
+/* Dramatic one-shot animations when transitioning to ready */
+
+/* Flash effect on ready transition */
+.stream-overlay:has(#overlayMessage.ready) .ready-flash {
+  animation: ready-flash 0.6s ease-out forwards;
+}
+
+/* --- READY STATE (Device Connected) --- */
+/* Bright, inviting, clearly clickable - overrides default dimmed look */
+
+.stream-overlay:has(#overlayMessage.ready) {
+  animation: screen-flicker 4s ease-in-out infinite;
+  cursor: pointer;
+}
+
+/* Ready state - pulse animation on wrapper (heartbeat-like) */
+.stream-overlay:has(#overlayMessage.ready) .icon-wrapper {
+  animation: ready-pulse 1.4s ease-in-out infinite;
+}
+
+/* Gem pop transition + glow */
+.stream-overlay:has(#overlayMessage.ready) .overlay-icon {
+  animation:
+    gem-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+    retro-glow-green 1.4s ease-in-out infinite 0.4s;
+  opacity: 1;
+}
+
+/* Show and animate rings in ready state */
+.stream-overlay:has(#overlayMessage.ready) .ready-ring {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Prismatic inner ring - synced with 1.4s heartbeat pulse */
+.stream-overlay:has(#overlayMessage.ready) .ready-ring-inner {
+  animation: prismatic-ring-pulse 1.4s ease-in-out infinite;
+}
+
+/* Prismatic outer ring - expands on each pulse beat */
+.stream-overlay:has(#overlayMessage.ready) .ready-ring-outer {
+  animation: prismatic-ring-expand 1.4s ease-out infinite;
+}
+
+/* Prismatic ripple ring - slightly offset for layered effect */
+.stream-overlay:has(#overlayMessage.ready) .ready-ring-ripple {
+  animation: prismatic-ring-ripple 1.4s ease-out infinite;
+  animation-delay: 0.1s;
+}
+
+/* Prismatic radial glow behind gem - synced with heartbeat */
+.stream-overlay:has(#overlayMessage.ready) .gem-glow {
+  opacity: 1;
+  animation: prismatic-glow-pulse 1.4s ease-in-out infinite;
+}
+
+/* Rainbow particles - static colors with GPU-accelerated consolidated animation */
+.stream-overlay:has(#overlayMessage.ready) .particle-1 {
+  background: rgba(255, 80, 80, 0.9);
+  filter: drop-shadow(0 0 6px rgba(255, 80, 80, 0.7));
+}
+.stream-overlay:has(#overlayMessage.ready) .particle-2 {
+  background: rgba(255, 200, 80, 0.9);
+  filter: drop-shadow(0 0 6px rgba(255, 200, 80, 0.7));
+}
+.stream-overlay:has(#overlayMessage.ready) .particle-3 {
+  background: rgba(80, 255, 150, 0.9);
+  filter: drop-shadow(0 0 6px rgba(80, 255, 150, 0.7));
+}
+.stream-overlay:has(#overlayMessage.ready) .particle-4 {
+  background: rgba(80, 200, 255, 0.9);
+  filter: drop-shadow(0 0 6px rgba(80, 200, 255, 0.7));
+}
+.stream-overlay:has(#overlayMessage.ready) .particle-5 {
+  background: rgba(180, 80, 255, 0.9);
+  filter: drop-shadow(0 0 6px rgba(180, 80, 255, 0.7));
+}
+.stream-overlay:has(#overlayMessage.ready) .particle-6 {
+  background: rgba(255, 80, 180, 0.9);
+  filter: drop-shadow(0 0 6px rgba(255, 80, 180, 0.7));
+}
+
+/* Scanline shimmer - subtle CRT effect synced with heartbeat */
+.stream-overlay:has(#overlayMessage.ready) .scanlines {
+  visibility: visible;
+  opacity: 1;
+  animation: scanline-shimmer 1.4s ease-in-out infinite;
+}
+
+/* =====================================================
+   Reduced Motion Accessibility
+   Disable non-essential streaming animations for users who prefer reduced motion
+   ===================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .stream-overlay,
+  .stream-overlay .overlay-icon,
+  .stream-overlay .gem-glow,
+  .stream-overlay .ready-flash,
+  .stream-overlay .scanlines {
+    animation: none !important;
+    transition: opacity 0.3s ease !important;
+  }
+
+  /* Keep essential state visibility changes */
+  .stream-overlay:has(#overlayMessage.ready) .gem-glow {
+    opacity: 0.6;
+  }
+
+  /* Static scanline visibility for reduced motion */
+  .stream-overlay:has(#overlayMessage.ready) .scanlines {
+    visibility: visible;
+    opacity: 0.1;
+  }
+
+  /* Instant fade for reduced motion - stream transition */
+  .stream-overlay.transitioning-to-stream {
+    animation-duration: 100ms !important;
+  }
+
+  .stream-overlay.transitioning-to-stream .icon-wrapper,
+  .stream-overlay.transitioning-to-stream .gem-glow,
+  .stream-overlay.transitioning-to-stream .scanlines {
+    animation: none !important;
+    opacity: 0;
+    transition: opacity 100ms ease !important;
+  }
+}
+
+/* Slower icon float for waiting state */
+@keyframes icon-float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+/* Ready state pulse - heartbeat-like expansion */
+@keyframes ready-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  15% {
+    transform: scale(1.12);
+  }
+  30% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.08);
+  }
+  60% {
+    transform: scale(1);
+  }
+}
+
+/* Purple retro glow pulse (waiting state) - includes dimming effects */
+@keyframes retro-glow-purple {
+  0%, 100% {
+    filter: grayscale(0.7) brightness(0.5);
+  }
+  50% {
+    filter: grayscale(0.7) brightness(0.55);
+  }
+}
+
+/* Green retro glow pulse (ready state) - includes brightness/saturate */
+@keyframes retro-glow-green {
+  0%, 100% {
+    filter: brightness(1.1) saturate(1.1);
+  }
+  50% {
+    filter: brightness(1.15) saturate(1.15);
+  }
+}
+
+/* Subtle screen flicker */
+@keyframes screen-flicker {
+  0%, 100% {
+    opacity: 1;
+  }
+  92% {
+    opacity: 1;
+  }
+  93% {
+    opacity: 0.97;
+  }
+  94% {
+    opacity: 1;
+  }
+}
+
+/* Gem "pop" effect when transitioning to ready (spring scale) */
+@keyframes gem-pop {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.15);
+  }
+  50% {
+    transform: scale(0.95);
+  }
+  70% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Screen flash/pulse for ready transition */
+@keyframes ready-flash {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  20% {
+    opacity: 0.7;
+    transform: translate(-50%, -50%) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2);
+  }
+}
+
+/* Enhanced waiting state breathing - slower, dimmer */
+@keyframes waiting-sleep-breathe {
+  0%, 100% {
+    filter: grayscale(0.8) brightness(0.4);
+    opacity: 0.6;
+  }
+  50% {
+    filter: grayscale(0.75) brightness(0.45);
+    opacity: 0.7;
+  }
+}
+
+/* Slower particle drift for waiting state */
+@keyframes particle-drift {
+  0% {
+    transform: translateY(0) translateX(0) scale(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.4;
+    transform: translateY(-30px) translateX(3px) scale(0.8);
+  }
+  85% {
+    opacity: 0.3;
+    transform: translateY(-200px) translateX(-5px) scale(0.6);
+  }
+  100% {
+    transform: translateY(-250px) translateX(0) scale(0);
+    opacity: 0;
+  }
+}
+
+/* Prismatic ring pulse - GPU accelerated: transform, opacity only */
+@keyframes prismatic-ring-pulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.9;
+  }
+  /* First pulse - ring expands outward */
+  10% {
+    transform: translate(-50%, -50%) scale(1.25);
+    opacity: 0.7;
+  }
+  20% {
+    transform: translate(-50%, -50%) scale(1.4);
+    opacity: 0.3;
+  }
+  30% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.9;
+  }
+  /* Second pulse - smaller expansion */
+  40% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.3);
+    opacity: 0.3;
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.9;
+  }
+}
+
+/* Prismatic expanding ring - GPU accelerated: transform, opacity only */
+@keyframes prismatic-ring-expand {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.8;
+  }
+  25% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0.5;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.9);
+    opacity: 0.3;
+  }
+  75% {
+    transform: translate(-50%, -50%) scale(2.2);
+    opacity: 0.15;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.5);
+    opacity: 0;
+  }
+}
+
+/* Prismatic ripple ring - GPU accelerated: transform, opacity only */
+@keyframes prismatic-ring-ripple {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0.8;
+  }
+  33% {
+    transform: translate(-50%, -50%) scale(1.3);
+    opacity: 0.5;
+  }
+  66% {
+    transform: translate(-50%, -50%) scale(1.8);
+    opacity: 0.25;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.2);
+    opacity: 0;
+  }
+}
+
+/* Prismatic glow pulse - GPU accelerated: transform, opacity only */
+@keyframes prismatic-glow-pulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.7;
+  }
+  15% {
+    transform: translate(-50%, -50%) scale(1.25);
+    opacity: 1;
+  }
+  30% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.7;
+  }
+  45% {
+    transform: translate(-50%, -50%) scale(1.18);
+    opacity: 0.9;
+  }
+  60% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.7;
+  }
+}
+
+/* Single consolidated particle animation - uses CSS custom properties for drift variation */
+@keyframes particle-float-rainbow {
+  0% {
+    transform: translateY(0) translateX(0) scale(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(-20px) translateX(var(--drift-a, 5px)) scale(1);
+  }
+  50% {
+    transform: translateY(-150px) translateX(var(--drift-b, -10px)) scale(1);
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 0.6;
+    transform: translateY(-280px) translateX(var(--drift-a, 5px)) scale(0.8);
+  }
+  100% {
+    transform: translateY(-320px) translateX(0) scale(0);
+    opacity: 0;
+  }
+}
+
+@keyframes scanline-shimmer {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  /* First pulse at 15% - shimmer brightens */
+  12% {
+    opacity: 0.5;
+  }
+  15% {
+    opacity: 0.8;
+  }
+  20% {
+    opacity: 0.5;
+  }
+  30% {
+    opacity: 0.3;
+  }
+  /* Second pulse at 45% - shimmer brightens again */
+  42% {
+    opacity: 0.5;
+  }
+  45% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  60% {
+    opacity: 0.3;
+  }
+}
+
+/* Overlay exit - soft rise and fade */
+@keyframes overlay-exit {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+
+/* Icon gentle rise */
+@keyframes icon-rise-fade {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-30px) scale(1.05);
+  }
+}
+
+/* Rings gentle expand and fade */
+@keyframes ring-fade {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1.3);
+  }
+}

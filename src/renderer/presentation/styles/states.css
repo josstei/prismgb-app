@@ -164,33 +164,3 @@ body.cursor-hidden,
 body.cursor-hidden * {
   cursor: none !important;
 }
-
-/* =====================================================
-   Status Strip Toggle
-   Show/hide the footer status strip
-   ===================================================== */
-.footer.status-hidden .status-strip {
-  opacity: 0;
-  transform: translateY(10px);
-  pointer-events: none;
-}
-
-/* =====================================================
-   Status Message Colors
-   Data attribute driven status message colors
-   ===================================================== */
-.status-message[data-type="info"] {
-  color: var(--color-info);
-}
-
-.status-message[data-type="success"] {
-  color: var(--color-success);
-}
-
-.status-message[data-type="warning"] {
-  color: var(--color-warning);
-}
-
-.status-message[data-type="error"] {
-  color: var(--color-danger);
-}
