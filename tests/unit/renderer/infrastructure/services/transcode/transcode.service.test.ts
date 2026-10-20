@@ -22,21 +22,13 @@ describe('TranscodeService', () => {
     mockLogger = mockLoggerFactory.create('TranscodeService');
 
     vi.mocked(trpcClient.transcode.start.mutate).mockResolvedValue({ jobId: 'job-123' });
-    vi.mocked(trpcClient.transcode.cancel.mutate).mockResolvedValue(undefined);
   });
 
   describe('Constructor', () => {
-    it('should store eventBus', () => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
-
-      expect(service.eventBus).toBe(mockEventBus);
-    });
-
-    it('should initialize state properties', () => {
+    it('should start idle', () => {
       service = new TranscodeService(mockEventBus, mockLoggerFactory);
 
       expect(service.isTranscoding()).toBe(false);
-      expect(service._activeJobId).toBeNull();
     });
   });
 
@@ -91,22 +83,19 @@ describe('TranscodeService', () => {
         inputBuffer: expect.any(ArrayBuffer),
         format: 'mp4',
         outputFilename: 'output-name',
-        inputArgs: undefined,
         interrupted: false
       });
     });
 
-    it('should pass inputArgs and interrupted flag when provided', async () => {
+    it('should pass only the interrupted flag for an interrupted recording', async () => {
       const mockBlob = new Blob(['test data'], { type: 'video/webm' });
-      const inputArgs = ['-fflags', '+genpts', '-err_detect', 'ignore_err'];
 
-      await service.transcode(mockBlob, 'mp4', 'output-name', { inputArgs, interrupted: true });
+      await service.transcode(mockBlob, 'mp4', 'output-name', { interrupted: true });
 
       expect(trpcClient.transcode.start.mutate).toHaveBeenCalledWith({
         inputBuffer: expect.any(ArrayBuffer),
         format: 'mp4',
         outputFilename: 'output-name',
-        inputArgs,
         interrupted: true
       });
     });
@@ -128,7 +117,6 @@ describe('TranscodeService', () => {
       await service.transcode(mockBlob, 'mp4');
 
       expect(service.isTranscoding()).toBe(true);
-      expect(service._activeJobId).toBe('job-123');
     });
 
     it('should return an ok result carrying the tRPC payload', async () => {
@@ -166,41 +154,6 @@ describe('TranscodeService', () => {
       await service.transcode(mockBlob, 'mp4');
 
       expect(service.isTranscoding()).toBe(false);
-      expect(service._activeJobId).toBeNull();
-    });
-  });
-
-  describe('cancel', () => {
-    beforeEach(() => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
-      service.initialize();
-    });
-
-    it('should call transcode.cancel.mutate with active job id', async () => {
-      const mockBlob = new Blob(['test data'], { type: 'video/webm' });
-      await service.transcode(mockBlob, 'mp4');
-
-      await service.cancel();
-
-      expect(trpcClient.transcode.cancel.mutate).toHaveBeenCalledWith({ jobId: 'job-123' });
-    });
-
-    it('should return error if no transcoding in progress', async () => {
-      const result = await service.cancel();
-
-      expect(result).toEqual({ status: 'error', error: 'No transcoding in progress' });
-      expect(mockLogger.warn).toHaveBeenCalledWith('No transcoding in progress to cancel');
-    });
-
-    it('should handle tRPC errors gracefully', async () => {
-      vi.mocked(trpcClient.transcode.cancel.mutate).mockRejectedValue(new Error('Cancel failed'));
-      const mockBlob = new Blob(['test data'], { type: 'video/webm' });
-      await service.transcode(mockBlob, 'mp4');
-
-      const result = await service.cancel();
-
-      expect(result).toEqual({ status: 'error', error: 'Cancel failed' });
-      expect(mockLogger.error).toHaveBeenCalledWith('transcode.cancel failed', expect.any(Error));
     });
   });
 
@@ -237,7 +190,7 @@ describe('TranscodeService', () => {
       service.initialize();
     });
 
-    describe('_handleProgress', () => {
+    describe('progress push', () => {
       it('should publish progress event', () => {
         const progressData = { percent: 50, timeRemaining: 10 };
         emitTrpcData(trpcClient.transcode.onProgress, progressData);
@@ -249,7 +202,7 @@ describe('TranscodeService', () => {
       });
     });
 
-    describe('_handleCompleted', () => {
+    describe('completed push', () => {
       it('should publish completed event', () => {
         const completedData = { outputPath: '/path/to/file.mp4', duration: 5000 };
         emitTrpcData(trpcClient.transcode.onCompleted, completedData);
@@ -268,7 +221,17 @@ describe('TranscodeService', () => {
         emitTrpcData(trpcClient.transcode.onCompleted, {});
 
         expect(service.isTranscoding()).toBe(false);
-        expect(service._activeJobId).toBeNull();
+      });
+
+      it('should accept the next transcode once the job has completed', async () => {
+        const mockBlob = new Blob(['test data'], { type: 'video/webm' });
+        await service.transcode(mockBlob, 'mp4');
+        emitTrpcData(trpcClient.transcode.onCompleted, { jobId: 'job-123' });
+
+        const result = await service.transcode(mockBlob, 'mov');
+
+        expect(result).toEqual({ status: 'ok', value: { jobId: 'job-123' } });
+        expect(trpcClient.transcode.start.mutate).toHaveBeenCalledTimes(2);
       });
 
       it('should log completion', () => {
@@ -279,7 +242,7 @@ describe('TranscodeService', () => {
       });
     });
 
-    describe('_handleError', () => {
+    describe('error push', () => {
       it('should publish error event', () => {
         const errorData = { message: 'Encoding failed', code: 'ENCODER_ERROR' };
         emitTrpcData(trpcClient.transcode.onError, errorData);
@@ -297,7 +260,6 @@ describe('TranscodeService', () => {
         emitTrpcData(trpcClient.transcode.onError, { message: 'Failed' });
 
         expect(service.isTranscoding()).toBe(false);
-        expect(service._activeJobId).toBeNull();
       });
 
       it('should log error', () => {
@@ -308,7 +270,7 @@ describe('TranscodeService', () => {
       });
     });
 
-    describe('_handleCancelled', () => {
+    describe('cancelled push', () => {
       it('should publish cancelled event', () => {
         const cancelledData = { jobId: 'job-123' };
         emitTrpcData(trpcClient.transcode.onCancelled, cancelledData);
@@ -326,7 +288,6 @@ describe('TranscodeService', () => {
         emitTrpcData(trpcClient.transcode.onCancelled, {});
 
         expect(service.isTranscoding()).toBe(false);
-        expect(service._activeJobId).toBeNull();
       });
 
       it('should log cancellation', () => {
@@ -368,7 +329,6 @@ describe('TranscodeService', () => {
       service.dispose();
 
       expect(service.isTranscoding()).toBe(false);
-      expect(service._activeJobId).toBeNull();
 
       mockLogger.warn.mockClear();
       service.initialize();

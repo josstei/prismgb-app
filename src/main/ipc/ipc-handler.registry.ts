@@ -8,10 +8,10 @@ import type {
   IpcContext,
   DeviceConnectionPort,
   WindowService,
-  LoginItemService,
-  TranscodeService
+  LoginItemService
 } from './trpc';
 import type { AutoUpdateService } from '@main/infrastructure/updates/auto-update.service';
+import type { TranscodeService } from '@main/infrastructure/transcode/transcode.service';
 import type { IpcPushBridge } from './ipc-push.bridge';
 import { TEST_CONTROL_CHANNELS } from './test-control.port';
 import type { MainProcessTestControlPort } from './test-control.port';

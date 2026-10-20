@@ -11,7 +11,6 @@ export {
 export { updateInfoSchema, updateProgressSchema, updateErrorSchema } from './update.schemas';
 export {
   transcodeStartSchema,
-  transcodeCancelSchema,
   transcodeProgressSchema,
   transcodeCompletedSchema,
   transcodeErrorSchema,

@@ -9,9 +9,7 @@ import type {
   UpdateInfoPayload,
   UpdateProgressPayload,
   UpdateErrorPayload,
-  TranscodeFormat,
   TranscodeStartPayload,
-  TranscodeStatusPayload,
   TranscodeProgressPayload,
   TranscodeCompletedPayload,
   TranscodeErrorPayload,
@@ -23,7 +21,6 @@ import {
   externalUrlSchema,
   enabledFlagSchema,
   transcodeStartSchema,
-  transcodeCancelSchema,
   deviceInfoSchema,
   nullableDeviceInfoSchema,
   updateInfoSchema,
@@ -36,10 +33,6 @@ import {
   loginItemGetResponseSchema,
   deviceStatusPayloadSchema
 } from './schemas/index';
-
-function toBuffer(inputBuffer: ArrayBuffer): Buffer {
-  return Buffer.from(inputBuffer);
-}
 
 function toObjectPayload(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
@@ -210,37 +203,14 @@ const loginItemRouter = router({
 
 const transcodeRouter = router({
   start: publicProcedure.input(transcodeStartSchema).mutation(({ ctx, input }) =>
-    rethrowAsTrpcError('Failed to start transcode', ctx.logger, async () => {
-      const result = await ctx.transcodeService.transcode({
-        inputBuffer: toBuffer(input.inputBuffer),
-        format: input.format as TranscodeFormat,
+    rethrowAsTrpcError('Failed to start transcode', ctx.logger, async (): Promise<TranscodeStartPayload> => ({
+      jobId: await ctx.transcodeService.transcode({
+        inputBuffer: Buffer.from(input.inputBuffer),
+        format: input.format,
         outputFilename: input.outputFilename,
-        inputArgs: input.inputArgs,
-        interrupted: Boolean(input.interrupted)
-      });
-      if (!result.success) {
-        throw new Error(result.error ?? 'Failed to start transcode');
-      }
-      const { jobId, filePath } = result;
-      return { jobId, filePath } as TranscodeStartPayload;
-    })
-  ),
-  cancel: publicProcedure.input(transcodeCancelSchema).mutation(({ ctx, input }) =>
-    rethrowAsTrpcError('Failed to cancel transcode', ctx.logger, () => {
-      const result = ctx.transcodeService.cancel(input.jobId);
-      if (!result.success) {
-        throw new Error(result.error ?? 'Failed to cancel transcode');
-      }
-    })
-  ),
-  getStatus: publicProcedure.query(({ ctx }) =>
-    rethrowAsTrpcError('Failed to get transcode status', ctx.logger, () => {
-      const result = ctx.transcodeService.getStatus();
-      if (!result.success) {
-        throw new Error(result.error ?? 'Failed to get transcode status');
-      }
-      return { jobs: result.jobs ?? [] } as TranscodeStatusPayload;
-    })
+        interrupted: input.interrupted
+      })
+    }))
   ),
   onProgress: publicProcedure.subscription(({ ctx }) =>
     pushSubscription<TranscodeProgressPayload>(ctx, IPC_CHANNELS.TRANSCODE.PROGRESS, transcodeProgressSchema, 'transcode-progress')

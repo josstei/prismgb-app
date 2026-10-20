@@ -12,21 +12,19 @@ import type {
   TranscodeCompletedPayload,
   TranscodeErrorPayload,
   TranscodeFormat,
-  TranscodeProgressPayload,
   TranscodeStartPayload
 } from '@platform/ipc';
 
-type TranscodeStartOptions = {
-  inputArgs?: string[];
-  interrupted?: boolean;
-};
-
 const TRANSCODE_SUBSCRIPTION_LIFECYCLE = Symbol('transcodeSubscriptionLifecycle');
+
+type TranscodeEndChannel =
+  | typeof EventChannels.TRANSCODE.COMPLETED
+  | typeof EventChannels.TRANSCODE.ERROR
+  | typeof EventChannels.TRANSCODE.CANCELLED;
 
 @injectable()
 class TranscodeService extends BaseService {
-  private _isTranscoding: boolean;
-  private _activeJobId: string | null;
+  private activeJobId: string | null = null;
   private initialized = false;
 
   constructor(
@@ -34,9 +32,6 @@ class TranscodeService extends BaseService {
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
     super(loggerFactory, 'TranscodeService');
-
-    this._isTranscoding = false;
-    this._activeJobId = null;
   }
 
   initialize(): void {
@@ -48,10 +43,27 @@ class TranscodeService extends BaseService {
     this.logger.info('Initializing TranscodeService');
 
     this.disposables.replace(TRANSCODE_SUBSCRIPTION_LIFECYCLE, createTrpcEventBridge('TranscodeService', [
-      () => trpcClient.transcode.onProgress.subscribe(undefined, { onData: (data) => this._handleProgress(data) }),
-      () => trpcClient.transcode.onCompleted.subscribe(undefined, { onData: (data) => this._handleCompleted(data) }),
-      () => trpcClient.transcode.onError.subscribe(undefined, { onData: (data) => this._handleError(data) }),
-      () => trpcClient.transcode.onCancelled.subscribe(undefined, { onData: (data) => this._handleCancelled(data) })
+      () => trpcClient.transcode.onProgress.subscribe(undefined, {
+        onData: (data) => this.eventBus.publish(EventChannels.TRANSCODE.PROGRESS, data)
+      }),
+      () => trpcClient.transcode.onCompleted.subscribe(undefined, {
+        onData: (data) => {
+          this.logger.info('Transcode completed', data);
+          this.endJob(EventChannels.TRANSCODE.COMPLETED, data);
+        }
+      }),
+      () => trpcClient.transcode.onError.subscribe(undefined, {
+        onData: (data) => {
+          this.logger.error('Transcode error', data);
+          this.endJob(EventChannels.TRANSCODE.ERROR, data);
+        }
+      }),
+      () => trpcClient.transcode.onCancelled.subscribe(undefined, {
+        onData: (data) => {
+          this.logger.info('Transcode cancelled', data);
+          this.endJob(EventChannels.TRANSCODE.CANCELLED, data);
+        }
+      })
     ], this.logger));
 
     this.logger.info('TranscodeService initialized');
@@ -62,9 +74,9 @@ class TranscodeService extends BaseService {
     blob: Blob,
     format: TranscodeFormat,
     outputBaseName?: string,
-    options: TranscodeStartOptions = {}
+    options: { interrupted?: boolean } = {}
   ): Promise<CallIpcResult<TranscodeStartPayload>> {
-    if (this._isTranscoding) {
+    if (this.isTranscoding()) {
       this.logger.warn('Transcoding already in progress');
       return { status: 'error', error: 'Transcoding already in progress' };
     }
@@ -77,14 +89,12 @@ class TranscodeService extends BaseService {
         inputBuffer: arrayBuffer,
         format,
         outputFilename: outputBaseName,
-        inputArgs: Array.isArray(options.inputArgs) ? options.inputArgs : undefined,
         interrupted: Boolean(options.interrupted)
       });
     }, this.logger);
 
-    if (result.status === 'ok' && result.value.jobId) {
-      this._isTranscoding = true;
-      this._activeJobId = result.value.jobId;
+    if (result.status === 'ok') {
+      this.activeJobId = result.value.jobId;
       this.logger.info('Transcode started', { jobId: result.value.jobId, format });
       this.eventBus.publish(EventChannels.TRANSCODE.STARTED, { jobId: result.value.jobId, format });
     }
@@ -92,53 +102,24 @@ class TranscodeService extends BaseService {
     return result;
   }
 
-  async cancel(): Promise<CallIpcResult<void>> {
-    if (!this._isTranscoding || !this._activeJobId) {
-      this.logger.warn('No transcoding in progress to cancel');
-      return { status: 'error', error: 'No transcoding in progress' };
-    }
-
-    this.logger.info('Cancelling transcode', { jobId: this._activeJobId });
-    const jobId = this._activeJobId;
-    return callIpc('transcode.cancel', () => trpcClient.transcode.cancel.mutate({ jobId }), this.logger);
+  isTranscoding(): boolean {
+    return this.activeJobId !== null;
   }
 
-  isTranscoding() {
-    return this._isTranscoding;
-  }
-
-  isAvailable() {
+  isAvailable(): boolean {
     return true;
   }
 
-  _handleProgress(data: TranscodeProgressPayload) {
-    this.eventBus.publish(EventChannels.TRANSCODE.PROGRESS, data);
-  }
-
-  _handleCompleted(data: TranscodeCompletedPayload) {
-    this.logger.info('Transcode completed', data);
-    this._isTranscoding = false;
-    this._activeJobId = null;
-    this.eventBus.publish(EventChannels.TRANSCODE.COMPLETED, data);
-  }
-
-  _handleError(data: TranscodeErrorPayload) {
-    this.logger.error('Transcode error', data);
-    this._isTranscoding = false;
-    this._activeJobId = null;
-    this.eventBus.publish(EventChannels.TRANSCODE.ERROR, data);
-  }
-
-  _handleCancelled(data: TranscodeCancelledPayload) {
-    this.logger.info('Transcode cancelled', data);
-    this._isTranscoding = false;
-    this._activeJobId = null;
-    this.eventBus.publish(EventChannels.TRANSCODE.CANCELLED, data);
+  private endJob(
+    channel: TranscodeEndChannel,
+    data: TranscodeCompletedPayload | TranscodeErrorPayload | TranscodeCancelledPayload
+  ): void {
+    this.activeJobId = null;
+    this.eventBus.publish(channel, data);
   }
 
   override dispose(): Promise<void> {
-    this._isTranscoding = false;
-    this._activeJobId = null;
+    this.activeJobId = null;
     this.initialized = false;
     this.logger.info('TranscodeService disposed');
     return super.dispose();

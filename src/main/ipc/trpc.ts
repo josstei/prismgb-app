@@ -3,9 +3,8 @@ import type { App, Shell } from 'electron';
 import { getErrorMessage } from '@platform/core';
 import type { Logger } from '@platform/core';
 import type { DeviceStatus } from '@platform/devices';
-import type { TranscodeFormat } from '@platform/ipc';
-import type { TranscodeResult, CancelResult, StatusResult } from '@platform/transcode/service';
 import type { AutoUpdateService } from '@main/infrastructure/updates/auto-update.service';
+import type { TranscodeService } from '@main/infrastructure/transcode/transcode.service';
 import type { IpcPushBridge } from './ipc-push.bridge';
 import type { MainProcessTestControlPort } from './test-control.port';
 
@@ -22,18 +21,6 @@ export interface WindowService {
 export interface LoginItemService {
   isEnabled(): boolean;
   setEnabled(enabled: boolean): void;
-}
-
-export interface TranscodeService {
-  transcode(options: {
-    inputBuffer: Buffer;
-    format: TranscodeFormat;
-    outputFilename?: string;
-    inputArgs?: string[];
-    interrupted: boolean;
-  }): Promise<TranscodeResult>;
-  cancel(jobId: string): CancelResult;
-  getStatus(): StatusResult;
 }
 
 /**

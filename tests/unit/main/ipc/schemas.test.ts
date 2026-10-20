@@ -3,7 +3,6 @@ import {
   externalUrlSchema,
   enabledFlagSchema,
   transcodeStartSchema,
-  transcodeCancelSchema,
   deviceStatusPayloadSchema,
   transcodeProgressSchema,
   transcodeCompletedSchema,
@@ -46,19 +45,19 @@ describe('IPC input schemas (security)', () => {
     expect(accepts(enabledFlagSchema, { enabled: 1 })).toBe(false);
   });
 
-  it('transcodeStartSchema requires an ArrayBuffer and a supported format', () => {
+  it('transcodeStartSchema requires an ArrayBuffer and an exact supported format', () => {
     expect(accepts(transcodeStartSchema, { inputBuffer: new ArrayBuffer(8), format: 'mp4' })).toBe(true);
-    expect(accepts(transcodeStartSchema, { inputBuffer: new ArrayBuffer(8), format: 'WEBM' })).toBe(true);
+    expect(accepts(transcodeStartSchema, { inputBuffer: new ArrayBuffer(8), format: 'webm', outputFilename: 'rec' })).toBe(true);
+    expect(accepts(transcodeStartSchema, { inputBuffer: new ArrayBuffer(8), format: 'WEBM' })).toBe(false);
     expect(accepts(transcodeStartSchema, { inputBuffer: new ArrayBuffer(8), format: 'avi' })).toBe(false);
     expect(accepts(transcodeStartSchema, { inputBuffer: 'not-a-buffer', format: 'mp4' })).toBe(false);
-    expect(accepts(transcodeStartSchema, { inputBuffer: new ArrayBuffer(8), format: 'mp4', inputArgs: ['-vf', ''] })).toBe(false);
-    expect(accepts(transcodeStartSchema, { inputBuffer: new ArrayBuffer(8), format: 'mp4', inputArgs: ['-vf', 'scale=1'] })).toBe(true);
   });
 
-  it('transcodeCancelSchema requires a non-empty jobId', () => {
-    expect(accepts(transcodeCancelSchema, { jobId: 'job-1' })).toBe(true);
-    expect(accepts(transcodeCancelSchema, { jobId: '' })).toBe(false);
-    expect(accepts(transcodeCancelSchema, {})).toBe(false);
+  it('transcodeStartSchema accepts an optional boolean interrupted flag and strips unknown keys', () => {
+    expect(accepts(transcodeStartSchema, { inputBuffer: new ArrayBuffer(8), format: 'mp4', interrupted: true })).toBe(true);
+    expect(accepts(transcodeStartSchema, { inputBuffer: new ArrayBuffer(8), format: 'mp4', interrupted: 'yes' })).toBe(false);
+    const parsed = transcodeStartSchema.parse({ inputBuffer: new ArrayBuffer(8), format: 'mp4', inputArgs: ['-vf', 'scale=1'] });
+    expect(parsed).not.toHaveProperty('inputArgs');
   });
 });
 

@@ -1,9 +1,9 @@
 import { Container } from 'inversify';
 import pkg from '../../../package.json' assert { type: 'json' };
-import { TranscodeService } from '@platform/transcode/service';
 import type { MainLogger } from '@main/infrastructure/logging/logger.factory';
 import { WindowService } from '@main/infrastructure/window/window.service';
 import { AutoUpdateService } from '@main/infrastructure/updates/auto-update.service';
+import { TranscodeService } from '@main/infrastructure/transcode/transcode.service';
 import { TrayService } from '@main/infrastructure/tray/tray.service';
 import { LoginItemService } from '@main/infrastructure/window/login-item.service';
 import { createNodeUsbMonitor } from '@main/infrastructure/devices/usb.monitor';
@@ -26,10 +26,6 @@ export function createMainContainer(loggerFactory: MainLogger): Container {
   container.bind(TOKENS.loggerFactory).toConstantValue(loggerFactory);
 
   container.bind(TOKENS.usbMonitor).toDynamicValue(() => createNodeUsbMonitor());
-  container.bind(TOKENS.transcodeService).toDynamicValue((ctx) => new TranscodeService({
-    windowService: ctx.get(TOKENS.windowService),
-    loggerFactory: ctx.get(TOKENS.loggerFactory)
-  }));
   container.bind(TOKENS.mainProcessTestControl).toDynamicValue((ctx) => new MainProcessTestControl({
     enabled: process.env.PRISMGB_E2E_TEST_CONTROL === '1',
     ipcPushBridge: ctx.get(TOKENS.ipcPushBridge)
@@ -39,6 +35,7 @@ export function createMainContainer(loggerFactory: MainLogger): Container {
   container.bind(TOKENS.deviceConnectionService).to(DeviceConnectionService);
   container.bind(TOKENS.trayService).to(TrayService);
   container.bind(TOKENS.autoUpdateService).to(AutoUpdateService);
+  container.bind(TOKENS.transcodeService).to(TranscodeService);
   container.bind(TOKENS.ipcHandlerRegistry).to(IpcHandlerRegistry);
   container.bind(TOKENS.ipcPushBridge).to(IpcPushBridge);
   container.bind(TOKENS.deviceIntegrationService).to(DeviceIntegrationService);

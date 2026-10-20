@@ -11,7 +11,6 @@
         "src/platform/gpu/runtime.ts",
         "src/platform/gpu/testkit.ts",
         "src/platform/devices/testkit.ts",
-        "src/platform/transcode/service.ts",
         "scripts/*.js",
         "scripts/lib/*.{js,mjs}",
         "tests/support/**/*.{js,ts}",

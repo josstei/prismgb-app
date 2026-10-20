@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 
-type FfmpegPathModule = typeof import('../../../../src/platform/transcode/ffmpeg-path.utils.js');
+type FfmpegPathModule = typeof import('@main/infrastructure/transcode/ffmpeg-path.utils');
 
 const require = createRequire(import.meta.url);
 const REAL_FFMPEG_STATIC_PATH: string = require('ffmpeg-static');
@@ -15,7 +15,7 @@ const ORIGINAL_FFMPEG_ENV = process.env.FFMPEG_PATH;
 const ORIGINAL_FFPROBE_ENV = process.env.FFPROBE_PATH;
 
 interface LoadOptions {
-  electronApp?: { isPackaged: boolean } | null;
+  isPackaged?: boolean;
   platform?: NodeJS.Platform;
   arch?: NodeJS.Architecture;
   resourcesPath?: string;
@@ -55,15 +55,7 @@ async function loadFfmpegPathUtils(options: LoadOptions = {}): Promise<FfmpegPat
 
   vi.spyOn(process, 'cwd').mockReturnValue(options.cwd ?? '/mock/cwd');
 
-  const electronRequireMock = vi.fn((specifier: string) => {
-    if (specifier !== 'electron') throw new Error(`Cannot find module '${specifier}'`);
-    if (!options.electronApp) throw new Error('Cannot find module electron');
-    return { app: options.electronApp };
-  });
-  vi.spyOn(process, 'getBuiltinModule').mockImplementation(((id: string) => {
-    if (id === 'node:module') return { createRequire: () => electronRequireMock };
-    return undefined;
-  }) as never);
+  vi.doMock('electron', () => ({ app: { isPackaged: options.isPackaged ?? false } }));
 
   const packageRequireMock = vi.fn((specifier: string) => {
     if (options.requireImpl) return options.requireImpl(specifier);
@@ -90,7 +82,7 @@ async function loadFfmpegPathUtils(options: LoadOptions = {}): Promise<FfmpegPat
     return { ...actual, execSync: execSyncImpl };
   });
 
-  return import('../../../../src/platform/transcode/ffmpeg-path.utils.js');
+  return import('@main/infrastructure/transcode/ffmpeg-path.utils');
 }
 
 describe('ffmpeg-path.utils (characterization)', () => {
@@ -111,7 +103,6 @@ describe('ffmpeg-path.utils (characterization)', () => {
     it('ignores FFMPEG_PATH when the file does not exist and falls through', async () => {
       const { getFfmpegPath } = await loadFfmpegPathUtils({
         env: { FFMPEG_PATH: '/env/missing-ffmpeg' },
-        electronApp: null,
         requireImpl: () => REAL_FFMPEG_STATIC_PATH,
         existsSyncImpl: (candidate) => candidate === REAL_FFMPEG_STATIC_PATH
       });
@@ -133,7 +124,6 @@ describe('ffmpeg-path.utils (characterization)', () => {
     it('ignores FFPROBE_PATH when the file does not exist and falls through', async () => {
       const { getFfprobePath } = await loadFfmpegPathUtils({
         env: { FFPROBE_PATH: '/env/missing-ffprobe' },
-        electronApp: null,
         requireImpl: (specifier) => (specifier === 'ffprobe-static' ? REAL_FFPROBE_STATIC_EXPORT : undefined),
         existsSyncImpl: (candidate) => candidate === REAL_FFPROBE_STATIC_EXPORT.path
       });
@@ -152,7 +142,7 @@ describe('ffmpeg-path.utils (characterization)', () => {
         'ffmpeg'
       );
       const { getFfmpegPath } = await loadFfmpegPathUtils({
-        electronApp: { isPackaged: true },
+        isPackaged: true,
         resourcesPath: '/packaged/resources',
         existsSyncImpl: (candidate) => candidate === expected
       });
@@ -163,7 +153,7 @@ describe('ffmpeg-path.utils (characterization)', () => {
     it('falls back to the non-unpacked resources path when unpacked is absent', async () => {
       const fallback = path.join('/packaged/resources', 'node_modules', 'ffmpeg-static', 'ffmpeg');
       const { getFfmpegPath } = await loadFfmpegPathUtils({
-        electronApp: { isPackaged: true },
+        isPackaged: true,
         resourcesPath: '/packaged/resources',
         existsSyncImpl: (candidate) => candidate === fallback
       });
@@ -180,7 +170,7 @@ describe('ffmpeg-path.utils (characterization)', () => {
         'ffmpeg.exe'
       );
       const { getFfmpegPath } = await loadFfmpegPathUtils({
-        electronApp: { isPackaged: true },
+        isPackaged: true,
         platform: 'win32',
         resourcesPath: '/packaged/resources',
         existsSyncImpl: (candidate) => candidate === expected
@@ -203,7 +193,7 @@ describe('ffmpeg-path.utils (characterization)', () => {
         'ffprobe'
       );
       const { getFfprobePath } = await loadFfmpegPathUtils({
-        electronApp: { isPackaged: true },
+        isPackaged: true,
         arch: 'arm64',
         resourcesPath: '/packaged/resources',
         existsSyncImpl: (candidate) => candidate === expected
@@ -223,7 +213,7 @@ describe('ffmpeg-path.utils (characterization)', () => {
         'ffprobe'
       );
       const { getFfprobePath } = await loadFfmpegPathUtils({
-        electronApp: { isPackaged: true },
+        isPackaged: true,
         arch: 'x64',
         resourcesPath: '/packaged/resources',
         existsSyncImpl: (candidate) => candidate === fallback
@@ -244,7 +234,7 @@ describe('ffmpeg-path.utils (characterization)', () => {
         'ffprobe'
       );
       const { getFfprobePath } = await loadFfmpegPathUtils({
-        electronApp: { isPackaged: true },
+        isPackaged: true,
         arch: 'ia32',
         resourcesPath: '/packaged/resources',
         existsSyncImpl: (candidate) => candidate === expected
@@ -265,7 +255,7 @@ describe('ffmpeg-path.utils (characterization)', () => {
         'ffprobe.exe'
       );
       const { getFfprobePath } = await loadFfmpegPathUtils({
-        electronApp: { isPackaged: true },
+        isPackaged: true,
         platform: 'win32',
         resourcesPath: '/packaged/resources',
         existsSyncImpl: (candidate) => candidate === expected
@@ -287,7 +277,6 @@ describe('ffmpeg-path.utils (characterization)', () => {
 
     it('getFfmpegPath resolves the flat-string ffmpeg-static export directly', async () => {
       const { getFfmpegPath } = await loadFfmpegPathUtils({
-        electronApp: null,
         requireImpl: (specifier) => (specifier === 'ffmpeg-static' ? REAL_FFMPEG_STATIC_PATH : undefined),
         existsSyncImpl: (candidate) => candidate === REAL_FFMPEG_STATIC_PATH
       });
@@ -297,7 +286,6 @@ describe('ffmpeg-path.utils (characterization)', () => {
 
     it('getFfprobePath resolves the .path property of the ffprobe-static export', async () => {
       const { getFfprobePath } = await loadFfmpegPathUtils({
-        electronApp: null,
         requireImpl: (specifier) => (specifier === 'ffprobe-static' ? REAL_FFPROBE_STATIC_EXPORT : undefined),
         existsSyncImpl: (candidate) => candidate === REAL_FFPROBE_STATIC_EXPORT.path
       });
@@ -308,7 +296,6 @@ describe('ffmpeg-path.utils (characterization)', () => {
     it('falls through to manual resolution when the required path does not exist on disk', async () => {
       const manualPath = path.join('/mock/cwd', 'node_modules', 'ffmpeg-static', 'ffmpeg');
       const { getFfmpegPath } = await loadFfmpegPathUtils({
-        electronApp: null,
         requireImpl: (specifier) => (specifier === 'ffmpeg-static' ? REAL_FFMPEG_STATIC_PATH : undefined),
         existsSyncImpl: (candidate) => candidate === manualPath
       });
@@ -319,7 +306,6 @@ describe('ffmpeg-path.utils (characterization)', () => {
     it('falls through to manual resolution when require throws (package unavailable)', async () => {
       const manualPath = path.join('/mock/cwd', 'node_modules', 'ffmpeg-static', 'ffmpeg');
       const { getFfmpegPath } = await loadFfmpegPathUtils({
-        electronApp: null,
         requireImpl: () => {
           throw new Error("Cannot find module 'ffmpeg-static'");
         },
@@ -334,7 +320,6 @@ describe('ffmpeg-path.utils (characterization)', () => {
     it('resolves ffmpeg from cwd/node_modules when nothing else matches', async () => {
       const manualPath = path.join('/mock/cwd', 'node_modules', 'ffmpeg-static', 'ffmpeg');
       const { getFfmpegPath } = await loadFfmpegPathUtils({
-        electronApp: null,
         existsSyncImpl: (candidate) => candidate === manualPath
       });
 
@@ -352,7 +337,6 @@ describe('ffmpeg-path.utils (characterization)', () => {
         'ffprobe'
       );
       const { getFfprobePath } = await loadFfmpegPathUtils({
-        electronApp: null,
         arch: 'arm64',
         existsSyncImpl: (candidate) => candidate === manualPath
       });
@@ -364,7 +348,6 @@ describe('ffmpeg-path.utils (characterization)', () => {
   describe('system binary fallback', () => {
     it('resolves ffmpeg via `command -v` when no other candidate matches', async () => {
       const { getFfmpegPath } = await loadFfmpegPathUtils({
-        electronApp: null,
         existsSyncImpl: (candidate) => candidate === '/usr/local/bin/ffmpeg',
         execSyncImpl: (command) => (command === 'command -v ffmpeg' ? '/usr/local/bin/ffmpeg\n' : '')
       });
@@ -374,7 +357,6 @@ describe('ffmpeg-path.utils (characterization)', () => {
 
     it('resolves ffprobe via `command -v` when no other candidate matches', async () => {
       const { getFfprobePath } = await loadFfmpegPathUtils({
-        electronApp: null,
         existsSyncImpl: (candidate) => candidate === '/usr/local/bin/ffprobe',
         execSyncImpl: (command) => (command === 'command -v ffprobe' ? '/usr/local/bin/ffprobe\n' : '')
       });
@@ -384,7 +366,6 @@ describe('ffmpeg-path.utils (characterization)', () => {
 
     it('ignores a system binary result that does not exist on disk', async () => {
       const { getFfmpegPath } = await loadFfmpegPathUtils({
-        electronApp: null,
         existsSyncImpl: () => false,
         execSyncImpl: () => '/usr/local/bin/ffmpeg\n'
       });
@@ -396,7 +377,7 @@ describe('ffmpeg-path.utils (characterization)', () => {
   describe('distinct error texts when resolution is exhausted', () => {
     it('throws an FFmpeg-specific message including platform and packaged state', async () => {
       const { getFfmpegPath } = await loadFfmpegPathUtils({
-        electronApp: { isPackaged: true },
+        isPackaged: true,
         platform: 'linux',
         existsSyncImpl: () => false
       });
@@ -406,7 +387,7 @@ describe('ffmpeg-path.utils (characterization)', () => {
 
     it('throws an FFprobe-specific message including platform and packaged state', async () => {
       const { getFfprobePath } = await loadFfmpegPathUtils({
-        electronApp: { isPackaged: false },
+        isPackaged: false,
         platform: 'linux',
         existsSyncImpl: () => false
       });
@@ -427,45 +408,10 @@ describe('ffmpeg-path.utils (characterization)', () => {
 
     it('returns null when ffprobe resolution throws', async () => {
       const { getOptionalFfprobePath } = await loadFfmpegPathUtils({
-        electronApp: null,
         existsSyncImpl: () => false
       });
 
       expect(getOptionalFfprobePath()).toBeNull();
-    });
-  });
-
-  describe('validateFfmpegBinaries', () => {
-    it('returns both resolved paths when ffmpeg exists', async () => {
-      const { validateFfmpegBinaries } = await loadFfmpegPathUtils({
-        env: { FFMPEG_PATH: '/env/ffmpeg', FFPROBE_PATH: '/env/ffprobe' },
-        existsSyncImpl: (candidate) => candidate === '/env/ffmpeg' || candidate === '/env/ffprobe'
-      });
-
-      expect(validateFfmpegBinaries()).toEqual({ ffmpegPath: '/env/ffmpeg', ffprobePath: '/env/ffprobe' });
-    });
-
-    it('tolerates ffprobe resolution failure and reports a null ffprobePath', async () => {
-      const { validateFfmpegBinaries } = await loadFfmpegPathUtils({
-        env: { FFMPEG_PATH: '/env/ffmpeg' },
-        existsSyncImpl: (candidate) => candidate === '/env/ffmpeg'
-      });
-
-      expect(validateFfmpegBinaries()).toEqual({ ffmpegPath: '/env/ffmpeg', ffprobePath: null });
-    });
-
-    it('throws its own not-found message when the resolved ffmpeg path vanishes before the re-check', async () => {
-      let ffmpegPathCheckCount = 0;
-      const { validateFfmpegBinaries } = await loadFfmpegPathUtils({
-        env: { FFMPEG_PATH: '/env/ffmpeg' },
-        existsSyncImpl: (candidate) => {
-          if (candidate !== '/env/ffmpeg') return false;
-          ffmpegPathCheckCount += 1;
-          return ffmpegPathCheckCount === 1;
-        }
-      });
-
-      expect(() => validateFfmpegBinaries()).toThrow('FFmpeg binary not found at: /env/ffmpeg');
     });
   });
 });

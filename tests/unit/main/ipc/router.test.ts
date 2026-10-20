@@ -37,9 +37,7 @@ function createContext(overrides: Partial<Record<string, unknown>> = {}) {
     },
     windowService: { setFullScreen: vi.fn(), isFullScreen: vi.fn(() => true) },
     transcodeService: {
-      transcode: vi.fn(async () => ({ success: true, jobId: 'job-1' })),
-      cancel: vi.fn(() => ({ success: true })),
-      getStatus: vi.fn(() => ({ success: true }))
+      transcode: vi.fn(async () => 'job-1')
     },
     loginItemService: { isEnabled: vi.fn(() => true), setEnabled: vi.fn() },
     app: { getAppMetrics: vi.fn(() => []) },
@@ -279,13 +277,37 @@ describe('appRouter — queries / mutations', () => {
     ).rejects.toThrow();
   });
 
-  it('transcode.start passes a Buffer + interrupted flag through to the service for a valid input', async () => {
+  it('transcode.start rejects a differently cased format at the input boundary', async () => {
     const context = createContext();
-    await caller(context).transcode.start({ inputBuffer: new ArrayBuffer(8), format: 'mp4' } as never);
+    await expect(
+      caller(context).transcode.start({ inputBuffer: new ArrayBuffer(8), format: 'WEBM' } as never)
+    ).rejects.toThrow();
+    expect(context.transcodeService.transcode).not.toHaveBeenCalled();
+  });
+
+  it('transcode.start passes a Buffer, the filename and the interrupted flag through to the service', async () => {
+    const context = createContext();
+    await caller(context).transcode.start({
+      inputBuffer: new ArrayBuffer(8),
+      format: 'mp4',
+      outputFilename: 'recording',
+      interrupted: true
+    });
     const passed = (context.transcodeService.transcode as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(Buffer.isBuffer(passed.inputBuffer)).toBe(true);
-    expect(passed.format).toBe('mp4');
-    expect(passed.interrupted).toBe(false);
+    expect(passed).toMatchObject({ format: 'mp4', outputFilename: 'recording', interrupted: true });
+  });
+
+  it('transcode.start never forwards renderer-supplied ffmpeg arguments', async () => {
+    const context = createContext();
+    await caller(context).transcode.start({
+      inputBuffer: new ArrayBuffer(8),
+      format: 'mp4',
+      inputArgs: ['-vf', 'scale=1']
+    } as never);
+    const passed = (context.transcodeService.transcode as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(passed).not.toHaveProperty('inputArgs');
+    expect(passed.interrupted).toBeUndefined();
   });
 
   it('transcode.start returns the payload-only shape on service success', async () => {
@@ -294,18 +316,18 @@ describe('appRouter — queries / mutations', () => {
     expect(result).toEqual({ jobId: 'job-1' });
   });
 
-  it('transcode.start rethrows an INTERNAL_SERVER_ERROR TRPCError when the service reports a business failure', async () => {
+  it('transcode.start surfaces the service validation message verbatim', async () => {
     const context = createContext({
       transcodeService: {
-        transcode: vi.fn(async () => ({ success: false, error: 'Unsupported format' })),
-        cancel: vi.fn(() => ({ success: true })),
-        getStatus: vi.fn(() => ({ success: true }))
+        transcode: vi.fn(async () => {
+          throw new Error('Output filename is required');
+        })
       }
     });
 
     await expect(
       caller(context).transcode.start({ inputBuffer: new ArrayBuffer(8), format: 'mp4' } as never)
-    ).rejects.toMatchObject({ code: 'INTERNAL_SERVER_ERROR', message: 'Unsupported format' });
+    ).rejects.toMatchObject({ code: 'INTERNAL_SERVER_ERROR', message: 'Output filename is required' });
   });
 
   it('transcode.start rethrows an INTERNAL_SERVER_ERROR TRPCError when the service throws', async () => {
@@ -313,63 +335,13 @@ describe('appRouter — queries / mutations', () => {
       transcodeService: {
         transcode: vi.fn(async () => {
           throw new Error('ffmpeg crashed');
-        }),
-        cancel: vi.fn(() => ({ success: true })),
-        getStatus: vi.fn(() => ({ success: true }))
+        })
       }
     });
 
     await expect(
       caller(context).transcode.start({ inputBuffer: new ArrayBuffer(8), format: 'mp4' } as never)
     ).rejects.toMatchObject({ code: 'INTERNAL_SERVER_ERROR', message: 'ffmpeg crashed' });
-  });
-
-  it('transcode.cancel resolves void on service success', async () => {
-    const context = createContext();
-    await expect(caller(context).transcode.cancel({ jobId: 'job-1' })).resolves.toBeUndefined();
-  });
-
-  it('transcode.cancel rethrows an INTERNAL_SERVER_ERROR TRPCError when the service reports a business failure', async () => {
-    const context = createContext({
-      transcodeService: {
-        transcode: vi.fn(async () => ({ success: true, jobId: 'job-1' })),
-        cancel: vi.fn(() => ({ success: false, error: 'Job not found or already completed' })),
-        getStatus: vi.fn(() => ({ success: true }))
-      }
-    });
-
-    await expect(caller(context).transcode.cancel({ jobId: 'job-1' })).rejects.toMatchObject({
-      code: 'INTERNAL_SERVER_ERROR',
-      message: 'Job not found or already completed'
-    });
-  });
-
-  it('transcode.getStatus returns the payload-only jobs shape on service success', async () => {
-    const job = { id: 'job-1', state: 'running', progress: 50, outputPath: null, error: null, startTime: 1 };
-    const context = createContext({
-      transcodeService: {
-        transcode: vi.fn(async () => ({ success: true, jobId: 'job-1' })),
-        cancel: vi.fn(() => ({ success: true })),
-        getStatus: vi.fn(() => ({ success: true, jobs: [job] }))
-      }
-    });
-
-    await expect(caller(context).transcode.getStatus()).resolves.toEqual({ jobs: [job] });
-  });
-
-  it('transcode.getStatus rethrows an INTERNAL_SERVER_ERROR TRPCError when the service reports a business failure', async () => {
-    const context = createContext({
-      transcodeService: {
-        transcode: vi.fn(async () => ({ success: true, jobId: 'job-1' })),
-        cancel: vi.fn(() => ({ success: true })),
-        getStatus: vi.fn(() => ({ success: false, error: 'Status unavailable' }))
-      }
-    });
-
-    await expect(caller(context).transcode.getStatus()).rejects.toMatchObject({
-      code: 'INTERNAL_SERVER_ERROR',
-      message: 'Status unavailable'
-    });
   });
 
   it('loginItem.set rejects a malformed or bare argument at the input boundary', async () => {
