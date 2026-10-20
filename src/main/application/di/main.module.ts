@@ -25,29 +25,29 @@ function isE2eTestControlEnabled(): boolean {
 export const mainModule = new ContainerModule(({ bind }) => {
   bind(TOKENS.deviceConnectionService).toDynamicValue((ctx) => new DeviceConnectionService({
     loggerFactory: ctx.get(TOKENS.loggerFactory)
-  })).inSingletonScope();
+  }));
 
   bind(TOKENS.updateService).toDynamicValue((ctx) => new UpdateService({
     windowService: ctx.get(TOKENS.windowService),
     loggerFactory: ctx.get(TOKENS.loggerFactory),
     config: ctx.get(TOKENS.config)
-  })).inSingletonScope();
+  }));
 
   bind(TOKENS.transcodeService).toDynamicValue((ctx) => new TranscodeService({
     windowService: ctx.get(TOKENS.windowService),
     loggerFactory: ctx.get(TOKENS.loggerFactory)
-  })).inSingletonScope();
+  }));
 
   bind(TOKENS.mainProcessTestControl).toDynamicValue((ctx) => new MainProcessTestControl({
     enabled: isE2eTestControlEnabled(),
     ipcPushBridge: ctx.get(TOKENS.ipcPushBridge)
-  })).inSingletonScope();
+  }));
 
-  bind(TOKENS.windowService).to(WindowService).inSingletonScope();
-  bind(TOKENS.trayService).to(TrayService).inSingletonScope();
-  bind(TOKENS.ipcHandlerRegistry).to(IpcHandlerRegistry).inSingletonScope();
-  bind(TOKENS.ipcPushBridge).to(IpcPushBridge).inSingletonScope();
-  bind(TOKENS.deviceIntegrationService).to(DeviceIntegrationService).inSingletonScope();
-  bind(TOKENS.loginItemService).to(LoginItemService).inSingletonScope();
-  bind(TOKENS.appOrchestrator).to(AppOrchestrator).inSingletonScope();
+  bind(TOKENS.windowService).to(WindowService);
+  bind(TOKENS.trayService).to(TrayService);
+  bind(TOKENS.ipcHandlerRegistry).to(IpcHandlerRegistry);
+  bind(TOKENS.ipcPushBridge).to(IpcPushBridge);
+  bind(TOKENS.deviceIntegrationService).to(DeviceIntegrationService);
+  bind(TOKENS.loginItemService).to(LoginItemService);
+  bind(TOKENS.appOrchestrator).to(AppOrchestrator);
 });

@@ -80,11 +80,13 @@ describe('Main container', () => {
     }
   });
 
-  it('returns the same singleton instance across repeated resolutions', () => {
+  it('returns the same singleton instance for every token across repeated resolutions', () => {
     const container = createMainContainer(loggerFactory);
 
-    expect(container.get(TOKENS.windowService)).toBe(container.get(TOKENS.windowService));
-    expect(container.get(TOKENS.appOrchestrator)).toBe(container.get(TOKENS.appOrchestrator));
+    for (const key of TOKEN_KEYS) {
+      const token = TOKENS[key] as ServiceIdentifier;
+      expect(container.get(token), key).toBe(container.get(token));
+    }
   });
 
   it('replaces an already-bound token with an override', () => {

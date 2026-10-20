@@ -35,10 +35,13 @@ describe('Renderer container', () => {
     }
   });
 
-  it('returns the same singleton instance across repeated resolutions', () => {
-    const container = createRendererContainer();
+  it('returns the same singleton instance for every token across repeated resolutions', () => {
+    const container = applyBindingOverrides(createRendererContainer(), TOKENS, { uiController: createFakeUiController() });
 
-    expect(container.get(TOKENS.appState)).toBe(container.get(TOKENS.appState));
+    for (const key of RESOLVABLE_TOKEN_KEYS) {
+      const token = TOKENS[key] as ServiceIdentifier;
+      expect(container.get(token), key).toBe(container.get(token));
+    }
   });
 
   it('replaces an already-bound token with an override', () => {
