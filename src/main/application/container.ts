@@ -1,5 +1,5 @@
 import { Container } from 'inversify';
-import type { MainLogger } from '@main/infrastructure/logging/logger.factory';
+import type { LoggerFactory } from '@platform/core';
 import { WindowService } from '@main/infrastructure/window/window.service';
 import { AutoUpdateService } from '@main/infrastructure/updates/auto-update.service';
 import { TranscodeService } from '@main/infrastructure/transcode/transcode.service';
@@ -7,14 +7,13 @@ import { TrayService } from '@main/infrastructure/tray/tray.service';
 import { LoginItemService } from '@main/infrastructure/system/login-item.service';
 import { createNodeUsbMonitor } from '@main/infrastructure/devices/usb.monitor';
 import { DeviceConnectionService } from '@main/infrastructure/devices/device-connection.service';
-import { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service';
 import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry';
 import { IpcPushBridge } from '@main/ipc/ipc-push.bridge';
 import { MainProcessTestControl } from '@main/ipc/test-control.port';
 import { AppOrchestrator } from './app.orchestrator';
 import { TOKENS } from './di/tokens';
 
-export function createMainContainer(loggerFactory: MainLogger): Container {
+export function createMainContainer(loggerFactory: LoggerFactory): Container {
   const container = new Container({ defaultScope: 'Singleton' });
 
   container.bind(TOKENS.loggerFactory).toConstantValue(loggerFactory);
@@ -32,7 +31,6 @@ export function createMainContainer(loggerFactory: MainLogger): Container {
   container.bind(TOKENS.transcodeService).to(TranscodeService);
   container.bind(TOKENS.ipcHandlerRegistry).to(IpcHandlerRegistry);
   container.bind(TOKENS.ipcPushBridge).to(IpcPushBridge);
-  container.bind(TOKENS.deviceIntegrationService).to(DeviceIntegrationService);
   container.bind(TOKENS.loginItemService).to(LoginItemService);
   container.bind(TOKENS.appOrchestrator).to(AppOrchestrator);
 
