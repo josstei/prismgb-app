@@ -43,9 +43,8 @@ export interface TranscodeService {
 }
 
 /**
- * The dependency set every tRPC procedure resolves against — the same set the retired
- * `IpcHandlerRegistry` injected, plus the {@link IpcPushBridge} the subscription procedures relay
- * from. Supplied per-request by `createIPCHandler`'s `createContext`.
+ * The dependency set every tRPC procedure resolves against, plus the {@link IpcPushBridge} the
+ * subscription procedures relay from. Supplied per-request by `createIPCHandler`'s `createContext`.
  */
 export interface IpcContext {
   deviceConnectionService: DeviceConnectionPort;

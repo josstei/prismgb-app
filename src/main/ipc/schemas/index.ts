@@ -1,7 +1,5 @@
 /**
- * IPC Zod schema barrel.
- * Security `.input(z)` schemas and defense-in-depth `.output(z)` payload schemas for the tRPC router,
- * ported from the (now retired) generated preload validators.
+ * Security `.input(z)` schemas and defense-in-depth `.output(z)` payload schemas for the tRPC router.
  */
 
 export { enabledFlagSchema, externalUrlSchema } from './common.schemas.js';

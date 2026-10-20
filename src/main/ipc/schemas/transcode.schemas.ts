@@ -2,15 +2,6 @@ import { z } from 'zod';
 import { TRANSCODE_FORMATS } from '@platform/ipc';
 import { updateErrorSchema } from './update.schemas.js';
 
-/**
- * Transcode input + subscription payload schemas.
- *
- * Inputs port `isValidTranscodeParams` (ArrayBuffer + supported format) and `isValidFfmpegArgs`
- * (non-empty string array) into a single `.input(z)` object, and `transcode-job-id` into the cancel
- * input. Outputs port `isValidTranscodeProgress` / `isValidTranscodeResult` / `isValidError` /
- * `isValidTranscodeCancelled` for the `.output(z)` subscription guards.
- */
-
 const supportedTranscodeFormats = new Set<string>(TRANSCODE_FORMATS);
 
 const ffmpegInputArgsSchema = z.array(z.string().min(1));
