@@ -1,4 +1,5 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, vi, type Mock } from 'vitest';
+import type { ObservedUsbDevice } from '@platform/devices';
 import { DeviceConnectionService } from '@main/infrastructure/devices/device-connection.service';
 import { createLoggerFactory } from '../../../../factories/index.js';
 import {
@@ -8,65 +9,57 @@ import {
 
 describe('DeviceConnectionService', () => {
   let usbMonitor: {
-    startMonitoring: ReturnType<typeof vi.fn>;
-    stopMonitoring: ReturnType<typeof vi.fn>;
-    registerLifecycleListeners: ReturnType<typeof vi.fn>;
-    unregisterLifecycleListeners: ReturnType<typeof vi.fn>;
-    find: ReturnType<typeof vi.fn>;
-    on: ReturnType<typeof vi.fn>;
-    off: ReturnType<typeof vi.fn>;
-  };
-  let lifecycleListeners: {
-    onAdd?: (device: unknown) => void;
-    onRemove?: (device: unknown) => void;
+    find: Mock<() => ObservedUsbDevice[]>;
+    watch: Mock<(onChange: () => void) => () => void>;
+    unwatch: Mock<() => void>;
+    hotplug: () => void;
   };
 
-  function createUsbMonitor() {
-    lifecycleListeners = {};
-    return {
-      startMonitoring: vi.fn(),
-      stopMonitoring: vi.fn(),
-      registerLifecycleListeners: vi.fn((onAdd, onRemove) => {
-        lifecycleListeners.onAdd = onAdd;
-        lifecycleListeners.onRemove = onRemove;
-      }),
-      unregisterLifecycleListeners: vi.fn(),
+  function createUsbMonitor(): typeof usbMonitor {
+    const monitor: typeof usbMonitor = {
       find: vi.fn(() => []),
-      on: vi.fn(),
-      off: vi.fn()
+      unwatch: vi.fn(),
+      hotplug: () => {},
+      watch: vi.fn((onChange: () => void) => {
+        monitor.hotplug = onChange;
+        return monitor.unwatch;
+      })
     };
+    return monitor;
   }
 
   function createRuntime(now = 1000, loggerFactory = createLoggerFactory()) {
     vi.spyOn(Date, 'now').mockReturnValue(now);
     usbMonitor = createUsbMonitor();
-    return new DeviceConnectionService(usbMonitor as never, loggerFactory);
+    return new DeviceConnectionService(usbMonitor, loggerFactory);
   }
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('starts USB monitoring and registers hotplug listeners on initialize', async () => {
+  it('watches USB hotplug on initialize', () => {
     const runtime = createRuntime();
 
-    await runtime.initialize();
+    runtime.initialize();
 
-    expect(usbMonitor.startMonitoring).toHaveBeenCalledTimes(1);
-    expect(usbMonitor.registerLifecycleListeners).toHaveBeenCalledTimes(1);
+    expect(usbMonitor.watch).toHaveBeenCalledTimes(1);
   });
 
-  it('is idempotent when initialized more than once', async () => {
-    const runtime = createRuntime();
+  it('watches only once when initialized more than once', () => {
+    const loggerFactory = createLoggerFactory();
+    const runtime = createRuntime(1000, loggerFactory);
 
-    await runtime.initialize();
-    await runtime.initialize();
+    runtime.initialize();
+    runtime.initialize();
 
-    expect(usbMonitor.startMonitoring).toHaveBeenCalledTimes(1);
-    expect(usbMonitor.registerLifecycleListeners).toHaveBeenCalledTimes(1);
+    expect(usbMonitor.watch).toHaveBeenCalledTimes(1);
+    expect(loggerFactory._getLogger('DeviceConnectionService').warn).toHaveBeenCalledWith(
+      'DeviceConnectionService already initialized'
+    );
   });
 
-  it('reconciles matching USB devices into canonical connected status', async () => {
+  it('reconciles matching USB devices into canonical connected status', () => {
     const runtime = createRuntime(2000);
     usbMonitor.find.mockReturnValue([createChromaticUsbDevice({
       locationId: 3,
@@ -74,7 +67,7 @@ describe('DeviceConnectionService', () => {
       serialNumber: 'MOCK-001'
     })]);
 
-    const status = await runtime.reconcileDeviceStatus('startup');
+    const status = runtime.reconcileDeviceStatus('startup');
 
     expect(status).toEqual({
       state: 'connected',
@@ -86,17 +79,17 @@ describe('DeviceConnectionService', () => {
       }),
       updatedAt: 2000
     });
-    expect(runtime.isConnected()).toBe(true);
+    expect(runtime.getStatus()).toBe(status);
   });
 
-  it('reconciles no matching device into canonical disconnected status', async () => {
+  it('reconciles no matching device into canonical disconnected status', () => {
     const runtime = createRuntime(3000);
     usbMonitor.find.mockReturnValue([{
       ...createChromaticUsbDevice(),
       vendorId: 0x9999
     }]);
 
-    const status = await runtime.reconcileDeviceStatus('manual-refresh');
+    const status = runtime.reconcileDeviceStatus('manual-refresh');
 
     expect(status).toEqual({
       state: 'disconnected',
@@ -104,17 +97,17 @@ describe('DeviceConnectionService', () => {
       device: null,
       updatedAt: 3000
     });
-    expect(runtime.isConnected()).toBe(false);
+    expect(runtime.getStatus().connected).toBe(false);
   });
 
-  it('emits status changes only when connection state changes', async () => {
+  it('emits status changes only when connection state changes', () => {
     const runtime = createRuntime(4000);
     const onStatusChanged = vi.fn();
     runtime.onStatusChanged(onStatusChanged);
     usbMonitor.find.mockReturnValue([createChromaticUsbDevice()]);
 
-    await runtime.reconcileDeviceStatus('startup');
-    await runtime.reconcileDeviceStatus('manual-refresh');
+    runtime.reconcileDeviceStatus('startup');
+    runtime.reconcileDeviceStatus('manual-refresh');
 
     expect(onStatusChanged).toHaveBeenCalledTimes(1);
     expect(onStatusChanged).toHaveBeenCalledWith(
@@ -123,49 +116,60 @@ describe('DeviceConnectionService', () => {
     );
   });
 
-  it('routes hotplug callbacks through the same reconciliation path', async () => {
+  it('keeps the first updatedAt while the status is unchanged', () => {
+    const runtime = createRuntime(4500);
+    usbMonitor.find.mockReturnValue([createChromaticUsbDevice()]);
+
+    runtime.reconcileDeviceStatus('startup');
+    vi.mocked(Date.now).mockReturnValue(9999);
+    const status = runtime.reconcileDeviceStatus('manual-refresh');
+
+    expect(status.updatedAt).toBe(4500);
+  });
+
+  it('reconciles synchronously on hotplug', () => {
     const runtime = createRuntime(5000);
     const onStatusChanged = vi.fn();
     runtime.onStatusChanged(onStatusChanged);
     usbMonitor.find.mockReturnValue([createChromaticUsbDevice()]);
 
-    await runtime.initialize();
-    lifecycleListeners.onAdd?.({});
-    await Promise.resolve();
+    runtime.initialize();
+    usbMonitor.hotplug();
 
     expect(onStatusChanged).toHaveBeenCalledWith(
       expect.objectContaining({ state: 'connected' }),
-      'hotplug-add'
+      'hotplug'
     );
   });
 
-  it('routes hotplug remove callbacks through the same reconciliation path', async () => {
+  it('reports a removed device through the same hotplug path', () => {
     const runtime = createRuntime(5500);
     const onStatusChanged = vi.fn();
     runtime.onStatusChanged(onStatusChanged);
     usbMonitor.find.mockReturnValue([createChromaticUsbDevice()]);
 
-    await runtime.reconcileDeviceStatus('startup');
+    runtime.reconcileDeviceStatus('startup');
     usbMonitor.find.mockReturnValue([]);
-    await runtime.initialize();
-    lifecycleListeners.onRemove?.({});
-    await Promise.resolve();
+    runtime.initialize();
+    usbMonitor.hotplug();
 
     expect(onStatusChanged).toHaveBeenLastCalledWith(
       expect.objectContaining({ state: 'disconnected', connected: false }),
-      'hotplug-remove'
+      'hotplug'
     );
   });
 
-  it('keeps canonical status when a status listener side effect fails', async () => {
+  it('keeps canonical status when a status listener side effect fails', () => {
     const loggerFactory = createLoggerFactory();
     const runtime = createRuntime(5750, loggerFactory);
+    const after = vi.fn();
     runtime.onStatusChanged(() => {
       throw new Error('integration failed');
     });
+    runtime.onStatusChanged(after);
     usbMonitor.find.mockReturnValue([createChromaticUsbDevice()]);
 
-    const status = await runtime.reconcileDeviceStatus('startup');
+    const status = runtime.reconcileDeviceStatus('startup');
 
     expect(status).toMatchObject({
       state: 'connected',
@@ -173,13 +177,14 @@ describe('DeviceConnectionService', () => {
       device: expect.objectContaining({ id: createChromaticDeviceInfoPayload().id })
     });
     expect(runtime.getStatus()).toBe(status);
+    expect(after).toHaveBeenCalledWith(status, 'startup');
     expect(loggerFactory._getLogger('DeviceConnectionService').error).toHaveBeenCalledWith(
       'Device status listener failed',
       expect.any(Error)
     );
   });
 
-  it('emits canonical error status and logs when USB scan fails', async () => {
+  it('emits canonical error status and logs when USB scan fails', () => {
     const loggerFactory = createLoggerFactory();
     const runtime = createRuntime(6000, loggerFactory);
     const onStatusChanged = vi.fn();
@@ -188,7 +193,7 @@ describe('DeviceConnectionService', () => {
       throw new Error('scan failed');
     });
 
-    const status = await runtime.reconcileDeviceStatus('tray-refresh');
+    const status = runtime.reconcileDeviceStatus('tray-refresh');
 
     expect(status).toEqual({
       state: 'error',
@@ -204,13 +209,29 @@ describe('DeviceConnectionService', () => {
     );
   });
 
-  it('cleans up USB lifecycle listeners and monitoring on dispose', async () => {
+  it('stops watching USB and drops status listeners on dispose', async () => {
     const runtime = createRuntime();
+    const onStatusChanged = vi.fn();
+    runtime.onStatusChanged(onStatusChanged);
+    usbMonitor.find.mockReturnValue([createChromaticUsbDevice()]);
 
-    await runtime.initialize();
+    runtime.initialize();
     await runtime.dispose();
+    runtime.reconcileDeviceStatus('manual-refresh');
 
-    expect(usbMonitor.unregisterLifecycleListeners).toHaveBeenCalled();
-    expect(usbMonitor.stopMonitoring).toHaveBeenCalled();
+    expect(usbMonitor.unwatch).toHaveBeenCalledTimes(1);
+    expect(onStatusChanged).not.toHaveBeenCalled();
+  });
+
+  it('stops notifying a listener after it unsubscribes', () => {
+    const runtime = createRuntime();
+    const onStatusChanged = vi.fn();
+    const unsubscribe = runtime.onStatusChanged(onStatusChanged);
+    usbMonitor.find.mockReturnValue([createChromaticUsbDevice()]);
+
+    unsubscribe();
+    runtime.reconcileDeviceStatus('startup');
+
+    expect(onStatusChanged).not.toHaveBeenCalled();
   });
 });

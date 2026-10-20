@@ -88,9 +88,9 @@ export class AppOrchestrator extends BaseOrchestrator {
     const mainWindow = this.windowService.createWindow({ hidden: isHiddenLaunch });
     this.ipcHandlerRegistry.attachWindow(mainWindow);
 
-    await this.deviceConnectionService.initialize();
+    this.deviceConnectionService.initialize();
 
-    const status = await this.deviceConnectionService.reconcileDeviceStatus('startup');
+    const status = this.deviceConnectionService.reconcileDeviceStatus('startup');
     if (status.connected) {
       this.logger.info('Device already connected');
     }
@@ -116,7 +116,7 @@ export class AppOrchestrator extends BaseOrchestrator {
       ['IPC handler registry', () => this.ipcHandlerRegistry.dispose()],
       ['device integration service', () => this.deviceIntegrationService.dispose()],
       ['device connection service', () => this.deviceConnectionService.dispose()],
-      ['system tray', () => this.trayService.destroy()],
+      ['system tray', () => this.trayService.dispose()],
       ['auto-update service', () => this.autoUpdateService.dispose()],
       ['transcode service', () => this.transcodeService.dispose()]
     ]);

@@ -10,15 +10,9 @@ import {
 import { TOKENS } from '@main/application/di/tokens';
 import type { UsbMonitor } from './usb.monitor';
 
-export type DeviceConnectionReason =
-  | 'startup'
-  | 'hotplug-add'
-  | 'hotplug-remove'
-  | 'tray-refresh'
-  | 'manual-refresh';
+export type DeviceConnectionReason = 'startup' | 'hotplug' | 'tray-refresh' | 'manual-refresh';
 
-export type DeviceStatusListener = (status: DeviceStatus, reason: DeviceConnectionReason) => void;
-export type DeviceConnectionUnsubscribe = () => void;
+type DeviceStatusListener = (status: DeviceStatus, reason: DeviceConnectionReason) => void;
 
 function sameDeviceInfo(left: DeviceInfo | null, right: DeviceInfo | null): boolean {
   if (left === right) {
@@ -53,8 +47,6 @@ export class DeviceConnectionService extends BaseService {
     updatedAt: Date.now()
   };
   private initialized = false;
-  private initializationLock: Promise<void> | null = null;
-  private reconcileLock: Promise<DeviceStatus> | null = null;
   private readonly statusListeners = new Set<DeviceStatusListener>();
 
   constructor(
@@ -64,92 +56,51 @@ export class DeviceConnectionService extends BaseService {
     super(loggerFactory, 'DeviceConnectionService');
   }
 
-  initialize(): Promise<void> {
-    if (this.initializationLock) {
-      return this.initializationLock;
-    }
-
+  initialize(): void {
     if (this.initialized) {
       this.logger.warn('DeviceConnectionService already initialized');
-      return Promise.resolve();
+      return;
     }
 
-    this.initializationLock = Promise.resolve().then(() => {
-      this.usbMonitor.startMonitoring();
-      this.usbMonitor.registerLifecycleListeners(
-        () => {
-          void this.reconcileDeviceStatus('hotplug-add');
-        },
-        () => {
-          void this.reconcileDeviceStatus('hotplug-remove');
-        }
-      );
-      this.initialized = true;
-      this.logger.info('Device connection service initialized');
-    }).finally(() => {
-      this.initializationLock = null;
-    });
-
-    return this.initializationLock;
+    this.initialized = true;
+    this.disposables.add(this.usbMonitor.watch(() => this.reconcileDeviceStatus('hotplug')));
+    this.logger.info('Device connection service initialized');
   }
 
-  reconcileDeviceStatus(reason: DeviceConnectionReason): Promise<DeviceStatus> {
-    if (this.reconcileLock) {
-      return this.reconcileLock;
+  reconcileDeviceStatus(reason: DeviceConnectionReason): DeviceStatus {
+    let nextStatus: DeviceStatus;
+
+    try {
+      nextStatus = this.createStatusFromDevices(this.usbMonitor.find());
+    } catch (error) {
+      this.logger.error('Failed to reconcile device status', error);
+      nextStatus = {
+        state: 'error',
+        connected: false,
+        device: null,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        updatedAt: Date.now()
+      };
     }
 
-    this.reconcileLock = this.performDeviceReconciliation(reason).finally(() => {
-      this.reconcileLock = null;
-    });
-
-    return this.reconcileLock;
+    this.commitStatus(nextStatus, reason);
+    return this.status;
   }
 
   getStatus(): DeviceStatus {
     return this.status;
   }
 
-  isConnected(): boolean {
-    return this.status.connected;
-  }
-
-  onStatusChanged(listener: DeviceStatusListener): DeviceConnectionUnsubscribe {
+  onStatusChanged(listener: DeviceStatusListener): () => void {
     this.statusListeners.add(listener);
     return () => {
       this.statusListeners.delete(listener);
     };
   }
 
-  override async dispose(): Promise<void> {
-    this.usbMonitor.unregisterLifecycleListeners();
-    this.usbMonitor.stopMonitoring();
+  override dispose(): Promise<void> {
     this.statusListeners.clear();
-    await super.dispose();
-  }
-
-  private async performDeviceReconciliation(reason: DeviceConnectionReason): Promise<DeviceStatus> {
-    let nextStatus: DeviceStatus;
-
-    try {
-      const devices = this.usbMonitor.find();
-      nextStatus = this.createStatusFromDevices(devices);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error('Failed to reconcile device status', error);
-
-      nextStatus = {
-        state: 'error',
-        connected: false,
-        device: null,
-        error: message,
-        updatedAt: Date.now()
-      };
-      this.commitStatus(nextStatus, reason);
-      return this.status;
-    }
-
-    this.commitStatus(nextStatus, reason);
-    return this.status;
+    return super.dispose();
   }
 
   private createStatusFromDevices(devices: readonly ObservedUsbDevice[]): DeviceStatus {

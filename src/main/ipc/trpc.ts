@@ -10,7 +10,7 @@ import type { MainProcessTestControlPort } from './test-control.port';
 
 export interface DeviceConnectionPort {
   getStatus(): DeviceStatus;
-  reconcileDeviceStatus(reason: 'manual-refresh'): Promise<DeviceStatus>;
+  reconcileDeviceStatus(reason: 'manual-refresh'): DeviceStatus;
 }
 
 export interface WindowService {

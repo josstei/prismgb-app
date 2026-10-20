@@ -1,12 +1,8 @@
-/**
- * TrayService Unit Tests
- */
-
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   createWindowServiceMock
 } from '../../../../factories/index.js';
-import { createInjectableHarness, type LoggerMockLike } from '../../../../support/di/injectable.harness.js';
+import { createInjectableHarness, type LoggerMockLike } from '../../../../support/di/injectable.harness';
 
 type PathModuleWithDefault = typeof import('node:path') & { default: typeof import('node:path') };
 
@@ -41,7 +37,7 @@ vi.mock('path', async (importOriginal) => {
   };
 });
 
-import { TrayService } from '@main/infrastructure/tray/tray.service.js';
+import { TrayService } from '@main/infrastructure/tray/tray.service';
 import { Menu, app } from 'electron';
 
 type MockFn = ReturnType<typeof vi.fn>;
@@ -55,7 +51,7 @@ type MockWindowService = ReturnType<typeof createWindowServiceMock> & {
   showWindow: MockFn;
 };
 type MockDeviceConnectionService = {
-  isConnected: MockFn;
+  getStatus: MockFn;
   reconcileDeviceStatus: MockFn;
 };
 type MockLoggerFactory = {
@@ -68,6 +64,8 @@ type TestableTrayService = Omit<TrayService, 'tray'> & {
 };
 type MenuTemplateItem = {
   label?: string;
+  type?: string;
+  enabled?: boolean;
   click?: () => void;
 };
 
@@ -85,8 +83,8 @@ describe('TrayService', () => {
           showWindow: vi.fn()
         }),
         deviceConnectionService: {
-          isConnected: vi.fn(),
-          reconcileDeviceStatus: vi.fn(async () => ({ connected: false }))
+          getStatus: vi.fn(() => ({ connected: false })),
+          reconcileDeviceStatus: vi.fn(() => ({ connected: false }))
         }
       }
     });
@@ -159,10 +157,14 @@ describe('TrayService', () => {
       expect(mockLogger.info).toHaveBeenCalledWith('Creating system tray icon');
     });
 
-    it('should return tray instance', () => {
-      const result = trayService.createTray();
+    it('skips the tray when DISABLE_TRAY is true', () => {
+      vi.stubEnv('DISABLE_TRAY', 'true');
 
-      expect(result).toBe(trayService.tray);
+      trayService.createTray();
+
+      expect(trayService.tray).toBeNull();
+      expect(mockLogger.info).toHaveBeenCalledWith('Tray disabled via DISABLE_TRAY environment variable');
+      vi.unstubAllEnvs();
     });
 
     it('should handle dist path for bundled environment', () => {
@@ -199,12 +201,40 @@ describe('TrayService', () => {
       expect(vi.mocked(Menu.buildFromTemplate)).toHaveBeenCalledTimes(1);
     });
 
-    it('should check device connection status', () => {
-      mockDeviceConnectionService.isConnected.mockReturnValue(true);
+    it('lists the same items in the same order with the disconnected label', () => {
+      trayService.updateTrayMenu();
+
+      const template = vi.mocked(Menu.buildFromTemplate).mock.calls.at(-1)?.[0] as MenuTemplateItem[];
+      expect(template.map(({ label, type, enabled }) => ({ label, type, enabled }))).toEqual([
+        { label: 'PrismGB', type: undefined, enabled: false },
+        { label: undefined, type: 'separator', enabled: undefined },
+        { label: 'Device Disconnected', type: undefined, enabled: false },
+        { label: undefined, type: 'separator', enabled: undefined },
+        { label: 'Show Window', type: undefined, enabled: undefined },
+        { label: 'Refresh Devices', type: undefined, enabled: undefined },
+        { label: undefined, type: 'separator', enabled: undefined },
+        { label: 'Quit', type: undefined, enabled: undefined }
+      ]);
+    });
+
+    it('labels the device as connected from the device status', () => {
+      mockDeviceConnectionService.getStatus.mockReturnValue({ connected: true });
 
       trayService.updateTrayMenu();
 
-      expect(mockDeviceConnectionService.isConnected).toHaveBeenCalled();
+      const template = vi.mocked(Menu.buildFromTemplate).mock.calls.at(-1)?.[0] as MenuTemplateItem[];
+      expect(template[2]).toEqual({ label: 'Device Connected', enabled: false });
+    });
+
+    it('shows the window and quits from the menu items', () => {
+      trayService.updateTrayMenu();
+
+      const template = vi.mocked(Menu.buildFromTemplate).mock.calls.at(-1)?.[0] as MenuTemplateItem[];
+      template.find((item) => item.label === 'Show Window')?.click?.();
+      template.find((item) => item.label === 'Quit')?.click?.();
+
+      expect(mockWindowService.showWindow).toHaveBeenCalledTimes(1);
+      expect(app.quit).toHaveBeenCalledTimes(1);
     });
 
     it('should reconcile through the tray-refresh path from the menu item', () => {
@@ -218,19 +248,19 @@ describe('TrayService', () => {
     });
   });
 
-  describe('destroy', () => {
-    it('should destroy tray when it exists', () => {
+  describe('dispose', () => {
+    it('should destroy tray when it exists', async () => {
       trayService.createTray();
       const trayInstance = trayService.tray;
 
-      trayService.destroy();
+      await trayService.dispose();
 
       expect(trayInstance.destroy).toHaveBeenCalled();
       expect(trayService.tray).toBeNull();
     });
 
-    it('should do nothing if tray not created', () => {
-      expect(() => trayService.destroy()).not.toThrow();
+    it('should do nothing if tray not created', async () => {
+      await expect(trayService.dispose()).resolves.toBeUndefined();
     });
   });
 });
