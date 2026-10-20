@@ -16,10 +16,9 @@ class FakeChildProcess extends EventEmitter {
 }
 
 describe('headlessElectronEnv', () => {
-  it('overlays the headless electron flags on the base environment', () => {
+  it('overlays the headless electron flag on the base environment', () => {
     expect(headlessElectronEnv({ PATH: '/usr/bin' })).toEqual({
       PATH: '/usr/bin',
-      ELECTRON_DISABLE_GPU: '1',
       ELECTRON_NO_ATTACH_CONSOLE: '1'
     });
   });

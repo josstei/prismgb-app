@@ -135,7 +135,5 @@ export {
   createCleanupStack,
   installProcessEnvMock,
   installTargetProperty,
-  installProcessArgvMock,
-  installProcessPlatformMock,
   installProcessRuntimeMock,
 };

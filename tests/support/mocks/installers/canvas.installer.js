@@ -1,9 +1,6 @@
 import { vi } from 'vitest';
 import { createCleanupStack } from '../runtime-property.installers.js';
 
-/**
- * Canonical canvas and drawing context installer.
- */
 export function installCanvasMocks(options = {}) {
   const stack = createCleanupStack();
 

@@ -1,34 +1,19 @@
 #!/usr/bin/env node
-/**
- * Electron App Smoke Test
- *
- * Validates that the built application can start and exit cleanly.
- * Used in CI/CD to catch packaging issues before release.
- *
- * Usage: npm run test:smoke
- *
- * The app must support --smoke-test flag to exit cleanly after startup.
- */
+// Launches the packaged app with --smoke-test (which exits cleanly after startup) to catch packaging issues.
 
 import { spawn } from 'child_process';
-import { fileURLToPath } from 'url';
-import { pathToFileURL } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import path from 'path';
 import fs from 'fs';
 import picomatch from 'picomatch';
+import { loadPlatformManifest } from './ci/build-matrix.mjs';
 import { walkPaths } from './lib/fs-walk.js';
 import { headlessElectronEnv, terminateProcessTree } from './lib/process-runner.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.resolve(__dirname, '..');
-const platformManifestPath = path.join(__dirname, 'manifests/platforms.manifest.json');
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const TIMEOUT_MS = 60000; // 1 minute max
 const platform = process.platform;
-
-function loadPlatformManifest(manifestPath = platformManifestPath) {
-  return JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-}
 
 function nodePlatformPrefix(nodePlatform) {
   if (nodePlatform === 'darwin') return 'macos';
@@ -62,9 +47,6 @@ function findFirstPatternMatch(rootDirectory, relativePattern) {
     .sort((left, right) => left.relativePath.localeCompare(right.relativePath))[0]?.absolutePath ?? null;
 }
 
-/**
- * Find the built executable based on platform
- */
 export function findExecutable({
   rootDirectory = projectRoot,
   manifest = loadPlatformManifest(),
@@ -97,9 +79,6 @@ export function findExecutable({
   return null;
 }
 
-/**
- * Run the smoke test
- */
 async function runSmokeTest() {
   const executable = findExecutable();
 
@@ -206,7 +185,6 @@ async function runSmokeTest() {
   });
 }
 
-// Run the test
 const invokedScript = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : '';
 if (import.meta.url === invokedScript) {
   runSmokeTest().then(code => process.exit(code));

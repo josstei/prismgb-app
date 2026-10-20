@@ -1,6 +1,6 @@
 import { expect } from '@playwright/test';
 
-export const StreamSelectors = Object.freeze({
+const StreamSelectors = Object.freeze({
   overlay: '#streamOverlay',
   canvas: '#streamCanvas',
   screenshotButton: '#screenshotBtn',

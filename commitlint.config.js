@@ -4,25 +4,9 @@ export default {
   // conventional format (in addition to the built-in Merge/revert ignores).
   ignores: [(message) => /^\[codex\]/.test(message)],
   rules: {
-    'type-enum': [
-      2,
-      'always',
-      [
-        'feat',     // New feature
-        'fix',      // Bug fix
-        'docs',     // Documentation only
-        'style',    // Formatting, no code change
-        'refactor', // Code change that neither fixes bug nor adds feature
-        'perf',     // Performance improvement
-        'test',     // Adding or updating tests
-        'build',    // Build system or dependencies
-        'ci',       // CI configuration
-        'chore',    // Other changes that don't modify src or test
-        'revert'    // Revert previous commit
-      ]
-    ],
-    'subject-case': [0],  // Allow any case in subject
-    'body-max-line-length': [0],  // Allow long body lines
-    'footer-max-line-length': [0]  // Allow long footer lines (e.g. NOTE:/trailer paragraphs)
+    'subject-case': [0],
+    'body-max-line-length': [0],
+    // Trailer paragraphs (e.g. NOTE:) can exceed the default footer limit.
+    'footer-max-line-length': [0]
   }
 };

@@ -2,45 +2,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { parseArgs } from 'node:util';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.resolve(__dirname, '../..');
-const defaultManifestPath = path.join(projectRoot, 'scripts/manifests/platforms.manifest.json');
+const manifestPath = fileURLToPath(new URL('../manifests/platforms.manifest.json', import.meta.url));
 
-export function parseArgs(argv) {
-  const parsed = {};
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (!arg.startsWith('--')) {
-      continue;
-    }
-    parsed[arg.slice(2)] = argv[index + 1];
-    index += 1;
-  }
-  return parsed;
-}
-
-export function loadPlatformManifest(manifestPath = defaultManifestPath) {
+export function loadPlatformManifest() {
   return JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-}
-
-function toMatrixEntry(platform) {
-  return {
-    os: platform.os,
-    build_script: platform.buildScript,
-    arch: platform.arch,
-    name: platform.name,
-    label: platform.label
-  };
-}
-
-function getPlatformById(manifest) {
-  return new Map(manifest.platforms.map((platform) => [platform.id, platform]));
 }
 
 function resolveReleasePlatformIds(manifest, groupName) {
   const group = groupName.toLowerCase();
-  const platformIds = manifest.platformGroups?.[group];
+  const platformIds = manifest.platformGroups[group];
   if (!platformIds) {
     throw new Error(`Unsupported platforms value: ${group}`);
   }
@@ -52,49 +24,45 @@ function resolveSmokePlatformIds(manifest, inputName) {
   if (input === 'all') {
     return manifest.platformGroups.all;
   }
-
-  const resolvedInput = manifest.smokeInputAliases?.[input] ?? input;
-  const platform = manifest.platforms.find(
-    (entry) => entry.id === resolvedInput || entry.label === resolvedInput || entry.smokeInput === input
-  );
-  if (!platform) {
+  if (!manifest.platforms.some((platform) => platform.id === input)) {
     throw new Error(`Unsupported platform value: ${input}`);
   }
-
-  return [platform.id];
+  return [input];
 }
 
 export function buildMatrix(manifest, options) {
-  const mode = options.mode;
+  const { mode } = options;
   if (!mode) {
     throw new Error('Missing required --mode argument (release|smoke).');
+  }
+  if (mode !== 'release' && mode !== 'smoke') {
+    throw new Error(`Unsupported mode: ${mode}`);
   }
 
   const platformIds = mode === 'release'
     ? resolveReleasePlatformIds(manifest, options.platforms || 'all')
-    : mode === 'smoke'
-      ? resolveSmokePlatformIds(manifest, options.platform || 'all')
-      : null;
+    : resolveSmokePlatformIds(manifest, options.platform || 'all');
+  const platformsById = new Map(manifest.platforms.map((entry) => [entry.id, entry]));
 
-  if (!platformIds) {
-    throw new Error(`Unsupported mode: ${mode}`);
-  }
-
-  const platformsById = getPlatformById(manifest);
   return platformIds.map((platformId) => {
-    const platform = platformsById.get(platformId);
-    if (!platform) {
+    const entry = platformsById.get(platformId);
+    if (!entry) {
       throw new Error(`Platform group references unknown platform: ${platformId}`);
     }
-    return toMatrixEntry(platform);
+    return { os: entry.os, build_script: entry.buildScript, arch: entry.arch, name: entry.name, label: entry.id };
   });
 }
 
-export function main(argv = process.argv.slice(2)) {
+function main() {
   try {
-    const options = parseArgs(argv);
-    const matrix = buildMatrix(loadPlatformManifest(), options);
-    process.stdout.write(JSON.stringify(matrix));
+    const { values } = parseArgs({
+      options: {
+        mode: { type: 'string' },
+        platforms: { type: 'string' },
+        platform: { type: 'string' }
+      }
+    });
+    process.stdout.write(JSON.stringify(buildMatrix(loadPlatformManifest(), values)));
   } catch (error) {
     console.error(error.message);
     process.exit(1);

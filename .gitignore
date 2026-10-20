@@ -1,9 +1,11 @@
 # Dependencies
-node_modules/
+node_modules
 yarn.lock
 
 # Build output
 dist/
+# Stub written to the repo root by vite-plugin-electron during npm run dev
+/index.html
 release/
 build/
 out/
@@ -56,12 +58,10 @@ screenshots/
 *.webm
 
 # Test coverage and generated reports
-.vitest/
 artifacts/
 
 # Playwright E2E test artifacts
 tests/e2e/test-results/
-tests/e2e/screenshots/
 tests/e2e/.generated/
 playwright-report/
 test-results/

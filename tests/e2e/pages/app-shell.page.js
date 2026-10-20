@@ -13,7 +13,7 @@ export const AppSelectors = Object.freeze({
   statusText: '#statusText',
 });
 
-export async function isPopupVisible(locator) {
+async function isPopupVisible(locator) {
   const classes = await locator.getAttribute('class');
   return classes?.includes('visible') ?? false;
 }

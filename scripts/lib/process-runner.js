@@ -1,13 +1,8 @@
-/**
- * Shared child-process lifecycle helpers for gate scripts: headless electron
- * environment, close-awaiting, and platform-aware process-tree termination.
- */
 import { exec } from 'node:child_process';
 
 export function headlessElectronEnv(baseEnv = process.env) {
   return {
     ...baseEnv,
-    ELECTRON_DISABLE_GPU: '1',
     ELECTRON_NO_ATTACH_CONSOLE: '1'
   };
 }
