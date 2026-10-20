@@ -91,12 +91,15 @@ class RendererBootstrap {
     const uiComponentHost = container.get(TOKENS.uiComponentHost);
     uiComponentHost.resolveCore();
 
-    container.get(TOKENS.uiEventBridge).initialize();
+    const uiEventBridge = container.get(TOKENS.uiEventBridge);
+    uiEventBridge.initialize();
     container.get(TOKENS.transcodeService).initialize();
 
     const autoHideEffect = container.get(TOKENS.autoHideEffect);
     const feedbackEffect = container.get(TOKENS.feedbackEffect);
+    // The bridge unsubscribes first so late domain events cannot reach disposed effects or components.
     this.uiDisposers = [
+      ['uiEventBridge', () => uiEventBridge.dispose()],
       ['autoHideEffect', () => autoHideEffect.dispose()],
       ['feedbackEffect', () => feedbackEffect.dispose()],
       ['bodyClassEffect', () => bodyClassEffect.dispose()],

@@ -118,11 +118,12 @@ describe('RendererBootstrap', () => {
       expect(orchestrator.cleanup).toHaveBeenCalled();
     });
 
-    it('should dispose the effects before the component host after the orchestrator', async () => {
+    it('should dispose the event bridge, then the effects, then the component host after the orchestrator', async () => {
       await app.initialize();
       const { container } = app;
       const disposers = [
         container.get(TOKENS.appOrchestrator).cleanup,
+        container.get(TOKENS.uiEventBridge).dispose,
         container.get(TOKENS.autoHideEffect).dispose,
         container.get(TOKENS.feedbackEffect).dispose,
         container.get(TOKENS.bodyClassEffect).dispose,
