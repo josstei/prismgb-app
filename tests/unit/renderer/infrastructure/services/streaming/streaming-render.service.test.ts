@@ -13,9 +13,7 @@ const mockSession = {
   setPreset: vi.fn(),
   setBrightness: vi.fn(),
   captureFrame: vi.fn(async () => ({ width: 160, height: 144 } as any)),
-  release: vi.fn(),
   terminate: vi.fn(),
-  dispose: vi.fn(),
 };
 
 vi.mock('@platform/gpu/runtime', () => ({
