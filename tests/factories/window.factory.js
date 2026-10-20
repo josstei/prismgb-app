@@ -8,7 +8,7 @@
 import { vi } from 'vitest';
 
 /**
- * @typedef {import('@main/infrastructure/window.service').WindowService} WindowService
+ * @typedef {import('@main/infrastructure/window/window.service').WindowService} WindowService
  */
 
 /**
