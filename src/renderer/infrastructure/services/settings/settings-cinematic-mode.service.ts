@@ -6,9 +6,10 @@
 
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import { EventChannels, OnEvent } from '@platform/events';
-import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import { OnEvent, type EventBus } from '@renderer/lib/events/event-bus';
+import type { LoggerFactory } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 type CinematicModeAppStateLike = {
   readonly isCinematicModeEnabled: boolean;
@@ -19,14 +20,14 @@ type CinematicModeAppStateLike = {
 class SettingsCinematicModeService extends BaseService {
   constructor(
     @inject(TOKENS.appState) private readonly appState: CinematicModeAppStateLike,
-    @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'SettingsCinematicModeService');
+    super(loggerFactory, 'SettingsCinematicModeService');
   }
 
   initialize(): void {
-    this.bindEventHandlers();
+    this.bindEventHandlers(this.eventBus);
   }
 
   @OnEvent(EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED)

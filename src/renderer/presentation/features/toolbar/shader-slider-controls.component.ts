@@ -1,10 +1,11 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent, bindText, bindClass, computed } from '@platform/ui-base';
-import { signal } from '@platform/ui-base/reactive';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { bindText, bindClass } from '@renderer/presentation/primitives/signal-bindings.utils';
+import { computed, signal } from '@preact/signals-core';
 import { sliderToBrightness, brightnessToSlider } from '@renderer/presentation/features/toolbar/brightness.utils';
-import { EventChannels } from '@platform/events';
-import type { TypedEventBusLike } from '@platform/events';
-import type { LoggerLike } from '@platform/core';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import type { EventBus } from '@renderer/lib/events/event-bus';
+import type { Logger } from '@platform/core';
 
 export interface ShaderSliderSettingsService {
   getNumberSetting(name: string): number;
@@ -14,8 +15,8 @@ export interface ShaderSliderSettingsService {
 
 export interface ShaderSliderControlsComponentOptions {
   settingsService: ShaderSliderSettingsService;
-  eventBus: TypedEventBusLike;
-  logger?: LoggerLike | null;
+  eventBus: EventBus;
+  logger?: Logger | null;
 }
 
 export interface ShaderSliderControlsElements {
@@ -29,8 +30,8 @@ export interface ShaderSliderControlsElements {
 
 class ShaderSliderControlsComponent extends PresentationComponent {
   declare settingsService: ShaderSliderSettingsService;
-  declare eventBus: TypedEventBusLike;
-  declare logger: LoggerLike | null | undefined;
+  declare eventBus: EventBus;
+  declare logger: Logger | null | undefined;
   declare brightnessSlider: HTMLInputElement | null | undefined;
   declare brightnessPercentage: HTMLElement | null | undefined;
   declare brightnessControl: HTMLElement | null | undefined;

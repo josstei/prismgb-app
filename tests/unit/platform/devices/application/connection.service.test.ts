@@ -37,10 +37,10 @@ describe('DeviceConnectionService', () => {
     };
   }
 
-  function createRuntime(now = () => 1000) {
+  function createRuntime(now = () => 1000, loggerFactory = createLoggerFactory()) {
     usbMonitor = createUsbMonitor();
     return new DeviceConnectionService({
-      loggerFactory: createLoggerFactory(),
+      loggerFactory,
       usbMonitor: usbMonitor as never,
       now
     });
@@ -164,11 +164,9 @@ describe('DeviceConnectionService', () => {
       usbMonitor: usbMonitor as never,
       now: () => 5750
     });
-    const onCheckError = vi.fn();
     runtime.onStatusChanged(() => {
       throw new Error('integration failed');
     });
-    runtime.onCheckError(onCheckError);
     usbMonitor.find.mockReturnValue([createChromaticUsbDevice()]);
 
     const status = await runtime.reconcileDeviceStatus('startup');
@@ -179,19 +177,17 @@ describe('DeviceConnectionService', () => {
       device: expect.objectContaining({ id: createChromaticDeviceInfoPayload().id })
     });
     expect(runtime.getStatus()).toBe(status);
-    expect(onCheckError).not.toHaveBeenCalled();
     expect(loggerFactory._getLogger('DeviceConnectionService').error).toHaveBeenCalledWith(
       'Device status listener failed',
       expect.any(Error)
     );
   });
 
-  it('emits canonical error status and check error when USB scan fails', async () => {
-    const runtime = createRuntime(() => 6000);
+  it('emits canonical error status and logs when USB scan fails', async () => {
+    const loggerFactory = createLoggerFactory();
+    const runtime = createRuntime(() => 6000, loggerFactory);
     const onStatusChanged = vi.fn();
-    const onCheckError = vi.fn();
     runtime.onStatusChanged(onStatusChanged);
-    runtime.onCheckError(onCheckError);
     usbMonitor.find.mockImplementation(() => {
       throw new Error('scan failed');
     });
@@ -205,8 +201,11 @@ describe('DeviceConnectionService', () => {
       error: 'scan failed',
       updatedAt: 6000
     });
-    expect(onCheckError).toHaveBeenCalledWith({ reason: 'tray-refresh', error: 'scan failed' });
     expect(onStatusChanged).toHaveBeenCalledWith(status, 'tray-refresh');
+    expect(loggerFactory._getLogger('DeviceConnectionService').error).toHaveBeenCalledWith(
+      'Failed to reconcile device status',
+      expect.any(Error)
+    );
   });
 
   it('cleans up USB lifecycle listeners and monitoring on dispose', async () => {

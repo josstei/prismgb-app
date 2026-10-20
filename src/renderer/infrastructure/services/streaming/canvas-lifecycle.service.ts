@@ -1,11 +1,7 @@
 import { BaseService } from '@platform/core';
-import { EventChannels } from '@platform/events';
 import { DeviceCatalog } from '@platform/devices';
-import type { TypedEventBusLike } from '@platform/events';
-import type { Dimensions } from '@renderer/infrastructure/services/streaming/streaming.contract.js';
-import type {
-  LoggerFactoryLike
-} from '@platform/core';
+import type { Dimensions } from '@renderer/lib/events/event-payloads';
+import type { LoggerFactory } from '@platform/core';
 
 type StreamViewServiceLike = {
   getCanvas(): HTMLCanvasElement | null;
@@ -37,15 +33,13 @@ type CanvasLifecycleDependencies = {
   streamViewService: StreamViewServiceLike;
   viewportService: ViewportServiceLike;
   streamingRenderService: StreamingRenderServiceLike;
-  eventBus: TypedEventBusLike;
-  loggerFactory: LoggerFactoryLike;
+  loggerFactory: LoggerFactory;
 };
 
 class StreamingCanvasLifecycleService extends BaseService {
   private readonly dependencies: CanvasLifecycleDependencies;
   private readonly streamViewService: StreamViewServiceLike;
   private readonly viewportService: ViewportServiceLike;
-  protected readonly eventBus: TypedEventBusLike;
 
   private _nativeResolution: Dimensions | null;
   private _useGpuRenderer: boolean;
@@ -55,16 +49,11 @@ class StreamingCanvasLifecycleService extends BaseService {
   }
 
   constructor(dependencies: CanvasLifecycleDependencies) {
-    const { streamViewService, viewportService, eventBus, loggerFactory } = dependencies;
-    super(
-      { streamViewService, viewportService, eventBus, loggerFactory },
-      'StreamingCanvasLifecycleService'
-    );
+    super(dependencies.loggerFactory, 'StreamingCanvasLifecycleService');
 
     this.dependencies = dependencies;
     this.streamViewService = dependencies.streamViewService;
     this.viewportService = dependencies.viewportService;
-    this.eventBus = dependencies.eventBus;
     this._nativeResolution = null;
     this._useGpuRenderer = false;
   }
@@ -148,8 +137,6 @@ class StreamingCanvasLifecycleService extends BaseService {
     await this.streamingRenderService.resetCanvasState();
     this.viewportService.resetDimensions();
 
-    this.eventBus.publish(EventChannels.RENDER.CANVAS_RECREATED, { oldCanvas, newCanvas });
-
     this.logger.info('Canvas element recreated for next GPU session');
   }
 
@@ -157,7 +144,7 @@ class StreamingCanvasLifecycleService extends BaseService {
     this.viewportService.cleanup();
   }
 
-  override dispose(): void | Promise<void> {
+  override dispose(): Promise<void> {
     this.cleanup();
     return super.dispose();
   }

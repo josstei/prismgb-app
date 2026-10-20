@@ -1,4 +1,4 @@
-import { bindTemplateRefs } from '@platform/ui-base';
+import { bindTemplateRefs } from '@renderer/presentation/primitives/template-refs.utils';
 import {
   TemplateDomRefGroups,
   type TemplateDomNotesRef,

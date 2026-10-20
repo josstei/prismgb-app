@@ -1,16 +1,17 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent, DisclosureController } from '@platform/ui-base';
-import { CinematicToggleComponent, type CinematicToggleAppState } from './cinematic-toggle.component.js';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { DisclosureController } from '@renderer/presentation/widgets/disclosure.controller';
+import { CinematicToggleComponent, type CinematicToggleAppState } from './cinematic-toggle.component';
 import {
   ShaderPresetListComponent,
   type ShaderPresetSettingsService
-} from './shader-preset-list.component.js';
+} from './shader-preset-list.component';
 import {
   ShaderSliderControlsComponent,
   type ShaderSliderSettingsService
-} from './shader-slider-controls.component.js';
-import type { TypedEventBusLike } from '@platform/events';
-import type { LoggerLike } from '@platform/core';
+} from './shader-slider-controls.component';
+import type { EventBus } from '@renderer/lib/events/event-bus';
+import type { Logger } from '@platform/core';
 
 export interface ShaderSelectorElements {
   shaderBtn?: HTMLElement | null;
@@ -30,8 +31,8 @@ export interface ShaderSelectorElements {
 export interface ShaderSelectorComponentOptions {
   settingsService: ShaderSelectorSettingsService;
   appState?: CinematicToggleAppState | null;
-  eventBus: TypedEventBusLike;
-  logger?: LoggerLike | null;
+  eventBus: EventBus;
+  logger?: Logger | null;
 }
 
 export interface ShaderSelectorSettingsService
@@ -41,8 +42,8 @@ export interface ShaderSelectorSettingsService
 class ShaderSelectorComponent extends PresentationComponent {
   declare settingsService: ShaderSelectorSettingsService;
   declare appState: CinematicToggleAppState | null | undefined;
-  declare eventBus: TypedEventBusLike;
-  declare logger: LoggerLike | null | undefined;
+  declare eventBus: EventBus;
+  declare logger: Logger | null | undefined;
   declare isVisible: boolean;
   declare _panelDisclosure: DisclosureController | null;
   declare _presetList: ShaderPresetListComponent;

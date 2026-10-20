@@ -7,18 +7,17 @@ import { app } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import { injectable, inject } from 'inversify';
-import { BaseOrchestrator } from '@platform/core';
-import { safeDisposeAll } from '@platform/core';
-import { TOKENS } from './di/tokens.js';
-import type { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
-import type { WindowService } from '@main/infrastructure/window/window.service.js';
+import { BaseOrchestrator, safeDisposeAll } from '@platform/core';
+import { TOKENS } from './di/tokens';
+import type { MainLogger } from '@main/infrastructure/logging/logger.factory';
+import type { WindowService } from '@main/infrastructure/window/window.service';
 import type { DeviceConnectionService } from '@platform/devices/runtime';
-import type { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
-import type { TrayService } from '@main/infrastructure/tray/tray.service.js';
-import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
+import type { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service';
+import type { TrayService } from '@main/infrastructure/tray/tray.service';
+import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry';
 import type { UpdateService } from '@platform/updates';
 import type { TranscodeService } from '@platform/transcode/service';
-import type { LoginItemService } from '@main/infrastructure/window/login-item.service.js';
+import type { LoginItemService } from '@main/infrastructure/window/login-item.service';
 
 function resolveDevDockIconPath(appPath: string): string | null {
   const candidates = [
@@ -43,7 +42,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     @inject(TOKENS.loginItemService) private readonly loginItemService: LoginItemService,
     @inject(TOKENS.loggerFactory) loggerFactory: MainLogger
   ) {
-    super({ loggerFactory }, 'AppOrchestrator');
+    super(loggerFactory, 'AppOrchestrator');
   }
 
   /**
@@ -114,14 +113,13 @@ export class AppOrchestrator extends BaseOrchestrator {
       this.logger.error('Error destroying window during cleanup:', error);
     }
 
-    // Dispose services using safe utility (eliminates repetitive try-catch)
     await safeDisposeAll(this.logger, [
-      ['IPC handler registry', this.ipcHandlerRegistry],
-      ['device integration service', this.deviceIntegrationService],
-      ['device connection service', this.deviceConnectionService],
-      ['system tray', this.trayService, 'destroy'],
-      ['update service', this.updateService],
-      ['transcode service', this.transcodeService]
+      ['IPC handler registry', () => this.ipcHandlerRegistry.dispose()],
+      ['device integration service', () => this.deviceIntegrationService.dispose()],
+      ['device connection service', () => this.deviceConnectionService.dispose()],
+      ['system tray', () => this.trayService.destroy()],
+      ['update service', () => this.updateService.dispose()],
+      ['transcode service', () => this.transcodeService.dispose()]
     ]);
 
     this.logger.info('PrismGB shutdown complete');

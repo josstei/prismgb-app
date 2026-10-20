@@ -3,9 +3,9 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { BrowserMediaAdapter } from '@renderer/infrastructure/adapters/browser-media.adapter.js';
-import { BrowserStorageAdapter } from '@renderer/infrastructure/adapters/browser-storage.adapter.js';
-import type { LoggerLike } from '@platform/core';
+import { BrowserMediaAdapter } from '@renderer/infrastructure/adapters/browser-media.adapter';
+import { BrowserStorageAdapter } from '@renderer/infrastructure/adapters/browser-storage.adapter';
+import type { Logger } from '@platform/core';
 import { createLogger } from '../../../../factories/index.js';
 import {
   installClipboardMock,
@@ -16,7 +16,7 @@ import {
 
 type NavigatorMockValue = Navigator | Partial<Navigator> | undefined;
 type BrowserStorageAdapterInternals = {
-  logger: LoggerLike;
+  logger: Logger;
   protectedKeys: string[];
 };
 

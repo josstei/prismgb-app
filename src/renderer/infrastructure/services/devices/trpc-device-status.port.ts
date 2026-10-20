@@ -1,12 +1,12 @@
 import type { DeviceInfoPayload, DeviceStatus, DeviceStatusPayload } from '@platform/devices';
-import type { LoggerLike } from '@platform/core';
+import type { Logger } from '@platform/core';
 import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
 import { trpcClient, type RendererTrpcClient } from '@renderer/infrastructure/ipc/trpc-client';
-import { callIpc } from '@renderer/infrastructure/ipc/call-ipc.js';
+import { callIpc } from '@renderer/infrastructure/ipc/call-ipc';
 
 export type DeviceStatusListener = (status: DeviceStatus) => void;
 
-const noopLogger: LoggerLike = {
+const noopLogger: Logger = {
   info: () => {},
   debug: () => {},
   warn: () => {},
@@ -59,9 +59,9 @@ function toConnectionStatus(connected: boolean, device: DeviceInfoPayload | null
 
 export class TrpcDeviceStatusPort implements DeviceStatusPort {
   private readonly client: RendererTrpcClient;
-  private readonly logger: LoggerLike;
+  private readonly logger: Logger;
 
-  constructor(client: RendererTrpcClient = trpcClient, logger?: LoggerLike) {
+  constructor(client: RendererTrpcClient = trpcClient, logger?: Logger) {
     this.client = client;
     this.logger = logger ?? noopLogger;
   }

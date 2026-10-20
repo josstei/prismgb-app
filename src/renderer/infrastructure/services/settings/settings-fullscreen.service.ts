@@ -1,10 +1,11 @@
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import { EventChannels, OnEvent } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import { OnEvent, type EventBus } from '@renderer/lib/events/event-bus';
 import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
-import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { LoggerFactory } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 const FULLSCREEN_DOCUMENT_LIFECYCLE = Symbol('settingsFullscreenDocumentLifecycle');
 const FULLSCREEN_NATIVE_LIFECYCLE = Symbol('settingsFullscreenNativeLifecycle');
@@ -15,17 +16,17 @@ class SettingsFullscreenService extends BaseService {
   private _isFullscreenActive: boolean;
 
   constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'SettingsFullscreenService');
+    super(loggerFactory, 'SettingsFullscreenService');
 
     this._boundHandleFullscreenChange = this._handleFullscreenChange.bind(this);
     this._isFullscreenActive = false;
   }
 
   initialize() {
-    this.bindEventHandlers();
+    this.bindEventHandlers(this.eventBus);
 
     this.disposables.cancel(FULLSCREEN_DOCUMENT_LIFECYCLE);
     document.addEventListener('fullscreenchange', this._boundHandleFullscreenChange);

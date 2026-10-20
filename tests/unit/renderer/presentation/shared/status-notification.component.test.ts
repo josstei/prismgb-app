@@ -1,16 +1,17 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { StatusNotificationComponent } from '@renderer/presentation/shared/status-notification.component.js';
-import { StatusNotificationStore } from '@renderer/presentation/state/status-notification.store.js';
-import { PlatformEventBus, EventChannels } from '@platform/events';
+import { StatusNotificationComponent } from '@renderer/presentation/shared/status-notification.component';
+import { StatusNotificationStore } from '@renderer/presentation/state/status-notification.store';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import { EventBus } from '@renderer/lib/events/event-bus';
 
 describe('StatusNotificationComponent (signal bindings)', () => {
   let el: HTMLElement;
-  let bus: PlatformEventBus;
+  let bus: EventBus;
   let store: StatusNotificationStore;
 
   beforeEach(() => {
     el = document.createElement('div');
-    bus = new PlatformEventBus();
+    bus = new EventBus();
     store = new StatusNotificationStore({ eventBus: bus });
     new StatusNotificationComponent({ elements: { statusMessage: el as any }, store });
   });

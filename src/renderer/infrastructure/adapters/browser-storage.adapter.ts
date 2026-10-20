@@ -1,7 +1,7 @@
-import { getErrorMessage, type LoggerLike, type StorageServiceLike } from '@platform/core';
+import { getErrorMessage, type Logger, type KeyValueStore } from '@platform/core';
 
 export interface BrowserStorageAdapterOptions {
-  logger?: LoggerLike;
+  logger?: Logger;
   protectedKeys?: string[];
 }
 
@@ -20,8 +20,8 @@ function isStorageQuotaError(error: unknown): boolean {
  * Provides a testable interface for browser storage operations.
  * Handles quota exceeded errors gracefully.
  */
-export class BrowserStorageAdapter implements StorageServiceLike {
-  private readonly logger: LoggerLike;
+export class BrowserStorageAdapter implements KeyValueStore {
+  private readonly logger: Logger;
   private readonly protectedKeys: string[];
 
   constructor(options: BrowserStorageAdapterOptions = {}) {

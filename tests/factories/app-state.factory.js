@@ -185,17 +185,3 @@ export function createAppState(options = {}) {
 
   return appState;
 }
-
-/**
- * Creates AppState with streaming mode active
- */
-export function createStreamingAppState(overrides = {}) {
-  return createAppState({
-    initialState: {
-      isStreaming: true,
-      deviceConnected: true,
-      selectedDeviceId: 'chromatic-video-device',
-      ...overrides,
-    },
-  });
-}

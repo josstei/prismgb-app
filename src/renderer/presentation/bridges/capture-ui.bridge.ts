@@ -1,15 +1,16 @@
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import { EventChannels, OnEvent } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import { OnEvent, type EventBus } from '@renderer/lib/events/event-bus';
 import type {
   RecordingDegradedPayload,
   RecordingErrorPayload,
   ScreenshotReadyPayload,
   UiButtonFeedbackPayload
-} from '@platform/events';
-import { TIMING } from '@platform/config';
-import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+} from '@renderer/lib/events/event-payloads';
+import { TIMING } from '@renderer/lib/timing.config';
+import type { LoggerFactory } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 type CaptureUiControllerLike = {
   triggerDownload(blob: Blob, filename: string): void;
@@ -18,19 +19,19 @@ type CaptureUiControllerLike = {
 @injectable()
 class CaptureUIBridge extends BaseService {
   constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
     @inject(TOKENS.uiController) private readonly uiController: CaptureUiControllerLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'CaptureUIBridge');
+    super(loggerFactory, 'CaptureUIBridge');
   }
 
   initialize() {
-    this.bindEventHandlers();
+    this.bindEventHandlers(this.eventBus);
     this.logger.info('CaptureUIBridge initialized');
   }
 
-  override dispose(): void | Promise<void> {
+  override dispose(): Promise<void> {
     const disposed = super.dispose();
     this.logger.info('CaptureUIBridge disposed');
     return disposed;

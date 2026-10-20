@@ -1,13 +1,14 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { StatusNotificationStore } from '../../../../../src/renderer/presentation/state/status-notification.store.js';
-import { PlatformEventBus, EventChannels } from '@platform/events';
+import { StatusNotificationStore } from '@renderer/presentation/state/status-notification.store';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import { EventBus } from '@renderer/lib/events/event-bus';
 
 describe('StatusNotificationStore', () => {
-  let bus: PlatformEventBus;
+  let bus: EventBus;
   let store: StatusNotificationStore;
 
   beforeEach(() => {
-    bus = new PlatformEventBus();
+    bus = new EventBus();
     store = new StatusNotificationStore({ eventBus: bus });
   });
 

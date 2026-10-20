@@ -1,9 +1,7 @@
-/**
- * createOnEventDecorator / BaseOrchestrator event-binding walk unit tests
- */
-
 import { describe, it, expect, vi } from 'vitest';
-import { BaseOrchestrator, createOnEventDecorator, getEventHandlerBindings } from '@platform/core';
+import { BaseOrchestrator, createOnEventDecorator } from '@platform/core';
+import { getEventHandlerBindings } from '../../../../src/platform/core/event-decorator';
+import { createLoggerFactory } from '../../../factories/index.js';
 
 type TestPayloadMap = {
   'test:alpha': { value: number };
@@ -28,11 +26,13 @@ function createRecordingBus() {
   return { bus, handlers, unsubscribes };
 }
 
+type RecordingBus = ReturnType<typeof createRecordingBus>['bus'];
+
 class AlphaOrchestrator extends BaseOrchestrator {
   received: unknown[] = [];
 
-  constructor(dependencies: object) {
-    super(dependencies, 'AlphaOrchestrator');
+  constructor(bus: RecordingBus | null = null) {
+    super(createLoggerFactory(), 'AlphaOrchestrator', bus);
   }
 
   @OnTestEvent('test:alpha')
@@ -51,8 +51,8 @@ class SubAlphaOrchestrator extends AlphaOrchestrator {}
 class StackedOrchestrator extends BaseOrchestrator {
   calls: number = 0;
 
-  constructor(dependencies: object) {
-    super(dependencies, 'StackedOrchestrator');
+  constructor(bus: RecordingBus) {
+    super(createLoggerFactory(), 'StackedOrchestrator', bus);
   }
 
   @OnTestEvent('test:beta')
@@ -73,7 +73,7 @@ describe('createOnEventDecorator', () => {
     expect(bindings).toHaveLength(2);
   });
 
-  it('exposes inherited bindings to subclasses exactly once', () => {
+  it('exposes inherited bindings to subclasses', () => {
     const bindings = getEventHandlerBindings(SubAlphaOrchestrator);
 
     expect(bindings).toEqual(expect.arrayContaining([
@@ -101,7 +101,7 @@ describe('createOnEventDecorator', () => {
 describe('BaseOrchestrator declared-event subscription', () => {
   it('subscribes each declared channel through the instance event bus on initialize', async () => {
     const { bus } = createRecordingBus();
-    const orchestrator = new AlphaOrchestrator({ eventBus: bus });
+    const orchestrator = new AlphaOrchestrator(bus);
 
     await orchestrator.initialize();
 
@@ -112,7 +112,7 @@ describe('BaseOrchestrator declared-event subscription', () => {
 
   it('invokes the decorated method with the payload and instance context', async () => {
     const { bus, handlers } = createRecordingBus();
-    const orchestrator = new AlphaOrchestrator({ eventBus: bus });
+    const orchestrator = new AlphaOrchestrator(bus);
 
     await orchestrator.initialize();
     handlers.get('test:alpha')?.({ value: 42 });
@@ -123,7 +123,7 @@ describe('BaseOrchestrator declared-event subscription', () => {
 
   it('subscribes a stacked method once per declared channel', async () => {
     const { bus, handlers } = createRecordingBus();
-    const orchestrator = new StackedOrchestrator({ eventBus: bus });
+    const orchestrator = new StackedOrchestrator(bus);
 
     await orchestrator.initialize();
     handlers.get('test:beta')?.('payload');
@@ -135,7 +135,7 @@ describe('BaseOrchestrator declared-event subscription', () => {
 
   it('disposes every declared subscription on cleanup', async () => {
     const { bus, unsubscribes } = createRecordingBus();
-    const orchestrator = new AlphaOrchestrator({ eventBus: bus });
+    const orchestrator = new AlphaOrchestrator(bus);
 
     await orchestrator.initialize();
     await orchestrator.cleanup();
@@ -148,7 +148,7 @@ describe('BaseOrchestrator declared-event subscription', () => {
 
   it('does not double-subscribe on duplicate initialize', async () => {
     const { bus } = createRecordingBus();
-    const orchestrator = new AlphaOrchestrator({ eventBus: bus });
+    const orchestrator = new AlphaOrchestrator(bus);
 
     await orchestrator.initialize();
     await orchestrator.initialize();
@@ -158,7 +158,7 @@ describe('BaseOrchestrator declared-event subscription', () => {
 
   it('re-subscribes after a cleanup and re-initialize cycle', async () => {
     const { bus } = createRecordingBus();
-    const orchestrator = new AlphaOrchestrator({ eventBus: bus });
+    const orchestrator = new AlphaOrchestrator(bus);
 
     await orchestrator.initialize();
     await orchestrator.cleanup();
@@ -168,7 +168,7 @@ describe('BaseOrchestrator declared-event subscription', () => {
   });
 
   it('skips subscription without an event bus', async () => {
-    const orchestrator = new AlphaOrchestrator({});
+    const orchestrator = new AlphaOrchestrator();
 
     await expect(orchestrator.initialize()).resolves.toBeUndefined();
     expect(orchestrator.isInitialized).toBe(true);

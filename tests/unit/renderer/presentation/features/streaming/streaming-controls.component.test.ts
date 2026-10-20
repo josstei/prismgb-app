@@ -3,10 +3,10 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { StreamingControlsComponent } from '@renderer/presentation/features/streaming/streaming-controls.component.js';
-import { StreamInfoStore } from '@renderer/presentation/state/stream-info.store.js';
+import { StreamingControlsComponent } from '@renderer/presentation/features/streaming/streaming-controls.component';
+import { StreamInfoStore } from '@renderer/presentation/state/stream-info.store';
 import { createStreamingControlsElementsMock, createUIBodyClassManagerMock, createEventBus } from '../../../../../factories/index.js';
-import { EventChannels } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
 
 describe('StreamingControlsComponent', () => {
   let component;

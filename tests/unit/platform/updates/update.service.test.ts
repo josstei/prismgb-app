@@ -4,10 +4,10 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UpdateService } from '@platform/updates';
-import { UpdateState } from '@platform/config';
-import type { LoggerLike } from '@platform/core';
+import { UpdateState } from '@platform/ipc';
+import type { Logger } from '@platform/core';
 import type { ProgressInfo, UpdateInfo } from 'electron-updater';
-import { createEventBus, createLoggerFactory, createUpdateConfigMock, createWindowServiceMock } from '../../../factories/index.js';
+import { createLoggerFactory, createUpdateConfigMock, createWindowServiceMock } from '../../../factories/index.js';
 
 vi.mock('electron', () => ({
   app: {
@@ -41,7 +41,7 @@ type MockWindowService = ReturnType<typeof createWindowServiceMock> & {
   send: MockFn;
 };
 type MockLoggerFactory = ReturnType<typeof createLoggerFactory> & {
-  _getLogger(name: string): LoggerLike;
+  _getLogger(name: string): Logger;
 };
 type UpdateConfigMock = ReturnType<typeof createUpdateConfigMock>;
 type UpdateServiceConfig = {
@@ -49,7 +49,6 @@ type UpdateServiceConfig = {
   version?: string;
 };
 type TestableUpdateService = Omit<UpdateService, 'config'> & {
-  _initialized: boolean;
   _autoCheckRunning: boolean;
   config: UpdateServiceConfig;
   windowService: MockWindowService | null;
@@ -72,8 +71,7 @@ function createAutoUpdaterCheckResult(version: string): NonNullable<AutoUpdaterC
 describe('UpdateService', () => {
   let service: TestableUpdateService;
   let mockWindowService: MockWindowService;
-  let mockEventBus: ReturnType<typeof createEventBus>;
-  let mockLogger: LoggerLike;
+  let mockLogger: Logger;
   let mockLoggerFactory: MockLoggerFactory;
   let mockConfig: UpdateConfigMock;
 
@@ -83,23 +81,22 @@ describe('UpdateService', () => {
 
     mockWindowService = createWindowServiceMock({ send: vi.fn() });
 
-    mockEventBus = createEventBus();
-
     mockConfig = createUpdateConfigMock();
 
-    service = new UpdateService({
-      windowService: mockWindowService,
-      eventBus: mockEventBus,
-      loggerFactory: mockLoggerFactory,
-      config: mockConfig
-    }) as unknown as TestableUpdateService;
+    service = createService();
     mockLogger = mockLoggerFactory._getLogger('UpdateService');
   });
 
+  function createService(): TestableUpdateService {
+    return new UpdateService({
+      windowService: mockWindowService,
+      loggerFactory: mockLoggerFactory,
+      config: mockConfig
+    }) as unknown as TestableUpdateService;
+  }
+
   afterEach(async () => {
-    if (service._initialized) {
-      await service.dispose();
-    }
+    await service.dispose();
   });
 
   describe('constructor', () => {
@@ -108,7 +105,7 @@ describe('UpdateService', () => {
       expect(service.updateInfo).toBeNull();
       expect(service.downloadProgress).toBeNull();
       expect(service.error).toBeNull();
-      expect(service._initialized).toBe(false);
+      expect(() => service.installUpdate()).toThrow('UpdateService not initialized');
     });
 
   });
@@ -119,7 +116,15 @@ describe('UpdateService', () => {
 
       expect(autoUpdater.autoDownload).toBe(false);
       expect(autoUpdater.autoInstallOnAppQuit).toBe(true);
-      expect(service._initialized).toBe(true);
+    });
+
+    it('should warn and skip a repeated initialize', () => {
+      service.initialize();
+      vi.mocked(autoUpdater.on).mockClear();
+      service.initialize();
+
+      expect(mockLogger.warn).toHaveBeenCalledWith('UpdateService already initialized');
+      expect(autoUpdater.on).not.toHaveBeenCalled();
     });
 
     it('should set allowPrerelease for beta versions', () => {
@@ -260,9 +265,7 @@ describe('UpdateService', () => {
     });
 
     it('should throw if not initialized', async () => {
-      service._initialized = false;
-
-      await expect(service.checkForUpdates()).rejects.toThrow('UpdateService not initialized');
+      await expect(createService().checkForUpdates()).rejects.toThrow('UpdateService not initialized');
     });
 
     it('should skip check in development mode', async () => {
@@ -355,9 +358,7 @@ describe('UpdateService', () => {
     });
 
     it('should throw if not initialized', async () => {
-      service._initialized = false;
-
-      await expect(service.downloadUpdate()).rejects.toThrow('UpdateService not initialized');
+      await expect(createService().downloadUpdate()).rejects.toThrow('UpdateService not initialized');
     });
 
     it('should throw if no update available', async () => {
@@ -403,9 +404,7 @@ describe('UpdateService', () => {
     });
 
     it('should throw if not initialized', () => {
-      service._initialized = false;
-
-      expect(() => service.installUpdate()).toThrow('UpdateService not initialized');
+      expect(() => createService().installUpdate()).toThrow('UpdateService not initialized');
     });
 
     it('should throw if no update downloaded', () => {
@@ -542,24 +541,10 @@ describe('UpdateService', () => {
       expect(autoUpdater.removeListener).toHaveBeenCalledWith('error', expect.any(Function));
     });
 
-    it('should set initialized to false', async () => {
+    it('should require initialize again after dispose', async () => {
       await service.dispose();
 
-      expect(service._initialized).toBe(false);
-    });
-  });
-
-  describe('_setState', () => {
-    it('should publish state-changed event via EventBus', () => {
-      service._setState(UpdateState.CHECKING);
-
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        'update:state-changed',
-        {
-          oldState: UpdateState.IDLE,
-          newState: UpdateState.CHECKING
-        }
-      );
+      expect(() => service.installUpdate()).toThrow('UpdateService not initialized');
     });
   });
 

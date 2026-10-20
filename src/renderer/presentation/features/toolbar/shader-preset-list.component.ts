@@ -1,10 +1,11 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent, bindClass, computed } from '@platform/ui-base';
-import { signal } from '@platform/ui-base/reactive';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { bindClass } from '@renderer/presentation/primitives/signal-bindings.utils';
+import { computed, signal } from '@preact/signals-core';
 import { getUiPresets, resolvePreset } from '@platform/gpu';
-import { EventChannels } from '@platform/events';
-import type { TypedEventBusLike } from '@platform/events';
-import type { LoggerLike } from '@platform/core';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import type { EventBus } from '@renderer/lib/events/event-bus';
+import type { Logger } from '@platform/core';
 
 type UiShaderPreset = ReturnType<typeof getUiPresets>[number];
 const presetOptionListenersKey = Symbol('shader-preset-option-listeners');
@@ -17,8 +18,8 @@ export interface ShaderPresetSettingsService {
 
 export interface ShaderPresetListComponentOptions {
   settingsService: ShaderPresetSettingsService;
-  eventBus: TypedEventBusLike;
-  logger?: LoggerLike | null;
+  eventBus: EventBus;
+  logger?: Logger | null;
 }
 
 export interface ShaderPresetListElements {
@@ -28,8 +29,8 @@ export interface ShaderPresetListElements {
 
 class ShaderPresetListComponent extends PresentationComponent {
   declare settingsService: ShaderPresetSettingsService;
-  declare eventBus: TypedEventBusLike;
-  declare logger: LoggerLike | null | undefined;
+  declare eventBus: EventBus;
+  declare logger: Logger | null | undefined;
   declare optionsContainer: HTMLElement | null | undefined;
   declare unavailableMessage: HTMLElement | null | undefined;
   declare currentPresetId: string | null;

@@ -1,7 +1,7 @@
-import { signal, computed, type ReadonlySignal } from '@platform/ui-base/reactive';
-import { EventChannels } from '@platform/events';
-import type { EventBusLike } from '@platform/core';
-import { ReactiveStore } from './reactive-store.base.js';
+import { signal, computed, type ReadonlySignal } from '@preact/signals-core';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import type { EventBus } from '@renderer/lib/events/event-bus';
+import { ReactiveStore } from './reactive-store.base';
 
 const SUCCESS_HIDE_DELAY_MS = 1200;
 const ERROR_HIDE_DELAY_MS = 2000;
@@ -11,7 +11,7 @@ const ERROR_LABEL = '✗';
 export type TranscodePhase = 'idle' | 'transcoding' | 'success' | 'error';
 
 export interface TranscodeProgressStoreDependencies {
-  eventBus: EventBusLike;
+  eventBus: EventBus;
 }
 
 /**

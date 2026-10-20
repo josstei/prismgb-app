@@ -1,9 +1,8 @@
 import { z } from 'zod';
 import { observable } from '@trpc/server/observable';
 import { IPC_CHANNELS } from '@platform/ipc';
-import { toDeviceStatusPayload } from '@platform/devices';
+import { toDeviceStatusPayload, type DeviceInfoPayload } from '@platform/devices';
 import type {
-  DeviceInfoPayload,
   ProcessMetricsPayload,
   UpdateCheckPayload,
   UpdateStatusPayload,
@@ -49,9 +48,8 @@ function toObjectPayload(value: unknown): Record<string, unknown> {
 /**
  * Subscription procedure relaying one push channel from the {@link IpcContext.ipcPushBridge}.
  *
- * Trade (b) defense-in-depth: a `schema` validates each payload. Mirroring the retired preload
- * listener (`subscription.factory.ts`), an invalid payload is **dropped and the stream stays alive**
- * (logged), rather than torn down. `schema === null` is a `void` channel (no payload). Validation is
+ * Defense in depth: a `schema` validates each payload. An invalid payload is **dropped and the
+ * stream stays alive** (logged), rather than torn down. `schema === null` is a `void` channel (no payload). Validation is
  * performed here rather than via `.output(z)` because tRPC 10 applies output parsers to the resolver
  * return value (the observable), not to each emitted value.
  */

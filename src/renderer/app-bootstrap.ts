@@ -1,15 +1,13 @@
-import { ConsoleLoggerFactory } from '@platform/core';
-import { UIController } from '@renderer/presentation/controller/ui.controller.js';
-import { safeDispose } from '@platform/core';
+import { ConsoleLoggerFactory, safeDispose, type Logger } from '@platform/core';
+import { UIController } from '@renderer/presentation/controller/ui.controller';
 import type { AppOrchestrator } from '@renderer/application/orchestrators/app.orchestrator';
 import type { RendererServiceContainer } from '@renderer/application/container';
-import type { LoggerLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
-import { initializeContainer } from './application/container.js';
-import { registerAllowedValuesSource, registerDefaultValueSource } from '@renderer/lib/settings.definitions.js';
-import { TRANSCODE_CONFIG } from '@platform/transcode';
+import { TOKENS } from '@renderer/application/di/tokens';
+import { initializeContainer } from './application/container';
+import { registerAllowedValuesSource, registerDefaultValueSource } from '@renderer/lib/settings.definitions';
+import { TRANSCODE_FORMATS } from '@platform/ipc';
 import { PRESET_POLICY } from '@platform/gpu';
-import { renderAppShell } from './presentation/shell/app-shell.renderer.js';
+import { renderAppShell } from './presentation/shell/app-shell.renderer';
 
 
 
@@ -17,7 +15,7 @@ class RendererBootstrap {
   container: RendererServiceContainer | null;
   orchestrator: AppOrchestrator | null;
   isInitialized: boolean;
-  logger: LoggerLike;
+  logger: Logger;
   _uiController: UIController | null;
 
   constructor() {
@@ -27,7 +25,7 @@ class RendererBootstrap {
     this._uiController = null;
 
     const loggerFactory = new ConsoleLoggerFactory();
-    this.logger = loggerFactory.create('RendererBootstrap') as LoggerLike;
+    this.logger = loggerFactory.create('RendererBootstrap');
   }
 
   async initialize() {
@@ -40,7 +38,7 @@ class RendererBootstrap {
 
     try {
       // Register settings options dynamically before resolving definitions
-      registerAllowedValuesSource('TRANSCODE_CONFIG.formats', () => Object.keys(TRANSCODE_CONFIG.formats));
+      registerAllowedValuesSource('TRANSCODE_CONFIG.formats', () => [...TRANSCODE_FORMATS]);
       registerDefaultValueSource('PRESET_POLICY.rendererDefaultId', () => PRESET_POLICY.rendererDefaultId);
 
       // Render templates into app container
@@ -92,17 +90,8 @@ class RendererBootstrap {
   async cleanup() {
     this.logger.info('Cleaning up renderer application...');
 
-    if (this.orchestrator) {
-      await safeDispose(this.logger, 'orchestrator', this.orchestrator as Object, 'cleanup');
-    }
-
-    if (this._uiController) {
-      await safeDispose(this.logger, 'uiController', this._uiController);
-    }
-
-    if (this.container) {
-      await safeDispose(this.logger, 'container', this.container as Object);
-    }
+    await safeDispose(this.logger, 'orchestrator', () => this.orchestrator?.cleanup());
+    await safeDispose(this.logger, 'uiController', () => this._uiController?.dispose());
 
     this.orchestrator = null;
     this.container = null;

@@ -1,16 +1,4 @@
-import type {
-  Dimensions,
-  StreamingCapabilities
-} from '@platform/events';
-import { isRecord } from '@platform/core';
-
-export type {
-  Dimensions,
-  PerformanceStatePayload,
-  StreamStartedPayload,
-  StreamingCapabilities,
-  SupportedDeviceAvailablePayload
-} from '@platform/events';
+import type { Dimensions, StreamingCapabilities } from '@renderer/lib/events/event-payloads';
 
 export type GpuRendererServiceLike = {
   isActive(): boolean;
@@ -33,6 +21,10 @@ export type RecordingScaleParams = {
   offsetY: number;
   needsClearing: boolean;
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
 
 function hasNumber(value: Record<string, unknown>, key: string): boolean {
   return typeof value[key] === 'number' && Number.isFinite(value[key]);

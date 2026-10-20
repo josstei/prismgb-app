@@ -1,11 +1,11 @@
-import type { LoggerFactoryLike, LoggerLike } from '@platform/core';
+import type { LoggerFactory, Logger } from '@platform/core';
 import { downloadFile } from '@renderer/lib/file-download.utils';
-import type { DomBindings, DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils.js';
-import type { RendererTemplateDeferredComponentId } from '@renderer/presentation/primitives/template-dom.contract.js';
+import type { DomBindings, DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils';
+import type { RendererTemplateDeferredComponentId } from '@renderer/presentation/primitives/template-dom.contract';
 import type {
   UiComponentHost,
   RendererUiComponentInstanceMap
-} from '@renderer/presentation/controller/ui-component.host.js';
+} from '@renderer/presentation/controller/ui-component.host';
 
 interface UIEffectsLike {
   triggerShutterFlash(): void;
@@ -28,13 +28,13 @@ export interface UIControllerDependencies {
   uiComponentHost?: UiComponentHost<RendererUiComponentInstanceMap> | null;
   domBindings?: DomBindings | null;
   uiEffects?: UIEffectsLike | null;
-  loggerFactory?: LoggerFactoryLike | null;
+  loggerFactory?: LoggerFactory | null;
 }
 
 class UIController {
   declare host: UiComponentHost<RendererUiComponentInstanceMap> | null | undefined;
   declare effects: UIEffectsLike | null | undefined;
-  declare logger: LoggerLike | null;
+  declare logger: Logger | null;
   declare elements: UIControllerElements;
   declare dom: DomBindings;
 

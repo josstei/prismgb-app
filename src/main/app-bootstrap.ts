@@ -1,20 +1,20 @@
-import type { MainServiceContainer } from './application/container.js';
-import { createAppContainer } from './application/container.js';
-import { MainLogger } from './infrastructure/logging/logger.factory.js';
-import type { AppOrchestrator } from './application/app.orchestrator.js';
-import { TOKENS } from './application/di/tokens.js';
-import type { LoggerLike } from '@platform/core';
+import type { MainServiceContainer } from './application/container';
+import { createAppContainer } from './application/container';
+import { MainLogger } from './infrastructure/logging/logger.factory';
+import type { AppOrchestrator } from './application/app.orchestrator';
+import { TOKENS } from './application/di/tokens';
+import type { Logger } from '@platform/core';
 
 export class MainBootstrap {
   private container: MainServiceContainer | null = null;
   private orchestrator: AppOrchestrator | null = null;
   private isInitialized = false;
   private readonly loggerFactory: MainLogger;
-  private readonly logger: LoggerLike;
+  private readonly logger: Logger;
 
   constructor() {
     this.loggerFactory = new MainLogger();
-    this.logger = this.loggerFactory.create('MainBootstrap') as LoggerLike;
+    this.logger = this.loggerFactory.create('MainBootstrap');
   }
 
   async initialize(): Promise<void> {

@@ -1,18 +1,16 @@
-import type { EventBusLike, LoggerFactoryLike, LoggerLike } from '@platform/core';
+import type { LoggerFactory, Logger } from '@platform/core';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import type { EventBus } from '@renderer/lib/events/event-bus';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { EventChannels } from '@platform/events';
-import { UpdateState } from '@platform/config';
-import type { UpdateStateValue } from '@platform/config';
+import { UpdateState, type UpdateStateValue } from '@platform/ipc';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import {
-  PresentationComponent,
   bindText,
   bindClass,
   bindProperty,
-  bindStyleProperty,
-  computed,
-  effect
-} from '@platform/ui-base';
-import { signal } from '@platform/ui-base/reactive';
+  bindStyleProperty
+} from '@renderer/presentation/primitives/signal-bindings.utils';
+import { computed, effect, signal } from '@preact/signals-core';
 
 type UpdateInfo = {
   version?: string;
@@ -137,8 +135,8 @@ function createEmptyUpdateSectionElements(): CachedUpdateSectionElements {
 
 export interface UpdateSectionComponentOptions {
   updateService: UpdateServiceLike;
-  eventBus: EventBusLike;
-  loggerFactory?: LoggerFactoryLike | null;
+  eventBus: EventBus;
+  loggerFactory?: LoggerFactory | null;
 }
 
 /**
@@ -148,8 +146,8 @@ export interface UpdateSectionComponentOptions {
  */
 class UpdateSectionComponent extends PresentationComponent {
   private readonly updateService: UpdateServiceLike;
-  private readonly eventBus: EventBusLike;
-  private readonly logger: LoggerLike;
+  private readonly eventBus: EventBus;
+  private readonly logger: Logger;
   private _initialized: boolean;
   elements: CachedUpdateSectionElements;
 

@@ -3,11 +3,11 @@ vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
   trpcClient: (await import('../../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
 }));
 import { UpdateService } from '@renderer/infrastructure/services/updates/update.service';
-import { UpdateState } from '@platform/config';
-import { EventChannels } from '@platform/events';
+import { UpdateState } from '@platform/ipc';
+import { EventChannels } from '@renderer/lib/events/event-channels';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { emitTrpcData, getTrpcUnsubscribe } from '../../../../../support/mocks/trpc-client.mock';
-import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+import { createInjectableHarness } from '../../../../../support/di/injectable.harness';
 
 describe('UpdateService', () => {
   let service, mockEventBus, mockLogger, mockLoggerFactory;
@@ -27,7 +27,6 @@ describe('UpdateService', () => {
       expect(service.updateInfo).toBeNull();
       expect(service.getStatus().downloadProgress).toBeNull();
       expect(service.getStatus().error).toBeNull();
-      expect(service._initialized).toBe(false);
     });
 
   });
@@ -47,7 +46,14 @@ describe('UpdateService', () => {
       expect(trpcClient.update.onDownloaded.subscribe).toHaveBeenCalledWith(undefined, { onData: expect.any(Function) });
       expect(trpcClient.update.onError.subscribe).toHaveBeenCalledWith(undefined, { onData: expect.any(Function) });
       expect(service.disposables.size).toBe(1);
-      expect(service._initialized).toBe(true);
+    });
+
+    it('should warn and skip a repeated initialize', async () => {
+      await service.initialize();
+      await service.initialize();
+
+      expect(mockLogger.warn).toHaveBeenCalledWith('UpdateService already initialized');
+      expect(trpcClient.update.onAvailable.subscribe).toHaveBeenCalledTimes(1);
     });
 
     it('should load initial status', async () => {
@@ -72,7 +78,8 @@ describe('UpdateService', () => {
       await service.initialize();
 
       expect(mockLogger.warn).toHaveBeenCalledWith('Failed to load initial update status', testError);
-      expect(service._initialized).toBe(true);
+      expect(mockLogger.info).toHaveBeenCalledWith('UpdateService initialized');
+      expect(service.disposables.size).toBe(1);
     });
   });
 
@@ -333,13 +340,15 @@ describe('UpdateService', () => {
     it('should reset state', async () => {
       service._state = UpdateState.AVAILABLE;
       service._updateInfo = { version: '2.0.0' };
-      service._initialized = true;
 
       await service.dispose();
 
       expect(service.state).toBe(UpdateState.IDLE);
       expect(service.updateInfo).toBeNull();
-      expect(service._initialized).toBe(false);
+
+      await service.initialize();
+      expect(mockLogger.warn).not.toHaveBeenCalledWith('UpdateService already initialized');
+      expect(trpcClient.update.onAvailable.subscribe).toHaveBeenCalledTimes(2);
     });
   });
 

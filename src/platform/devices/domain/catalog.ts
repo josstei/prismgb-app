@@ -1,4 +1,4 @@
-import { deepFreeze, pruneUndefined } from '@platform/core';
+import { deepFreeze, pruneUndefined } from './object.utils';
 import catalog from './catalog.json';
 import type {
   DeviceAcquisitionAttempt,
@@ -16,7 +16,7 @@ import type {
   DeviceNativeResolution,
   DeviceResolution,
   DeviceStreamProfile
-} from './types.js';
+} from './types';
 
 type ManifestDevice = typeof catalog.devices[number];
 type ManifestMedia = ManifestDevice['media'] & {

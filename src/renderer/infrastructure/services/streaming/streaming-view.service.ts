@@ -8,9 +8,9 @@
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import type {
-  LoggerFactoryLike
+  LoggerFactory
 } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 type UiControllerLike = {
   elements: {
@@ -24,9 +24,9 @@ type UiControllerLike = {
 class StreamingViewService extends BaseService {
   constructor(
     @inject(TOKENS.uiController) private readonly uiController: UiControllerLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory }, 'StreamingViewService');
+    super(loggerFactory, 'StreamingViewService');
   }
 
   attachMutedStream(stream: MediaStream): void {

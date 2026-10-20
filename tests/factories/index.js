@@ -44,17 +44,14 @@ export {
 // Device factories
 export {
   createDeviceInfo,
-  createMediaStream,
   createRendererDeviceRuntimeMock,
   createDeviceStatusComponentMock,
 } from './device.factory.js';
 
 // Stream factories
 export {
-  createStreamingService,
   createMockCanvas,
   createMockVideo,
-  StreamingState,
   createStreamPayloadMock,
   createMediaTrackMock,
   createMediaStreamMock,
@@ -79,7 +76,6 @@ export {
 // AppState factories
 export {
   createAppState,
-  createStreamingAppState,
 } from './app-state.factory.js';
 
 // System factories

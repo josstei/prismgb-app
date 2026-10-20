@@ -4,9 +4,10 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BodyClassManager } from '@renderer/presentation/effects/body-class.effect';
-import { PresentationModeStore } from '@renderer/presentation/state/presentation-mode.store.js';
-import { signal } from '@platform/ui-base/reactive';
-import { PlatformEventBus, EventChannels } from '@platform/events';
+import { PresentationModeStore } from '@renderer/presentation/state/presentation-mode.store';
+import { signal } from '@preact/signals-core';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import { EventBus } from '@renderer/lib/events/event-bus';
 
 describe('BodyClassManager', () => {
   let manager;
@@ -183,7 +184,7 @@ describe('BodyClassManager', () => {
     let store;
 
     beforeEach(() => {
-      bus = new PlatformEventBus();
+      bus = new EventBus();
       cinematicEnabled = signal(false);
       store = new PresentationModeStore({ eventBus: bus, cinematicEnabled });
       manager.bindPresentationMode(store);

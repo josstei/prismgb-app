@@ -1,20 +1,25 @@
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import { EventChannels } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import type { EventBus } from '@renderer/lib/events/event-bus';
 import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
-import { callIpc, type CallIpcResult } from '@renderer/infrastructure/ipc/call-ipc.js';
-import type { EventPublisherLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import { callIpc, type CallIpcResult } from '@renderer/infrastructure/ipc/call-ipc';
+import type { LoggerFactory } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens';
 import type {
   TranscodeCancelledPayload,
   TranscodeCompletedPayload,
   TranscodeErrorPayload,
   TranscodeFormat,
   TranscodeProgressPayload,
-  TranscodeStartOptions,
   TranscodeStartPayload
 } from '@platform/ipc';
+
+type TranscodeStartOptions = {
+  inputArgs?: string[];
+  interrupted?: boolean;
+};
 
 const TRANSCODE_SUBSCRIPTION_LIFECYCLE = Symbol('transcodeSubscriptionLifecycle');
 
@@ -22,18 +27,24 @@ const TRANSCODE_SUBSCRIPTION_LIFECYCLE = Symbol('transcodeSubscriptionLifecycle'
 class TranscodeService extends BaseService {
   private _isTranscoding: boolean;
   private _activeJobId: string | null;
+  private initialized = false;
 
   constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: EventPublisherLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'TranscodeService');
+    super(loggerFactory, 'TranscodeService');
 
     this._isTranscoding = false;
     this._activeJobId = null;
   }
 
-  protected override onInitialize(): void {
+  initialize(): void {
+    if (this.initialized) {
+      this.logger.warn('TranscodeService already initialized');
+      return;
+    }
+
     this.logger.info('Initializing TranscodeService');
 
     this.disposables.replace(TRANSCODE_SUBSCRIPTION_LIFECYCLE, createTrpcEventBridge('TranscodeService', [
@@ -44,6 +55,7 @@ class TranscodeService extends BaseService {
     ], this.logger));
 
     this.logger.info('TranscodeService initialized');
+    this.initialized = true;
   }
 
   async transcode(
@@ -124,10 +136,10 @@ class TranscodeService extends BaseService {
     this.eventBus.publish(EventChannels.TRANSCODE.CANCELLED, data);
   }
 
-  override dispose(): void | Promise<void> {
+  override dispose(): Promise<void> {
     this._isTranscoding = false;
     this._activeJobId = null;
-    this._initialized = false;
+    this.initialized = false;
     this.logger.info('TranscodeService disposed');
     return super.dispose();
   }

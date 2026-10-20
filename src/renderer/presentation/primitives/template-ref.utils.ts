@@ -1,5 +1,5 @@
-import { EventChannels } from '@platform/events';
-import { TemplateActionTargets } from '@renderer/presentation/primitives/template-dom.contract.js';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import { TemplateActionTargets } from '@renderer/presentation/primitives/template-dom.contract';
 
 export const UIActionIds = {
   SCREENSHOT_CAPTURE: 'capture.screenshot',

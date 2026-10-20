@@ -20,20 +20,16 @@ type TsconfigWithPaths = {
 };
 
 const MODULE_NAMES: string[] = [
-  'config',
   'core',
   'devices',
-  'events',
   'gpu',
   'ipc',
-  'notes',
   'transcode',
-  'ui-base',
   'updates'
 ];
 
 describe('workspace-aliases registry', () => {
-  it('declares exactly the ten platform modules', () => {
+  it('declares exactly the six platform modules', () => {
     expect(PLATFORM_MODULES.map((module) => module.name).sort()).toEqual(MODULE_NAMES);
   });
 
@@ -42,15 +38,11 @@ describe('workspace-aliases registry', () => {
       PLATFORM_MODULES.map((module) => [module.name, Object.keys(module.entrypoints).sort()])
     );
     expect(entrypointsByName).toEqual({
-      config: ['.'],
       core: ['.'],
       devices: ['.', './runtime', './testkit'],
-      events: ['.'],
       gpu: ['.', './runtime', './testkit'],
       ipc: ['.'],
-      notes: ['.'],
       transcode: ['.', './service'],
-      'ui-base': ['.', './reactive'],
       updates: ['.']
     });
   });
@@ -60,7 +52,7 @@ describe('workspace-aliases registry', () => {
     const keys = Object.keys(aliasMap);
     expect(keys.indexOf('@platform/gpu/runtime')).toBeLessThan(keys.indexOf('@platform/gpu'));
     expect(aliasMap['@platform/gpu']).toBe(resolve('/repo', 'src/platform/gpu/index.ts'));
-    expect(aliasMap['@platform/ui-base/reactive']).toBe(resolve('/repo', 'src/platform/ui-base/reactive/index.ts'));
+    expect(aliasMap['@platform/devices/runtime']).toBe(resolve('/repo', 'src/platform/devices/runtime.ts'));
   });
 
   it('emits exact-match regex entries for the vite array form', () => {

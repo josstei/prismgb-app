@@ -1,13 +1,6 @@
-/**
- * Storage Key Constants
- *
- * Shared storage keys used by non-UI services and presentation.
- */
 import { SettingsDefinitions } from '@renderer/lib/settings.definitions';
 
-export const NotesStorageKeys = {
-  USER_NOTES: 'userNotes'
-};
+export const NOTES_STORAGE_KEY = 'userNotes';
 
 let cachedSettingsKeys: string[] | null = null;
 function getSettingsKeys(): string[] {
@@ -23,7 +16,7 @@ let cachedProtectedKeys: string[] | null = null;
 function getProtectedKeys(): string[] {
   if (!cachedProtectedKeys) {
     cachedProtectedKeys = [
-      NotesStorageKeys.USER_NOTES,
+      NOTES_STORAGE_KEY,
       ...getSettingsKeys()
     ];
   }

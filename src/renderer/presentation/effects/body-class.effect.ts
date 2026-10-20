@@ -1,7 +1,9 @@
 import { injectable } from 'inversify';
-import { TIMING } from '@platform/config';
+import { TIMING } from '@renderer/lib/timing.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent, bindClass, effect } from '@platform/ui-base';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { bindClass } from '@renderer/presentation/primitives/signal-bindings.utils';
+import { effect } from '@preact/signals-core';
 import type { PresentationModeStore } from '@renderer/presentation/state/presentation-mode.store.js';
 
 const MINIMALIST_TRANSITION_TIMEOUT = Symbol('minimalist-transition-timeout');

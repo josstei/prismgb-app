@@ -6,20 +6,21 @@
 
 import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
-import { EventChannels, OnEvent } from '@platform/events';
-import type { MemorySnapshotRequestPayload } from '@platform/events';
-import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import { OnEvent, type EventBus } from '@renderer/lib/events/event-bus';
+import type { MemorySnapshotRequestPayload } from '@renderer/lib/events/event-payloads';
+import type { LoggerFactory } from '@platform/core';
 import type { PerformanceMetricsService } from '@renderer/infrastructure/services/performance/performance-metrics.service';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 @injectable()
 export class PerformanceMetricsOrchestrator extends BaseOrchestrator {
   constructor(
-    @inject(TOKENS.eventBus) eventBus: EventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike,
+    @inject(TOKENS.eventBus) eventBus: EventBus,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory,
     @inject(TOKENS.performanceMetricsService) private readonly performanceMetricsService: PerformanceMetricsService
   ) {
-    super({ loggerFactory, eventBus }, 'PerformanceMetricsOrchestrator');
+    super(loggerFactory, 'PerformanceMetricsOrchestrator', eventBus);
   }
 
   async onInitialize(): Promise<void> {

@@ -1,6 +1,6 @@
-import { TIMING } from '@platform/config';
+import { TIMING } from '@renderer/lib/timing.config';
 import { debounce } from '@platform/core';
-import type { LoggerLike } from '@platform/core';
+import type { Logger } from '@platform/core';
 
 export interface MediaDevicesPort {
   enumerateDevices(): Promise<MediaDeviceInfo[]>;
@@ -21,11 +21,11 @@ type BrowserMediaServiceLike = MediaDevicesEventSource & {
 export class BrowserMediaDevicesPort implements MediaDevicesPort {
   private readonly browserMediaService: BrowserMediaServiceLike;
   private readonly debounceMs: number;
-  private readonly logger?: LoggerLike;
+  private readonly logger?: Logger;
 
   constructor(
     browserMediaService: BrowserMediaServiceLike,
-    logger?: LoggerLike,
+    logger?: Logger,
     debounceMs = TIMING.DEVICE_CHANGE_DEBOUNCE_MS
   ) {
     this.browserMediaService = browserMediaService;

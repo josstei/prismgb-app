@@ -5,12 +5,12 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { CaptureUIBridge } from '@renderer/presentation/bridges/capture-ui.bridge';
-import { EventChannels } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
 import {
   createCaptureUIControllerMock,
   createEventBus,
 } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness';
 
 describe('CaptureUIBridge', () => {
   let bridge;

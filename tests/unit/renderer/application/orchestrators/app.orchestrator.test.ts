@@ -4,9 +4,9 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { AppOrchestrator } from '@renderer/application/orchestrators/app.orchestrator';
-import { EventChannels } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
 import { createOrchestratorMock } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness';
 
 describe('AppOrchestrator', () => {
   let orchestrator;
@@ -140,8 +140,8 @@ describe('AppOrchestrator', () => {
     it('should unsubscribe all subscriptions via cleanup()', async () => {
       const unsubscribe1 = vi.fn();
       const unsubscribe2 = vi.fn();
-      orchestrator.track({ dispose: unsubscribe1 });
-      orchestrator.track({ dispose: unsubscribe2 });
+      orchestrator.disposables.add({ dispose: unsubscribe1 });
+      orchestrator.disposables.add({ dispose: unsubscribe2 });
 
       await orchestrator.cleanup();
 

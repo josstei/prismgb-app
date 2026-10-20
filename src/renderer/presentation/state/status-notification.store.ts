@@ -1,13 +1,13 @@
-import { signal, type ReadonlySignal } from '@platform/ui-base/reactive';
-import { EventChannels } from '@platform/events';
-import type { EventBusLike } from '@platform/core';
-import { ReactiveStore } from './reactive-store.base.js';
+import { signal, type ReadonlySignal } from '@preact/signals-core';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import type { EventBus } from '@renderer/lib/events/event-bus';
+import { ReactiveStore } from './reactive-store.base';
 
 const VALID_TYPES = ['info', 'success', 'warning', 'error'] as const;
 export type StatusNotificationType = (typeof VALID_TYPES)[number];
 
 export interface StatusNotificationStoreDependencies {
-  eventBus: EventBusLike;
+  eventBus: EventBus;
 }
 
 /** Owns status-message reactive state; subscribes the bus → signal (event→state). */

@@ -1,4 +1,4 @@
-import { pruneUndefined } from '@platform/core';
+import { pruneUndefined } from './object.utils';
 import type {
   DeviceDescriptor,
   DeviceInfo,
@@ -6,7 +6,7 @@ import type {
   DeviceStatus,
   DeviceStatusPayload,
   ObservedUsbDevice
-} from './types.js';
+} from './types';
 
 export function toDeviceInfo(descriptor: DeviceDescriptor, observed: ObservedUsbDevice): DeviceInfo {
   return pruneUndefined<DeviceInfo>({

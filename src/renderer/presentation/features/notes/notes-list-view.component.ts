@@ -1,7 +1,7 @@
-import { PresentationComponent } from '@platform/ui-base';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { escapeHtml } from '@platform/core';
-import type { LoggerLike } from '@platform/core';
+import { escapeHtml } from '@renderer/presentation/primitives/html-escape.utils';
+import type { Logger } from '@platform/core';
 
 const LIST_SETUP_LIFECYCLE = Symbol('notesListSetupLifecycle');
 
@@ -19,7 +19,7 @@ interface NotesListServiceLike {
 
 export interface NotesListViewComponentOptions {
   notesService: NotesListServiceLike;
-  logger?: LoggerLike | null;
+  logger?: Logger | null;
 }
 
 export interface NotesListViewInitializeOptions {
@@ -29,7 +29,7 @@ export interface NotesListViewInitializeOptions {
 
 class NotesListViewComponent extends PresentationComponent {
   declare notesService: NotesListServiceLike | null;
-  declare logger: LoggerLike | null | undefined;
+  declare logger: Logger | null | undefined;
   declare currentNoteId: string | null;
   declare currentGameFilter: string;
   declare collapsedGameGroups: Set<string>;
@@ -94,23 +94,6 @@ class NotesListViewComponent extends PresentationComponent {
     this.listElement.innerHTML = gameNames
       .map((gameName) => this._renderGameGroup(gameName, grouped[gameName] || []))
       .join('');
-  }
-
-  updateItemDisplay(noteId: string, title: string, gameName?: string): void {
-    const item = this.listElement?.querySelector<HTMLElement>(`[data-note-id="${noteId}"]`);
-    if (!item) return;
-
-    for (const child of item.children) {
-      const element = child as HTMLElement;
-      if (element.classList.contains('note-list-item-title')) {
-        element.textContent = title || 'Untitled Note';
-      } else if (element.classList.contains('note-list-item-date')) {
-        element.textContent = new Date().toLocaleDateString();
-      } else if (element.classList.contains('note-list-item-game-tag') && gameName !== undefined) {
-        element.textContent = gameName || '';
-        element.style.display = gameName ? '' : 'none';
-      }
-    }
   }
 
   updateActiveState(noteId: string | null): void {

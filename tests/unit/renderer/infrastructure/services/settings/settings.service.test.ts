@@ -7,9 +7,9 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
   trpcClient: (await import('../../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
 }));
-import { SettingsDefinitions as settingsDefinitions } from '@renderer/lib/settings.definitions.js';
+import { SettingsDefinitions as settingsDefinitions } from '@renderer/lib/settings.definitions';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
-import { EventChannels } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
 import { createSettingsServiceHarness } from '../../../../../factories/index.js';
 describe('SettingsService', () => {
   let service;
@@ -110,7 +110,6 @@ describe('SettingsService', () => {
     it('validates enum settings', () => {
       expect(service.setSetting('recordingFormat', 'mp4')).toBe(true);
       expect(localStorageMock.setItem).toHaveBeenCalledWith('recordingFormat', 'mp4');
-      expect(mockEventBus.publish).toHaveBeenCalledWith('settings:recording-format-changed', 'mp4');
       expect(service.setSetting('recordingFormat', 'avi')).toBe(false);
       expect(mockLogger.warn).toHaveBeenCalledWith('Invalid recordingFormat: avi. Valid values: webm, mp4, mov');
     });

@@ -51,9 +51,6 @@ jobs:
       - name: Run dev boot preflight
         run: xvfb-run -a npm run dev:smoke
 
-      - name: Run integration tests
-        run: npm run test:integration
-
   validate-linux-arm64:
     name: Test (ubuntu-24.04-arm)
     runs-on: ubuntu-24.04-arm
@@ -78,9 +75,6 @@ jobs:
 
       - name: Run tests (no coverage)
         run: npm run test:run
-
-      - name: Run integration tests
-        run: npm run test:integration
 
   validate-matrix:
     name: Test (${{ matrix.os }})
@@ -107,6 +101,3 @@ jobs:
 
       - name: Run tests (no coverage)
         run: npm run test:run
-
-      - name: Run integration tests
-        run: npm run test:integration

@@ -1,29 +1,33 @@
-import type { UpdateStateValue } from '@platform/config';
-import type {
-  DeviceInfoPayload,
-  DeviceStatusPayload
-} from '@platform/devices';
-import type {
-  UpdateInfoPayload,
-  UpdateProgressPayload,
-  UpdateErrorPayload,
-  TranscodeProgressPayload,
-  TranscodeCompletedPayload,
-  TranscodeCancelledPayload,
-  TranscodeErrorPayload
-} from '@platform/events';
+export const UpdateState = {
+  IDLE: 'idle',
+  CHECKING: 'checking',
+  AVAILABLE: 'available',
+  NOT_AVAILABLE: 'not-available',
+  DOWNLOADING: 'downloading',
+  DOWNLOADED: 'downloaded',
+  ERROR: 'error'
+} as const;
 
-export type {
-  UpdateInfoPayload,
-  UpdateProgressPayload,
-  UpdateErrorPayload,
-  TranscodeProgressPayload,
-  TranscodeCompletedPayload,
-  TranscodeCancelledPayload,
-  TranscodeErrorPayload
-};
+export type UpdateStateValue = (typeof UpdateState)[keyof typeof UpdateState];
 
-export type { DeviceInfoPayload, DeviceStatusPayload };
+export interface UpdateInfoPayload {
+  version?: string;
+  releaseDate?: string;
+  releaseNotes?: unknown;
+  reason?: string;
+}
+
+export interface UpdateProgressPayload {
+  percent?: number;
+  bytesPerSecond?: number;
+  transferred?: number;
+  total?: number;
+}
+
+export interface UpdateErrorPayload {
+  message?: string;
+  code?: string;
+}
 
 export interface UpdateStatusPayload {
   state?: UpdateStateValue;
@@ -39,11 +43,31 @@ export interface UpdateCheckPayload {
   reason?: string;
 }
 
-export type TranscodeFormat = 'webm' | 'mp4' | 'mov';
+export const TRANSCODE_FORMATS = ['webm', 'mp4', 'mov'] as const;
 
-export interface TranscodeStartOptions {
-  inputArgs?: string[];
-  interrupted?: boolean;
+export type TranscodeFormat = (typeof TRANSCODE_FORMATS)[number];
+
+export interface TranscodeProgressPayload {
+  jobId?: string;
+  percent: number;
+  timeUs?: number;
+  elapsedMs?: number;
+}
+
+export interface TranscodeCompletedPayload {
+  jobId?: string;
+  filePath?: string | null;
+  outputPath?: string;
+}
+
+export interface TranscodeCancelledPayload {
+  jobId?: string;
+}
+
+export interface TranscodeErrorPayload {
+  jobId?: string;
+  error?: string;
+  message?: string;
 }
 
 export interface TranscodeJobPayload {

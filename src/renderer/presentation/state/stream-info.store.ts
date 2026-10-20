@@ -1,11 +1,11 @@
-import { signal, type ReadonlySignal } from '@platform/ui-base/reactive';
-import { EventChannels } from '@platform/events';
-import type { EventBusLike } from '@platform/core';
-import type { StreamInfoSettings } from '@renderer/presentation/features/streaming/streaming-controls.component.js';
-import { ReactiveStore } from './reactive-store.base.js';
+import { signal, type ReadonlySignal } from '@preact/signals-core';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import type { EventBus } from '@renderer/lib/events/event-bus';
+import type { StreamInfoSettings } from '@renderer/presentation/features/streaming/streaming-controls.component';
+import { ReactiveStore } from './reactive-store.base';
 
 export interface StreamInfoStoreDependencies {
-  eventBus: EventBusLike;
+  eventBus: EventBus;
 }
 
 export class StreamInfoStore extends ReactiveStore {

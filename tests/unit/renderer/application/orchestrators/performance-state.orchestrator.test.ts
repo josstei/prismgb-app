@@ -4,9 +4,9 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PerformanceStateOrchestrator } from '@renderer/application/orchestrators/performance/performance-state.orchestrator';
-import { EventChannels } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
 import { createEventBus, createPerformanceStateServiceMock } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness';
 
 describe('PerformanceStateOrchestrator', () => {
   let coordinator;
@@ -75,7 +75,7 @@ describe('PerformanceStateOrchestrator', () => {
     expect(mockPerformanceStateService.setStreaming).toHaveBeenCalledWith(false);
   });
 
-  it('should publish state and UI mode changes when state updates', async () => {
+  it('should publish state changes when state updates', async () => {
     await coordinator.initialize();
 
     const state = {
@@ -89,10 +89,6 @@ describe('PerformanceStateOrchestrator', () => {
     onStateChange(state);
 
     expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.PERFORMANCE.STATE_CHANGED, state);
-    expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.PERFORMANCE.UI_MODE_CHANGED, {
-      enabled: true,
-      weakGpuDetected: false
-    });
   });
 
   it('should dispose performance state service on cleanup', async () => {

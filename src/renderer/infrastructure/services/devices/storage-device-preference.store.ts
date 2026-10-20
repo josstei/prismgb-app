@@ -1,6 +1,6 @@
 import { DeviceCatalog } from '@platform/devices';
 import type { DeviceId } from '@platform/devices';
-import type { LoggerLike, StorageServiceLike } from '@platform/core';
+import type { Logger, KeyValueStore } from '@platform/core';
 
 export interface DevicePreferenceStore {
   readStoredDeviceIds(): readonly string[];
@@ -8,10 +8,10 @@ export interface DevicePreferenceStore {
 }
 
 export class StorageDevicePreferenceStore implements DevicePreferenceStore {
-  private readonly storageService: StorageServiceLike;
-  private readonly logger?: LoggerLike;
+  private readonly storageService: KeyValueStore;
+  private readonly logger?: Logger;
 
-  constructor(storageService: StorageServiceLike, logger?: LoggerLike) {
+  constructor(storageService: KeyValueStore, logger?: Logger) {
     this.storageService = storageService;
     this.logger = logger;
   }

@@ -15,12 +15,12 @@
 
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import { TIMING } from '@platform/config';
+import { TIMING } from '@renderer/lib/timing.config';
 import type {
-  LoggerFactoryLike
+  LoggerFactory
 } from '@platform/core';
-import type { Dimensions } from '@renderer/infrastructure/services/streaming/streaming.contract.js';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { Dimensions } from '@renderer/lib/events/event-payloads';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 type ResizeDimensions = Dimensions & {
   scale: number;
@@ -46,8 +46,8 @@ export class StreamingViewportService extends BaseService {
   private _forceResizePending: boolean;
   private _cachedStyles: CachedViewportStyles | null;
 
-  constructor(@inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike) {
-    super({ loggerFactory }, 'StreamingViewportService');
+  constructor(@inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory) {
+    super(loggerFactory, 'StreamingViewportService');
 
     // ResizeObserver for canvas resize handling
     this._resizeObserver = null;
@@ -158,7 +158,7 @@ export class StreamingViewportService extends BaseService {
       return;
     }
 
-    this.schedule(RESIZE_DEBOUNCE_LIFECYCLE, () => {
+    this.disposables.schedule(RESIZE_DEBOUNCE_LIFECYCLE, () => {
       if (this._onResizeCallback) {
         this._onResizeCallback();
       }
@@ -178,14 +178,14 @@ export class StreamingViewportService extends BaseService {
    * Uses short delay to ensure CSS layout has recalculated after fullscreen change.
    */
   forceResize(): void {
-    this.cancelScheduled(RESIZE_DEBOUNCE_LIFECYCLE);
-    this.cancelScheduled(FORCE_RESIZE_LIFECYCLE);
+    this.disposables.cancel(RESIZE_DEBOUNCE_LIFECYCLE);
+    this.disposables.cancel(FORCE_RESIZE_LIFECYCLE);
 
     this._forceResizePending = true;
     this._lastDimensions = null;
     this._cachedStyles = null;
 
-    this.schedule(FORCE_RESIZE_LIFECYCLE, () => {
+    this.disposables.schedule(FORCE_RESIZE_LIFECYCLE, () => {
       this._forceResizePending = false;
       if (this._onResizeCallback) {
         this._onResizeCallback();
@@ -197,8 +197,8 @@ export class StreamingViewportService extends BaseService {
    * Cleanup resources
    */
   cleanup(): void {
-    this.cancelScheduled(FORCE_RESIZE_LIFECYCLE);
-    this.cancelScheduled(RESIZE_DEBOUNCE_LIFECYCLE);
+    this.disposables.cancel(FORCE_RESIZE_LIFECYCLE);
+    this.disposables.cancel(RESIZE_DEBOUNCE_LIFECYCLE);
     this.disposables.cancel(RESIZE_OBSERVER_LIFECYCLE);
 
     if (this._resizeObserver) {
@@ -219,7 +219,7 @@ export class StreamingViewportService extends BaseService {
   /**
    * Dispose the service
    */
-  override dispose(): void | Promise<void> {
+  override dispose(): Promise<void> {
     this.cleanup();
     const disposed = super.dispose();
     this.logger.info('StreamingViewportService disposed');

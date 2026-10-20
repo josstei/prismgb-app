@@ -1,12 +1,12 @@
-import { PresentationComponent } from '@platform/ui-base';
-import type { LoggerLike } from '@platform/core';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import type { Logger } from '@platform/core';
 
 const SEARCH_DEBOUNCE_MS = 200;
 const SEARCH_DEBOUNCE_TIMEOUT = Symbol('notesSearchDebounceTimeout');
 const SEARCH_SETUP_LIFECYCLE = Symbol('notesSearchSetupLifecycle');
 
 export interface NotesSearchComponentOptions {
-  logger?: LoggerLike | null;
+  logger?: Logger | null;
 }
 
 export interface NotesSearchInitializeOptions {
@@ -15,7 +15,7 @@ export interface NotesSearchInitializeOptions {
 }
 
 class NotesSearchComponent extends PresentationComponent {
-  declare logger: LoggerLike | null | undefined;
+  declare logger: Logger | null | undefined;
   declare currentQuery: string;
   declare searchInput: HTMLInputElement | null | undefined;
   declare onSearch: ((query: string) => void) | null | undefined;

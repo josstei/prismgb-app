@@ -1,19 +1,19 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import {
   PresentationComponent,
-  DisclosureController,
-  ListboxDropdownController,
   type PresentationLifecycleToken
-} from '@platform/ui-base';
+} from '@renderer/presentation/primitives/presentation-component.base';
+import { DisclosureController } from '@renderer/presentation/widgets/disclosure.controller';
+import { ListboxDropdownController } from '@renderer/presentation/widgets/listbox-dropdown.controller';
 import {
   getBooleanSettingsUiDefinitions,
   getListboxSettingsUiDefinitions,
   hasExternalSource,
   type SettingsControlDefinition,
   type SettingsListboxDefinition
-} from '@renderer/lib/settings.definitions.js';
-import type { LoggerLike } from '@platform/core';
-import type { UpdateSectionElements } from '@renderer/presentation/features/updates/update-section.component.js';
+} from '@renderer/lib/settings.definitions';
+import type { Logger } from '@platform/core';
+import type { UpdateSectionElements } from '@renderer/presentation/features/updates/update-section.component';
 
 declare const __APP_VERSION__: string | undefined;
 
@@ -67,12 +67,12 @@ interface UpdateSectionDomElements {
 export interface SettingsMenuComponentOptions {
   settingsService: SettingsServiceLike;
   updateSectionComponent?: UpdateSectionLike | null;
-  logger?: LoggerLike | null;
+  logger?: Logger | null;
 }
 
 class SettingsMenuComponent extends PresentationComponent {
   declare settingsService: SettingsServiceLike;
-  declare logger: LoggerLike | null | undefined;
+  declare logger: Logger | null | undefined;
   declare isVisible: boolean;
   declare _menuDisclosure: DisclosureController | null;
   declare _disclaimerDisclosure: DisclosureController | null;

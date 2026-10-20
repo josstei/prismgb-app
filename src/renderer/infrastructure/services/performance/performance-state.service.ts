@@ -7,8 +7,8 @@
 
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import type { LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { LoggerFactory } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 export type PerformanceState = {
   performanceModeEnabled: boolean;
@@ -58,12 +58,12 @@ class PerformanceStateService extends BaseService {
   private _onStateChange: ((state: PerformanceState) => void) | null;
 
   constructor(
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory,
     @inject(TOKENS.visibilityAdapter) private readonly _visibilityAdapter: VisibilityAdapterLike,
     @inject(TOKENS.userActivityAdapter) private readonly _userActivityAdapter: UserActivityAdapterLike,
     @inject(TOKENS.reducedMotionAdapter) private readonly _reducedMotionAdapter: ReducedMotionAdapterLike
   ) {
-    super({ loggerFactory }, 'PerformanceStateService');
+    super(loggerFactory, 'PerformanceStateService');
 
     this._state = { ...DEFAULT_STATE };
     this._isStreaming = false;
@@ -82,7 +82,7 @@ class PerformanceStateService extends BaseService {
     this._emitState();
   }
 
-  override dispose(): void | Promise<void> {
+  override dispose(): Promise<void> {
     this._onStateChange = null;
     return super.dispose();
   }
@@ -176,13 +176,13 @@ class PerformanceStateService extends BaseService {
 
     this._clearIdleTimer();
     this._lastIdleReset = performance.now();
-    this.schedule(IDLE_TIMER_LIFECYCLE, () => {
+    this.disposables.schedule(IDLE_TIMER_LIFECYCLE, () => {
       this._updateState({ idle: true });
     }, this._idleDelayMs);
   }
 
   _clearIdleTimer(): void {
-    this.cancelScheduled(IDLE_TIMER_LIFECYCLE);
+    this.disposables.cancel(IDLE_TIMER_LIFECYCLE);
   }
 
   _updateState(partial: Partial<PerformanceState>): boolean {

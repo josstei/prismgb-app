@@ -1,18 +1,15 @@
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import { EventChannels } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import type { EventBus } from '@renderer/lib/events/event-bus';
 import { DeviceCatalog } from '@platform/devices';
 import { getErrorMessage } from '@platform/core';
-import type { TypedEventBusLike } from '@platform/events';
-import type { LoggerFactoryLike } from '@platform/core';
-import type {
-  Dimensions,
-  StreamingCapabilities
-} from '@renderer/infrastructure/services/streaming/streaming.contract.js';
+import type { LoggerFactory } from '@platform/core';
+import type { Dimensions, StreamingCapabilities } from '@renderer/lib/events/event-payloads';
 import { createGpuVideoRendererSession, detectBrowserGpuCapabilities } from '@platform/gpu/runtime';
-import type { GpuVideoRendererSession, GpuVideoRendererStats } from '@platform/gpu/runtime';
+import type { GpuVideoRendererSession } from '@platform/gpu/runtime';
 import type { RenderCapabilities } from '@platform/gpu';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 type VideoFrameCallbackMetadata = {
   mediaTime: number;
@@ -83,10 +80,10 @@ export class StreamingRenderService extends BaseService {
     @inject(TOKENS.canvasLifecycleService) private readonly canvasLifecycleService: CanvasLifecycleServiceLike,
     @inject(TOKENS.streamHealthService) private readonly streamHealthService: StreamHealthServiceLike,
     @inject(TOKENS.settingsService) private readonly settingsService: SettingsServiceLike,
-    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'StreamingRenderService');
+    super(loggerFactory, 'StreamingRenderService');
 
     this._currentCapabilities = null;
     this._session = null;
@@ -303,14 +300,12 @@ export class StreamingRenderService extends BaseService {
     return new Promise<void>((resolve, reject) => {
       this.streamHealthService.checkStreamHealth(
         videoElement,
-        (frameData) => {
+        () => {
           this.logger.info('Stream verified healthy - first frame received');
-          this.eventBus.publish(EventChannels.STREAM.HEALTH_OK, frameData);
           resolve();
         },
         (errorData) => {
           this.logger.warn(`Stream unhealthy: ${errorData.reason}`);
-          this.eventBus.publish(EventChannels.STREAM.HEALTH_TIMEOUT, errorData);
           const error = new Error(`No frames received: ${errorData.reason}`) as Error & { reason?: string };
           error.reason = errorData.reason;
           reject(error);
@@ -373,14 +368,9 @@ export class StreamingRenderService extends BaseService {
         },
         onReady: (event) => {
           this.logger.info(`Session ready (backend: ${event.backend})`);
-          this.eventBus.publish(EventChannels.RENDER.PIPELINE_READY, event);
-        },
-        onStats: (payload) => {
-          this._publishRenderStats(payload);
         },
         onError: (payload) => {
           this.logger.error('Session error:', payload.message);
-          this.eventBus.publish(EventChannels.RENDER.PIPELINE_ERROR, payload);
         },
         onCanvasExpired: () => {
           this.eventBus.publish(EventChannels.RENDER.CANVAS_EXPIRED);
@@ -452,14 +442,9 @@ export class StreamingRenderService extends BaseService {
         },
         onReady: (event) => {
           this.logger.info(`Session ready (backend: ${event.backend})`);
-          this.eventBus.publish(EventChannels.RENDER.PIPELINE_READY, event);
-        },
-        onStats: (payload) => {
-          this._publishRenderStats(payload);
         },
         onError: (payload) => {
           this.logger.error('Session error:', payload.message);
-          this.eventBus.publish(EventChannels.RENDER.PIPELINE_ERROR, payload);
         },
         onCanvasExpired: () => {
           this.eventBus.publish(EventChannels.RENDER.CANVAS_EXPIRED);
@@ -503,7 +488,6 @@ export class StreamingRenderService extends BaseService {
         },
         onReady: (event) => {
           this.logger.info(`Session ready (backend: ${event.backend})`);
-          this.eventBus.publish(EventChannels.RENDER.PIPELINE_READY, event);
         },
         logger: this.logger
       });
@@ -556,15 +540,6 @@ export class StreamingRenderService extends BaseService {
       return { width: native.width, height: native.height };
     }
     return this._session.getTargetDimensions();
-  }
-
-  private _publishRenderStats(stats: GpuVideoRendererStats): void {
-    this.eventBus.publish(EventChannels.RENDER.STATS_UPDATE, {
-      fps: stats.fps,
-      frameTime: stats.frameTime,
-      gpuTime: stats.gpuTime,
-      uploadTime: stats.uploadTime
-    });
   }
 
   private _startRenderLoop(video: HTMLVideoElement): void {

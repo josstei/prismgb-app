@@ -1,10 +1,10 @@
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import type { LoggerFactoryLike } from '@platform/core';
-import { FilenameGenerator } from '@renderer/lib/filename-generator.utils.js';
-import { EventChannels } from '@platform/events';
-import type { RecordingReadyPayload, TypedEventBusLike } from '@platform/events';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { LoggerFactory } from '@platform/core';
+import { FilenameGenerator } from '@renderer/lib/filename-generator.utils';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import type { EventBus } from '@renderer/lib/events/event-bus';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 type MediaRecorderErrorEvent = Event & {
   error?: DOMException | Error | { message?: string; name?: string };
@@ -44,10 +44,10 @@ class CaptureService extends BaseService {
   private _stopWaiter: StopWaiter | null;
 
   constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'CaptureService');
+    super(loggerFactory, 'CaptureService');
 
     this.isRecording = false;
     this.mediaRecorder = null;
@@ -216,7 +216,7 @@ class CaptureService extends BaseService {
 
     this.logger.info('Recording ready to save:', filename);
 
-    await this._publishLifecycleEvent(EventChannels.CAPTURE.RECORDING_READY, { blob, filename });
+    await this.eventBus.publishAsync(EventChannels.CAPTURE.RECORDING_READY, { blob, filename });
 
     this.recordedChunks = [];
   }
@@ -323,17 +323,6 @@ class CaptureService extends BaseService {
       this.mediaRecorder = null;
       this.isRecording = false;
     }
-  }
-
-  private async _publishLifecycleEvent(
-    event: typeof EventChannels.CAPTURE.RECORDING_READY,
-    payload: RecordingReadyPayload
-  ): Promise<void> {
-    if (this.eventBus.publishAsync) {
-      await this.eventBus.publishAsync(event, payload);
-      return;
-    }
-    this.eventBus.publish(event, payload);
   }
 
   private async _stopActiveRecorder({ emitStoppedEvent }: { emitStoppedEvent: boolean }): Promise<void> {

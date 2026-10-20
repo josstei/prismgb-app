@@ -1,6 +1,7 @@
-import { EventChannels } from '@platform/events';
-import { DisposableBag, type EventBusLike } from '@platform/core';
-import { signal, type Signal, type ReadonlySignal } from '@platform/ui-base/reactive';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import type { EventBus } from '@renderer/lib/events/event-bus';
+import { DisposableBag } from '@platform/core';
+import { signal, type Signal, type ReadonlySignal } from '@preact/signals-core';
 
 interface StreamingServiceLike {
   readonly isStreaming: boolean;
@@ -15,7 +16,7 @@ interface RendererDeviceRuntimeLike {
 type AppStateDependencies = {
   streamingService?: StreamingServiceLike;
   rendererDeviceRuntime?: RendererDeviceRuntimeLike;
-  eventBus?: EventBusLike;
+  eventBus?: EventBus;
 };
 
 /**
@@ -26,7 +27,7 @@ type AppStateDependencies = {
 class AppState {
   streamingService: StreamingServiceLike | undefined;
   rendererDeviceRuntime: RendererDeviceRuntimeLike | undefined;
-  eventBus: EventBusLike | undefined;
+  eventBus: EventBus | undefined;
 
   private readonly _isCinematicModeEnabled = signal(true);
   readonly _streamCache = signal<MediaStream | null>(null);

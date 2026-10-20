@@ -1,8 +1,8 @@
 import type { ServiceIdentifier } from 'inversify';
-import type { LoggerFactoryLike, StorageServiceLike } from '@platform/core';
-import type { NotesService } from '@platform/notes';
-import type { EventBus } from '../../infrastructure/events/event-bus';
+import type { LoggerFactory, KeyValueStore } from '@platform/core';
+import type { EventBus } from '../../lib/events/event-bus';
 import type { RendererDeviceRuntime } from '../../infrastructure/services/devices/device-runtime.service';
+import type { NotesService } from '../../infrastructure/services/notes/notes.service';
 import type { DeviceMediaAcquirer } from '../../infrastructure/services/streaming/device-media-acquirer.service';
 import type { StreamingService } from '../../infrastructure/services/streaming/streaming.service';
 import type { AppState } from '../state/app-state';
@@ -65,7 +65,7 @@ function token<T>(name: string): ServiceIdentifier<T> {
 
 export const TOKENS = {
   eventBus: token<EventBus>('eventBus'),
-  loggerFactory: token<LoggerFactoryLike>('loggerFactory'),
+  loggerFactory: token<LoggerFactory>('loggerFactory'),
   rendererDeviceRuntime: token<RendererDeviceRuntime>('rendererDeviceRuntime'),
   deviceMediaAcquirer: token<DeviceMediaAcquirer>('deviceMediaAcquirer'),
   streamingService: token<StreamingService>('streamingService'),
@@ -109,7 +109,7 @@ export const TOKENS = {
   transcodeUiBridge: token<TranscodeUIBridge>('transcodeUiBridge'),
   uiEventBridge: token<UIEventBridge>('uiEventBridge'),
   uiEffects: token<UIEffects>('uiEffects'),
-  storageService: token<StorageServiceLike>('storageService'),
+  storageService: token<KeyValueStore>('storageService'),
   deviceStatusPort: token<TrpcDeviceStatusPort>('deviceStatusPort'),
   mediaDevicesPort: token<BrowserMediaDevicesPort>('mediaDevicesPort'),
   devicePreferenceStore: token<StorageDevicePreferenceStore>('devicePreferenceStore'),

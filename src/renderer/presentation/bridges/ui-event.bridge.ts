@@ -1,13 +1,10 @@
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import { EventChannels, OnEvent } from '@platform/events';
-import type {
-  TypedEventBusLike,
-  UiButtonFeedbackPayload,
-  UiStreamingModePayload
-} from '@platform/events';
-import type { LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import { OnEvent, type EventBus } from '@renderer/lib/events/event-bus';
+import type { UiButtonFeedbackPayload, UiStreamingModePayload } from '@renderer/lib/events/event-payloads';
+import type { LoggerFactory } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 type UiControllerLike = {
   updateDeviceStatus(status: unknown): void;
@@ -42,16 +39,16 @@ function getBooleanPayloadValue(data: unknown, key: string): boolean | null {
 @injectable()
 export class UIEventBridge extends BaseService {
   constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
     @inject(TOKENS.uiController) private readonly uiController: UiControllerLike,
     @inject(TOKENS.presentationModeService) private readonly presentationModeService: PresentationModeServiceLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'UIEventBridge');
+    super(loggerFactory, 'UIEventBridge');
   }
 
   initialize(): void {
-    this.bindEventHandlers();
+    this.bindEventHandlers(this.eventBus);
     this.logger.info('UIEventBridge initialized');
   }
 
@@ -132,7 +129,7 @@ export class UIEventBridge extends BaseService {
     this.presentationModeService.handleFullscreenState(active);
   }
 
-  override dispose(): void | Promise<void> {
+  override dispose(): Promise<void> {
     const disposed = super.dispose();
     this.logger.info('UIEventBridge disposed');
     return disposed;

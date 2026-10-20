@@ -1,12 +1,12 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import type { App, Shell } from 'electron';
 import { getErrorMessage } from '@platform/core';
-import type { LoggerLike } from '@platform/core';
+import type { Logger } from '@platform/core';
 import type { DeviceStatus } from '@platform/devices';
 import type { UpdateStatusPayload, TranscodeFormat } from '@platform/ipc';
 import type { TranscodeResult, CancelResult, StatusResult } from '@platform/transcode/service';
-import type { IpcPushBridge } from './ipc-push.bridge.js';
-import type { MainProcessTestControlPort } from './test-control.port.js';
+import type { IpcPushBridge } from './ipc-push.bridge';
+import type { MainProcessTestControlPort } from './test-control.port';
 
 export interface DeviceConnectionPort {
   getStatus(): DeviceStatus;
@@ -43,9 +43,8 @@ export interface TranscodeService {
 }
 
 /**
- * The dependency set every tRPC procedure resolves against — the same set the retired
- * `IpcHandlerRegistry` injected, plus the {@link IpcPushBridge} the subscription procedures relay
- * from. Supplied per-request by `createIPCHandler`'s `createContext`.
+ * The dependency set every tRPC procedure resolves against, plus the {@link IpcPushBridge} the
+ * subscription procedures relay from. Supplied per-request by `createIPCHandler`'s `createContext`.
  */
 export interface IpcContext {
   deviceConnectionService: DeviceConnectionPort;
@@ -56,7 +55,7 @@ export interface IpcContext {
   loginItemService: LoginItemService;
   app: App;
   shell: Shell;
-  logger: LoggerLike;
+  logger: Logger;
   ipcPushBridge: IpcPushBridge;
 }
 
@@ -89,7 +88,7 @@ export const publicProcedure = t.procedure;
  */
 export async function rethrowAsTrpcError<TResult>(
   label: string,
-  logger: LoggerLike,
+  logger: Logger,
   run: () => TResult | Promise<TResult>
 ): Promise<TResult> {
   try {

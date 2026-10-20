@@ -13,15 +13,11 @@ export const PLATFORM_ROOT = 'src/platform';
 export const PLATFORM_PREFIX = '@platform';
 
 export const PLATFORM_MODULES = [
-  { name: 'config', entrypoints: { '.': 'index.ts' } },
   { name: 'core', entrypoints: { '.': 'index.ts' } },
   { name: 'devices', entrypoints: { '.': 'index.ts', './runtime': 'runtime.ts', './testkit': 'testkit.ts' } },
-  { name: 'events', entrypoints: { '.': 'index.ts' } },
   { name: 'gpu', entrypoints: { '.': 'index.ts', './runtime': 'runtime.ts', './testkit': 'testkit.ts' } },
   { name: 'ipc', entrypoints: { '.': 'index.ts' } },
-  { name: 'notes', entrypoints: { '.': 'index.ts' } },
   { name: 'transcode', entrypoints: { '.': 'index.ts', './service': 'service.ts' } },
-  { name: 'ui-base', entrypoints: { '.': 'index.ts', './reactive': 'reactive/index.ts' } },
   { name: 'updates', entrypoints: { '.': 'index.ts' } }
 ];
 

@@ -1,14 +1,14 @@
 import { injectable, inject } from 'inversify';
 import { BaseService, getErrorMessage } from '@platform/core';
-import type { LoggerFactoryLike } from '@platform/core';
+import type { LoggerFactory } from '@platform/core';
 import type {
   DeviceAcquisitionAttempt,
   DeviceConstraintMap,
   DeviceStreamProfile
 } from '@platform/devices';
-import type { MediaDevicesPort } from '../devices/browser-media-devices.port.js';
-import type { DeviceStreamingTarget } from '../devices/device-runtime.service.js';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { MediaDevicesPort } from '../devices/browser-media-devices.port';
+import type { DeviceStreamingTarget } from '../devices/device-runtime.service';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 export interface DeviceStreamCapabilities extends DeviceStreamProfile {
   hasAudio: boolean;
@@ -39,9 +39,9 @@ export class DeviceMediaAcquirer extends BaseService {
 
   constructor(
     @inject(TOKENS.mediaDevicesPort) private readonly mediaDevicesPort: MediaDevicesPort,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory }, 'DeviceMediaAcquirer');
+    super(loggerFactory, 'DeviceMediaAcquirer');
   }
 
   async acquire(target: DeviceStreamingTarget): Promise<DeviceMediaAcquireResult> {

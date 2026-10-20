@@ -11,8 +11,8 @@ import fsPromises from 'node:fs/promises';
 import crypto from 'node:crypto';
 import os from 'node:os';
 import nodeModule from 'node:module';
-import { TRANSCODE_CONFIG } from './transcode.config.js';
-import { getElectronApp } from '@platform/core';
+import { TRANSCODE_CONFIG } from './transcode.config';
+import { getElectronApp, type Logger } from '@platform/core';
 
 /**
  * Session information for a transcode operation
@@ -22,12 +22,7 @@ export interface SessionInfo {
   sessionDir: string;
 }
 
-/**
- * Logger interface for cleanup operations
- */
-interface Logger {
-  error: (message: string) => void;
-}
+type CleanupLogger = Pick<Logger, 'error'>;
 
 // Track active sessions for cleanup
 const activeSessions = new Set<string>();
@@ -91,7 +86,7 @@ export async function writeTempFile(sessionDir: string, filename: string, buffer
  * @param sessionDir - Session directory path
  * @param logger - Optional logger for structured logging
  */
-export function cleanupSession(sessionId: string, sessionDir: string, logger: Logger | null = null): void {
+export function cleanupSession(sessionId: string, sessionDir: string, logger: CleanupLogger | null = null): void {
   try {
     if (fs.existsSync(sessionDir)) {
       fs.rmSync(sessionDir, { recursive: true, force: true });
@@ -113,7 +108,7 @@ export function cleanupSession(sessionId: string, sessionDir: string, logger: Lo
  * Call this on app quit to ensure no temp files are left behind
  * @param logger - Optional logger for structured logging
  */
-export function cleanupAllSessions(logger: Logger | null = null): void {
+export function cleanupAllSessions(logger: CleanupLogger | null = null): void {
   const baseDir = getTempBaseDir();
 
   // Clean up tracked sessions

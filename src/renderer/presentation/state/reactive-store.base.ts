@@ -13,6 +13,6 @@ export abstract class ReactiveStore {
   }
 
   dispose(): void | Promise<void> {
-    return this.disposables.clear();
+    return this.disposables.dispose();
   }
 }
