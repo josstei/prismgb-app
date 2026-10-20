@@ -1,5 +1,5 @@
 import { injectable } from 'inversify';
-import { TIMING } from '@platform/config';
+import { TIMING } from '@renderer/lib/timing.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresentationComponent, bindClass, effect } from '@platform/ui-base';
 import type { PresentationModeStore } from '@renderer/presentation/state/presentation-mode.store.js';

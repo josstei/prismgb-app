@@ -3,8 +3,7 @@ const { autoUpdater } = pkg;
 import type { UpdateInfo, ProgressInfo } from 'electron-updater';
 import { BaseService, getElectronApp } from '@platform/core';
 import type { LoggerFactory } from '@platform/core';
-import { IPC_CHANNELS } from '@platform/ipc';
-import { UpdateState, type UpdateStateValue } from '@platform/config';
+import { IPC_CHANNELS, UpdateState, type UpdateStateValue } from '@platform/ipc';
 
 type UpdateStateType = UpdateStateValue;
 

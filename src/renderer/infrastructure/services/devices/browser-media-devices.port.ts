@@ -1,4 +1,4 @@
-import { TIMING } from '@platform/config';
+import { TIMING } from '@renderer/lib/timing.config';
 import { debounce } from '@platform/core';
 import type { Logger } from '@platform/core';
 

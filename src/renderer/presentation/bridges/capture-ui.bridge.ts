@@ -8,7 +8,7 @@ import type {
   ScreenshotReadyPayload,
   UiButtonFeedbackPayload
 } from '@renderer/lib/events/event-payloads';
-import { TIMING } from '@platform/config';
+import { TIMING } from '@renderer/lib/timing.config';
 import type { LoggerFactory } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens';
 

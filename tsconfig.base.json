@@ -25,9 +25,6 @@
       "@renderer/*": [
         "./src/renderer/*"
       ],
-      "@platform/config": [
-        "./src/platform/config/index"
-      ],
       "@platform/core": [
         "./src/platform/core/index"
       ],

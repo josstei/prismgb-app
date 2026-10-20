@@ -2,7 +2,6 @@ import { BrowserWindow, app, DownloadItem, Event } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import { uiConfig } from '@platform/config';
 import { IPC_CHANNELS } from '@platform/ipc';
 import { injectable, inject } from 'inversify';
 import { BaseService, type LoggerFactory } from '@platform/core';
@@ -10,7 +9,13 @@ import { TOKENS } from '@main/application/di/tokens';
 import type { IpcPushBridge } from '@main/ipc/ipc-push.bridge';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const { WINDOW_CONFIG } = uiConfig;
+const WINDOW_BOUNDS = {
+  width: 1280,
+  height: 720,
+  minWidth: 800,
+  minHeight: 600,
+  backgroundColor: '#0f0f1e'
+} as const;
 
 type ConsoleMessageListener = (
   event: Event,
@@ -74,12 +79,8 @@ class WindowService extends BaseService {
     this.logger.debug(`appPath: ${appPath}, preloadPath: ${preloadPath}`);
 
     this.mainWindow = new BrowserWindow({
-      width: WINDOW_CONFIG.width,
-      height: WINDOW_CONFIG.height,
-      minWidth: WINDOW_CONFIG.minWidth,
-      minHeight: WINDOW_CONFIG.minHeight,
+      ...WINDOW_BOUNDS,
       title: 'PrismGB',
-      backgroundColor: WINDOW_CONFIG.backgroundColor,
       autoHideMenuBar: true,
       frame: true,
       transparent: false,

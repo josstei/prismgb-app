@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UpdateService } from '@platform/updates';
-import { UpdateState } from '@platform/config';
+import { UpdateState } from '@platform/ipc';
 import type { Logger } from '@platform/core';
 import type { ProgressInfo, UpdateInfo } from 'electron-updater';
 import { createLoggerFactory, createUpdateConfigMock, createWindowServiceMock } from '../../../factories/index.js';

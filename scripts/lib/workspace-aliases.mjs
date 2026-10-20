@@ -13,7 +13,6 @@ export const PLATFORM_ROOT = 'src/platform';
 export const PLATFORM_PREFIX = '@platform';
 
 export const PLATFORM_MODULES = [
-  { name: 'config', entrypoints: { '.': 'index.ts' } },
   { name: 'core', entrypoints: { '.': 'index.ts' } },
   { name: 'devices', entrypoints: { '.': 'index.ts', './runtime': 'runtime.ts', './testkit': 'testkit.ts' } },
   { name: 'gpu', entrypoints: { '.': 'index.ts', './runtime': 'runtime.ts', './testkit': 'testkit.ts' } },

@@ -20,7 +20,6 @@ type TsconfigWithPaths = {
 };
 
 const MODULE_NAMES: string[] = [
-  'config',
   'core',
   'devices',
   'gpu',
@@ -32,7 +31,7 @@ const MODULE_NAMES: string[] = [
 ];
 
 describe('workspace-aliases registry', () => {
-  it('declares exactly the nine platform modules', () => {
+  it('declares exactly the eight platform modules', () => {
     expect(PLATFORM_MODULES.map((module) => module.name).sort()).toEqual(MODULE_NAMES);
   });
 
@@ -41,7 +40,6 @@ describe('workspace-aliases registry', () => {
       PLATFORM_MODULES.map((module) => [module.name, Object.keys(module.entrypoints).sort()])
     );
     expect(entrypointsByName).toEqual({
-      config: ['.'],
       core: ['.'],
       devices: ['.', './runtime', './testkit'],
       gpu: ['.', './runtime', './testkit'],

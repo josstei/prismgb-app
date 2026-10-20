@@ -1,10 +1,21 @@
-import type { UpdateStateValue } from '@platform/config';
 import type {
   DeviceInfoPayload,
   DeviceStatusPayload
 } from '@platform/devices';
 
 export type { DeviceInfoPayload, DeviceStatusPayload };
+
+export const UpdateState = {
+  IDLE: 'idle',
+  CHECKING: 'checking',
+  AVAILABLE: 'available',
+  NOT_AVAILABLE: 'not-available',
+  DOWNLOADING: 'downloading',
+  DOWNLOADED: 'downloaded',
+  ERROR: 'error'
+} as const;
+
+export type UpdateStateValue = (typeof UpdateState)[keyof typeof UpdateState];
 
 export interface UpdateInfoPayload {
   version?: string;

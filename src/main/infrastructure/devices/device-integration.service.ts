@@ -1,6 +1,5 @@
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import { appConfig } from '@platform/config';
 import { IPC_CHANNELS } from '@platform/ipc';
 import { DeviceCatalog, toDeviceInfoPayload, type DeviceStatus } from '@platform/devices';
 import type {
@@ -13,6 +12,7 @@ import type { WindowService } from '@main/infrastructure/window/window.service';
 import { TOKENS } from '@main/application/di/tokens';
 
 const WINDOW_LAUNCH_LIFECYCLE = Symbol('deviceIntegrationWindowLaunch');
+const DEFAULT_WINDOW_LAUNCH_DELAY_MS = 500;
 
 @injectable()
 export class DeviceIntegrationService extends BaseService {
@@ -64,7 +64,7 @@ export class DeviceIntegrationService extends BaseService {
     }
 
     const descriptor = DeviceCatalog.get(status.device.id);
-    const delayMs = descriptor?.behavior.showWindowOnConnectDelayMs ?? appConfig.DEVICE_LAUNCH_DELAY;
+    const delayMs = descriptor?.behavior.showWindowOnConnectDelayMs ?? DEFAULT_WINDOW_LAUNCH_DELAY_MS;
     this.disposables.cancel(WINDOW_LAUNCH_LIFECYCLE);
     const launchTimeout = setTimeout(() => {
       this.disposables.cancel(WINDOW_LAUNCH_LIFECYCLE);

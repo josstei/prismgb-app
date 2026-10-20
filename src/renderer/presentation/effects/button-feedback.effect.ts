@@ -1,4 +1,4 @@
-import { TIMING } from '@platform/config';
+import { TIMING } from '@renderer/lib/timing.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresentationComponent } from '@platform/ui-base';
 import type { DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils.js';

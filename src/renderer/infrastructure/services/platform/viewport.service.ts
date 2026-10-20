@@ -15,7 +15,7 @@
 
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import { TIMING } from '@platform/config';
+import { TIMING } from '@renderer/lib/timing.config';
 import type {
   LoggerFactory
 } from '@platform/core';

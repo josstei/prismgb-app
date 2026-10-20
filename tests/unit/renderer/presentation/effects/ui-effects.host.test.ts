@@ -73,7 +73,7 @@ vi.mock('@platform/ui-base', async (importOriginal) => {
 });
 
 import { UIEffects } from '@renderer/presentation/effects/ui-effects.host';
-import { TIMING } from '@platform/config';
+import { TIMING } from '@renderer/lib/timing.config';
 import { createUIBodyClassManagerMock, createUIEffectsElementsMock } from '../../../../factories/index.js';
 import { installDocumentCreateElementMock } from '../../../../support/mocks/browser-api.installers.js';
 

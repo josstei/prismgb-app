@@ -2,8 +2,7 @@ import type { LoggerFactory, Logger } from '@platform/core';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import type { EventBus } from '@renderer/lib/events/event-bus';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { UpdateState } from '@platform/config';
-import type { UpdateStateValue } from '@platform/config';
+import { UpdateState, type UpdateStateValue } from '@platform/ipc';
 import {
   PresentationComponent,
   bindText,

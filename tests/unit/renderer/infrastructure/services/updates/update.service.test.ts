@@ -3,7 +3,7 @@ vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
   trpcClient: (await import('../../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
 }));
 import { UpdateService } from '@renderer/infrastructure/services/updates/update.service';
-import { UpdateState } from '@platform/config';
+import { UpdateState } from '@platform/ipc';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { emitTrpcData, getTrpcUnsubscribe } from '../../../../../support/mocks/trpc-client.mock';

@@ -5,7 +5,7 @@
  * Takes over cursor management when active.
  */
 
-import { TIMING } from '@platform/config';
+import { TIMING } from '@renderer/lib/timing.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresentationComponent, ActivityAutoHideController } from '@platform/ui-base';
 
