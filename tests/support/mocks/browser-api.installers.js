@@ -1,14 +1,4 @@
-/**
- * Browser API Mocks Installers
- *
- * Central export and barrel for all browser-API installers.
- * Extracted into separate domain modules under tests/support/mocks/installers/
- */
-
-export {
-  createCleanupStack,
-  installTargetProperty,
-} from './runtime-property.installers.js';
+export { createCleanupStack } from './runtime-property.installers.js';
 
 export {
   installAnimationFrameMock,
@@ -20,7 +10,6 @@ export {
 } from './installers/canvas.installer.js';
 
 export {
-  installMissingWindowMock,
   installWindowPropertyMock,
   installGetComputedStyleMock,
   installMatchMediaMock,
@@ -29,7 +18,6 @@ export {
   installFullscreenDocumentMock,
   installMissingMutationObserverMock,
   installResizeObserverMock,
-  installDevicePixelRatioMock,
 } from './installers/dom-window.installer.js';
 
 export {
@@ -40,7 +28,6 @@ export {
 export {
   installBlobMock,
   installBlobDownloadMock,
-  installCreateImageBitmapMock,
 } from './installers/blob.installer.js';
 
 export {
@@ -48,12 +35,3 @@ export {
   installMediaMocks,
   installNavigatorMock,
 } from './installers/media.installer.js';
-
-export {
-  installWorkerMock,
-  installWorkerScopeMock,
-} from './installers/worker.installer.js';
-
-export {
-  installPerformanceApiMock,
-} from './installers/performance.installer.js';

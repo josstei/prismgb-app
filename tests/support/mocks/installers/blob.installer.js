@@ -1,10 +1,6 @@
 import { vi } from 'vitest';
 import { createCleanupStack, installTargetProperty } from '../runtime-property.installers.js';
-import { installProperty } from './install-property.helper.js';
 
-/**
- * Canonical Blob constructor installer for tests that need deterministic size/type.
- */
 export function installBlobMock(options = {}) {
   const MockBlob = options.BlobClass ?? class MockBlob {
     constructor(parts = [], blobOptions = {}) {
@@ -13,7 +9,7 @@ export function installBlobMock(options = {}) {
       this.size = options.size ?? 1000;
     }
   };
-  const stack = installProperty(globalThis, 'Blob', MockBlob);
+  const stack = installTargetProperty(globalThis, 'Blob', MockBlob);
 
   return {
     ...stack,
@@ -21,9 +17,6 @@ export function installBlobMock(options = {}) {
   };
 }
 
-/**
- * Canonical blob download installer for URL object URLs and anchor clicks.
- */
 export function installBlobDownloadMock(options = {}) {
   const stack = createCleanupStack();
   const windowTarget = globalThis.window;
@@ -71,20 +64,5 @@ export function installBlobDownloadMock(options = {}) {
     createElement,
     appendChild,
     removeChild,
-  };
-}
-
-/**
- * Canonical createImageBitmap installer.
- */
-export function installCreateImageBitmapMock(options = {}) {
-  const imageBitmap = options.imageBitmap ?? { close: vi.fn() };
-  const mockCreateImageBitmap = options.createImageBitmap ?? vi.fn().mockResolvedValue(imageBitmap);
-  const stack = installProperty(globalThis, 'createImageBitmap', mockCreateImageBitmap);
-
-  return {
-    ...stack,
-    createImageBitmap: mockCreateImageBitmap,
-    imageBitmap,
   };
 }

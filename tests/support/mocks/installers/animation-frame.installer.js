@@ -1,10 +1,6 @@
 import { vi } from 'vitest';
-import { createCleanupStack } from '../runtime-property.installers.js';
-import { installProperty } from './install-property.helper.js';
+import { createCleanupStack, installTargetProperty } from '../runtime-property.installers.js';
 
-/**
- * Canonical RAF installer.
- */
 export function installAnimationFrameMock(options = {}) {
   const stack = createCleanupStack();
 
@@ -19,8 +15,8 @@ export function installAnimationFrameMock(options = {}) {
   });
 
   [
-    installProperty(globalThis, 'requestAnimationFrame', mockRequestAnimationFrame),
-    installProperty(globalThis, 'cancelAnimationFrame', mockCancelAnimationFrame),
+    installTargetProperty(globalThis, 'requestAnimationFrame', mockRequestAnimationFrame),
+    installTargetProperty(globalThis, 'cancelAnimationFrame', mockCancelAnimationFrame),
   ].forEach((propertyStack) => stack.add(() => propertyStack.cleanup()));
 
   return {
@@ -30,9 +26,6 @@ export function installAnimationFrameMock(options = {}) {
   };
 }
 
-/**
- * Canonical video-frame installer.
- */
 export function installVideoFrameCallbacksMock() {
   const stack = createCleanupStack();
 
