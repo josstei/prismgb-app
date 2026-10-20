@@ -14,7 +14,7 @@ on:
           - linux-arm64
           - macos-x64
           - macos-arm64
-          - windows
+          - windows-x64
 
 concurrency:
   group: smoke-test-${{ github.ref }}
