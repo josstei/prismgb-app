@@ -7,11 +7,11 @@ import { appRouter } from './router';
 import type {
   IpcContext,
   DeviceConnectionPort,
-  UpdateService,
   WindowService,
   LoginItemService,
   TranscodeService
 } from './trpc';
+import type { AutoUpdateService } from '@main/infrastructure/updates/auto-update.service';
 import type { IpcPushBridge } from './ipc-push.bridge';
 import { TEST_CONTROL_CHANNELS } from './test-control.port';
 import type { MainProcessTestControlPort } from './test-control.port';
@@ -34,7 +34,7 @@ class IpcHandlerRegistry extends BaseService {
   constructor(
     @inject(TOKENS.deviceConnectionService) private readonly deviceConnectionService: DeviceConnectionPort,
     @inject(TOKENS.mainProcessTestControl) private readonly mainProcessTestControl: MainProcessTestControlPort,
-    @inject(TOKENS.updateService) private readonly updateService: UpdateService,
+    @inject(TOKENS.autoUpdateService) private readonly autoUpdateService: AutoUpdateService,
     @inject(TOKENS.windowService) private readonly windowService: WindowService,
     @inject(TOKENS.transcodeService) private readonly transcodeService: TranscodeService,
     @inject(TOKENS.loginItemService) private readonly loginItemService: LoginItemService,
@@ -91,7 +91,7 @@ class IpcHandlerRegistry extends BaseService {
     return {
       deviceConnectionService: this.deviceConnectionService,
       mainProcessTestControl: this.mainProcessTestControl,
-      updateService: this.updateService,
+      autoUpdateService: this.autoUpdateService,
       windowService: this.windowService,
       transcodeService: this.transcodeService,
       loginItemService: this.loginItemService,

@@ -15,7 +15,7 @@ import type { DeviceConnectionService } from '@platform/devices/runtime';
 import type { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service';
 import type { TrayService } from '@main/infrastructure/tray/tray.service';
 import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry';
-import type { UpdateService } from '@platform/updates';
+import type { AutoUpdateService } from '@main/infrastructure/updates/auto-update.service';
 import type { TranscodeService } from '@platform/transcode/service';
 import type { LoginItemService } from '@main/infrastructure/window/login-item.service';
 
@@ -37,7 +37,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     @inject(TOKENS.deviceIntegrationService) private readonly deviceIntegrationService: DeviceIntegrationService,
     @inject(TOKENS.trayService) private readonly trayService: TrayService,
     @inject(TOKENS.ipcHandlerRegistry) private readonly ipcHandlerRegistry: IpcHandlerRegistry,
-    @inject(TOKENS.updateService) private readonly updateService: UpdateService,
+    @inject(TOKENS.autoUpdateService) private readonly autoUpdateService: AutoUpdateService,
     @inject(TOKENS.transcodeService) private readonly transcodeService: TranscodeService,
     @inject(TOKENS.loginItemService) private readonly loginItemService: LoginItemService,
     @inject(TOKENS.loggerFactory) loggerFactory: MainLogger
@@ -55,8 +55,8 @@ export class AppOrchestrator extends BaseOrchestrator {
     // Subscribe app-owned device side effects before the first runtime reconciliation.
     this.deviceIntegrationService.initialize();
 
-    await this.updateService.initialize();
-    this.updateService.startAutoCheck(3600000);
+    await this.autoUpdateService.initialize();
+    this.autoUpdateService.startAutoCheck(3600000);
 
     // Initialize transcode service (validates ffmpeg binaries)
     this.transcodeService.initialize();
@@ -118,7 +118,7 @@ export class AppOrchestrator extends BaseOrchestrator {
       ['device integration service', () => this.deviceIntegrationService.dispose()],
       ['device connection service', () => this.deviceConnectionService.dispose()],
       ['system tray', () => this.trayService.destroy()],
-      ['update service', () => this.updateService.dispose()],
+      ['auto-update service', () => this.autoUpdateService.dispose()],
       ['transcode service', () => this.transcodeService.dispose()]
     ]);
 

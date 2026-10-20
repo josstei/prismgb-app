@@ -3,21 +3,15 @@ import type { App, Shell } from 'electron';
 import { getErrorMessage } from '@platform/core';
 import type { Logger } from '@platform/core';
 import type { DeviceStatus } from '@platform/devices';
-import type { UpdateStatusPayload, TranscodeFormat } from '@platform/ipc';
+import type { TranscodeFormat } from '@platform/ipc';
 import type { TranscodeResult, CancelResult, StatusResult } from '@platform/transcode/service';
+import type { AutoUpdateService } from '@main/infrastructure/updates/auto-update.service';
 import type { IpcPushBridge } from './ipc-push.bridge';
 import type { MainProcessTestControlPort } from './test-control.port';
 
 export interface DeviceConnectionPort {
   getStatus(): DeviceStatus;
   reconcileDeviceStatus(reason: 'manual-refresh'): Promise<DeviceStatus>;
-}
-
-export interface UpdateService {
-  checkForUpdates(): Promise<Record<string, unknown>>;
-  downloadUpdate(): Promise<void>;
-  installUpdate(): void;
-  getStatus(): UpdateStatusPayload;
 }
 
 export interface WindowService {
@@ -49,7 +43,7 @@ export interface TranscodeService {
 export interface IpcContext {
   deviceConnectionService: DeviceConnectionPort;
   mainProcessTestControl: MainProcessTestControlPort;
-  updateService: UpdateService;
+  autoUpdateService: AutoUpdateService;
   windowService: WindowService;
   transcodeService: TranscodeService;
   loginItemService: LoginItemService;

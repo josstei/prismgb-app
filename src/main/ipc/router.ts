@@ -135,23 +135,23 @@ const windowRouter = router({
 const updateRouter = router({
   checkForUpdates: publicProcedure.mutation(({ ctx }) =>
     rethrowAsTrpcError('Failed to check for updates', ctx.logger, async () => {
-      const result = await ctx.updateService.checkForUpdates();
+      const result = await ctx.autoUpdateService.checkForUpdates();
       return toObjectPayload(result) as UpdateCheckPayload;
     })
   ),
   downloadUpdate: publicProcedure.mutation(({ ctx }) =>
     rethrowAsTrpcError('Failed to download update', ctx.logger, async () => {
-      await ctx.updateService.downloadUpdate();
+      await ctx.autoUpdateService.downloadUpdate();
     })
   ),
   installUpdate: publicProcedure.mutation(({ ctx }) =>
     rethrowAsTrpcError('Failed to install update', ctx.logger, () => {
-      ctx.updateService.installUpdate();
+      ctx.autoUpdateService.installUpdate();
     })
   ),
   getStatus: publicProcedure.query(({ ctx }) =>
     rethrowAsTrpcError('Failed to get update status', ctx.logger, () => {
-      const status = ctx.updateService.getStatus();
+      const status = ctx.autoUpdateService.getStatus();
       return toObjectPayload(status) as UpdateStatusPayload;
     })
   ),

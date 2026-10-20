@@ -1,31 +1,16 @@
+import { app } from 'electron';
 import pkg from 'electron-updater';
-const { autoUpdater } = pkg;
 import type { UpdateInfo, ProgressInfo } from 'electron-updater';
-import { BaseService, getElectronApp } from '@platform/core';
-import type { LoggerFactory } from '@platform/core';
+import { injectable, inject } from 'inversify';
+import { BaseService, type LoggerFactory } from '@platform/core';
 import { IPC_CHANNELS, UpdateState, type UpdateStateValue } from '@platform/ipc';
+import { TOKENS, type MainAppConfig } from '@main/application/di/tokens';
+import type { WindowService } from '@main/infrastructure/window/window.service';
 
-type UpdateStateType = UpdateStateValue;
+const { autoUpdater } = pkg;
 
 const INITIAL_UPDATE_CHECK_LIFECYCLE = Symbol('initialUpdateCheck');
 const PERIODIC_UPDATE_CHECK_LIFECYCLE = Symbol('periodicUpdateCheck');
-
-
-
-interface WindowService {
-  send(channel: string, data: unknown): void;
-}
-
-interface Config {
-  isDevelopment?: boolean;
-  version?: string;
-}
-
-interface UpdateServiceDependencies {
-  windowService: WindowService;
-  loggerFactory: LoggerFactory;
-  config: Config;
-}
 
 interface UpdateCheckResult {
   updateAvailable: boolean;
@@ -35,7 +20,7 @@ interface UpdateCheckResult {
 }
 
 interface UpdateStatus {
-  state: UpdateStateType;
+  state: UpdateStateValue;
   updateInfo: UpdateInfo | null;
   downloadProgress: ProgressInfo | null;
   error: string | null;
@@ -44,11 +29,9 @@ interface UpdateStatus {
 type AutoUpdaterEventName = Parameters<typeof autoUpdater.on>[0];
 type AutoUpdaterListener = Parameters<typeof autoUpdater.on>[1];
 
-class UpdateService extends BaseService {
-  private readonly windowService: WindowService;
-  private readonly config: Config;
-
-  state: UpdateStateType;
+@injectable()
+export class AutoUpdateService extends BaseService {
+  state: UpdateStateValue;
   updateInfo: UpdateInfo | null;
   downloadProgress: ProgressInfo | null;
   error: Error | null;
@@ -56,11 +39,12 @@ class UpdateService extends BaseService {
   private _autoCheckRunning: boolean;
   private initialized = false;
 
-  constructor(dependencies: UpdateServiceDependencies) {
-    super(dependencies.loggerFactory, 'UpdateService');
-
-    this.windowService = dependencies.windowService;
-    this.config = dependencies.config;
+  constructor(
+    @inject(TOKENS.windowService) private readonly windowService: WindowService,
+    @inject(TOKENS.config) private readonly config: MainAppConfig,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
+  ) {
+    super(loggerFactory, 'AutoUpdateService');
 
     this.state = UpdateState.IDLE;
     this.updateInfo = null;
@@ -300,10 +284,7 @@ class UpdateService extends BaseService {
     }
 
     this.logger.info('Installing update and restarting...');
-    const electronApp = getElectronApp();
-    if (electronApp) {
-      electronApp.isQuitting = true;
-    }
+    app.isQuitting = true;
     autoUpdater.quitAndInstall(false, true);
   }
 
@@ -370,5 +351,3 @@ class UpdateService extends BaseService {
     this.logger.info('UpdateService disposed');
   }
 }
-
-export { UpdateService };

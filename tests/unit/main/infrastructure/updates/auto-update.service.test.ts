@@ -1,13 +1,10 @@
-/**
- * UpdateService Unit Tests
- */
-
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { UpdateService } from '@platform/updates';
+import { app } from 'electron';
+import { AutoUpdateService } from '@main/infrastructure/updates/auto-update.service';
 import { UpdateState } from '@platform/ipc';
 import type { Logger } from '@platform/core';
 import type { ProgressInfo, UpdateInfo } from 'electron-updater';
-import { createLoggerFactory, createUpdateConfigMock, createWindowServiceMock } from '../../../factories/index.js';
+import { createLoggerFactory, createUpdateConfigMock, createWindowServiceMock } from '../../../../factories/index.js';
 
 vi.mock('electron', () => ({
   app: {
@@ -48,7 +45,7 @@ type UpdateServiceConfig = {
   isDevelopment?: boolean;
   version?: string;
 };
-type TestableUpdateService = Omit<UpdateService, 'config'> & {
+type TestableUpdateService = Omit<AutoUpdateService, 'config'> & {
   _autoCheckRunning: boolean;
   config: UpdateServiceConfig;
   windowService: MockWindowService | null;
@@ -68,7 +65,7 @@ function createAutoUpdaterCheckResult(version: string): NonNullable<AutoUpdaterC
   return { updateInfo: createUpdateInfo(version) } as NonNullable<AutoUpdaterCheckResult>;
 }
 
-describe('UpdateService', () => {
+describe('AutoUpdateService', () => {
   let service: TestableUpdateService;
   let mockWindowService: MockWindowService;
   let mockLogger: Logger;
@@ -84,15 +81,15 @@ describe('UpdateService', () => {
     mockConfig = createUpdateConfigMock();
 
     service = createService();
-    mockLogger = mockLoggerFactory._getLogger('UpdateService');
+    mockLogger = mockLoggerFactory._getLogger('AutoUpdateService');
   });
 
   function createService(): TestableUpdateService {
-    return new UpdateService({
-      windowService: mockWindowService,
-      loggerFactory: mockLoggerFactory,
-      config: mockConfig
-    }) as unknown as TestableUpdateService;
+    return new AutoUpdateService(
+      mockWindowService as never,
+      mockConfig as never,
+      mockLoggerFactory
+    ) as unknown as TestableUpdateService;
   }
 
   afterEach(async () => {
@@ -413,11 +410,13 @@ describe('UpdateService', () => {
       expect(() => service.installUpdate()).toThrow('No update downloaded to install');
     });
 
-    it('should call autoUpdater.quitAndInstall', () => {
+    it('should mark the app as quitting and call autoUpdater.quitAndInstall', () => {
       service.state = UpdateState.DOWNLOADED;
+      app.isQuitting = false;
 
       service.installUpdate();
 
+      expect(app.isQuitting).toBe(true);
       expect(autoUpdater.quitAndInstall).toHaveBeenCalledWith(false, true);
     });
   });

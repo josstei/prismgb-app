@@ -17,8 +17,7 @@ export const PLATFORM_MODULES = [
   { name: 'devices', entrypoints: { '.': 'index.ts', './runtime': 'runtime.ts', './testkit': 'testkit.ts' } },
   { name: 'gpu', entrypoints: { '.': 'index.ts', './runtime': 'runtime.ts', './testkit': 'testkit.ts' } },
   { name: 'ipc', entrypoints: { '.': 'index.ts' } },
-  { name: 'transcode', entrypoints: { '.': 'index.ts', './service': 'service.ts' } },
-  { name: 'updates', entrypoints: { '.': 'index.ts' } }
+  { name: 'transcode', entrypoints: { '.': 'index.ts', './service': 'service.ts' } }
 ];
 
 function moduleSpecifier(moduleName, subpath) {

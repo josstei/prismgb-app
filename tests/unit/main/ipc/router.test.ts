@@ -29,7 +29,7 @@ function createContext(overrides: Partial<Record<string, unknown>> = {}) {
       setDeviceStatusOverride: vi.fn(),
       emitPush: vi.fn()
     },
-    updateService: {
+    autoUpdateService: {
       checkForUpdates: vi.fn(async () => ({ version: '1.0.0' })),
       downloadUpdate: vi.fn(async () => undefined),
       installUpdate: vi.fn(),

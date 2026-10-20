@@ -54,9 +54,6 @@
       ],
       "@platform/transcode": [
         "./src/platform/transcode/index"
-      ],
-      "@platform/updates": [
-        "./src/platform/updates/index"
       ]
     },
     "types": [
