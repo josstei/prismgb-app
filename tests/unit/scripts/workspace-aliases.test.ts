@@ -38,7 +38,7 @@ describe('workspace-aliases registry', () => {
     );
     expect(entrypointsByName).toEqual({
       core: ['.'],
-      devices: ['.', './runtime', './testkit'],
+      devices: ['.', './testkit'],
       gpu: ['.', './runtime', './testkit'],
       ipc: ['.'],
       transcode: ['.', './service']
@@ -50,7 +50,7 @@ describe('workspace-aliases registry', () => {
     const keys = Object.keys(aliasMap);
     expect(keys.indexOf('@platform/gpu/runtime')).toBeLessThan(keys.indexOf('@platform/gpu'));
     expect(aliasMap['@platform/gpu']).toBe(resolve('/repo', 'src/platform/gpu/index.ts'));
-    expect(aliasMap['@platform/devices/runtime']).toBe(resolve('/repo', 'src/platform/devices/runtime.ts'));
+    expect(aliasMap['@platform/devices/testkit']).toBe(resolve('/repo', 'src/platform/devices/testkit.ts'));
   });
 
   it('emits exact-match regex entries for the vite array form', () => {

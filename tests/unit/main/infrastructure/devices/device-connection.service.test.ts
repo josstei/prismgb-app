@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { DeviceConnectionService } from '@platform/devices/runtime';
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { DeviceConnectionService } from '@main/infrastructure/devices/device-connection.service';
 import { createLoggerFactory } from '../../../../factories/index.js';
 import {
   createChromaticDeviceInfoPayload,
@@ -37,14 +37,15 @@ describe('DeviceConnectionService', () => {
     };
   }
 
-  function createRuntime(now = () => 1000, loggerFactory = createLoggerFactory()) {
+  function createRuntime(now = 1000, loggerFactory = createLoggerFactory()) {
+    vi.spyOn(Date, 'now').mockReturnValue(now);
     usbMonitor = createUsbMonitor();
-    return new DeviceConnectionService({
-      loggerFactory,
-      usbMonitor: usbMonitor as never,
-      now
-    });
+    return new DeviceConnectionService(usbMonitor as never, loggerFactory);
   }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('starts USB monitoring and registers hotplug listeners on initialize', async () => {
     const runtime = createRuntime();
@@ -66,7 +67,7 @@ describe('DeviceConnectionService', () => {
   });
 
   it('reconciles matching USB devices into canonical connected status', async () => {
-    const runtime = createRuntime(() => 2000);
+    const runtime = createRuntime(2000);
     usbMonitor.find.mockReturnValue([createChromaticUsbDevice({
       locationId: 3,
       deviceAddress: 9,
@@ -89,7 +90,7 @@ describe('DeviceConnectionService', () => {
   });
 
   it('reconciles no matching device into canonical disconnected status', async () => {
-    const runtime = createRuntime(() => 3000);
+    const runtime = createRuntime(3000);
     usbMonitor.find.mockReturnValue([{
       ...createChromaticUsbDevice(),
       vendorId: 0x9999
@@ -107,7 +108,7 @@ describe('DeviceConnectionService', () => {
   });
 
   it('emits status changes only when connection state changes', async () => {
-    const runtime = createRuntime(() => 4000);
+    const runtime = createRuntime(4000);
     const onStatusChanged = vi.fn();
     runtime.onStatusChanged(onStatusChanged);
     usbMonitor.find.mockReturnValue([createChromaticUsbDevice()]);
@@ -123,7 +124,7 @@ describe('DeviceConnectionService', () => {
   });
 
   it('routes hotplug callbacks through the same reconciliation path', async () => {
-    const runtime = createRuntime(() => 5000);
+    const runtime = createRuntime(5000);
     const onStatusChanged = vi.fn();
     runtime.onStatusChanged(onStatusChanged);
     usbMonitor.find.mockReturnValue([createChromaticUsbDevice()]);
@@ -139,7 +140,7 @@ describe('DeviceConnectionService', () => {
   });
 
   it('routes hotplug remove callbacks through the same reconciliation path', async () => {
-    const runtime = createRuntime(() => 5500);
+    const runtime = createRuntime(5500);
     const onStatusChanged = vi.fn();
     runtime.onStatusChanged(onStatusChanged);
     usbMonitor.find.mockReturnValue([createChromaticUsbDevice()]);
@@ -158,12 +159,7 @@ describe('DeviceConnectionService', () => {
 
   it('keeps canonical status when a status listener side effect fails', async () => {
     const loggerFactory = createLoggerFactory();
-    usbMonitor = createUsbMonitor();
-    const runtime = new DeviceConnectionService({
-      loggerFactory,
-      usbMonitor: usbMonitor as never,
-      now: () => 5750
-    });
+    const runtime = createRuntime(5750, loggerFactory);
     runtime.onStatusChanged(() => {
       throw new Error('integration failed');
     });
@@ -185,7 +181,7 @@ describe('DeviceConnectionService', () => {
 
   it('emits canonical error status and logs when USB scan fails', async () => {
     const loggerFactory = createLoggerFactory();
-    const runtime = createRuntime(() => 6000, loggerFactory);
+    const runtime = createRuntime(6000, loggerFactory);
     const onStatusChanged = vi.fn();
     runtime.onStatusChanged(onStatusChanged);
     usbMonitor.find.mockImplementation(() => {

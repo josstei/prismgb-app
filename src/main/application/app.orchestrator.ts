@@ -11,7 +11,7 @@ import { BaseOrchestrator, safeDisposeAll } from '@platform/core';
 import { TOKENS } from './di/tokens';
 import type { MainLogger } from '@main/infrastructure/logging/logger.factory';
 import type { WindowService } from '@main/infrastructure/window/window.service';
-import type { DeviceConnectionService } from '@platform/devices/runtime';
+import type { DeviceConnectionService } from '@main/infrastructure/devices/device-connection.service';
 import type { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service';
 import type { TrayService } from '@main/infrastructure/tray/tray.service';
 import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry';

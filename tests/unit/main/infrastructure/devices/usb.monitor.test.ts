@@ -3,11 +3,11 @@ import {
   createNodeUsbMonitor,
   createNoopUsbMonitor,
   toUsbDevice
-} from '../../../../../src/platform/devices/infrastructure/usb.monitor.js';
+} from '@main/infrastructure/devices/usb.monitor';
 import type {
   UsbModule,
   UsbModuleLoader
-} from '../../../../../src/platform/devices/infrastructure/usb.monitor.js';
+} from '@main/infrastructure/devices/usb.monitor';
 import { CHROMATIC_DESCRIPTOR } from '../../../../devices/media.testkit';
 
 const chromaticUsb = CHROMATIC_DESCRIPTOR.usb;

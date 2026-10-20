@@ -7,7 +7,7 @@ import { Tray, Menu, app, MenuItemConstructorOptions } from 'electron';
 import path from 'path';
 import { injectable, inject } from 'inversify';
 import { BaseService, type LoggerFactory } from '@platform/core';
-import type { DeviceConnectionReason } from '@platform/devices/runtime';
+import type { DeviceConnectionReason } from '@main/infrastructure/devices/device-connection.service';
 import { TOKENS } from '@main/application/di/tokens';
 
 /**

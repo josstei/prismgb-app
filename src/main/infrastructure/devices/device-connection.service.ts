@@ -1,18 +1,14 @@
-import { BaseService } from '@platform/core';
-import { pruneUndefined } from '../domain/object.utils';
-import { matchByUsb } from '../domain/matching';
-import { toDeviceInfo } from '../domain/payloads';
-import type {
-  DeviceInfo,
-  DeviceStatus,
-  ObservedUsbDevice
-} from '../domain/types';
+import { injectable, inject } from 'inversify';
+import { BaseService, type LoggerFactory } from '@platform/core';
 import {
-  createNodeUsbMonitor,
-  type UsbDevice,
-  type UsbMonitor
-} from '../infrastructure/usb.monitor';
-import type { LoggerFactory } from '@platform/core';
+  matchByUsb,
+  toDeviceInfo,
+  type DeviceInfo,
+  type DeviceStatus,
+  type ObservedUsbDevice
+} from '@platform/devices';
+import { TOKENS } from '@main/application/di/tokens';
+import type { UsbMonitor } from './usb.monitor';
 
 export type DeviceConnectionReason =
   | 'startup'
@@ -21,23 +17,8 @@ export type DeviceConnectionReason =
   | 'tray-refresh'
   | 'manual-refresh';
 
-export interface DeviceConnectionDependencies {
-  loggerFactory: LoggerFactory;
-  usbMonitor?: UsbMonitor;
-  now?: () => number;
-}
-
 export type DeviceStatusListener = (status: DeviceStatus, reason: DeviceConnectionReason) => void;
 export type DeviceConnectionUnsubscribe = () => void;
-
-function createInitialStatus(now: () => number): DeviceStatus {
-  return {
-    state: 'unknown',
-    connected: false,
-    device: null,
-    updatedAt: now()
-  };
-}
 
 function sameDeviceInfo(left: DeviceInfo | null, right: DeviceInfo | null): boolean {
   if (left === right) {
@@ -63,34 +44,24 @@ function isSameStatus(left: DeviceStatus, right: DeviceStatus): boolean {
     sameDeviceInfo(left.device, right.device);
 }
 
-function toObservedUsbDevice(device: UsbDevice): ObservedUsbDevice {
-  return pruneUndefined<ObservedUsbDevice>({
-    vendorId: device.vendorId,
-    productId: device.productId,
-    locationId: device.locationId,
-    deviceAddress: device.deviceAddress,
-    deviceName: device.deviceName,
-    manufacturer: device.manufacturer,
-    serialNumber: device.serialNumber,
-    deviceClass: device.deviceClass,
-    busNumber: device.busNumber
-  });
-}
-
+@injectable()
 export class DeviceConnectionService extends BaseService {
-  private readonly usbMonitor: UsbMonitor;
-  private readonly now: () => number;
-  private status: DeviceStatus;
+  private status: DeviceStatus = {
+    state: 'unknown',
+    connected: false,
+    device: null,
+    updatedAt: Date.now()
+  };
   private initialized = false;
   private initializationLock: Promise<void> | null = null;
   private reconcileLock: Promise<DeviceStatus> | null = null;
   private readonly statusListeners = new Set<DeviceStatusListener>();
 
-  constructor(dependencies: DeviceConnectionDependencies) {
-    super(dependencies.loggerFactory, 'DeviceConnectionService');
-    this.usbMonitor = dependencies.usbMonitor ?? createNodeUsbMonitor();
-    this.now = dependencies.now ?? Date.now;
-    this.status = createInitialStatus(this.now);
+  constructor(
+    @inject(TOKENS.usbMonitor) private readonly usbMonitor: UsbMonitor,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
+  ) {
+    super(loggerFactory, 'DeviceConnectionService');
   }
 
   initialize(): Promise<void> {
@@ -171,7 +142,7 @@ export class DeviceConnectionService extends BaseService {
         connected: false,
         device: null,
         error: message,
-        updatedAt: this.now()
+        updatedAt: Date.now()
       };
       this.commitStatus(nextStatus, reason);
       return this.status;
@@ -181,17 +152,16 @@ export class DeviceConnectionService extends BaseService {
     return this.status;
   }
 
-  private createStatusFromDevices(devices: readonly UsbDevice[]): DeviceStatus {
+  private createStatusFromDevices(devices: readonly ObservedUsbDevice[]): DeviceStatus {
     for (const device of devices) {
-      const observed = toObservedUsbDevice(device);
-      const match = matchByUsb(observed);
+      const match = matchByUsb(device);
 
       if (match.matched && match.descriptor) {
         return {
           state: 'connected',
           connected: true,
-          device: toDeviceInfo(match.descriptor, observed),
-          updatedAt: this.now()
+          device: toDeviceInfo(match.descriptor, device),
+          updatedAt: Date.now()
         };
       }
     }
@@ -200,7 +170,7 @@ export class DeviceConnectionService extends BaseService {
       state: 'disconnected',
       connected: false,
       device: null,
-      updatedAt: this.now()
+      updatedAt: Date.now()
     };
   }
 
@@ -227,5 +197,3 @@ export class DeviceConnectionService extends BaseService {
     }
   }
 }
-
-export type { DeviceStatus };

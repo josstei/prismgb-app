@@ -28,9 +28,6 @@
       "@platform/core": [
         "./src/platform/core/index"
       ],
-      "@platform/devices/runtime": [
-        "./src/platform/devices/runtime"
-      ],
       "@platform/devices/testkit": [
         "./src/platform/devices/testkit"
       ],

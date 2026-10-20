@@ -5,7 +5,7 @@ import { DeviceCatalog, toDeviceInfoPayload, type DeviceStatus } from '@platform
 import type {
   DeviceConnectionReason,
   DeviceConnectionService
-} from '@platform/devices/runtime';
+} from './device-connection.service';
 import type { LoggerFactory } from '@platform/core';
 import type { TrayService } from '@main/infrastructure/tray/tray.service';
 import type { WindowService } from '@main/infrastructure/window/window.service';

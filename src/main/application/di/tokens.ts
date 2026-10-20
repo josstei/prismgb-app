@@ -1,7 +1,8 @@
 import type { ServiceIdentifier } from 'inversify';
 import type { MainLogger } from '@main/infrastructure/logging/logger.factory';
 import type { WindowService } from '@main/infrastructure/window/window.service';
-import type { DeviceConnectionService } from '@platform/devices/runtime';
+import type { DeviceConnectionService } from '@main/infrastructure/devices/device-connection.service';
+import type { UsbMonitor } from '@main/infrastructure/devices/usb.monitor';
 import type { TrayService } from '@main/infrastructure/tray/tray.service';
 import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry';
 import type { IpcPushBridge } from '@main/ipc/ipc-push.bridge';
@@ -29,6 +30,7 @@ export const TOKENS = {
   config: token<MainAppConfig>('config'),
   loggerFactory: token<MainLogger>('loggerFactory'),
   windowService: token<WindowService>('windowService'),
+  usbMonitor: token<UsbMonitor>('usbMonitor'),
   deviceConnectionService: token<DeviceConnectionService>('deviceConnectionService'),
   trayService: token<TrayService>('trayService'),
   ipcHandlerRegistry: token<IpcHandlerRegistry>('ipcHandlerRegistry'),
