@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
   trpcClient: (await import('../../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
 }));
-import { SettingsDefinitions as settingsDefinitions } from '@renderer/lib/settings.definitions.js';
+import { SettingsDefinitions as settingsDefinitions } from '@renderer/lib/settings.definitions';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import { createSettingsServiceHarness } from '../../../../../factories/index.js';

@@ -1,7 +1,7 @@
 import { ContainerModule } from 'inversify';
 import { NotesService } from '@platform/notes';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
-import { PROTECTED_STORAGE_KEYS } from '@renderer/lib/storage-keys.config.js';
+import { PROTECTED_STORAGE_KEYS } from '@renderer/lib/storage-keys.config';
 import { BodyClassManager } from '../../presentation/effects/body-class.effect';
 import { CaptureUIBridge } from '../../presentation/bridges/capture-ui.bridge';
 import { TranscodeUIBridge } from '../../presentation/bridges/transcode-ui.bridge';
@@ -27,7 +27,7 @@ import { BrowserStorageAdapter } from '../../infrastructure/adapters/browser-sto
 import { BrowserMediaDevicesPort } from '../../infrastructure/services/devices/browser-media-devices.port';
 import { StorageDevicePreferenceStore } from '../../infrastructure/services/devices/storage-device-preference.store';
 import { TrpcDeviceStatusPort } from '../../infrastructure/services/devices/trpc-device-status.port';
-import { TOKENS } from './tokens.js';
+import { TOKENS } from './tokens';
 
 /**
  * Binding module for every renderer presentation-layer token: decorated

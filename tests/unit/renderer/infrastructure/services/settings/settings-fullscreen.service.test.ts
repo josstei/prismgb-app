@@ -12,7 +12,7 @@ import { EventChannels } from '@renderer/lib/events/event-channels';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { emitTrpcData, getTrpcUnsubscribe } from '../../../../../support/mocks/trpc-client.mock';
 import { installFullscreenDocumentMock } from '../../../../../support/mocks/browser-api.installers.js';
-import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+import { createInjectableHarness } from '../../../../../support/di/injectable.harness';
 
 describe('SettingsFullscreenService', () => {
   let service;

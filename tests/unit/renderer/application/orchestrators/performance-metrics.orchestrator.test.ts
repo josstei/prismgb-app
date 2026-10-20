@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { PerformanceMetricsOrchestrator } from '@renderer/application/orchestrators/performance/performance-metrics.orchestrator';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import { createEventBus } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness';
 
 describe('PerformanceMetricsOrchestrator', () => {
   let orchestrator;

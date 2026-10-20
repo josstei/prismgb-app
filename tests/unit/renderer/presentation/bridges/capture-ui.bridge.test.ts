@@ -10,7 +10,7 @@ import {
   createCaptureUIControllerMock,
   createEventBus,
 } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness';
 
 describe('CaptureUIBridge', () => {
   let bridge;

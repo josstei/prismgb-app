@@ -2,7 +2,12 @@ import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import { OnEvent, type EventBus } from '@renderer/lib/events/event-bus';
-import type { RecordingDegradedPayload, RecordingErrorPayload, ScreenshotReadyPayload, UiButtonFeedbackPayload } from '@renderer/lib/events/event-payloads';
+import type {
+  RecordingDegradedPayload,
+  RecordingErrorPayload,
+  ScreenshotReadyPayload,
+  UiButtonFeedbackPayload
+} from '@renderer/lib/events/event-payloads';
 import { TIMING } from '@platform/config';
 import type { LoggerFactory } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens';

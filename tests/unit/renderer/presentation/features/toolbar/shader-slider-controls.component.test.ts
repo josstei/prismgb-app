@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ShaderSliderControlsComponent } from '@renderer/presentation/features/toolbar/shader-slider-controls.component.js';
+import { ShaderSliderControlsComponent } from '@renderer/presentation/features/toolbar/shader-slider-controls.component';
 import { createEventBus, createLogger, createSettingsServiceMock } from '../../../../../factories/index.js';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 

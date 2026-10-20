@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ShaderPresetListComponent } from '@renderer/presentation/features/toolbar/shader-preset-list.component.js';
+import { ShaderPresetListComponent } from '@renderer/presentation/features/toolbar/shader-preset-list.component';
 import { createEventBus, createLogger, createSettingsServiceMock } from '../../../../../factories/index.js';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import { PRESET_POLICY, getUiPresets } from '@platform/gpu';

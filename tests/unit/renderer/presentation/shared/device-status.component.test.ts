@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { DeviceStatusComponent } from '@renderer/presentation/shared/device-status.component.js';
-import { DeviceStatusStore } from '@renderer/presentation/state/device-status.store.js';
+import { DeviceStatusComponent } from '@renderer/presentation/shared/device-status.component';
+import { DeviceStatusStore } from '@renderer/presentation/state/device-status.store';
 import { signal } from '@platform/ui-base/reactive';
 import { createDeviceStatusElementsMock, createEventBus } from '../../../../factories/index.js';
 import { EventChannels } from '@renderer/lib/events/event-channels';

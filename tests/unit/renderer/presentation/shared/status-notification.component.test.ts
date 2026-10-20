@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { StatusNotificationComponent } from '@renderer/presentation/shared/status-notification.component.js';
-import { StatusNotificationStore } from '@renderer/presentation/state/status-notification.store.js';
+import { StatusNotificationComponent } from '@renderer/presentation/shared/status-notification.component';
+import { StatusNotificationStore } from '@renderer/presentation/state/status-notification.store';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import { EventBus } from '@renderer/lib/events/event-bus';
 

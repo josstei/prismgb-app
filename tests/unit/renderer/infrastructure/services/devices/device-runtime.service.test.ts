@@ -8,7 +8,7 @@ import {
   createChromaticVideoDeviceInfo
 } from '../../../../../devices/media.testkit';
 import { createChromaticDeviceInfoPayload } from '../../../../../devices/media.testkit';
-import { createDeferred } from '../../../../../support/deferred.testkit.js';
+import { createDeferred } from '../../../../../support/deferred.testkit';
 
 const connectedStatus: DeviceStatus = {
   state: 'connected',

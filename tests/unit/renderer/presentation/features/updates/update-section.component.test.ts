@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { UpdateSectionComponent } from '@renderer/presentation/features/updates/update-section.component.js';
+import { UpdateSectionComponent } from '@renderer/presentation/features/updates/update-section.component';
 import { UpdateState } from '@platform/config';
 import { createEventBus, createLoggerFactory } from '../../../../../factories/index.js';
 import { EventChannels } from '@renderer/lib/events/event-channels';

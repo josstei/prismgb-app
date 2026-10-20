@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { NotesPanelComponent } from '@renderer/presentation/features/notes/notes-panel.component.js';
-import { GameFilterComponent } from '@renderer/presentation/features/notes/game-filter.component.js';
-import { GameAutocompleteComponent } from '@renderer/presentation/features/notes/game-autocomplete.component.js';
+import { NotesPanelComponent } from '@renderer/presentation/features/notes/notes-panel.component';
+import { GameFilterComponent } from '@renderer/presentation/features/notes/game-filter.component';
+import { GameAutocompleteComponent } from '@renderer/presentation/features/notes/game-autocomplete.component';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import {
   createLogger,

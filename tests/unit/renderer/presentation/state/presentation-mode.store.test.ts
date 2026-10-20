@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { PresentationModeStore } from '../../../../../src/renderer/presentation/state/presentation-mode.store.js';
+import { PresentationModeStore } from '@renderer/presentation/state/presentation-mode.store';
 import { signal, type Signal } from '@platform/ui-base/reactive';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import { EventBus } from '@renderer/lib/events/event-bus';
