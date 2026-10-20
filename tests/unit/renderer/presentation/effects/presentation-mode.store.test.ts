@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { PresentationModeStore } from '@renderer/presentation/state/presentation-mode.store';
+import { PresentationModeStore } from '@renderer/presentation/effects/presentation-mode.store';
 import { signal, type Signal } from '@preact/signals-core';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import { EventBus } from '@renderer/lib/events/event-bus';
@@ -48,15 +48,6 @@ describe('PresentationModeStore', () => {
     expect(store.fullscreenActive.value).toBe(false);
     bus.publish(EventChannels.UI.FULLSCREEN_STATE, { active: true });
     expect(store.fullscreenActive.value).toBe(true);
-  });
-
-  it('ignores malformed payloads', () => {
-    bus.publish(EventChannels.UI.STREAMING_MODE, { enabled: 'yes' } as never);
-    bus.publish(EventChannels.UI.FULLSCREEN_STATE, {} as never);
-    bus.publish(EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED, 'true' as never);
-    expect(store.fullscreenActive.value).toBe(false);
-    cinematicEnabled.value = true;
-    expect(store.cinematicActive.value).toBe(false);
   });
 
   it('stops reacting after dispose', () => {

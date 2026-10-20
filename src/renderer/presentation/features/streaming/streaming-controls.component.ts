@@ -2,7 +2,7 @@ import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import { bindText } from '@renderer/presentation/primitives/signal-bindings.utils';
 import type { BodyClassEffect } from '@renderer/presentation/effects/body-class.effect';
-import type { StreamInfoStore } from '@renderer/presentation/state/stream-info.store';
+import type { StreamInfoStore } from '@renderer/presentation/features/streaming/stream-info.store';
 
 const STREAM_TRANSITION_DURATION = 1000;
 const STREAMING_HIDE_TIMEOUT = Symbol('streaming-controls-hide-timeout');
@@ -36,12 +36,6 @@ export interface StreamingControlsComponentOptions {
   elements: StreamingControlsElements;
   bodyClassEffect: Pick<BodyClassEffect, 'setStreamingMode' | 'areAnimationsOff'>;
   store: StreamInfoStore;
-}
-
-export interface StreamInfoSettings {
-  width: number;
-  height: number;
-  frameRate: number;
 }
 
 class StreamingControlsComponent extends PresentationComponent {

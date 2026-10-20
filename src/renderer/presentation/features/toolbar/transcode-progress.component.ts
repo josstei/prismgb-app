@@ -1,6 +1,6 @@
 import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import { bindText, bindClass, bindStyleProperty } from '@renderer/presentation/primitives/signal-bindings.utils';
-import type { TranscodeProgressStore } from '@renderer/presentation/state/transcode-progress.store';
+import type { TranscodeProgressStore } from '@renderer/presentation/features/toolbar/transcode-progress.store';
 
 export interface TranscodeProgressElements {
   recordBtn?: HTMLElement | null;

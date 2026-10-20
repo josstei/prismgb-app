@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { TranscodeProgressComponent } from '@renderer/presentation/features/toolbar/transcode-progress.component';
-import { TranscodeProgressStore } from '@renderer/presentation/state/transcode-progress.store';
+import { TranscodeProgressStore } from '@renderer/presentation/features/toolbar/transcode-progress.store';
 import { createTranscodeProgressElementsMock, createEventBus } from '../../../../../factories/index.js';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 

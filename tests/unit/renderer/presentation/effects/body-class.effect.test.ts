@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { signal } from '@preact/signals-core';
 import { BodyClassEffect } from '@renderer/presentation/effects/body-class.effect';
-import { PresentationModeStore } from '@renderer/presentation/state/presentation-mode.store';
+import { PresentationModeStore } from '@renderer/presentation/effects/presentation-mode.store';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import { EventBus } from '@renderer/lib/events/event-bus';
 import { TIMING } from '@renderer/lib/timing.config';

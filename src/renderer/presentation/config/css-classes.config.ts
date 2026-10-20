@@ -14,7 +14,6 @@ export const CSSClasses = {
   // Connection status
   CONNECTED: 'connected',
   DISCONNECTED: 'disconnected',
-  STATUS_STATE: 'status-state',
 
   // Overlay states
   OVERLAY_READY: 'ready',

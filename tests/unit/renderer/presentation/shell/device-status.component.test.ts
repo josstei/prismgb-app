@@ -1,10 +1,6 @@
-/**
- * DeviceStatusComponent Unit Tests
- */
-
 import { describe, it, expect, beforeEach } from 'vitest';
-import { DeviceStatusComponent } from '@renderer/presentation/shared/device-status.component';
-import { DeviceStatusStore } from '@renderer/presentation/state/device-status.store';
+import { DeviceStatusComponent } from '@renderer/presentation/shell/device-status.component';
+import { DeviceStatusStore } from '@renderer/presentation/shell/device-status.store';
 import { createDeviceStatusElementsMock, createEventBus } from '../../../../factories/index.js';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 

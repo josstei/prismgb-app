@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { StatusNotificationComponent } from '@renderer/presentation/shared/status-notification.component';
-import { StatusNotificationStore } from '@renderer/presentation/state/status-notification.store';
+import { StatusNotificationComponent } from '@renderer/presentation/shell/status-notification.component';
+import { StatusNotificationStore } from '@renderer/presentation/shell/status-notification.store';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import { EventBus } from '@renderer/lib/events/event-bus';
 
@@ -13,7 +13,7 @@ describe('StatusNotificationComponent (signal bindings)', () => {
     el = document.createElement('div');
     bus = new EventBus();
     store = new StatusNotificationStore({ eventBus: bus });
-    new StatusNotificationComponent({ elements: { statusMessage: el as any }, store });
+    new StatusNotificationComponent({ elements: { statusMessage: el }, store });
   });
 
   it('renders message + type from a published event', () => {

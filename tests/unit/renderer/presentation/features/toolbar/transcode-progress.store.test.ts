@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { TranscodeProgressStore } from '@renderer/presentation/state/transcode-progress.store';
+import { TranscodeProgressStore } from '@renderer/presentation/features/toolbar/transcode-progress.store';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import { EventBus } from '@renderer/lib/events/event-bus';
 

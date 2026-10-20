@@ -83,10 +83,7 @@ export type UiStatusMessagePayload = {
   type?: 'info' | 'success' | 'warning' | 'error' | string;
 };
 
-export type UiOverlayMessagePayload = {
-  deviceConnected?: boolean;
-  message?: string;
-};
+export type UiOverlayMessagePayload = { deviceConnected: boolean };
 
 export type UiOverlayVisiblePayload = { visible: boolean };
 
@@ -94,7 +91,7 @@ export type UiOverlayErrorPayload = { message: string };
 
 export type UiStreamingModePayload = { enabled: boolean };
 
-export type UiStreamInfoPayload = { settings?: Record<string, unknown> };
+export type UiStreamInfoPayload = { settings: Record<string, unknown> };
 
 export type UiFullscreenStatePayload = { active: boolean };
 

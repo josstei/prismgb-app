@@ -47,8 +47,8 @@ import type { BrowserMediaDevicesPort } from '../../infrastructure/services/devi
 import type { StorageDevicePreferenceStore } from '../../infrastructure/services/devices/storage-device-preference.store';
 import type { UiComponentHost } from '../../presentation/ui-component.host';
 import type { DomBindings } from '../../presentation/primitives/dom-bindings.utils';
-import type { StatusNotificationComponent } from '../../presentation/shared/status-notification.component';
-import type { DeviceStatusComponent } from '../../presentation/shared/device-status.component';
+import type { StatusNotificationComponent } from '../../presentation/shell/status-notification.component';
+import type { DeviceStatusComponent } from '../../presentation/shell/device-status.component';
 import type { StreamingControlsComponent } from '../../presentation/features/streaming/streaming-controls.component';
 import type { TranscodeProgressComponent } from '../../presentation/features/toolbar/transcode-progress.component';
 import type { SettingsMenuComponent } from '../../presentation/features/settings/settings-menu.component';

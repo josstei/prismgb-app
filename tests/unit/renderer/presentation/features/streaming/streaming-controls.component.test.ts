@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StreamingControlsComponent } from '@renderer/presentation/features/streaming/streaming-controls.component';
-import { StreamInfoStore } from '@renderer/presentation/state/stream-info.store';
+import { StreamInfoStore } from '@renderer/presentation/features/streaming/stream-info.store';
 import { createStreamingControlsElementsMock, createBodyClassEffectMock, createEventBus } from '../../../../../factories/index.js';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 
@@ -168,24 +168,23 @@ describe('StreamingControlsComponent', () => {
       expect(mockElements.currentFPS.textContent).toBe('60 fps');
     });
 
-    it('should handle null settings by resetting', () => {
-      // Setup some initial state
+    it('should reset when the settings lack a dimension or the frame rate', () => {
       mockEventBus.publish(EventChannels.UI.STREAM_INFO, {
         settings: { width: 160, height: 144, frameRate: 60 }
       });
 
-      mockEventBus.publish(EventChannels.UI.STREAM_INFO, { settings: null });
+      mockEventBus.publish(EventChannels.UI.STREAM_INFO, { settings: { width: 160, height: 144 } });
 
       expect(mockElements.currentResolution.textContent).toBe('—');
       expect(mockElements.currentFPS.textContent).toBe('—');
     });
 
-    it('should handle undefined settings by resetting', () => {
+    it('should reset when the stream stops', () => {
       mockEventBus.publish(EventChannels.UI.STREAM_INFO, {
         settings: { width: 160, height: 144, frameRate: 60 }
       });
 
-      mockEventBus.publish(EventChannels.UI.STREAM_INFO, { settings: undefined });
+      mockEventBus.publish(EventChannels.STREAM.STOPPED);
 
       expect(mockElements.currentResolution.textContent).toBe('—');
       expect(mockElements.currentFPS.textContent).toBe('—');
