@@ -469,14 +469,14 @@ export function createNotesPanelElementsMock(overrides = {}) {
   };
 }
 
-export function createStatusNotificationComponentMock(overrides = {}) {
+function createStatusNotificationComponentMock(overrides = {}) {
   return {
     dispose: vi.fn(),
     ...overrides
   };
 }
 
-export function createStreamControlsComponentMock(overrides = {}) {
+function createStreamControlsComponentMock(overrides = {}) {
   return {
     setStreamingMode: vi.fn(),
     dispose: vi.fn(),
@@ -484,14 +484,14 @@ export function createStreamControlsComponentMock(overrides = {}) {
   };
 }
 
-export function createTranscodeToastComponentMock(overrides = {}) {
+function createTranscodeToastComponentMock(overrides = {}) {
   return {
     dispose: vi.fn(),
     ...overrides
   };
 }
 
-export function createSettingsMenuComponentMock(overrides = {}) {
+function createSettingsMenuComponentMock(overrides = {}) {
   return {
     toggle: vi.fn(),
     initialize: vi.fn(),
@@ -500,7 +500,7 @@ export function createSettingsMenuComponentMock(overrides = {}) {
   };
 }
 
-export function createShaderSelectorComponentMock(overrides = {}) {
+function createShaderSelectorComponentMock(overrides = {}) {
   return {
     toggle: vi.fn(),
     show: vi.fn(),
@@ -510,7 +510,7 @@ export function createShaderSelectorComponentMock(overrides = {}) {
   };
 }
 
-export function createNotesPanelComponentMock(overrides = {}) {
+function createNotesPanelComponentMock(overrides = {}) {
   return {
     toggle: vi.fn(),
     show: vi.fn(),
