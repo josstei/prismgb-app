@@ -163,23 +163,6 @@
   display: none;
 }
 
-/* Reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  .shader-panel,
-  .shader-option {
-    transition: none !important;
-    animation: none !important;
-  }
-
-  .shader-panel {
-    transform: translateX(-50%) translateY(0) scale(1) !important;
-  }
-
-  .shader-option:active {
-    transform: none;
-  }
-}
-
 /* Brightness and volume vertical sliders */
 .brightness-control,
 .volume-control-vertical {
@@ -319,10 +302,21 @@
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
+  .shader-panel,
+  .shader-option {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .shader-panel {
+    transform: translateX(-50%) translateY(0) scale(1) !important;
+  }
+
   .cinematic-pill {
     transition: none !important;
   }
 
+  .shader-option:active,
   .cinematic-pill:active {
     transform: none;
   }
