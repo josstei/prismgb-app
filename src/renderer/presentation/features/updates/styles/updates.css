@@ -1,8 +1,3 @@
-/* =====================================================
-   Update Section Styles
-   Eye-catching prismatic theme for auto-updates
-   ===================================================== */
-
 /* Flash animation for status text feedback */
 .flash-success {
   animation: flash-green 1.5s ease-out;

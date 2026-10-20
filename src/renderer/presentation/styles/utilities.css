@@ -1,8 +1,3 @@
-/* =====================================================
-   Utility Classes
-   General-purpose utility classes for common patterns
-   ===================================================== */
-
 /* Accessibility Utilities */
 .sr-only {
   position: absolute;
@@ -35,7 +30,7 @@
   pointer-events: auto;
 }
 
-/* Listbox menu base: settings select, notes game filter, notes game autocomplete */
+/* Shared listbox menu base, opened with .visible */
 .settings-select-menu,
 .notes-game-filter-menu,
 .notes-game-autocomplete {

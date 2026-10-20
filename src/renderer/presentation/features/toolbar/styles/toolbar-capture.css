@@ -1,8 +1,3 @@
-/* =====================================================
-   Capture Buttons (Screenshot, Record, Notes)
-   Toolbar action buttons with specific color themes
-   ===================================================== */
-
 /* Screenshot button click feedback */
 #screenshotBtn.capturing {
   animation: capture-click 0.2s ease-out;
@@ -89,7 +84,7 @@ body.streaming-mode .stream-toolbar .toolbar-capture {
 
 /* ID specificity is required to beat the (0,3,1) streaming reveal animation */
 #recordBtn.recording {
-  background: linear-gradient(135deg, #f87171 0%, var(--color-danger) 100%);
+  background: linear-gradient(135deg, #f87171, var(--color-danger));
   box-shadow: 0 0 0 2px rgba(var(--color-danger-rgb), 0.45), 0 10px 24px rgba(var(--color-danger-rgb), 0.35);
   animation: pulse var(--animation-pulse) ease-in-out infinite;
 }
@@ -122,9 +117,7 @@ body.streaming-mode .stream-toolbar .toolbar-capture {
   box-shadow: var(--shadow-glow-prismatic);
 }
 
-/* =====================================================
-   Reduced Motion Accessibility
-   ===================================================== */
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .toolbar-capture {
     transition: none !important;

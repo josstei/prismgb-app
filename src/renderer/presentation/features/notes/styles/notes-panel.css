@@ -1,8 +1,3 @@
-/* =====================================================
-   Notes Sidebar - Fixed Right Edge Panel
-   Premium Prismatic Minimalism
-   ===================================================== */
-
 /* Sidebar Container - Glass morphism with prismatic border.
    notes-panel-layout sets the --notes-panel-* overrides inline; the fallbacks are the pre-layout defaults. */
 .notes-panel {
@@ -81,9 +76,7 @@ body:not(.streaming-mode) .notes-panel {
   display: none;
 }
 
-/* =====================================================
-   Reduced motion
-   ===================================================== */
+/* Reduced motion */
 
 @media (prefers-reduced-motion: reduce) {
   .notes-panel {

@@ -1,12 +1,4 @@
-/* =====================================================
-   Stream Toolbar - Base Styles
-   Container and base button styles
-   ===================================================== */
-
-/* =====================================================
-   Toolbar Container
-   Positioned at top right of stream-container
-   ===================================================== */
+/* Toolbar container, positioned at the top right of the stream container */
 .stream-toolbar {
   position: absolute;
   top: 0;
@@ -31,9 +23,7 @@ body.cinematic-active .stream-toolbar.toolbar-hidden {
   pointer-events: none;
 }
 
-/* =====================================================
-   Toolbar Buttons - Circular
-   ===================================================== */
+/* Circular toolbar buttons */
 .toolbar-btn {
   width: 44px;
   height: 44px;
@@ -125,19 +115,13 @@ body.cinematic-active .stream-toolbar.toolbar-hidden {
   z-index: var(--z-tooltip);
 }
 
-/* =====================================================
-   Fullscreen Mode - Toolbar Behavior
-   ===================================================== */
-
-/* Fullscreen: Adjust position */
+/* Fullscreen: adjust position */
 html:fullscreen .stream-toolbar,
 html:-webkit-full-screen .stream-toolbar {
   top: 20px;
 }
 
-/* =====================================================
-   Cinematic Mode - Toolbar Dimming
-   ===================================================== */
+/* Cinematic mode dimming */
 body.cinematic-active .stream-toolbar {
   opacity: 0.7;
   filter: brightness(0.85);
@@ -154,9 +138,7 @@ body.cinematic-active .stream-toolbar:has(.shader-panel.visible) {
   filter: brightness(1);
 }
 
-/* =====================================================
-   Reduced Motion Accessibility
-   ===================================================== */
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .toolbar-btn {
     transition: none !important;
@@ -164,7 +146,7 @@ body.cinematic-active .stream-toolbar:has(.shader-panel.visible) {
   }
 }
 
-/* Spinning animation for record button */
+/* Shared by the hover ring, the record spinner and the transcode ring */
 @keyframes spin {
   from {
     transform: rotate(0deg);

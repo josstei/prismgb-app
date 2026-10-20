@@ -1,12 +1,6 @@
-/* =====================================================
-   Global Application States
-   Cinematic mode, fullscreen mode, and cross-feature states
-   ===================================================== */
+/* Body-level presentation modes: cinematic, minimalist fullscreen, cursor auto-hide */
 
-/* =====================================================
-   Cinematic Mode
-   Dims UI and darkens background for immersive viewing
-   ===================================================== */
+/* Cinematic mode: dims the UI and darkens the background */
 
 /* Darken body background when cinematic mode is enabled */
 body.cinematic-active {
@@ -87,10 +81,7 @@ body.cinematic-active .stream-container::before {
   );
 }
 
-/* =====================================================
-   Minimalist Fullscreen Mode
-   Pure black fullscreen with minimal controls (streaming only)
-   ===================================================== */
+/* Minimalist fullscreen: pure black with minimal controls (streaming only) */
 
 body.minimalist-transition {
   transition: background 250ms ease;
@@ -155,10 +146,7 @@ body.fullscreen-active.streaming-mode.minimalist-fullscreen .fs-control-btn:focu
   outline-color: rgba(255, 255, 255, 0.5);
 }
 
-/* =====================================================
-   Cursor Auto-Hide
-   Hide cursor after inactivity during streaming
-   ===================================================== */
+/* Cursor auto-hide during streaming */
 
 body.cursor-hidden,
 body.cursor-hidden * {

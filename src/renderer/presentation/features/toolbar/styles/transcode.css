@@ -1,8 +1,3 @@
-/* =====================================================
-   Transcode Progress on Record Button
-   Circular progress ring around the record button
-   ===================================================== */
-
 /* Progress ring - positioned around the button */
 .toolbar-btn.toolbar-record .transcode-ring {
   position: absolute;
@@ -46,9 +41,7 @@
   transition: opacity var(--transition-fast), visibility var(--transition-fast);
 }
 
-/* =====================================================
-   Transcoding State - Spinning Animation
-   ===================================================== */
+/* Transcoding state */
 
 .toolbar-btn.toolbar-record.transcoding {
   border-color: rgba(var(--color-primary-rgb), 0.4);
@@ -78,9 +71,7 @@
   opacity: 0;
 }
 
-/* =====================================================
-   Success State
-   ===================================================== */
+/* Success state */
 
 .toolbar-btn.toolbar-record.transcode-success {
   border-color: rgba(var(--color-success-rgb), 0.5);
@@ -155,9 +146,7 @@
   }
 }
 
-/* =====================================================
-   Error State
-   ===================================================== */
+/* Error state */
 
 .toolbar-btn.toolbar-record.transcode-error {
   border-color: rgba(var(--color-danger-rgb), 0.5);

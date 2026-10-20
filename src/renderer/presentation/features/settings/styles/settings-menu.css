@@ -1,11 +1,3 @@
-/* =====================================================
-   Modals, Dropdowns & Popovers
-   Settings menu, tooltips
-   ===================================================== */
-
-/* =====================================================
-   Settings Menu
-   ===================================================== */
 .settings-control {
   position: relative;
 }
@@ -29,7 +21,7 @@
   contain: layout style;
 }
 
-/* Subtle border - removed rainbow gradient for cleaner look */
+/* Subtle border */
 .settings-menu-container::before {
   content: '';
   position: absolute;

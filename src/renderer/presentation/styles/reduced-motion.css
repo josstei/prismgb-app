@@ -1,7 +1,4 @@
-/* =====================================================
-   Reduced Motion Support
-   Respects user's OS-level reduced motion preference
-   ===================================================== */
+/* Global prefers-reduced-motion overrides; keep this the last import */
 @media (prefers-reduced-motion: reduce) {
   .status-indicator {
     animation: none !important;

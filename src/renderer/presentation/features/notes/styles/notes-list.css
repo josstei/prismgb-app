@@ -1,6 +1,4 @@
-/* =====================================================
-   Content area (split list + editor)
-   ===================================================== */
+/* Content area (split list + editor) */
 
 .notes-panel-content {
   --notes-list-width: 130px;
@@ -114,9 +112,7 @@
   font-style: italic;
 }
 
-/* =====================================================
-   Game Groups
-   ===================================================== */
+/* Game groups */
 
 .notes-game-group {
   margin-bottom: 4px;
@@ -189,9 +185,7 @@
   opacity: 0;
 }
 
-/* =====================================================
-   List Toggle Divider
-   ===================================================== */
+/* List toggle divider */
 
 .notes-list-toggle {
   width: 10px;

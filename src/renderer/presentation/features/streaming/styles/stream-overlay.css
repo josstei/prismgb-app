@@ -1,11 +1,4 @@
-/* =====================================================
-   Overlays
-   Stream overlay, particles, icon, ready states
-   ===================================================== */
-
-/* =====================================================
-   Stream Overlay
-   ===================================================== */
+/* Stream overlay */
 .stream-overlay {
   position: absolute;
   inset: 0;
@@ -95,9 +88,7 @@
   display: none !important;
 }
 
-/* =====================================================
-   Floating Particles
-   ===================================================== */
+/* Floating particles */
 .overlay-particles {
   position: absolute;
   inset: 0;
@@ -173,9 +164,7 @@
   --drift-b: 8px;
 }
 
-/* =====================================================
-   Overlay Content & Cartridge
-   ===================================================== */
+/* Overlay content */
 .overlay-content {
   text-align: center;
   display: flex;
@@ -215,9 +204,7 @@
   opacity: 0.85;
 }
 
-/* =====================================================
-   Ready State Rings
-   ===================================================== */
+/* Ready state rings */
 .ready-ring {
   position: absolute;
   top: 50%;
@@ -276,15 +263,14 @@
   animation-play-state: paused;
 }
 
+/* Outer and ripple rings use a thinner 2px band */
 .ready-ring-outer,
 .ready-ring-ripple {
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #fff calc(100% - 2px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #fff calc(100% - 2px));
 }
 
-/* =====================================================
-   Gem Glow Effect
-   ===================================================== */
+/* Gem glow */
 .gem-glow {
   position: absolute;
   top: 50%;
@@ -305,9 +291,7 @@
   will-change: transform, opacity;
 }
 
-/* =====================================================
-   Ready Flash Overlay
-   ===================================================== */
+/* Ready flash */
 .ready-flash {
   position: absolute;
   top: 50%;
@@ -329,9 +313,7 @@
   will-change: transform, opacity;
 }
 
-/* =====================================================
-   Scanline Shimmer Effect
-   ===================================================== */
+/* Scanline shimmer */
 .scanlines {
   position: absolute;
   inset: 0;
@@ -352,29 +334,8 @@
   );
 }
 
-/**
- * STREAMING STATE MANAGEMENT VIA :has() SELECTORS
- *
- * This file uses CSS :has() selectors to style parent elements based on
- * child state. This creates implicit coupling but provides cleaner HTML
- * (state classes only on the element that changes).
- *
- * OVERLAY STATES:
- * - .stream-overlay:has(#overlayMessage.waiting) - Device disconnected
- * - .stream-overlay:has(#overlayMessage.ready) - Device connected, ready to stream
- *
- * When modifying #overlayMessage classes, these selectors will update:
- * - Icon wrapper animations (icon-float, retro-glow)
- * - Ready rings visibility and animation
- * - Gem glow and flash effects
- * - Scanline shimmer
- */
-
-/* =====================================================
-   Overlay State Animations
-   Visual-only states (no text) for waiting vs ready
-   Default CSS is "waiting" appearance - ready state overrides
-   ===================================================== */
+/* Overlay visuals key off #overlayMessage.waiting|.ready via :has();
+   default styles are the waiting look. */
 
 /* --- WAITING STATE (Default - Device Disconnected) --- */
 /* Dimmed, sleeping, clearly inactive appearance */
@@ -486,10 +447,7 @@
   animation: scanline-shimmer 1.4s ease-in-out infinite;
 }
 
-/* =====================================================
-   Reduced Motion Accessibility
-   Disable non-essential streaming animations for users who prefer reduced motion
-   ===================================================== */
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .stream-overlay,
   .stream-overlay .overlay-icon,
