@@ -59,8 +59,6 @@ type MockLoggerFactory = {
 };
 type TestableTrayService = Omit<TrayService, 'tray'> & {
   tray: MockTrayInstance | null;
-  windowService: MockWindowService;
-  deviceConnectionService: MockDeviceConnectionService;
 };
 type MenuTemplateItem = {
   label?: string;
@@ -106,16 +104,10 @@ describe('TrayService', () => {
       expect(mockLoggerFactory.create).toHaveBeenCalledWith('TrayService');
     });
 
-    it('should initialize tray as null', () => {
-      expect(trayService.tray).toBeNull();
-    });
+    it('should not build a menu before the tray is created', () => {
+      trayService.updateTrayMenu();
 
-    it('should store window service', () => {
-      expect(trayService.windowService).toBe(mockWindowService);
-    });
-
-    it('should store device connection service', () => {
-      expect(trayService.deviceConnectionService).toBe(mockDeviceConnectionService);
+      expect(vi.mocked(Menu.buildFromTemplate)).not.toHaveBeenCalled();
     });
   });
 

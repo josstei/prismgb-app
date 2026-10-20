@@ -78,7 +78,6 @@ type MockBrowserWindow = {
   };
 };
 type TestableWindowService = Omit<WindowService, 'getMainWindow'> & {
-  mainWindow: MockBrowserWindow | null;
   getMainWindow(): MockBrowserWindow | null;
 };
 type DownloadItemMock = {
@@ -128,8 +127,8 @@ describe('WindowService', () => {
       expect(mockLoggerFactory.create).toHaveBeenCalledWith('WindowService');
     });
 
-    it('should initialize mainWindow as null', () => {
-      expect(windowService.mainWindow).toBeNull();
+    it('should have no main window before createWindow', () => {
+      expect(windowService.getMainWindow()).toBeNull();
     });
   });
 
@@ -137,14 +136,14 @@ describe('WindowService', () => {
     it('should create BrowserWindow', () => {
       windowService.createWindow();
 
-      expect(windowService.mainWindow).toBeDefined();
-      expect(windowService.mainWindow).not.toBeNull();
+      expect(windowService.getMainWindow()).toBeDefined();
+      expect(windowService.getMainWindow()).not.toBeNull();
     });
 
     it('should load dev URL when not packaged', () => {
       windowService.createWindow();
 
-      expect(windowService.mainWindow.loadURL).toHaveBeenCalledWith(
+      expect(windowService.getMainWindow().loadURL).toHaveBeenCalledWith(
         'http://127.0.0.1:3000/src/renderer/index.html'
       );
     });
@@ -155,38 +154,52 @@ describe('WindowService', () => {
 
       windowService.createWindow();
 
-      expect(windowService.mainWindow.loadFile).toHaveBeenCalled();
+      expect(windowService.getMainWindow().loadFile).toHaveBeenCalled();
 
       Object.defineProperty(app, 'isPackaged', { value: originalIsPackaged, configurable: true });
+    });
+
+    it('should load the built files when ELECTRON_IS_DEV is 0 in an unpackaged app', () => {
+      vi.stubEnv('ELECTRON_IS_DEV', '0');
+      try {
+        windowService.createWindow();
+        const win = windowService.getMainWindow();
+
+        expect(win.loadFile).toHaveBeenCalledWith(expect.stringMatching(/\/renderer\/src\/renderer\/index\.html$/));
+        expect(win.loadURL).not.toHaveBeenCalled();
+        expect(win.webContents.on).not.toHaveBeenCalledWith('console-message', expect.any(Function));
+      } finally {
+        vi.unstubAllEnvs();
+      }
     });
 
     it('should register console-message handler', () => {
       windowService.createWindow();
 
-      expect(windowService.mainWindow.webContents.on).toHaveBeenCalledWith('console-message', expect.any(Function));
+      expect(windowService.getMainWindow().webContents.on).toHaveBeenCalledWith('console-message', expect.any(Function));
     });
 
     it('should register ready-to-show handler', () => {
       windowService.createWindow();
 
-      expect(windowService.mainWindow.once).toHaveBeenCalledWith('ready-to-show', expect.any(Function));
+      expect(windowService.getMainWindow().once).toHaveBeenCalledWith('ready-to-show', expect.any(Function));
     });
 
     it('should register close handler', () => {
       windowService.createWindow();
 
-      expect(windowService.mainWindow.on).toHaveBeenCalledWith('close', expect.any(Function));
+      expect(windowService.getMainWindow().on).toHaveBeenCalledWith('close', expect.any(Function));
     });
 
     it('should register closed handler', () => {
       windowService.createWindow();
 
-      expect(windowService.mainWindow.on).toHaveBeenCalledWith('closed', expect.any(Function));
+      expect(windowService.getMainWindow().on).toHaveBeenCalledWith('closed', expect.any(Function));
     });
 
     it('should return existing window if already created', () => {
       windowService.createWindow();
-      const firstWindow = windowService.mainWindow;
+      const firstWindow = windowService.getMainWindow();
 
       windowService.createWindow();
 
@@ -197,7 +210,7 @@ describe('WindowService', () => {
     it('should return the window instance', () => {
       const result = windowService.createWindow();
 
-      expect(result).toBe(windowService.mainWindow);
+      expect(result).toBe(windowService.getMainWindow());
     });
 
     it('should log creation', () => {
@@ -210,7 +223,7 @@ describe('WindowService', () => {
   describe('showWindow', () => {
     it('should show existing window', () => {
       windowService.createWindow();
-      const win = windowService.mainWindow;
+      const win = windowService.getMainWindow();
       win.show.mockClear();
 
       windowService.showWindow();
@@ -221,46 +234,46 @@ describe('WindowService', () => {
     it('should create window if it does not exist', () => {
       windowService.showWindow();
 
-      expect(windowService.mainWindow).not.toBeNull();
+      expect(windowService.getMainWindow()).not.toBeNull();
     });
   });
 
   describe('bringing the window to the foreground', () => {
     it('should show and focus window', () => {
       windowService.createWindow();
-      windowService.mainWindow.show.mockClear();
+      windowService.getMainWindow().show.mockClear();
 
       windowService.showWindow();
 
-      expect(windowService.mainWindow.show).toHaveBeenCalled();
-      expect(windowService.mainWindow.focus).toHaveBeenCalled();
+      expect(windowService.getMainWindow().show).toHaveBeenCalled();
+      expect(windowService.getMainWindow().focus).toHaveBeenCalled();
     });
 
     it('should restore if minimized', () => {
       windowService.createWindow();
-      windowService.mainWindow.isMinimized.mockReturnValue(true);
+      windowService.getMainWindow().isMinimized.mockReturnValue(true);
 
       windowService.showWindow();
 
-      expect(windowService.mainWindow.restore).toHaveBeenCalled();
+      expect(windowService.getMainWindow().restore).toHaveBeenCalled();
     });
 
     it('shows the window on ready-to-show unless launched hidden', () => {
       windowService.createWindow();
-      const readyToShow = windowService.mainWindow.once.mock.calls.find(call => call[0] === 'ready-to-show')[1];
+      const readyToShow = windowService.getMainWindow().once.mock.calls.find(call => call[0] === 'ready-to-show')[1];
 
       readyToShow();
 
-      expect(windowService.mainWindow.show).toHaveBeenCalled();
+      expect(windowService.getMainWindow().show).toHaveBeenCalled();
     });
 
     it('stays hidden on ready-to-show for a hidden launch', () => {
       windowService.createWindow({ hidden: true });
-      const readyToShow = windowService.mainWindow.once.mock.calls.find(call => call[0] === 'ready-to-show')[1];
+      const readyToShow = windowService.getMainWindow().once.mock.calls.find(call => call[0] === 'ready-to-show')[1];
 
       readyToShow();
 
-      expect(windowService.mainWindow.show).not.toHaveBeenCalled();
+      expect(windowService.getMainWindow().show).not.toHaveBeenCalled();
       expect(mockLogger.info).toHaveBeenCalledWith('Window created in hidden mode - awaiting tray click');
     });
   });
@@ -272,7 +285,7 @@ describe('WindowService', () => {
       ['resized', 'window:resized']
     ])('pushes %s as %s', (windowEvent, channel) => {
       windowService.createWindow();
-      const handler = windowService.mainWindow.on.mock.calls.find(call => call[0] === windowEvent)[1];
+      const handler = windowService.getMainWindow().on.mock.calls.find(call => call[0] === windowEvent)[1];
 
       handler();
 
@@ -281,7 +294,7 @@ describe('WindowService', () => {
 
     it('reports simple fullscreen as fullscreen', () => {
       windowService.createWindow();
-      Object.assign(windowService.mainWindow, {
+      Object.assign(windowService.getMainWindow(), {
         isSimpleFullScreen: vi.fn(() => true),
         isFullScreen: vi.fn(() => false)
       });
@@ -293,7 +306,7 @@ describe('WindowService', () => {
   describe('downloads', () => {
     function downloadHandler() {
       windowService.createWindow();
-      return windowService.mainWindow.webContents.session.on.mock.calls.find(call => call[0] === 'will-download')[1];
+      return windowService.getMainWindow().webContents.session.on.mock.calls.find(call => call[0] === 'will-download')[1];
     }
 
     function downloadItem(filename: string): DownloadItemMock {
@@ -333,7 +346,7 @@ describe('WindowService', () => {
   describe('Window Event Handlers', () => {
     it('should handle close event by hiding window when not quitting', () => {
       windowService.createWindow();
-      const win = windowService.mainWindow;
+      const win = windowService.getMainWindow();
 
       const closeHandler = win.on.mock.calls.find(
         call => call[0] === 'close'
@@ -350,7 +363,7 @@ describe('WindowService', () => {
 
     it('should allow close when app is quitting', () => {
       windowService.createWindow();
-      const win = windowService.mainWindow;
+      const win = windowService.getMainWindow();
 
       const closeHandler = win.on.mock.calls.find(
         call => call[0] === 'close'
@@ -366,7 +379,7 @@ describe('WindowService', () => {
 
     it('removes the session will-download listener on closed', () => {
       windowService.createWindow();
-      const win = windowService.mainWindow;
+      const win = windowService.getMainWindow();
       const downloadListener = win.webContents.session.on.mock.calls.find(call => call[0] === 'will-download')[1];
 
       const closedHandler = win.on.mock.calls.find(
@@ -379,7 +392,7 @@ describe('WindowService', () => {
 
     it('should null window reference on closed event', () => {
       windowService.createWindow();
-      const win = windowService.mainWindow;
+      const win = windowService.getMainWindow();
 
       const closedHandler = win.on.mock.calls.find(
         call => call[0] === 'closed'
@@ -388,14 +401,14 @@ describe('WindowService', () => {
       closedHandler();
 
       // After closed, window reference should be null
-      expect(windowService.mainWindow).toBeNull();
+      expect(windowService.getMainWindow()).toBeNull();
     });
 
     it('should log renderer console messages', () => {
       const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       windowService.createWindow();
 
-      const consoleHandler = windowService.mainWindow.webContents.on.mock.calls.find(
+      const consoleHandler = windowService.getMainWindow().webContents.on.mock.calls.find(
         call => call[0] === 'console-message'
       )[1];
 
@@ -411,12 +424,12 @@ describe('WindowService', () => {
   describe('destroyWindow', () => {
     it('should destroy BrowserWindow and null reference', () => {
       windowService.createWindow();
-      const win = windowService.mainWindow;
+      const win = windowService.getMainWindow();
       
       windowService.destroyWindow();
 
       expect(win.destroy).toHaveBeenCalled();
-      expect(windowService.mainWindow).toBeNull();
+      expect(windowService.getMainWindow()).toBeNull();
     });
 
     it('should not throw if window does not exist', () => {
@@ -425,7 +438,7 @@ describe('WindowService', () => {
 
     it('should close devTools if open', () => {
       windowService.createWindow();
-      const win = windowService.mainWindow;
+      const win = windowService.getMainWindow();
       win.webContents.isDevToolsOpened.mockReturnValue(true);
 
       windowService.destroyWindow();
@@ -435,7 +448,7 @@ describe('WindowService', () => {
 
     it('removes the session will-download listener', () => {
       windowService.createWindow();
-      const win = windowService.mainWindow;
+      const win = windowService.getMainWindow();
 
       windowService.destroyWindow();
 
@@ -446,7 +459,7 @@ describe('WindowService', () => {
   describe('dispose', () => {
     it('removes the session will-download listener', async () => {
       windowService.createWindow();
-      const win = windowService.mainWindow;
+      const win = windowService.getMainWindow();
 
       await windowService.dispose();
 
