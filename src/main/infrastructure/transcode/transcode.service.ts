@@ -75,7 +75,7 @@ export class TranscodeService extends BaseService {
         ffprobePath: getOptionalFfprobePath() ?? 'optional-missing'
       });
     } catch (error) {
-      // Transcoding fails per job until ffmpeg is installed; startup continues.
+      // Startup continues without ffmpeg; each later job then fails to spawn and never starts.
       this.logger.error('FFmpeg binary not found', { error: getErrorMessage(error) });
     }
 
