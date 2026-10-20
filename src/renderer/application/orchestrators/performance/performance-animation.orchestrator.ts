@@ -2,7 +2,7 @@
  * Animation Performance Orchestrator
  *
  * Coordinates animation suppression based on performance state.
- * Routes computed state from service to BodyClassManager for DOM updates.
+ * Routes computed state from service to BodyClassEffect for DOM updates.
  */
 
 import { injectable, inject } from 'inversify';
@@ -15,7 +15,7 @@ import type {
   AnimationPerformanceState,
   PerformanceAnimationService
 } from '@renderer/infrastructure/services/performance/performance-animation.service';
-import type { BodyClassManager } from '@renderer/presentation/effects/body-class.effect';
+import type { BodyClassEffect } from '@renderer/presentation/effects/body-class.effect';
 import { TOKENS } from '@renderer/application/di/tokens';
 
 @injectable()
@@ -23,7 +23,7 @@ export class PerformanceAnimationOrchestrator extends BaseOrchestrator {
   constructor(
     @inject(TOKENS.eventBus) eventBus: EventBus,
     @inject(TOKENS.animationPerformanceService) private readonly animationPerformanceService: PerformanceAnimationService,
-    @inject(TOKENS.bodyClassManager) private readonly bodyClassManager: BodyClassManager,
+    @inject(TOKENS.bodyClassEffect) private readonly bodyClassEffect: BodyClassEffect,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
     super(loggerFactory, 'PerformanceAnimationOrchestrator', eventBus);
@@ -36,12 +36,12 @@ export class PerformanceAnimationOrchestrator extends BaseOrchestrator {
   }
 
   _applyBodyClasses(state: AnimationPerformanceState): void {
-    this.bodyClassManager.setIdle(Boolean(state.idle));
-    this.bodyClassManager.setHidden(Boolean(state.hidden));
-    this.bodyClassManager.setAnimationsOff(Boolean(state.animationsOff));
+    this.bodyClassEffect.setIdle(Boolean(state.idle));
+    this.bodyClassEffect.setHidden(Boolean(state.hidden));
+    this.bodyClassEffect.setAnimationsOff(Boolean(state.animationsOff));
   }
 
   async onCleanup(): Promise<void> {
-    // BodyClassManager owns DOM mutations; nothing to cleanup here.
+    // BodyClassEffect owns DOM mutations; nothing to cleanup here.
   }
 }

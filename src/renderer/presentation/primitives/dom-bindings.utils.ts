@@ -1,90 +1,55 @@
-import { bindTemplateRefs } from '@renderer/presentation/primitives/template-refs.utils';
-import {
-  TemplateDomRefGroups,
-  type TemplateDomNotesRef,
-  type TemplateDomSettingsRef,
-  type TemplateDomShellRef,
-  type TemplateDomStreamingRef,
-  type TemplateDomUpdatesRef
-} from '@renderer/presentation/primitives/template-dom.contract';
+const DOM_REF_GROUPS = {
+  shell: ['statusIndicator', 'statusText', 'statusMessage'],
+  streaming: ['streamVideo', 'streamCanvas', 'streamOverlay', 'overlayMessage', 'screenshotBtn', 'recordBtn', 'fullscreenBtn', 'shaderBtn', 'shaderControls', 'shaderDropdown', 'shaderOptions', 'shaderUnavailableMessage', 'streamToolbar', 'cinematicToggle', 'cinematicPillText', 'brightnessSlider', 'brightnessPercentage', 'brightnessControl', 'volumeSliderVertical', 'volumePercentageVertical', 'deviceName', 'deviceStatusText', 'currentResolution', 'currentFPS', 'fullscreenControls', 'streamContainer', 'transcodeRing', 'transcodePercentLabel'],
+  settings: ['settingsBtn', 'settingsMenuContainer', 'settingLaunchOnLogin', 'settingStatusStrip', 'settingFullscreenOnStartup', 'settingAutoStreamOnConnect', 'settingMinimalistFullscreen', 'settingAnimationSaver', 'settingRecordingFormat', 'recordingFormatLabel', 'recordingFormatMenu', 'disclaimerBtn', 'disclaimerContent', 'footer'],
+  updates: ['updateSection', 'updateCurrentVersion', 'updateStatusIndicator', 'updateStatusText', 'updateProgressContainer', 'updateProgressFill', 'updateProgressText', 'updateActionBtn', 'updateBadge'],
+  notes: ['notesBtn', 'notesPanel', 'notesPanelContent', 'notesListWrapper', 'notesSearchInput', 'notesGameFilter', 'notesGameFilterLabel', 'notesGameFilterMenu', 'notesListToggle', 'notesList', 'notesEditor', 'notesGameAddBtn', 'notesGameTagRow', 'notesGameTag', 'notesGameInput', 'notesGameAutocomplete', 'notesTitleInput', 'notesContentArea', 'notesNewBtn', 'notesDeleteBtn']
+} as const;
 
-type DomBindingsFor<
-  TRef extends string,
-  TElementTypes extends Partial<Record<TRef, HTMLElement>> = Record<never, never>
+type DomRefGroups = typeof DOM_REF_GROUPS;
+
+type DomGroupBindings<
+  TGroup extends keyof DomRefGroups,
+  TElementTypes extends Partial<Record<DomRefGroups[TGroup][number], HTMLElement>> = Record<never, never>
 > = {
-  [TKey in TRef]: TKey extends keyof TElementTypes ? TElementTypes[TKey] | null : HTMLElement | null;
+  [TRef in DomRefGroups[TGroup][number]]: TRef extends keyof TElementTypes ? TElementTypes[TRef] | null : HTMLElement | null;
 };
 
-export type DomShellBindings = DomBindingsFor<TemplateDomShellRef>;
-
-interface DomStreamingElementTypes {
+export type DomStreamingBindings = DomGroupBindings<'streaming', {
   streamVideo: HTMLVideoElement;
   streamCanvas: HTMLCanvasElement;
   screenshotBtn: HTMLButtonElement;
   recordBtn: HTMLButtonElement;
   brightnessSlider: HTMLInputElement;
   volumeSliderVertical: HTMLInputElement;
-}
-
-export type DomStreamingBindings = DomBindingsFor<TemplateDomStreamingRef, DomStreamingElementTypes>;
-
-export type DomSettingsBindings = DomBindingsFor<TemplateDomSettingsRef>;
-
-interface DomUpdateElementTypes {
-  updateActionBtn: HTMLButtonElement;
-}
-
-export type DomUpdateBindings = DomBindingsFor<TemplateDomUpdatesRef, DomUpdateElementTypes>;
-
-interface DomNotesElementTypes {
-  notesSearchInput: HTMLInputElement;
-  notesGameInput: HTMLInputElement;
-  notesTitleInput: HTMLInputElement;
-  notesContentArea: HTMLTextAreaElement;
-  notesDeleteBtn: HTMLButtonElement;
-}
-
-export type DomNotesBindings = DomBindingsFor<TemplateDomNotesRef, DomNotesElementTypes>;
-
-export type DomBindingsFlat =
-  DomShellBindings &
-  DomStreamingBindings &
-  DomSettingsBindings &
-  DomUpdateBindings &
-  DomNotesBindings;
+}>;
 
 export interface DomBindings {
-  shell: DomShellBindings;
+  shell: DomGroupBindings<'shell'>;
   streaming: DomStreamingBindings;
-  settings: DomSettingsBindings;
-  updates: DomUpdateBindings;
-  notes: DomNotesBindings;
-  flat: DomBindingsFlat;
+  settings: DomGroupBindings<'settings'>;
+  updates: DomGroupBindings<'updates', { updateActionBtn: HTMLButtonElement }>;
+  notes: DomGroupBindings<'notes', {
+    notesSearchInput: HTMLInputElement;
+    notesGameInput: HTMLInputElement;
+    notesTitleInput: HTMLInputElement;
+    notesContentArea: HTMLTextAreaElement;
+    notesDeleteBtn: HTMLButtonElement;
+  }>;
 }
 
-function createDomBindings(root: ParentNode = document): DomBindings {
-  const shell = bindTemplateRefs<DomShellBindings>(root, TemplateDomRefGroups.shell);
-  const streaming = bindTemplateRefs<DomStreamingBindings>(root, TemplateDomRefGroups.streaming);
-  const settings = bindTemplateRefs<DomSettingsBindings>(root, TemplateDomRefGroups.settings);
-  const updates = bindTemplateRefs<DomUpdateBindings>(root, TemplateDomRefGroups.updates);
-  const notes = bindTemplateRefs<DomNotesBindings>(root, TemplateDomRefGroups.notes);
+function pickRefs<TBindings>(root: ParentNode, refs: readonly string[]): TBindings {
+  return Object.fromEntries(
+    refs.map((ref) => [ref, root.querySelector<HTMLElement>(`[data-ref="${ref}"]`)])
+  ) as TBindings;
+}
 
-  const flat = {
-    ...shell,
-    ...streaming,
-    ...settings,
-    ...updates,
-    ...notes
-  };
-
+export function createDomBindings(root: ParentNode = document): DomBindings {
   return {
-    shell,
-    streaming,
-    settings,
-    updates,
-    notes,
-    flat
+    shell: pickRefs(root, DOM_REF_GROUPS.shell),
+    streaming: pickRefs(root, DOM_REF_GROUPS.streaming),
+    settings: pickRefs(root, DOM_REF_GROUPS.settings),
+    updates: pickRefs(root, DOM_REF_GROUPS.updates),
+    notes: pickRefs(root, DOM_REF_GROUPS.notes)
   };
 }
-
-export { createDomBindings };

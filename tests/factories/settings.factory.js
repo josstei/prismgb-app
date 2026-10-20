@@ -115,23 +115,3 @@ export function createSettingsCinematicModeServiceMock(overrides = {}) {
     ...overrides
   });
 }
-
-/**
- * @typedef {import('@renderer/infrastructure/services/settings/settings-presentation-mode.service').PresentationModeService} PresentationModeService
- */
-
-/**
- * Creates a mock PresentationModeService.
- *
- * @param {Partial<import('vitest').Mocked<PresentationModeService>>} [overrides={}] - Mock property and method overrides.
- * @returns {import('vitest').Mocked<PresentationModeService>} A strongly-typed mock PresentationModeService.
- */
-export function createPresentationModeServiceMock(overrides = {}) {
-  return /** @type {any} */ ({
-    handleStreamingMode: vi.fn(),
-    handleCinematicModeChanged: vi.fn(),
-    handleMinimalistFullscreenChanged: vi.fn(),
-    handleFullscreenState: vi.fn(),
-    ...overrides
-  });
-}

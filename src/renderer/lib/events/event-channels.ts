@@ -15,18 +15,14 @@ import type {
   RecordingDegradedPayload,
   RecordingErrorPayload,
   RecordingReadyPayload,
-  ScreenshotReadyPayload,
   StreamErrorPayload,
   StreamStartedPayload,
   SupportedDeviceAvailablePayload,
   TranscodeStartedPayload,
-  UiButtonFeedbackPayload,
-  UiDeviceStatusPayload,
   UiFullscreenStatePayload,
   UiOverlayErrorPayload,
   UiOverlayMessagePayload,
   UiOverlayVisiblePayload,
-  UiRecordingStatePayload,
   UiStatusMessagePayload,
   UiStreamInfoPayload,
   UiStreamingModePayload
@@ -46,7 +42,6 @@ export const EventChannels = {
   },
   CAPTURE: {
     SCREENSHOT_TRIGGERED: 'capture:screenshot-triggered',
-    SCREENSHOT_READY: 'capture:screenshot-ready',
     RECORDING_STARTED: 'capture:recording-started',
     RECORDING_STOPPED: 'capture:recording-stopped',
     RECORDING_READY: 'capture:recording-ready',
@@ -72,19 +67,11 @@ export const EventChannels = {
   },
   UI: {
     STATUS_MESSAGE: 'ui:status-message',
-    DEVICE_STATUS: 'ui:device-status',
     OVERLAY_MESSAGE: 'ui:overlay-message',
     OVERLAY_VISIBLE: 'ui:overlay-visible',
     OVERLAY_ERROR: 'ui:overlay-error',
     STREAMING_MODE: 'ui:streaming-mode',
     STREAM_INFO: 'ui:stream-info',
-    SHUTTER_FLASH: 'ui:shutter-flash',
-    RECORD_BUTTON_POP: 'ui:record-button-pop',
-    RECORD_BUTTON_PRESS: 'ui:record-button-press',
-    BUTTON_FEEDBACK: 'ui:button-feedback',
-    RECORDING_STATE: 'ui:recording-state',
-    RECORD_BUTTON_DISABLED: 'ui:record-button-disabled',
-    RECORD_BUTTON_ENABLED: 'ui:record-button-enabled',
     FULLSCREEN_STATE: 'ui:fullscreen-state',
     WINDOW_RESIZED: 'ui:window-resized',
     SCREENSHOT_REQUESTED: 'ui:screenshot-requested',
@@ -122,7 +109,6 @@ export interface EventPayloadMap {
   'stream:stopped': void;
   'stream:error': StreamErrorPayload;
   'capture:screenshot-triggered': void;
-  'capture:screenshot-ready': ScreenshotReadyPayload;
   'capture:recording-started': void;
   'capture:recording-stopped': void;
   'capture:recording-ready': RecordingReadyPayload;
@@ -140,19 +126,11 @@ export interface EventPayloadMap {
   'performance:memory-snapshot-requested': MemorySnapshotRequestPayload;
   'render:canvas-expired': void;
   'ui:status-message': UiStatusMessagePayload;
-  'ui:device-status': UiDeviceStatusPayload;
   'ui:overlay-message': UiOverlayMessagePayload;
   'ui:overlay-visible': UiOverlayVisiblePayload;
   'ui:overlay-error': UiOverlayErrorPayload;
   'ui:streaming-mode': UiStreamingModePayload;
   'ui:stream-info': UiStreamInfoPayload;
-  'ui:shutter-flash': void;
-  'ui:record-button-pop': void;
-  'ui:record-button-press': void;
-  'ui:button-feedback': UiButtonFeedbackPayload;
-  'ui:recording-state': UiRecordingStatePayload;
-  'ui:record-button-disabled': void;
-  'ui:record-button-enabled': void;
   'ui:fullscreen-state': UiFullscreenStatePayload;
   'ui:window-resized': void;
   'ui:screenshot-requested': void;

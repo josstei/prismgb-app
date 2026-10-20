@@ -6,8 +6,8 @@
  */
 
 import overlayIconUrl from '/overlay-icons/default.svg?url';
-import { createToolbarTemplate } from '@renderer/presentation/features/toolbar/toolbar.template.js';
-import { createFullscreenControlsTemplate } from '@renderer/presentation/features/fullscreen/fullscreen-controls.template.js';
+import { createToolbarTemplate } from '@renderer/presentation/features/toolbar/toolbar.template';
+import { createFullscreenControlsTemplate } from '@renderer/presentation/features/fullscreen/fullscreen-controls.template';
 
 export function createOverlayTemplate(): string {
   return `

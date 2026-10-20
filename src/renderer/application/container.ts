@@ -1,34 +1,16 @@
-import { Container, type ServiceIdentifier } from 'inversify';
+import { Container } from 'inversify';
 import { TOKENS } from './di/tokens';
 import { servicesModule } from './di/services.module';
 import { presentationModule } from './di/presentation.module';
 import { StreamingCanvasLifecycleService } from '../infrastructure/services/streaming/canvas-lifecycle.service';
-import {
-  UiComponentHost,
-  type RendererUiComponentInstanceMap
-} from '../presentation/controller/ui-component.host';
-import { RendererTemplateCoreComponentIds } from '../presentation/primitives/template-dom.contract';
+import { UiComponentHost } from '../presentation/ui-component.host';
 
 export type RendererServiceContainer = Container;
 
-const ALL_COMPONENT_TOKEN_MAP: Record<keyof RendererUiComponentInstanceMap, ServiceIdentifier> = {
-  statusNotificationComponent: TOKENS.statusNotificationComponent,
-  deviceStatusComponent: TOKENS.deviceStatusComponent,
-  streamControlsComponent: TOKENS.streamControlsComponent,
-  transcodeToastComponent: TOKENS.transcodeToastComponent,
-  settingsMenuComponent: TOKENS.settingsMenuComponent,
-  shaderSelectorComponent: TOKENS.shaderSelectorComponent,
-  notesPanelComponent: TOKENS.notesPanelComponent
-};
-
-const CORE_COMPONENT_TOKEN_MAP: Partial<Record<keyof RendererUiComponentInstanceMap, ServiceIdentifier>> =
-  Object.fromEntries(
-    RendererTemplateCoreComponentIds.map((id) => [id, ALL_COMPONENT_TOKEN_MAP[id]])
-  );
-
 /**
- * `canvasLifecycleService` binds here so its lazy read of `streamingRenderService`
- * can close over this container and break their circular dependency.
+ * `canvasLifecycleService` and `uiComponentHost` bind here because they resolve through
+ * this container lazily: the first to break its cycle with `streamingRenderService`, the
+ * second to construct each UI component on first use.
  */
 export function createRendererContainer(): RendererServiceContainer {
   const container = new Container({ defaultScope: 'Singleton' });
@@ -43,10 +25,8 @@ export function createRendererContainer(): RendererServiceContainer {
     }
   }));
 
-  container.bind(TOKENS.uiComponentHost).toDynamicValue(() => new UiComponentHost<RendererUiComponentInstanceMap>(
-    <TInstance>(token: unknown): TInstance => container.get(token as ServiceIdentifier<TInstance>),
-    CORE_COMPONENT_TOKEN_MAP,
-    ALL_COMPONENT_TOKEN_MAP,
+  container.bind(TOKENS.uiComponentHost).toDynamicValue(() => new UiComponentHost(
+    (token) => container.get(token),
     container.get(TOKENS.loggerFactory)
   ));
 

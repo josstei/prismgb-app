@@ -24,7 +24,7 @@ import type { UpdateService } from '../../infrastructure/services/updates/update
 import type { UpdateUiService } from '../../infrastructure/services/updates/update-ui.service';
 import type { UISetupOrchestrator } from '../orchestrators/ui-setup.orchestrator';
 import type { PerformanceAnimationService } from '../../infrastructure/services/performance/performance-animation.service';
-import type { BodyClassManager } from '../../presentation/effects/body-class.effect';
+import type { BodyClassEffect } from '../../presentation/effects/body-class.effect';
 import type { PerformanceAnimationOrchestrator } from '../orchestrators/performance/performance-animation.orchestrator';
 import type { MetricsAdapter } from '../../infrastructure/adapters/platform-metrics.adapter';
 import type { PerformanceMetricsService } from '../../infrastructure/services/performance/performance-metrics.service';
@@ -38,23 +38,19 @@ import type { AppOrchestrator } from '../orchestrators/app.orchestrator';
 import type { BrowserMediaAdapter } from '../../infrastructure/adapters/browser-media.adapter';
 import type { StreamingHealthService } from '../../infrastructure/services/platform/health.service';
 import type { StreamingViewportService } from '../../infrastructure/services/platform/viewport.service';
-import type { PresentationModeService } from '../../infrastructure/services/settings/settings-presentation-mode.service';
 import type { StreamingCanvasLifecycleService } from '../../infrastructure/services/streaming/canvas-lifecycle.service';
-import type { CaptureUIBridge } from '../../presentation/bridges/capture-ui.bridge';
-import type { TranscodeUIBridge } from '../../presentation/bridges/transcode-ui.bridge';
-import type { UIEventBridge } from '../../presentation/bridges/ui-event.bridge';
-import type { UIEffects } from '../../presentation/effects/ui-effects.host';
+import type { UiEventBridge } from '../../presentation/bridges/ui-event.bridge';
+import type { AutoHideEffect } from '../../presentation/effects/auto-hide.effect';
+import type { FeedbackEffect } from '../../presentation/effects/feedback.effect';
 import type { TrpcDeviceStatusPort } from '../../infrastructure/services/devices/trpc-device-status.port';
 import type { BrowserMediaDevicesPort } from '../../infrastructure/services/devices/browser-media-devices.port';
 import type { StorageDevicePreferenceStore } from '../../infrastructure/services/devices/storage-device-preference.store';
-import type { PresentationModeStore } from '../../presentation/state/presentation-mode.store';
-import type { UIController } from '../../presentation/controller/ui.controller';
-import type { UiComponentHost, RendererUiComponentInstanceMap } from '../../presentation/controller/ui-component.host';
+import type { UiComponentHost } from '../../presentation/ui-component.host';
 import type { DomBindings } from '../../presentation/primitives/dom-bindings.utils';
-import type { StatusNotificationComponent } from '../../presentation/shared/status-notification.component';
-import type { DeviceStatusComponent } from '../../presentation/shared/device-status.component';
+import type { StatusNotificationComponent } from '../../presentation/shell/status-notification.component';
+import type { DeviceStatusComponent } from '../../presentation/shell/device-status.component';
 import type { StreamingControlsComponent } from '../../presentation/features/streaming/streaming-controls.component';
-import type { TranscodeToastComponent } from '../../presentation/features/transcode/transcode-toast.component';
+import type { TranscodeProgressComponent } from '../../presentation/features/toolbar/transcode-progress.component';
 import type { SettingsMenuComponent } from '../../presentation/features/settings/settings-menu.component';
 import type { ShaderSelectorComponent } from '../../presentation/features/toolbar/shader-selector.component';
 import type { NotesPanelComponent } from '../../presentation/features/notes/notes-panel.component';
@@ -89,7 +85,7 @@ export const TOKENS = {
   notesService: token<NotesService>('notesService'),
   uiSetupOrchestrator: token<UISetupOrchestrator>('uiSetupOrchestrator'),
   animationPerformanceService: token<PerformanceAnimationService>('animationPerformanceService'),
-  bodyClassManager: token<BodyClassManager>('bodyClassManager'),
+  bodyClassEffect: token<BodyClassEffect>('bodyClassEffect'),
   animationPerformanceOrchestrator: token<PerformanceAnimationOrchestrator>('animationPerformanceOrchestrator'),
   metricsAdapter: token<MetricsAdapter>('metricsAdapter'),
   performanceMetricsService: token<PerformanceMetricsService>('performanceMetricsService'),
@@ -103,27 +99,23 @@ export const TOKENS = {
   browserMediaService: token<BrowserMediaAdapter>('browserMediaService'),
   streamHealthService: token<StreamingHealthService>('streamHealthService'),
   viewportService: token<StreamingViewportService>('viewportService'),
-  presentationModeService: token<PresentationModeService>('presentationModeService'),
   canvasLifecycleService: token<StreamingCanvasLifecycleService>('canvasLifecycleService'),
-  captureUiBridge: token<CaptureUIBridge>('captureUiBridge'),
-  transcodeUiBridge: token<TranscodeUIBridge>('transcodeUiBridge'),
-  uiEventBridge: token<UIEventBridge>('uiEventBridge'),
-  uiEffects: token<UIEffects>('uiEffects'),
+  uiEventBridge: token<UiEventBridge>('uiEventBridge'),
+  autoHideEffect: token<AutoHideEffect>('autoHideEffect'),
+  feedbackEffect: token<FeedbackEffect>('feedbackEffect'),
   storageService: token<KeyValueStore>('storageService'),
   deviceStatusPort: token<TrpcDeviceStatusPort>('deviceStatusPort'),
   mediaDevicesPort: token<BrowserMediaDevicesPort>('mediaDevicesPort'),
   devicePreferenceStore: token<StorageDevicePreferenceStore>('devicePreferenceStore'),
-  presentationModeStore: token<PresentationModeStore>('presentationModeStore'),
   domBindings: token<DomBindings>('domBindings'),
   statusNotificationComponent: token<StatusNotificationComponent>('statusNotificationComponent'),
   deviceStatusComponent: token<DeviceStatusComponent>('deviceStatusComponent'),
-  streamControlsComponent: token<StreamingControlsComponent>('streamControlsComponent'),
-  transcodeToastComponent: token<TranscodeToastComponent>('transcodeToastComponent'),
+  streamingControlsComponent: token<StreamingControlsComponent>('streamingControlsComponent'),
+  transcodeProgressComponent: token<TranscodeProgressComponent>('transcodeProgressComponent'),
   settingsMenuComponent: token<SettingsMenuComponent>('settingsMenuComponent'),
   shaderSelectorComponent: token<ShaderSelectorComponent>('shaderSelectorComponent'),
   notesPanelComponent: token<NotesPanelComponent>('notesPanelComponent'),
-  uiComponentHost: token<UiComponentHost<RendererUiComponentInstanceMap>>('uiComponentHost'),
-  uiController: token<UIController>('uiController')
+  uiComponentHost: token<UiComponentHost>('uiComponentHost')
 } as const;
 
 export type TokenKey = keyof typeof TOKENS;

@@ -1,137 +1,91 @@
 import { injectable, inject } from 'inversify';
-import { BaseService } from '@platform/core';
+import { BaseService, type LoggerFactory } from '@platform/core';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import { OnEvent, type EventBus } from '@renderer/lib/events/event-bus';
-import type { UiButtonFeedbackPayload, UiStreamingModePayload } from '@renderer/lib/events/event-payloads';
-import type { LoggerFactory } from '@platform/core';
+import type { UiFullscreenStatePayload, UiStreamingModePayload } from '@renderer/lib/events/event-payloads';
 import { TOKENS } from '@renderer/application/di/tokens';
+import type { AutoHideEffect } from '@renderer/presentation/effects/auto-hide.effect';
+import type { FeedbackEffect } from '@renderer/presentation/effects/feedback.effect';
+import type { DomBindings } from '@renderer/presentation/primitives/dom-bindings.utils';
+import type { UiComponentHost } from '@renderer/presentation/ui-component.host';
 
-type UiControllerLike = {
-  updateDeviceStatus(status: unknown): void;
-  updateOverlayMessage(deviceConnected?: boolean): void;
-  showErrorOverlay(message: string): void;
-  updateStreamInfo(settings: unknown): void;
-  triggerShutterFlash(): void;
-  triggerRecordButtonPop(): void;
-  triggerRecordButtonPress(): void;
-  triggerButtonFeedback(elementKey: string, className: string, duration: number): void;
-  updateRecordingButtonState(active: boolean): void;
-  setRecordButtonDisabled(disabled: boolean): void;
-  deviceStatus?: {
-    setOverlayVisible(visible: boolean): void;
-  } | null;
-};
-
-type PresentationModeServiceLike = {
-  handleStreamingMode(enabled: boolean): void;
-  handleFullscreenState(active: boolean): void;
-};
-
-function getBooleanPayloadValue(data: unknown, key: string): boolean | null {
-  if (typeof data !== 'object' || data === null || !(key in data)) {
-    return null;
-  }
-
-  const value = (data as Record<string, unknown>)[key];
-  return typeof value === 'boolean' ? value : null;
-}
-
+/** The presentation layer's only domain-event sink: maps domain events onto components and effects. */
 @injectable()
-export class UIEventBridge extends BaseService {
+export class UiEventBridge extends BaseService {
   constructor(
     @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
-    @inject(TOKENS.uiController) private readonly uiController: UiControllerLike,
-    @inject(TOKENS.presentationModeService) private readonly presentationModeService: PresentationModeServiceLike,
+    @inject(TOKENS.uiComponentHost) private readonly components: UiComponentHost,
+    @inject(TOKENS.domBindings) private readonly dom: DomBindings,
+    @inject(TOKENS.autoHideEffect) private readonly autoHide: AutoHideEffect,
+    @inject(TOKENS.feedbackEffect) private readonly feedback: FeedbackEffect,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super(loggerFactory, 'UIEventBridge');
+    super(loggerFactory, 'UiEventBridge');
   }
 
   initialize(): void {
     this.bindEventHandlers(this.eventBus);
-    this.logger.info('UIEventBridge initialized');
+    this.logger.info('UiEventBridge initialized');
+  }
+
+  @OnEvent(EventChannels.CAPTURE.SCREENSHOT_TRIGGERED)
+  private handleScreenshotTriggered(): void {
+    this.feedback.shutterFlash();
+    this.feedback.screenshotFeedback();
+  }
+
+  @OnEvent(EventChannels.CAPTURE.RECORDING_STARTED)
+  private handleRecordingStarted(): void {
+    this.feedback.recordButtonPop();
+    this.feedback.setRecording(true);
+  }
+
+  @OnEvent(EventChannels.CAPTURE.RECORDING_STOPPED)
+  private handleRecordingStopped(): void {
+    this.feedback.recordButtonPress();
+    this.feedback.setRecording(false);
+  }
+
+  @OnEvent(EventChannels.CAPTURE.RECORDING_ERROR)
+  private handleRecordingError(): void {
+    this.feedback.setRecording(false);
+  }
+
+  @OnEvent(EventChannels.TRANSCODE.STARTED)
+  private handleTranscodeStarted(): void {
+    this.feedback.setRecordButtonDisabled(true);
+  }
+
+  @OnEvent(EventChannels.TRANSCODE.COMPLETED)
+  @OnEvent(EventChannels.TRANSCODE.ERROR)
+  @OnEvent(EventChannels.TRANSCODE.CANCELLED)
+  private handleTranscodeEnded(): void {
+    this.feedback.setRecordButtonDisabled(false);
   }
 
   @OnEvent(EventChannels.UI.STREAMING_MODE)
-  private _handleStreamingMode(data: UiStreamingModePayload): void {
-    this.presentationModeService.handleStreamingMode(data.enabled);
-  }
-
-  @OnEvent(EventChannels.UI.SHUTTER_FLASH)
-  private _handleShutterFlash(): void {
-    this.uiController.triggerShutterFlash();
-  }
-
-  @OnEvent(EventChannels.UI.RECORD_BUTTON_POP)
-  private _handleRecordButtonPop(): void {
-    this.uiController.triggerRecordButtonPop();
-  }
-
-  @OnEvent(EventChannels.UI.RECORD_BUTTON_PRESS)
-  private _handleRecordButtonPress(): void {
-    this.uiController.triggerRecordButtonPress();
-  }
-
-  @OnEvent(EventChannels.UI.BUTTON_FEEDBACK)
-  private _handleButtonFeedback(data: unknown): void {
-    const payload = typeof data === 'object' && data !== null
-      ? data as Partial<UiButtonFeedbackPayload>
-      : {};
-    if (!payload.elementKey) {
-      return;
+  private handleStreamingMode({ enabled }: UiStreamingModePayload): void {
+    this.components.get('streamingControlsComponent').setStreamingMode(enabled);
+    if (enabled) {
+      this.autoHide.enableToolbar(this.dom.streaming.streamToolbar);
+      this.autoHide.enableCursor();
+    } else {
+      this.autoHide.disableCursor();
+      this.autoHide.disableToolbar();
+      this.components.get('shaderSelectorComponent').hide();
     }
-    this.uiController.triggerButtonFeedback(
-      payload.elementKey,
-      payload.className ?? 'active',
-      payload.duration ?? 200
-    );
-  }
-
-  @OnEvent(EventChannels.UI.RECORDING_STATE)
-  private _handleRecordingState(data: unknown): void {
-    const active = getBooleanPayloadValue(data, 'active');
-    if (active === null) {
-      this.logger.warn('Ignoring invalid recording state payload');
-      return;
-    }
-    this.uiController.updateRecordingButtonState(active);
-  }
-
-  @OnEvent(EventChannels.UI.RECORD_BUTTON_DISABLED)
-  private _handleRecordButtonDisabled(): void {
-    this.uiController.setRecordButtonDisabled(true);
-  }
-
-  @OnEvent(EventChannels.UI.RECORD_BUTTON_ENABLED)
-  private _handleRecordButtonEnabled(): void {
-    this.uiController.setRecordButtonDisabled(false);
-  }
-
-  @OnEvent(EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED)
-  private _handleCinematicMode(data: unknown): void {
-    const enabled = getBooleanPayloadValue(data, 'enabled');
-    if (enabled === null) {
-      this.logger.warn('Ignoring invalid cinematic mode payload');
-      return;
-    }
-    this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
-      message: `Cinematic mode ${enabled ? 'enabled' : 'disabled'}`
-    });
   }
 
   @OnEvent(EventChannels.UI.FULLSCREEN_STATE)
-  private _handleFullscreenState(data: unknown): void {
-    const active = getBooleanPayloadValue(data, 'active');
-    if (active === null) {
-      this.logger.warn('Ignoring invalid fullscreen state payload');
-      return;
+  private handleFullscreenState({ active }: UiFullscreenStatePayload): void {
+    const { fullscreenBtn, fullscreenControls } = this.dom.streaming;
+    if (fullscreenBtn) {
+      fullscreenBtn.title = active ? 'Exit Fullscreen' : 'Fullscreen';
     }
-    this.presentationModeService.handleFullscreenState(active);
-  }
-
-  override dispose(): Promise<void> {
-    const disposed = super.dispose();
-    this.logger.info('UIEventBridge disposed');
-    return disposed;
+    if (active) {
+      this.autoHide.enableControls(fullscreenControls);
+    } else {
+      this.autoHide.disableControls();
+    }
   }
 }

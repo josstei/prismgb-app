@@ -2,7 +2,7 @@ import { PresentationComponent } from '@renderer/presentation/primitives/present
 import {
   calculateAnchoredDisclosureLayout,
   type AnchoredLayoutSizeDefaults
-} from '@renderer/presentation/widgets/disclosure.controller';
+} from '@renderer/presentation/features/notes/notes-panel-layout.utils';
 import type { Logger } from '@platform/core';
 
 const RESIZE_DEBOUNCE_MS = 100;

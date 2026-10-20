@@ -1,20 +1,18 @@
 import { ContainerModule } from 'inversify';
-import { BodyClassManager } from '../../presentation/effects/body-class.effect';
-import { CaptureUIBridge } from '../../presentation/bridges/capture-ui.bridge';
-import { TranscodeUIBridge } from '../../presentation/bridges/transcode-ui.bridge';
-import { UIEventBridge } from '../../presentation/bridges/ui-event.bridge';
-import { UIEffects } from '../../presentation/effects/ui-effects.host';
-import { PresentationModeStore } from '../../presentation/state/presentation-mode.store';
+import { BodyClassEffect } from '../../presentation/effects/body-class.effect';
+import { AutoHideEffect } from '../../presentation/effects/auto-hide.effect';
+import { FeedbackEffect } from '../../presentation/effects/feedback.effect';
+import { UiEventBridge } from '../../presentation/bridges/ui-event.bridge';
+import { PresentationModeStore } from '../../presentation/effects/presentation-mode.store';
 import { createDomBindings } from '../../presentation/primitives/dom-bindings.utils';
-import { createTemplateComponentElements } from '../../presentation/primitives/template-dom.contract';
-import { StatusNotificationComponent } from '../../presentation/shared/status-notification.component';
-import { StatusNotificationStore } from '../../presentation/state/status-notification.store';
-import { DeviceStatusComponent } from '../../presentation/shared/device-status.component';
-import { DeviceStatusStore } from '../../presentation/state/device-status.store';
+import { StatusNotificationComponent } from '../../presentation/shell/status-notification.component';
+import { StatusNotificationStore } from '../../presentation/shell/status-notification.store';
+import { DeviceStatusComponent } from '../../presentation/shell/device-status.component';
+import { DeviceStatusStore } from '../../presentation/shell/device-status.store';
 import { StreamingControlsComponent } from '../../presentation/features/streaming/streaming-controls.component';
-import { StreamInfoStore } from '../../presentation/state/stream-info.store';
-import { TranscodeToastComponent } from '../../presentation/features/transcode/transcode-toast.component';
-import { TranscodeProgressStore } from '../../presentation/state/transcode-progress.store';
+import { StreamInfoStore } from '../../presentation/features/streaming/stream-info.store';
+import { TranscodeProgressComponent } from '../../presentation/features/toolbar/transcode-progress.component';
+import { TranscodeProgressStore } from '../../presentation/features/toolbar/transcode-progress.store';
 import { SettingsMenuComponent } from '../../presentation/features/settings/settings-menu.component';
 import { UpdateSectionComponent } from '../../presentation/features/updates/update-section.component';
 import { ShaderSelectorComponent } from '../../presentation/features/toolbar/shader-selector.component';
@@ -22,51 +20,67 @@ import { NotesPanelComponent } from '../../presentation/features/notes/notes-pan
 import { TOKENS } from './tokens';
 
 /**
- * Components, stores, effects and bridges. The UI components share the lazily
- * resolved `domBindings`; `uiComponentHost` binds in container.ts.
+ * Components, stores, effects and the event bridge. The UI components share the
+ * lazily resolved `domBindings`; `uiComponentHost` binds in container.ts.
  */
 export const presentationModule = new ContainerModule(({ bind }) => {
-  bind(TOKENS.bodyClassManager).to(BodyClassManager);
-  bind(TOKENS.captureUiBridge).to(CaptureUIBridge);
-  bind(TOKENS.transcodeUiBridge).to(TranscodeUIBridge);
-  bind(TOKENS.uiEventBridge).to(UIEventBridge);
-
-  bind(TOKENS.uiEffects).toDynamicValue((ctx) => new UIEffects({
-    bodyClassManager: ctx.get(TOKENS.bodyClassManager)
-  }));
-
-  bind(TOKENS.presentationModeStore).toDynamicValue((ctx) => new PresentationModeStore({
+  bind(TOKENS.uiEventBridge).to(UiEventBridge);
+  bind(TOKENS.autoHideEffect).to(AutoHideEffect);
+  bind(TOKENS.feedbackEffect).toDynamicValue((ctx) => new FeedbackEffect(ctx.get(TOKENS.domBindings).streaming));
+  bind(TOKENS.bodyClassEffect).toDynamicValue((ctx) => new BodyClassEffect(new PresentationModeStore({
     eventBus: ctx.get(TOKENS.eventBus),
     cinematicEnabled: ctx.get(TOKENS.appState).cinematicModeSignal
-  }));
+  })));
 
-  bind(TOKENS.domBindings).toDynamicValue(() => createDomBindings(document));
+  bind(TOKENS.domBindings).toDynamicValue(() => createDomBindings());
 
   bind(TOKENS.statusNotificationComponent).toDynamicValue((ctx) => new StatusNotificationComponent({
-    elements: createTemplateComponentElements('statusNotificationComponent', ctx.get(TOKENS.domBindings)),
-    store: new StatusNotificationStore({
-      eventBus: ctx.get(TOKENS.eventBus)
-    })
+    elements: { statusMessage: ctx.get(TOKENS.domBindings).shell.statusMessage },
+    store: new StatusNotificationStore({ eventBus: ctx.get(TOKENS.eventBus) })
   }));
 
-  bind(TOKENS.deviceStatusComponent).toDynamicValue((ctx) => new DeviceStatusComponent({
-    elements: createTemplateComponentElements('deviceStatusComponent', ctx.get(TOKENS.domBindings)),
-    store: new DeviceStatusStore({
-      eventBus: ctx.get(TOKENS.eventBus),
-      deviceConnectedSignal: ctx.get(TOKENS.appState).deviceConnectedSignal
-    })
-  }));
+  bind(TOKENS.deviceStatusComponent).toDynamicValue((ctx) => {
+    const { shell, streaming } = ctx.get(TOKENS.domBindings);
+    return new DeviceStatusComponent({
+      elements: {
+        statusIndicator: shell.statusIndicator,
+        statusText: shell.statusText,
+        deviceName: streaming.deviceName,
+        deviceStatusText: streaming.deviceStatusText,
+        streamOverlay: streaming.streamOverlay,
+        overlayMessage: streaming.overlayMessage
+      },
+      store: new DeviceStatusStore({ eventBus: ctx.get(TOKENS.eventBus) })
+    });
+  });
 
-  bind(TOKENS.streamControlsComponent).toDynamicValue((ctx) => new StreamingControlsComponent({
-    elements: createTemplateComponentElements('streamControlsComponent', ctx.get(TOKENS.domBindings)),
-    bodyClassManager: ctx.get(TOKENS.bodyClassManager),
-    store: new StreamInfoStore({ eventBus: ctx.get(TOKENS.eventBus) })
-  }));
+  bind(TOKENS.streamingControlsComponent).toDynamicValue((ctx) => {
+    const { streaming } = ctx.get(TOKENS.domBindings);
+    return new StreamingControlsComponent({
+      elements: {
+        currentResolution: streaming.currentResolution,
+        currentFPS: streaming.currentFPS,
+        screenshotBtn: streaming.screenshotBtn,
+        recordBtn: streaming.recordBtn,
+        shaderControls: streaming.shaderControls,
+        streamOverlay: streaming.streamOverlay
+      },
+      bodyClassEffect: ctx.get(TOKENS.bodyClassEffect),
+      store: new StreamInfoStore({ eventBus: ctx.get(TOKENS.eventBus) })
+    });
+  });
 
-  bind(TOKENS.transcodeToastComponent).toDynamicValue((ctx) => new TranscodeToastComponent({
-    elements: createTemplateComponentElements('transcodeToastComponent', ctx.get(TOKENS.domBindings)),
-    store: new TranscodeProgressStore({ eventBus: ctx.get(TOKENS.eventBus) })
-  }));
+  bind(TOKENS.transcodeProgressComponent).toDynamicValue((ctx) => {
+    const { streaming } = ctx.get(TOKENS.domBindings);
+    return new TranscodeProgressComponent({
+      elements: {
+        recordBtn: streaming.recordBtn,
+        transcodeRing: streaming.transcodeRing,
+        transcodePercentLabel: streaming.transcodePercentLabel
+      },
+      store: new TranscodeProgressStore({ eventBus: ctx.get(TOKENS.eventBus) })
+    });
+  });
 
   bind(TOKENS.settingsMenuComponent).toDynamicValue((ctx) => {
     const eventBus = ctx.get(TOKENS.eventBus);
@@ -81,7 +95,8 @@ export const presentationModule = new ContainerModule(({ bind }) => {
       updateSectionComponent,
       logger: loggerFactory.create('SettingsMenuComponent')
     });
-    component.initialize(createTemplateComponentElements('settingsMenuComponent', ctx.get(TOKENS.domBindings)));
+    const { settings, updates } = ctx.get(TOKENS.domBindings);
+    component.initialize({ ...settings, ...updates });
     return component;
   });
 
@@ -92,7 +107,21 @@ export const presentationModule = new ContainerModule(({ bind }) => {
       eventBus: ctx.get(TOKENS.eventBus),
       logger: ctx.get(TOKENS.loggerFactory).create('ShaderSelectorComponent')
     });
-    component.initialize(createTemplateComponentElements('shaderSelectorComponent', ctx.get(TOKENS.domBindings)));
+    const { streaming } = ctx.get(TOKENS.domBindings);
+    component.initialize({
+      shaderBtn: streaming.shaderBtn,
+      shaderDropdown: streaming.shaderDropdown,
+      shaderOptions: streaming.shaderOptions,
+      shaderUnavailableMessage: streaming.shaderUnavailableMessage,
+      cinematicToggle: streaming.cinematicToggle,
+      cinematicPillText: streaming.cinematicPillText,
+      brightnessSlider: streaming.brightnessSlider,
+      brightnessPercentage: streaming.brightnessPercentage,
+      brightnessControl: streaming.brightnessControl,
+      volumeSlider: streaming.volumeSliderVertical,
+      volumePercentage: streaming.volumePercentageVertical,
+      streamVideo: streaming.streamVideo
+    });
     return component;
   });
 
@@ -101,7 +130,12 @@ export const presentationModule = new ContainerModule(({ bind }) => {
       notesService: ctx.get(TOKENS.notesService),
       logger: ctx.get(TOKENS.loggerFactory).create('NotesPanelComponent')
     });
-    component.initialize(createTemplateComponentElements('notesPanelComponent', ctx.get(TOKENS.domBindings)));
+    const { notes, streaming } = ctx.get(TOKENS.domBindings);
+    component.initialize({
+      ...notes,
+      streamContainer: streaming.streamContainer,
+      streamToolbar: streaming.streamToolbar
+    });
     return component;
   });
 });

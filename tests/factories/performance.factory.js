@@ -126,15 +126,6 @@ export function createPerformanceAnimationServiceMock(overrides = {}) {
   });
 }
 
-export function createBodyClassManagerMock(overrides = {}) {
-  return {
-    setIdle: vi.fn(),
-    setHidden: vi.fn(),
-    setAnimationsOff: vi.fn(),
-    ...overrides
-  };
-}
-
 export function createProcessMetricsMock(overrides = {}) {
   return {
     timestamp: 0,

@@ -78,19 +78,12 @@ export type RecordingDegradedPayload = {
   droppedFrames?: number;
 };
 
-export type ScreenshotReadyPayload = { blob: Blob; filename: string };
-
 export type UiStatusMessagePayload = {
   message: string;
   type?: 'info' | 'success' | 'warning' | 'error' | string;
 };
 
-export type UiDeviceStatusPayload = { status: unknown };
-
-export type UiOverlayMessagePayload = {
-  deviceConnected?: boolean;
-  message?: string;
-};
+export type UiOverlayMessagePayload = { deviceConnected: boolean };
 
 export type UiOverlayVisiblePayload = { visible: boolean };
 
@@ -98,16 +91,7 @@ export type UiOverlayErrorPayload = { message: string };
 
 export type UiStreamingModePayload = { enabled: boolean };
 
-export type UiStreamInfoPayload = { settings?: Record<string, unknown> };
-
-export type UiButtonFeedbackPayload = {
-  elementKey: string;
-  className?: string;
-  duration?: number;
-  [key: string]: unknown;
-};
-
-export type UiRecordingStatePayload = { active: boolean };
+export type UiStreamInfoPayload = { settings: Record<string, unknown> };
 
 export type UiFullscreenStatePayload = { active: boolean };
 

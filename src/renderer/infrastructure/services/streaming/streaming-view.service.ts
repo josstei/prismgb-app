@@ -1,91 +1,64 @@
-/**
- * Stream View Service
- *
- * Provides abstraction layer for stream-related DOM elements (video and canvas).
- * Keeps streaming orchestration free of direct DOM manipulation.
- */
-
 import { injectable, inject } from 'inversify';
-import { BaseService } from '@platform/core';
-import type {
-  LoggerFactory
-} from '@platform/core';
+import { BaseService, type LoggerFactory } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens';
 
-type UiControllerLike = {
-  elements: {
+// Presentation's DomBindings narrowed to the stream elements; infrastructure may not import presentation.
+type StreamElementBindings = {
+  streaming: {
     streamVideo: HTMLVideoElement | null;
     streamCanvas: HTMLCanvasElement | null;
   };
-  setStreamCanvas(canvas: HTMLCanvasElement): void;
 };
 
 @injectable()
 class StreamingViewService extends BaseService {
+  private canvas: HTMLCanvasElement | null;
+
   constructor(
-    @inject(TOKENS.uiController) private readonly uiController: UiControllerLike,
+    @inject(TOKENS.domBindings) private readonly dom: StreamElementBindings,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
     super(loggerFactory, 'StreamingViewService');
+    this.canvas = dom.streaming.streamCanvas;
   }
 
   attachMutedStream(stream: MediaStream): void {
-    const video = this.uiController.elements.streamVideo;
-    if (!video) {
-      this.logger.warn('Stream video element not found');
-      return;
-    }
+    const video = this.requireVideo();
+    if (!video) return;
 
-    // Keep video element muted; audio is handled by Web Audio pipeline.
+    // Audio plays through the Web Audio pipeline, so the element itself stays muted.
     video.muted = true;
     video.srcObject = stream;
     this.logger.info('Stream assigned to video element');
   }
 
-  /**
-   * Clears the video element's stream and resets it.
-   */
   clearStream(): void {
-    const video = this.uiController.elements.streamVideo;
-    if (!video) {
-      this.logger.warn('Stream video element not found');
-      return;
-    }
+    const video = this.requireVideo();
+    if (!video?.srcObject) return;
 
-    if (video.srcObject) {
-      video.pause();
-      video.srcObject = null;
-      video.load();
-      this.logger.info('Video element srcObject cleared and reset');
-    }
+    video.pause();
+    video.srcObject = null;
+    video.load();
+    this.logger.info('Video element srcObject cleared and reset');
   }
 
   setMuted(muted: boolean): void {
-    const video = this.uiController.elements.streamVideo;
-    if (!video) {
-      this.logger.warn('Stream video element not found');
-      return;
+    const video = this.requireVideo();
+    if (video) {
+      video.muted = Boolean(muted);
     }
-
-    video.muted = Boolean(muted);
   }
 
   getVideo(): HTMLVideoElement | null {
-    const video = this.uiController.elements.streamVideo;
-    if (!video) {
-      this.logger.warn('Stream video element not found');
-      return null;
-    }
-    return video;
+    return this.requireVideo();
   }
 
   getCanvas(): HTMLCanvasElement | null {
-    const canvas = this.uiController.elements.streamCanvas;
-    if (!canvas) {
+    if (!this.canvas) {
       this.logger.warn('Stream canvas element not found');
       return null;
     }
-    return canvas;
+    return this.canvas;
   }
 
   getCanvasContainer(): HTMLElement | null {
@@ -113,12 +86,22 @@ class StreamingViewService extends BaseService {
   }
 
   setCanvas(canvas: HTMLCanvasElement): void {
-    if (!canvas || !(canvas instanceof HTMLCanvasElement)) {
+    if (!(canvas instanceof HTMLCanvasElement)) {
       this.logger.warn('Invalid canvas element provided to setCanvas');
       return;
     }
-    this.uiController.setStreamCanvas(canvas);
+    this.canvas = canvas;
+    this.dom.streaming.streamCanvas = canvas;
     this.logger.info('Canvas element reference updated');
+  }
+
+  private requireVideo(): HTMLVideoElement | null {
+    const video = this.dom.streaming.streamVideo;
+    if (!video) {
+      this.logger.warn('Stream video element not found');
+      return null;
+    }
+    return video;
   }
 }
 

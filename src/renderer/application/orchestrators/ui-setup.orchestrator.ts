@@ -1,95 +1,62 @@
 import { injectable, inject } from 'inversify';
-import { BaseOrchestrator } from '@platform/core';
+import { BaseOrchestrator, type LoggerFactory } from '@platform/core';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import {
-  createTemplateRefSelector,
-  getTemplateAction,
-  getTemplateActionTarget
-} from '@renderer/presentation/primitives/template-refs.utils';
-import {
   UIActionDescriptors,
   UIActionEvents,
-  UIActionTargets,
+  findActionTarget,
+  getAction,
   isUIActionId,
-  type UIActionControllerCommand,
   type UIActionDescriptor,
   type UIActionEvent
-} from '@renderer/presentation/primitives/template-ref.utils';
+} from '@renderer/presentation/primitives/ui-actions.definitions';
 import { TOKENS } from '@renderer/application/di/tokens';
-import type { LoggerFactory } from '@platform/core';
 import type { EventBus } from '@renderer/lib/events/event-bus';
-import type { UIController } from '@renderer/presentation/controller/ui.controller';
-import { RendererTemplateDeferredComponentIds } from '@renderer/presentation/primitives/template-dom.contract';
-import type { AppState } from '@renderer/application/state/app-state';
+import type { UiComponentHost } from '@renderer/presentation/ui-component.host';
+import type { StreamingService } from '@renderer/infrastructure/services/streaming/streaming.service';
 
-type AppStateLike = Pick<AppState, 'isStreaming'>;
-
-const UI_ACTION_LISTENERS_LIFECYCLE = Symbol('uiSetupActionListenersLifecycle');
+const UI_ACTION_LISTENERS = Symbol('uiActionListeners');
 
 @injectable()
 export class UISetupOrchestrator extends BaseOrchestrator {
-  private _uiActionsBound: boolean;
+  private uiActionsBound = false;
 
   constructor(
-    @inject(TOKENS.appState) private readonly appState: AppStateLike,
-    @inject(TOKENS.uiController) private readonly uiController: UIController,
+    @inject(TOKENS.streamingService) private readonly streamingService: Pick<StreamingService, 'isStreaming'>,
+    @inject(TOKENS.uiComponentHost) private readonly components: UiComponentHost,
     @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
     super(loggerFactory, 'UISetupOrchestrator', eventBus);
-
-    this._uiActionsBound = false;
   }
 
   initializeDeferredComponents(): void {
-    RendererTemplateDeferredComponentIds.forEach((componentId) => {
-      this.uiController.initializeDeferredComponent(componentId);
-    });
+    this.components.resolveDeferred();
   }
 
   setupUIEventListeners(): void {
-    if (this._uiActionsBound) {
+    if (this.uiActionsBound) {
       return;
     }
-    const actionRoot = this._getUiActionRoot();
-    const listenerDisposers = UIActionEvents.map((eventName) =>
+    const actionRoot = document.body || document;
+    this.disposables.replaceGroup(UI_ACTION_LISTENERS, UIActionEvents.map((eventName) =>
       this.disposables.listen(actionRoot, eventName, (event) =>
-        this._executeDelegatedUiAction(eventName, event, actionRoot)
+        this.executeDelegatedUiAction(eventName, event, actionRoot)
       )
-    );
-    this.disposables.replace(UI_ACTION_LISTENERS_LIFECYCLE, () => {
-      listenerDisposers.splice(0).reverse().forEach((dispose) => dispose());
-    });
-    this._warnMissingDeclaredActionTargets(actionRoot);
-    this._uiActionsBound = true;
+    ));
+    this.uiActionsBound = true;
 
     this.logger.info('UI event listeners set up');
   }
 
-  private _getUiActionRoot(): (ParentNode & EventTarget) {
-    return document.body || document;
-  }
-
-  private _warnMissingDeclaredActionTargets(root: ParentNode): void {
-    for (const target of UIActionTargets) {
-      const element = root.querySelector(createTemplateRefSelector(target.ref)) as HTMLElement | null;
-      const declaredAction = getTemplateAction(element);
-      if (declaredAction !== target.action) {
-        this.logger.warn(
-          `UI action metadata drift for ${target.ref}: expected ${target.action}, found ${declaredAction || 'none'}`
-        );
-      }
-    }
-  }
-
-  private _executeDelegatedUiAction(eventName: UIActionEvent, event: Event, root: ParentNode): void {
-    const actionTarget = getTemplateActionTarget(event, root);
+  private executeDelegatedUiAction(eventName: UIActionEvent, event: Event, root: Node): void {
+    const actionTarget = findActionTarget(event, root);
     if (!actionTarget) {
       return;
     }
 
-    const action = getTemplateAction(actionTarget);
+    const action = getAction(actionTarget);
     if (!isUIActionId(action)) {
       if (eventName === 'click' && action) {
         this.logger.warn(`Unknown UI action: ${action}`);
@@ -97,16 +64,15 @@ export class UISetupOrchestrator extends BaseOrchestrator {
       return;
     }
 
-    const descriptors = UIActionDescriptors.filter(
-      (descriptor) => descriptor.event === eventName && descriptor.action === action
-    );
-    for (const descriptor of descriptors) {
-      this._executeUiAction(descriptor, event, actionTarget);
+    for (const descriptor of UIActionDescriptors) {
+      if (descriptor.event === eventName && descriptor.action === action) {
+        this.executeUiAction(descriptor, event, actionTarget);
+      }
     }
   }
 
-  private _executeUiAction(descriptor: UIActionDescriptor, event: Event, actionTarget: HTMLElement): void {
-    if (!this._isUiActionEnabled(descriptor, actionTarget)) {
+  private executeUiAction(descriptor: UIActionDescriptor, event: Event, actionTarget: HTMLElement): void {
+    if (!this.isUiActionEnabled(descriptor, actionTarget)) {
       return;
     }
 
@@ -122,62 +88,41 @@ export class UISetupOrchestrator extends BaseOrchestrator {
       this.logger.info(descriptor.logMessage);
     }
 
-    switch (descriptor.command.kind) {
+    const { command } = descriptor;
+    switch (command.kind) {
       case 'publish':
-        this.eventBus.publish(descriptor.command.channel);
+        this.eventBus.publish(command.channel);
         break;
-      case 'controller':
-        this._executeUiControllerAction(descriptor.command.method);
+      case 'toggle':
+        this.components.get(command.component).toggle();
         break;
       case 'clear-title':
-        this._clearActionTargetTitle(actionTarget);
+        actionTarget.title = '';
         break;
       case 'external':
-        this._openExternalUrl(event, descriptor.command.url);
+        event.preventDefault();
+        void trpcClient.shell.openExternal.mutate({ url: command.url }).catch((error) => {
+          this.logger.warn('Failed to open external URL:', error);
+        });
         break;
     }
   }
 
-  private _isUiActionEnabled(descriptor: UIActionDescriptor, actionTarget: HTMLElement): boolean {
+  private isUiActionEnabled(descriptor: UIActionDescriptor, actionTarget: HTMLElement): boolean {
     switch (descriptor.condition) {
       case 'overlay-visible':
         return !actionTarget.classList.contains(CSSClasses.HIDDEN);
       case 'streaming':
-        return this.appState.isStreaming;
+        return this.streamingService.isStreaming;
       default:
         return true;
     }
   }
 
-  private _executeUiControllerAction(method: UIActionControllerCommand): void {
-    switch (method) {
-      case 'toggleSettingsMenu':
-        this.uiController.toggleSettingsMenu();
-        break;
-      case 'toggleShaderSelector':
-        this.uiController.toggleShaderSelector();
-        break;
-      case 'toggleNotesPanel':
-        this.uiController.toggleNotesPanel();
-        break;
-    }
-  }
-
-  private _clearActionTargetTitle(actionTarget: HTMLElement): void {
-    actionTarget.title = '';
-  }
-
-  private _openExternalUrl(event: Event, url: string): void {
-    event.preventDefault();
-    void trpcClient.shell.openExternal.mutate({ url }).catch(err => {
-      this.logger.warn('Failed to open external URL:', err);
-    });
-  }
-
   async onCleanup(): Promise<void> {
     this.logger.info('Cleaning up UISetupOrchestrator...');
-    await this.disposables.cancel(UI_ACTION_LISTENERS_LIFECYCLE);
-    this._uiActionsBound = false;
+    await this.disposables.cancel(UI_ACTION_LISTENERS);
+    this.uiActionsBound = false;
     this.logger.info('UISetupOrchestrator cleanup complete');
   }
 }

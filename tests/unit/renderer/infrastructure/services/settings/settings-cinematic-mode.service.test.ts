@@ -77,10 +77,13 @@ describe('SettingsCinematicModeService', () => {
         );
       });
 
-      it('should publish domain event only (UI messaging handled by UIEventBridge)', () => {
+      it('should publish the enabled status message right after the domain event', () => {
         service.toggleCinematicMode();
 
-        expect(mockEventBus.publish).toHaveBeenCalledTimes(1);
+        expect(mockEventBus.publish.mock.calls).toEqual([
+          [EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED, { enabled: true }],
+          [EventChannels.UI.STATUS_MESSAGE, { message: 'Cinematic mode enabled' }]
+        ]);
       });
     });
 
@@ -104,10 +107,13 @@ describe('SettingsCinematicModeService', () => {
         );
       });
 
-      it('should publish domain event only (UI messaging handled by UIEventBridge)', () => {
+      it('should publish the disabled status message right after the domain event', () => {
         service.toggleCinematicMode();
 
-        expect(mockEventBus.publish).toHaveBeenCalledTimes(1);
+        expect(mockEventBus.publish.mock.calls).toEqual([
+          [EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED, { enabled: false }],
+          [EventChannels.UI.STATUS_MESSAGE, { message: 'Cinematic mode disabled' }]
+        ]);
       });
     });
 

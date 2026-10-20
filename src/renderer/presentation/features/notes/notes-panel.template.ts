@@ -4,7 +4,7 @@
  * Sidebar panel for note-taking during gameplay.
  */
 
-import { getIconSvg } from '@renderer/presentation/icons/icon.utils.js';
+import { getIconSvg } from '@renderer/presentation/icons/icon.utils';
 
 export default function createNotesPanelTemplate(): string {
   return `

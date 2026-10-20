@@ -118,9 +118,10 @@ describe('AppOrchestrator', () => {
 
       orchestrator._handleDeviceStatusChanged(status);
 
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:device-status', { status });
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:overlay-message', { deviceConnected: true });
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', { message: 'Device ready' });
+      expect(mockEventBus.publish.mock.calls).toEqual([
+        ['ui:overlay-message', { deviceConnected: true }],
+        ['ui:status-message', { message: 'Device ready' }]
+      ]);
     });
 
     it('should update UI when disconnected', () => {
@@ -128,10 +129,11 @@ describe('AppOrchestrator', () => {
 
       orchestrator._handleDeviceStatusChanged(status);
 
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:device-status', { status });
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:overlay-message', { deviceConnected: false });
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:overlay-visible', { visible: true });
-      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', { message: 'Device disconnected', type: 'warning' });
+      expect(mockEventBus.publish.mock.calls).toEqual([
+        ['ui:overlay-message', { deviceConnected: false }],
+        ['ui:overlay-visible', { visible: true }],
+        ['ui:status-message', { message: 'Device disconnected', type: 'warning' }]
+      ]);
     });
 
   });

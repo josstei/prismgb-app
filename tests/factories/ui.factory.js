@@ -1,12 +1,11 @@
 /**
  * UI Factory
  *
- * Creates mock UI components and controllers for testing.
- * Includes UIController, DOM elements, and UI effects mocks.
+ * Creates mock DOM elements, UI components, the component host and
+ * presentation effects for testing.
  */
 
 import { vi } from "vitest";
-import { createMockCanvas, createMockVideo } from "./stream.factory.js";
 import { createDeviceStatusComponentMock } from './device.factory.js';
 
 // Helper to check if a mock element matches a basic CSS selector
@@ -366,7 +365,7 @@ export function createDeviceStatusElementsMock(overrides = {}) {
   };
 }
 
-export function createTranscodeToastElementsMock(overrides = {}) {
+export function createTranscodeProgressElementsMock(overrides = {}) {
   const recordBtn = createMockButton({ className: 'record-btn' });
   const transcodeRing = createMockElement('div', { className: 'transcode-ring' });
   transcodeRing.style = {
@@ -470,245 +469,29 @@ export function createNotesPanelElementsMock(overrides = {}) {
   };
 }
 
-/**
- * Creates a mock UIController
- * @param {Object} options - Controller options
- * @returns {Object} Mock UIController
- */
-export function createUIController(options = {}) {
-  const canvas = createMockCanvas(options);
-  const video = createMockVideo(options);
-
-  const elements = {
-    streamCanvas: canvas,
-    streamVideo: video,
-    overlayMessage: createMockElement('div', { className: 'overlay-message' }),
-    streamOverlay: createMockElement('div', { className: 'stream-overlay' }),
-    statusNotification: createMockElement('div', { className: 'status-notification' }),
-    statusMessage: createMockElement('span', { className: 'status-message' }),
-    deviceStatus: createMockElement('span', { className: 'device-status' }),
-    streamInfo: createMockElement('span', { className: 'stream-info' }),
-    toolbar: createMockElement('div', { className: 'toolbar' }),
-    screenshotBtn: createMockButton({ className: 'screenshot-btn' }),
-    recordBtn: createMockButton({ className: 'record-btn' }),
-    fullscreenBtn: createMockButton({ className: 'fullscreen-btn' }),
-    settingsBtn: createMockButton({ className: 'settings-btn' }),
-    ...options.elements,
-  };
-
-  const controller = {
-    elements,
-
-    /**
-     * Set streaming mode (show/hide elements)
-     */
-    setStreamingMode: vi.fn((isStreaming) => {
-      elements.streamOverlay.hidden = isStreaming;
-    }),
-
-    /**
-     * Update overlay message
-     */
-    updateOverlayMessage: vi.fn((message, type = 'info') => {
-      elements.overlayMessage.textContent = message;
-      elements.overlayMessage.dataset.type = type;
-    }),
-
-
-    /**
-     * Show error overlay
-     */
-    showErrorOverlay: vi.fn((message) => {
-      elements.overlayMessage.textContent = message;
-      elements.overlayMessage.dataset.type = 'error';
-      elements.streamOverlay.hidden = false;
-    }),
-
-    /**
-     * Update device status
-     */
-    updateDeviceStatus: vi.fn((status) => {
-      elements.deviceStatus.textContent = status;
-    }),
-
-    /**
-     * Update stream info
-     */
-    updateStreamInfo: vi.fn((info) => {
-      elements.streamInfo.textContent = info;
-    }),
-
-    /**
-     * Enable/disable record button
-     */
-    setRecordButtonEnabled: vi.fn((enabled) => {
-      elements.recordBtn.disabled = !enabled;
-    }),
-
-    /**
-     * Set recording state on button
-     */
-    setRecordingState: vi.fn((isRecording) => {
-      if (isRecording) {
-        elements.recordBtn.classList.add('recording');
-      } else {
-        elements.recordBtn.classList.remove('recording');
-      }
-    }),
-
-    // ==========================================
-    // Test Helpers
-    // ==========================================
-
-    _getElement(name) {
-      return elements[name];
-    },
-
-    _setElement(name, element) {
-      elements[name] = element;
-    },
-
-    _reset() {
-      Object.values(elements).forEach(el => el._reset?.());
-      vi.clearAllMocks();
-    },
-  };
-
-  return controller;
-}
-
-export function createUISetupControllerMock(overrides = {}) {
-  const {
-    on,
-    elements = {},
-    dom = {},
-    streamOverlay,
-    streamVideo,
-    streamCanvas,
-    shaderBtn,
-    shaderDropdown,
-    shaderOptions,
-    shaderUnavailableMessage,
-    cinematicToggle,
-    cinematicPillText,
-    streamToolbar,
-    brightnessSlider,
-    brightnessPercentage,
-    brightnessControl,
-    volumeSliderVertical,
-    volumePercentageVertical,
-    streamContainer,
-    notesBtn,
-    initSettingsMenu,
-    initShaderSelector,
-    initNotesPanel,
-    toggleSettingsMenu,
-    toggleShaderSelector,
-    ...componentOverrides
-  } = overrides;
-
-  const resolvedElements = {
-    streamOverlay: streamOverlay ?? createMockElement('div'),
-    streamVideo: streamVideo ?? createMockElement('video'),
-    streamCanvas: streamCanvas ?? createMockElement('canvas'),
-    shaderBtn: shaderBtn ?? createMockElement('button'),
-    shaderDropdown: shaderDropdown ?? createMockElement('select'),
-    streamToolbar: streamToolbar ?? createMockElement('div'),
-    ...elements
-  };
-
-  const resolvedDom = {
-    streaming: {
-      shaderBtn: resolvedElements.shaderBtn,
-      shaderDropdown: shaderDropdown ?? resolvedElements.shaderDropdown,
-      shaderOptions: shaderOptions ?? createMockElement('div'),
-      shaderUnavailableMessage: shaderUnavailableMessage ?? createMockElement('div'),
-      cinematicToggle: cinematicToggle ?? createMockElement('input'),
-      cinematicPillText: cinematicPillText ?? createMockElement('span'),
-      streamToolbar: resolvedElements.streamToolbar,
-      brightnessSlider: brightnessSlider ?? createMockElement('input'),
-      brightnessPercentage: brightnessPercentage ?? createMockElement('span'),
-      brightnessControl: brightnessControl ?? createMockElement('div'),
-      volumeSliderVertical: volumeSliderVertical ?? createMockElement('input'),
-      volumePercentageVertical: volumePercentageVertical ?? createMockElement('span'),
-      streamVideo: resolvedElements.streamVideo,
-      streamContainer: streamContainer ?? createMockElement('div'),
-      ...dom.streaming
-    },
-    notes: {
-      notesBtn: notesBtn ?? createMockElement('button'),
-      ...dom.notes
-    },
-    ...dom
-  };
-
+function createStatusNotificationComponentMock(overrides = {}) {
   return {
-    on: on ?? vi.fn(),
-    elements: {
-      ...resolvedElements,
-      ...elements
-    },
-    dom: resolvedDom,
-    initSettingsMenu: initSettingsMenu ?? vi.fn(),
-    initShaderSelector: initShaderSelector ?? vi.fn(),
-    initNotesPanel: initNotesPanel ?? vi.fn(),
-    toggleSettingsMenu: toggleSettingsMenu ?? vi.fn(),
-    toggleShaderSelector: toggleShaderSelector ?? vi.fn(),
-    ...componentOverrides
+    dispose: vi.fn(),
+    ...overrides
   };
 }
 
-export function createPresentationModeControllerMock(overrides = {}) {
+function createStreamingControlsComponentMock(overrides = {}) {
   return {
     setStreamingMode: vi.fn(),
-    updateCinematicMode: vi.fn(),
-    updateMinimalistFullscreen: vi.fn(),
-    updateFullscreenButton: vi.fn(),
-    updateFullscreenMode: vi.fn(),
-    enableControlsAutoHide: vi.fn(),
-    disableControlsAutoHide: vi.fn(),
+    dispose: vi.fn(),
     ...overrides
   };
 }
 
-export function createUIEventBridgeControllerMock(overrides = {}) {
-  const { deviceStatus, ...componentOverrides } = overrides;
-
+function createTranscodeProgressComponentMock(overrides = {}) {
   return {
-    updateDeviceStatus: vi.fn(),
-    updateOverlayMessage: vi.fn(),
-    showErrorOverlay: vi.fn(),
-    updateStreamInfo: vi.fn(),
-    triggerShutterFlash: vi.fn(),
-    triggerRecordButtonPop: vi.fn(),
-    triggerRecordButtonPress: vi.fn(),
-    triggerButtonFeedback: vi.fn(),
-    updateRecordingButtonState: vi.fn(),
-    setRecordButtonDisabled: vi.fn(),
-    deviceStatus: deviceStatus ?? {
-      setOverlayVisible: vi.fn()
-    },
-    ...componentOverrides
-  };
-}
-
-export function createStatusNotificationComponentMock(overrides = {}) {
-  return {
-    show: vi.fn(),
+    dispose: vi.fn(),
     ...overrides
   };
 }
 
-export function createStreamControlsComponentMock(overrides = {}) {
-  return {
-    setCinematicMode: vi.fn(),
-    setStreamingMode: vi.fn(),
-    updateStreamInfo: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createSettingsMenuComponentMock(overrides = {}) {
+function createSettingsMenuComponentMock(overrides = {}) {
   return {
     toggle: vi.fn(),
     initialize: vi.fn(),
@@ -717,9 +500,22 @@ export function createSettingsMenuComponentMock(overrides = {}) {
   };
 }
 
-export function createShaderSelectorComponentMock(overrides = {}) {
+function createShaderSelectorComponentMock(overrides = {}) {
   return {
+    toggle: vi.fn(),
+    show: vi.fn(),
     hide: vi.fn(),
+    dispose: vi.fn(),
+    ...overrides
+  };
+}
+
+function createNotesPanelComponentMock(overrides = {}) {
+  return {
+    toggle: vi.fn(),
+    show: vi.fn(),
+    hide: vi.fn(),
+    dispose: vi.fn(),
     ...overrides
   };
 }
@@ -728,88 +524,71 @@ export function createUiComponentHostMock(overrides = {}) {
   const {
     statusNotificationComponent = createStatusNotificationComponentMock(),
     deviceStatusComponent = createDeviceStatusComponentMock(),
-    streamControlsComponent = createStreamControlsComponentMock(),
+    streamingControlsComponent = createStreamingControlsComponentMock(),
+    transcodeProgressComponent = createTranscodeProgressComponentMock(),
     settingsMenuComponent = createSettingsMenuComponentMock(),
     shaderSelectorComponent = createShaderSelectorComponentMock(),
-    touchCore = vi.fn(),
+    notesPanelComponent = createNotesPanelComponentMock(),
+    resolveCore = vi.fn(),
+    resolveDeferred = vi.fn(),
     dispose = vi.fn(),
     get,
-    components = {},
     ...hostOverrides
   } = overrides;
 
   const componentMap = {
     statusNotificationComponent,
     deviceStatusComponent,
-    streamControlsComponent,
+    streamingControlsComponent,
+    transcodeProgressComponent,
     settingsMenuComponent,
     shaderSelectorComponent,
-    ...components
+    notesPanelComponent
   };
 
-  const getWithDefaults = get ?? vi.fn((id) => componentMap[id] || null);
-  const host = {
-    get: getWithDefaults,
-    touchCore,
-    resolvedIds: vi.fn(() => Object.keys(componentMap)),
+  return {
+    get: get ?? vi.fn((id) => componentMap[id]),
+    resolveCore,
+    resolveDeferred,
     dispose,
-    _components: componentMap,
-    _setComponent: (id, component) => {
-      componentMap[id] = component;
-    },
     ...hostOverrides
   };
-
-  return host;
 }
 
-export function createUIEffectsMock(overrides = {}) {
+export function createAutoHideEffectMock(overrides = {}) {
   return {
-    setElements: vi.fn(),
-    triggerShutterFlash: vi.fn(),
-    triggerRecordButtonPop: vi.fn(),
-    triggerRecordButtonPress: vi.fn(),
-    triggerButtonFeedback: vi.fn(),
-    enableCursorAutoHide: vi.fn(),
-    disableCursorAutoHide: vi.fn(),
-    enableToolbarAutoHide: vi.fn(),
-    disableToolbarAutoHide: vi.fn(),
-    setRecordingButtonState: vi.fn(),
-    setCinematicMode: vi.fn(),
-    setStreamingMode: vi.fn(),
-    setMinimalistFullscreen: vi.fn(),
-    setFullscreenMode: vi.fn(),
-    enableControlsAutoHide: vi.fn(),
-    disableControlsAutoHide: vi.fn(),
+    enableCursor: vi.fn(),
+    disableCursor: vi.fn(),
+    enableToolbar: vi.fn(),
+    disableToolbar: vi.fn(),
+    enableControls: vi.fn(),
+    disableControls: vi.fn(),
     dispose: vi.fn(),
     ...overrides
   };
 }
 
-export function createUIBodyClassManagerMock(overrides = {}) {
+export function createFeedbackEffectMock(overrides = {}) {
   return {
-    setStreamingMode: vi.fn(),
-    setCinematicMode: vi.fn(),
-    setMinimalistFullscreen: vi.fn(),
-    setFullscreenMode: vi.fn(),
-    areAnimationsOff: vi.fn(),
+    shutterFlash: vi.fn(),
+    screenshotFeedback: vi.fn(),
+    recordButtonPop: vi.fn(),
+    recordButtonPress: vi.fn(),
+    setRecording: vi.fn(),
+    setRecordButtonDisabled: vi.fn(),
+    dispose: vi.fn(),
     ...overrides
   };
 }
 
-
-export function createUIEffectsElementsMock(overrides = {}) {
-  const recordBtn = createMockElement('button', { className: 'record-btn' });
-  recordBtn.offsetWidth = 100;
-
-  const flashElement = createMockElement('div', { className: '' });
-  flashElement.parentNode = {};
-  flashElement.addEventListener = vi.fn();
-  flashElement.remove = vi.fn();
-
+export function createBodyClassEffectMock(overrides = {}) {
   return {
-    recordBtn,
-    flashElement,
+    setIdle: vi.fn(),
+    setHidden: vi.fn(),
+    setAnimationsOff: vi.fn(),
+    areAnimationsOff: vi.fn(() => false),
+    setStreamingMode: vi.fn(),
+    dispose: vi.fn(),
     ...overrides
   };
 }
@@ -834,42 +613,3 @@ export function createStreamingControlsElementsMock(overrides = {}) {
     ...overrides,
   };
 }
-
-export function createUIControllerElementsMock(overrides = {}) {
-  const statusIndicator = createMockElement('div', { className: 'status-indicator' });
-  const statusText = createMockElement('span', { className: 'status-text' });
-  const statusMessage = createMockElement('span', { className: 'status-message' });
-  const streamVideo = createMockElement('video', { className: 'stream-video' });
-  streamVideo.volume = 1;
-  const streamCanvas = createMockElement('canvas', { className: 'stream-canvas' });
-  const streamOverlay = createMockElement('div', { className: 'stream-overlay' });
-  const overlayMessage = createMockElement('div', { className: 'overlay-message' });
-  const screenshotBtn = createMockButton({ className: 'screenshot-btn' });
-  screenshotBtn.disabled = false;
-  const recordBtn = createMockButton({ className: 'record-btn' });
-  recordBtn.disabled = false;
-  const fullscreenBtn = createMockButton({ className: 'fullscreen-btn' });
-  const settingsBtn = createMockButton({ className: 'settings-btn' });
-
-  return {
-    statusIndicator,
-    statusText,
-    statusMessage,
-    streamVideo,
-    streamCanvas,
-    streamOverlay,
-    overlayMessage,
-    screenshotBtn,
-    recordBtn,
-    fullscreenBtn,
-    settingsBtn,
-    deviceName: createMockElement('span', { className: 'device-name' }),
-    deviceStatusText: createMockElement('span', { className: 'device-status-text' }),
-    currentResolution: createMockElement('span', { className: 'current-resolution' }),
-    currentFPS: createMockElement('span', { className: 'current-fps' }),
-    streamToolbar: createMockElement('div', { className: 'stream-toolbar' }),
-    fullscreenControls: createMockElement('div', { className: 'fullscreen-controls' }),
-    ...overrides
-  };
-}
-

@@ -56,80 +56,63 @@ class CaptureService extends BaseService {
     this._stopWaiter = null;
   }
 
-  async takeScreenshot(source: HTMLVideoElement | HTMLCanvasElement | ImageBitmap): Promise<{ blob: Blob; filename: string }> {
+  async takeScreenshot(source: HTMLVideoElement | ImageBitmap): Promise<{ blob: Blob; filename: string }> {
     const isVideo = source instanceof HTMLVideoElement;
-    const isCanvas = source instanceof HTMLCanvasElement;
     const isBitmap = typeof ImageBitmap !== 'undefined' && source instanceof ImageBitmap;
 
-    if (!source) {
-      this.logger.warn('Cannot take screenshot - no source provided');
-      throw new Error('Invalid source');
-    }
-
-    if (isVideo && !source.videoWidth) {
-      this.logger.warn('Cannot take screenshot - invalid video element');
-      throw new Error('Invalid video element');
-    }
-
-    if (isCanvas && !source.width) {
-      this.logger.warn('Cannot take screenshot - invalid canvas element');
-      throw new Error('Invalid canvas element');
-    }
-
-    if (isBitmap && !source.width) {
-      this.logger.warn('Cannot take screenshot - invalid ImageBitmap');
-      throw new Error('Invalid ImageBitmap');
-    }
-
-    if (!isVideo && !isCanvas && !isBitmap) {
-      this.logger.warn('Cannot take screenshot - unsupported source type');
-      throw new Error('Invalid source type');
-    }
-
     try {
-      let width, height;
-      if (isVideo) {
-        width = source.videoWidth;
-        height = source.videoHeight;
-      } else {
-        width = source.width;
-        height = source.height;
+      if (!source) {
+        this.logger.warn('Cannot take screenshot - no source provided');
+        throw new Error('Invalid source');
       }
 
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        throw new Error('Failed to create 2D canvas context');
+      if (isVideo && !source.videoWidth) {
+        this.logger.warn('Cannot take screenshot - invalid video element');
+        throw new Error('Invalid video element');
       }
-      ctx.drawImage(source, 0, 0);
 
+      if (isBitmap && !source.width) {
+        this.logger.warn('Cannot take screenshot - invalid ImageBitmap');
+        throw new Error('Invalid ImageBitmap');
+      }
+
+      if (!isVideo && !isBitmap) {
+        this.logger.warn('Cannot take screenshot - unsupported source type');
+        throw new Error('Invalid source type');
+      }
+
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = isVideo ? source.videoWidth : source.width;
+        canvas.height = isVideo ? source.videoHeight : source.height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          throw new Error('Failed to create 2D canvas context');
+        }
+        ctx.drawImage(source, 0, 0);
+
+        const blob = await new Promise<Blob>((resolve, reject) => {
+          canvas.toBlob((blob) => {
+            if (!blob) {
+              reject(new Error('Failed to create screenshot blob'));
+              return;
+            }
+            resolve(blob);
+          }, 'image/png');
+        });
+
+        const filename = FilenameGenerator.forScreenshot();
+        this.logger.info('Screenshot captured:', filename);
+        return { blob, filename };
+      } catch (error) {
+        this.logger.error('Error taking screenshot:', error);
+        throw error;
+      }
+    } finally {
       if (isBitmap) {
         source.close();
       }
-
-      const blob = await new Promise<Blob>((resolve, reject) => {
-        canvas.toBlob((blob) => {
-          if (!blob) {
-            reject(new Error('Failed to create screenshot blob'));
-            return;
-          }
-          resolve(blob);
-        }, 'image/png');
-      });
-
-      const filename = FilenameGenerator.forScreenshot();
-
-      this.logger.info('Screenshot captured:', filename);
-
-      this.eventBus.publish(EventChannels.CAPTURE.SCREENSHOT_READY, { blob, filename });
-
-      return { blob, filename };
-    } catch (error) {
-      this.logger.error('Error taking screenshot:', error);
-      throw error;
     }
   }
 

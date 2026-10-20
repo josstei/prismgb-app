@@ -1,8 +1,8 @@
 /**
  * Capture Factory
  *
- * Creates mock capture services (screenshot, recording, transcode),
- * MediaRecorder primitives, and capture UI controllers/toasts.
+ * Creates mock capture services (screenshot, recording, transcode)
+ * and MediaRecorder primitives.
  * Extracted from tests/factories/index.js as part of the factory-split refactor.
  */
 
@@ -137,19 +137,6 @@ export function createMediaRecorderErrorEventMock(overrides = {}) {
 }
 
 /**
- * Creates a mock CaptureUIController.
- *
- * @param {Object} [overrides={}] - Mock overrides.
- * @returns {Object} Mock CaptureUIController.
- */
-export function createCaptureUIControllerMock(overrides = {}) {
-  return {
-    triggerDownload: vi.fn(),
-    ...overrides
-  };
-}
-
-/**
  * @typedef {import('@renderer/infrastructure/services/transcode/transcode.service').TranscodeService} TranscodeService
  */
 
@@ -180,7 +167,10 @@ export function createTranscodeServiceMock(overrides = {}) {
  */
 export function createCaptureServiceMock(overrides = {}) {
   return /** @type {any} */ ({
-    takeScreenshot: vi.fn(),
+    takeScreenshot: vi.fn(async () => ({
+      blob: new Blob(['screenshot'], { type: 'image/png' }),
+      filename: 'prismgb-screenshot-20240101-120000-000.png'
+    })),
     toggleRecording: vi.fn(),
     startRecording: vi.fn(),
     getRecordingState: vi.fn(),

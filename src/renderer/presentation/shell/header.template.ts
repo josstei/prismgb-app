@@ -4,8 +4,8 @@
  * Application header with logo, device status, and control buttons.
  */
 
-import { getIconSvg } from '@renderer/presentation/icons/icon.utils.js';
-import { createSettingsMenuTemplate } from '@renderer/presentation/features/settings/settings-menu.template.js';
+import { getIconSvg } from '@renderer/presentation/icons/icon.utils';
+import { createSettingsMenuTemplate } from '@renderer/presentation/features/settings/settings-menu.template';
 import logoUrl from '/Logo.png?url';
 
 export default function createHeaderTemplate(): string {
