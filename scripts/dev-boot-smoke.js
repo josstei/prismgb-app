@@ -1,23 +1,14 @@
 #!/usr/bin/env node
-/**
- * Dev Boot Smoke/Preflight
- *
- * Starts `npm run dev` and validates renderer startup output:
- * - waits for `Renderer application started successfully`
- * - fails immediately on renderer error messages
- * - fails on DI container missing-token resolution errors
- * - fails on Vite JSON import-attribute warnings
- *
- * Intended for local preflight and CI release checks.
- */
+// Runs `npm run dev` until the renderer reports a successful start, failing fast on renderer
+// errors, DI resolution errors or Vite JSON import-attribute warnings.
 
 import { spawn } from 'node:child_process';
-import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseArgs } from 'node:util';
 import { headlessElectronEnv, terminateProcessTree } from './lib/process-runner.js';
 
 const DEV_BOOT_SUCCESS_MARKER = 'Renderer application started successfully';
+// Markers can arrive split across chunks, so each chunk is evaluated together with this much prior output.
+const OUTPUT_TAIL_CHARS = 10000;
 
 const FAILURE_PATTERNS = [
   {
@@ -38,218 +29,75 @@ const FAILURE_PATTERNS = [
   }
 ];
 
-const DEFAULT_TIMEOUT_MS = 60000;
-const DEFAULT_GRACEFUL_SHUTDOWN_MS = 5000;
-
-function parseOptions(argv) {
-  const { values } = parseArgs({
-    args: argv,
-    options: {
-      'timeout-ms': { type: 'string' },
-      command: { type: 'string' },
-      'command-arg': { type: 'string' },
-      root: { type: 'string' }
-    }
-  });
-
-  const options = {
-    timeoutMs: DEFAULT_TIMEOUT_MS,
-    root: values.root ? path.resolve(process.cwd(), values.root) : process.cwd(),
-    command: values.command ?? 'npm',
-    args: values['command-arg'] ? [values['command-arg']] : ['run', 'dev'],
-    gracefulShutdownMs: DEFAULT_GRACEFUL_SHUTDOWN_MS
-  };
-
-  if (values['timeout-ms'] !== undefined) {
-    const timeoutValue = Number(values['timeout-ms']);
-    if (!Number.isFinite(timeoutValue) || timeoutValue <= 0) {
-      throw new Error(`Invalid --timeout-ms value: ${values['timeout-ms']}`);
-    }
-    options.timeoutMs = timeoutValue;
+export function evaluateStartupChunk(text) {
+  const failure = FAILURE_PATTERNS.find(({ pattern }) => pattern.test(text));
+  if (failure) {
+    return { status: 'failure', reason: failure.reason, matchedPattern: failure.name };
   }
-
-  return options;
-}
-
-export function evaluateStartupChunk(chunkText) {
-  const text = String(chunkText ?? '');
-
-  for (const pattern of FAILURE_PATTERNS) {
-    if (pattern.pattern.test(text)) {
-      return {
-        status: 'failure',
-        reason: pattern.reason,
-        matchedPattern: pattern.name
-      };
-    }
-  }
-
   if (text.includes(DEV_BOOT_SUCCESS_MARKER)) {
     return { status: 'success', reason: 'Renderer started' };
   }
-
   return { status: 'continue' };
 }
 
-function createOutputCollector(limit = 5000) {
-  return {
-    buffer: '',
-    add(text) {
-      this.buffer += text;
-      if (this.buffer.length > limit * 6) {
-        this.buffer = this.buffer.slice(-limit * 2);
+export function runDevBootSmoke(options = {}) {
+  const { timeoutMs = 60000, gracefulShutdownMs = 5000 } = options;
+  const spawnProcess = options.spawn ?? spawn;
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (success, reason, matchedPattern) => {
+      if (settled) {
+        return;
       }
-      return this.buffer;
-    }
-  };
+      settled = true;
+      clearTimeout(timeoutHandle);
+      void terminateProcessTree(child, { gracefulMs: gracefulShutdownMs, killProcessGroup: true })
+        .then(() => resolve({ success, reason, matchedPattern }));
+    };
+
+    const child = spawnProcess('npm', ['run', 'dev'], {
+      cwd: process.cwd(),
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: headlessElectronEnv(),
+      detached: process.platform !== 'win32'
+    });
+    const timeoutHandle = setTimeout(() => finish(false, `timed out after ${timeoutMs}ms`), timeoutMs);
+
+    const watch = (stream, log) => {
+      let tail = '';
+      stream.on('data', (data) => {
+        const text = String(data);
+        log(text.trim());
+        const recent = tail + text;
+        tail = recent.slice(-OUTPUT_TAIL_CHARS);
+        const outcome = evaluateStartupChunk(recent);
+        if (outcome.status !== 'continue') {
+          finish(outcome.status === 'success', outcome.reason, outcome.matchedPattern);
+        }
+      });
+    };
+    watch(child.stdout, console.log);
+    watch(child.stderr, console.error);
+
+    child.once('error', (error) => finish(false, `dev boot command failed to start: ${error.message}`));
+    child.once('close', (code, signal) => {
+      finish(false, `dev boot exited early (code=${code}, signal=${signal || 'none'})`);
+    });
+  });
 }
 
-function toResult({ outcome, reason, stdout, stderr, matchedPattern }) {
-  return {
-    success: outcome === 'success',
-    reason,
-    matchedPattern,
-    stdout,
-    stderr
-  };
-}
-
-export async function runDevBootSmoke(options = {}) {
-  const command = options.command || 'npm';
-  const args = options.args || ['run', 'dev'];
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const root = options.root || process.cwd();
-  const spawnFn = options.spawn || spawn;
-  const gracefulShutdownMs = options.gracefulShutdownMs ?? DEFAULT_GRACEFUL_SHUTDOWN_MS;
-
-  const output = {
-    stdout: createOutputCollector(),
-    stderr: createOutputCollector()
-  };
-
-  let settled = false;
-  let timeoutHandle;
-  let finalResult;
-  let finalizer;
-  const finalResultPromise = new Promise((resolve) => {
-    finalizer = resolve;
-  });
-
-  const finalize = async (status, reason, matchedPattern) => {
-    if (settled) {
-      return finalResult;
-    }
-
-    settled = true;
-    clearTimeout(timeoutHandle);
-    if (child) {
-      await terminateProcessTree(child, { gracefulMs: gracefulShutdownMs, killProcessGroup: true });
-    }
-
-    finalResult = toResult({
-      outcome: status,
-      reason,
-      matchedPattern,
-      stdout: output.stdout.buffer,
-      stderr: output.stderr.buffer
-    });
-
-    finalizer(finalResult);
-    return finalResult;
-  };
-
-  const child = spawnFn(command, args, {
-    cwd: root,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: headlessElectronEnv(process.env),
-    detached: process.platform !== 'win32'
-  });
-
-  const onOutput = (text) => {
-    const outcome = evaluateStartupChunk(text);
-    if (outcome.status === 'failure') {
-      finalize('failure', outcome.reason, outcome.matchedPattern).catch(() => {
-        // ignore: finalizer covers best effort.
-      });
-      return;
-    }
-    if (outcome.status === 'success') {
-      finalize('success', outcome.reason).catch(() => {
-        // ignore
-      });
-    }
-  };
-
-  if (child.stdout) {
-    child.stdout.on('data', (data) => {
-      const text = String(data);
-      const bufferedText = output.stdout.add(text);
-      console.log(text.trim());
-      onOutput(bufferedText);
-    });
+async function main() {
+  const result = await runDevBootSmoke();
+  if (result.success) {
+    console.log('dev boot smoke preflight passed');
+    return 0;
   }
-
-  if (child.stderr) {
-    child.stderr.on('data', (data) => {
-      const text = String(data);
-      const bufferedText = output.stderr.add(text);
-      console.error(text.trim());
-      onOutput(bufferedText);
-    });
+  console.error('dev boot smoke preflight failed');
+  console.error(`reason: ${result.reason}`);
+  if (result.matchedPattern) {
+    console.error(`pattern: ${result.matchedPattern}`);
   }
-
-  child.once('error', (error) => {
-    finalize('failure', `dev boot command failed to start: ${error.message}`).catch(() => {
-      // ignore
-    });
-  });
-
-  child.once('close', (code, signal) => {
-    if (!settled) {
-      finalize('failure', `dev boot exited early (code=${code}, signal=${signal || 'none'})`).catch(() => {
-        // ignore
-      });
-    }
-  });
-
-  timeoutHandle = setTimeout(() => {
-    finalize('failure', `timed out after ${timeoutMs}ms`).catch(() => {
-      // ignore
-    });
-  }, timeoutMs);
-
-  return finalResultPromise;
-}
-
-export async function main(argv = process.argv.slice(2)) {
-  try {
-    const options = parseOptions(argv);
-    const result = await runDevBootSmoke({
-      command: options.command,
-      args: options.args,
-      root: options.root,
-      timeoutMs: options.timeoutMs,
-      gracefulShutdownMs: options.gracefulShutdownMs,
-      spawn
-    });
-
-    if (result.success) {
-      console.log('dev boot smoke preflight passed');
-      return 0;
-    }
-
-    console.error('dev boot smoke preflight failed');
-    if (result.reason) {
-      console.error(`reason: ${result.reason}`);
-    }
-    if (result.matchedPattern) {
-      console.error(`pattern: ${result.matchedPattern}`);
-    }
-    return 1;
-  } catch (error) {
-    console.error(`dev boot smoke preflight setup failed: ${error.message}`);
-    return 1;
-  }
+  return 1;
 }
 
 if (fileURLToPath(import.meta.url) === process.argv[1]) {
