@@ -21,8 +21,6 @@ export class CanvasDriver implements RenderDriver {
   renderFrame(source: TexImageSource, state: PipelineState): void {
     if (!state.isActive || !this.ctx) return;
 
-    const startTime = performance.now();
-
     this.ctx.drawImage(
       source as CanvasImageSource,
       0, 0,
@@ -30,8 +28,6 @@ export class CanvasDriver implements RenderDriver {
       0, 0,
       state.outputWidth, state.outputHeight
     );
-
-    state.recordFrame(performance.now() - startTime);
   }
 
   async captureFrame(state: PipelineState): Promise<ImageBitmap> {

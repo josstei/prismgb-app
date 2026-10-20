@@ -1,5 +1,5 @@
 import type { PipelineUniforms } from '../domain/uniforms';
-import type { RenderBackend, RenderCanvas, RenderPipeline, RenderPreset, RenderStats } from '../domain/types';
+import type { RenderBackend, RenderCanvas, RenderPipeline, RenderPreset } from '../domain/types';
 import { buildUniforms } from '../application/uniform-builder';
 
 export interface PipelineControllerConfig {
@@ -22,7 +22,6 @@ export interface PipelineState {
   readonly preset: RenderPreset;
   readonly uniforms: PipelineUniforms;
   readonly isActive: boolean;
-  recordFrame(frameTime: number): void;
   deactivate(): void;
 }
 
@@ -43,7 +42,7 @@ export interface RenderDriver {
 
 /**
  * Owns pipeline lifecycle and shared state (preset, brightness, uniforms,
- * dimensions, stats, active/initialized flags) and delegates backend-native
+ * dimensions, active/initialized flags) and delegates backend-native
  * work to an injected {@link RenderDriver}.
  */
 export class PipelineController implements RenderPipeline, PipelineState {
@@ -60,10 +59,6 @@ export class PipelineController implements RenderPipeline, PipelineState {
   private brightness = 1.0;
   private _isInitialized = false;
   private _isActive = false;
-  private _framesRendered = 0;
-  private _framesDropped = 0;
-  private _lastFrameTime = 0;
-  private _fps = 0;
 
   constructor(config: PipelineControllerConfig, driver: RenderDriver) {
     this.driver = driver;
@@ -144,21 +139,6 @@ export class PipelineController implements RenderPipeline, PipelineState {
     if (this._isInitialized) {
       this._isActive = true;
     }
-  }
-
-  getStats(): RenderStats {
-    return {
-      fps: this._fps,
-      frameTime: this._lastFrameTime,
-      framesRendered: this._framesRendered,
-      framesDropped: this._framesDropped
-    };
-  }
-
-  recordFrame(frameTime: number): void {
-    this._lastFrameTime = frameTime;
-    this._framesRendered++;
-    this._fps = frameTime > 0 ? 1000 / frameTime : 0;
   }
 
   deactivate(): void {

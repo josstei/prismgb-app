@@ -101,9 +101,6 @@ describe('WebGpuDriver', () => {
       UNIFORM: 1,
       COPY_DST: 2
     });
-    vi.stubGlobal('performance', {
-      now: vi.fn(() => 0)
-    });
   });
 
   afterEach(() => {

@@ -3,19 +3,12 @@ import {
   createPipelineUniformsFixture,
   createRenderCapabilitiesFixture,
   createRenderPresetFixture,
-  createRenderStatsFixture,
   createWorkerRendererClientMock
 } from '@platform/gpu/testkit';
 import type { FramePayload } from '../../../../../src/platform/gpu/worker/protocol';
 
 describe('platform/gpu/testkit/fixtures', () => {
   it('creates overridable domain fixtures from final GPU types', () => {
-    expect(createRenderStatsFixture({ fps: 60 })).toEqual({
-      fps: 60,
-      frameTime: 0,
-      framesRendered: 0,
-      framesDropped: 0
-    });
     expect(createRenderCapabilitiesFixture({ preferredBackend: 'webgpu', webgpu: true })).toEqual(
       expect.objectContaining({
         preferredBackend: 'webgpu',

@@ -1,5 +1,4 @@
 export {
-  createRenderStatsFixture,
   createRenderCapabilitiesFixture,
   createRenderPresetFixture,
   createPipelineUniformsFixture,

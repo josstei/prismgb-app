@@ -4,7 +4,6 @@ import { WorkerRendererClient } from '../worker/client';
 import type {
   RenderBackend,
   RenderPreset,
-  GpuVideoRendererStats,
   GpuVideoRendererError,
   RenderPipeline,
   RenderCapabilities
@@ -35,7 +34,6 @@ export type GpuVideoRendererSessionOptions = {
   createWorker?: () => Worker;
   capabilities?: RenderCapabilities;
   onReady?: (event: { backend: RenderBackend }) => void;
-  onStats?: (stats: GpuVideoRendererStats) => void;
   onError?: (error: GpuVideoRendererError) => void;
   onCanvasExpired?: () => void;
   logger?: Pick<Console, 'debug' | 'error' | 'info' | 'warn'>;
@@ -61,7 +59,6 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
   private localPipeline: RenderPipeline | null = null;
 
   private onReadyCb?: (event: { backend: RenderBackend }) => void;
-  private onStatsCb?: (stats: GpuVideoRendererStats) => void;
   private onErrorCb?: (error: GpuVideoRendererError) => void;
   private onCanvasExpiredCb?: () => void;
   private logger: Pick<Console, 'debug' | 'error' | 'info' | 'warn'>;
@@ -89,7 +86,6 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
     this.brightness = options.brightness !== undefined ? options.brightness : 1.0;
 
     this.onReadyCb = options.onReady;
-    this.onStatsCb = options.onStats;
     this.onErrorCb = options.onError;
     this.onCanvasExpiredCb = options.onCanvasExpired;
     this.logger = options.logger || console;
@@ -197,15 +193,6 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
           this.isWaitingForCapturedFrame = false;
           this.workerClient?.requestCapturedFrame();
         }
-      }),
-
-      this.workerClient.onStats((payload) => {
-        this.onStatsCb?.({
-          fps: payload.fps,
-          frameTime: typeof payload.frameTime === 'string' ? parseFloat(payload.frameTime) : payload.frameTime,
-          gpuTime: payload.gpuTime,
-          uploadTime: payload.uploadTime
-        });
       }),
 
       this.workerClient.onError((payload) => {

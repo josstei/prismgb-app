@@ -365,8 +365,6 @@ export class WebGpuDriver implements RenderDriver {
     if (!state.isActive || !this.device || !this.context || this.hasError) return;
     if (!this.renderPipelines || !this.uniformBuffers || !this.sourceTexture) return;
 
-    const startTime = performance.now();
-
     try {
       this.device.queue.copyExternalImageToTexture(
         { source: source as ImageBitmap, flipY: true },
@@ -412,7 +410,6 @@ export class WebGpuDriver implements RenderDriver {
       );
 
       this.device.queue.submit([commandEncoder.finish()]);
-      state.recordFrame(performance.now() - startTime);
     } catch {
       this.hasError = true;
       state.deactivate();

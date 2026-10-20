@@ -255,10 +255,6 @@ export class WorkerRendererClient {
     return this.onMessage(WorkerResponseType.FRAME_RENDERED, handler);
   }
 
-  onStats(handler: WorkerResponseHandler<typeof WorkerResponseType.STATS>): () => void {
-    return this.onMessage(WorkerResponseType.STATS, handler);
-  }
-
   onError(handler: WorkerResponseHandler<typeof WorkerResponseType.ERROR>): () => void {
     return this.onMessage(WorkerResponseType.ERROR, handler);
   }

@@ -75,21 +75,6 @@ export interface RenderCapabilities {
   webgpuLimits?: WebGPULimits;
 }
 
-export interface RenderStats {
-  fps: number;
-  frameTime: number;
-  gpuTime?: number;
-  framesRendered: number;
-  framesDropped: number;
-}
-
-export interface GpuVideoRendererStats {
-  fps: number;
-  frameTime: number;
-  gpuTime?: number;
-  uploadTime?: number;
-}
-
 export interface GpuVideoRendererError {
   message: string;
   code?: string;
@@ -115,8 +100,6 @@ export interface RenderPipeline {
 
   pause(): void;
   resume(): void;
-
-  getStats(): RenderStats;
 
   releaseResources(): void;
   dispose(): Promise<void>;

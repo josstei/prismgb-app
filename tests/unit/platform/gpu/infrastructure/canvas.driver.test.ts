@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { CanvasDriver } from '../../../../../src/platform/gpu/infrastructure/canvas.driver';
 import { PipelineController } from '../../../../../src/platform/gpu/infrastructure/pipeline-controller';
 import { getPackageDefaultPreset } from '../../../../../src/platform/gpu/application/catalog';
@@ -16,12 +16,6 @@ function createCanvas2DTestFixture() {
 }
 
 describe('CanvasDriver', () => {
-  beforeEach(() => {
-    vi.stubGlobal('performance', {
-      now: vi.fn(() => 0)
-    });
-  });
-
   it('keeps image smoothing disabled after resize resets canvas context state', async () => {
     const { canvas, context } = createCanvas2DTestFixture();
     const renderer = new PipelineController({

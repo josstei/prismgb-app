@@ -75,7 +75,6 @@ const mockRenderer = {
   renderFrame: vi.fn(),
   resize: vi.fn(),
   captureFrame: vi.fn(),
-  getStats: vi.fn(),
   dispose: vi.fn(),
   setPreset: vi.fn(),
   setBrightness: vi.fn()
@@ -147,12 +146,6 @@ describe('worker service', () => {
     mockCreateGpuRenderer.mockResolvedValue(mockRenderer);
     mockResolvePreset.mockReturnValue(defaultPreset);
     mockRenderer.captureFrame.mockResolvedValue(createBitmap('captured'));
-    mockRenderer.getStats.mockReturnValue({
-      fps: 999,
-      frameTime: 1,
-      framesRendered: 999,
-      framesDropped: 0
-    });
     mockRenderer.dispose.mockResolvedValue(undefined);
   });
 
@@ -228,49 +221,6 @@ describe('worker service', () => {
     );
 
     expect(mockRenderer.setBrightness).toHaveBeenCalledWith(1.5);
-  });
-
-  it('reports interval fps from worker-rendered frames instead of renderer instantaneous fps', async () => {
-    let now = 0;
-    vi.spyOn(performance, 'now').mockImplementation(() => now);
-    const harness = createWorkerScopeHarness();
-
-    await sendWorkerMessage(
-      harness.scope,
-      createWorkerMessage(WorkerMessageType.INIT, {
-        canvas: createOnePixelCanvasFixture(),
-        config: configPayload()
-      })
-    );
-
-    now = 100;
-    await sendWorkerMessage(
-      harness.scope,
-      createWorkerMessage(WorkerMessageType.FRAME, {
-        imageBitmap: createBitmap('frame-1')
-      })
-    );
-
-    now = 1100;
-    await sendWorkerMessage(
-      harness.scope,
-      createWorkerMessage(WorkerMessageType.FRAME, {
-        imageBitmap: createBitmap('frame-2')
-      })
-    );
-
-    const statsMessage = harness.postedMessages.find(
-      (entry) => (entry[0] as { type?: string })?.type === WorkerResponseType.STATS
-    );
-    expect(statsMessage?.[0]).toMatchObject({
-      type: WorkerResponseType.STATS,
-      payload: {
-        fps: 2,
-        frameTime: 0,
-        gpuTime: undefined,
-        uploadTime: undefined
-      }
-    });
   });
 
   it('updates renderer preset from set-preset command', async () => {

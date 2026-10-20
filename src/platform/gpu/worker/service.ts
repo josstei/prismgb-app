@@ -1,7 +1,7 @@
 import { resolvePreset } from '../application/catalog';
 import { createGpuRenderer } from '../application/renderer.service';
 import { detectWorkerGpuCapabilities } from '../infrastructure/capabilities.worker';
-import type { RenderCanvas, RenderPipeline, RenderPreset, RenderStats } from '../domain/types';
+import type { RenderCanvas, RenderPipeline, RenderPreset } from '../domain/types';
 import {
   WorkerMessageType,
   WorkerResponseType,
@@ -36,7 +36,6 @@ type WorkerRendererPipeline = {
   render: (source: TexImageSource) => void;
   resize: (width: number, height: number) => void;
   captureFrame: () => Promise<ImageBitmap>;
-  getStats: () => RenderStats;
   dispose: () => Promise<void>;
   setPreset: (preset: RenderPreset) => void;
   setBrightness: (value: number) => void;
@@ -49,12 +48,6 @@ type WorkerRenderer = {
   setPreset(preset: RenderPreset): void;
   resize(width: number, height: number, scaleFactor: number): void;
   captureFrame(): Promise<ImageBitmap>;
-  getStats(): {
-    fps: number;
-    frameTime: number;
-    gpuTime?: number;
-    uploadTime?: number;
-  };
   release(): Promise<void>;
 };
 
@@ -96,9 +89,6 @@ async function createWorkerRendererPipeline(
     captureFrame: async (): Promise<ImageBitmap> => {
       return renderer.captureFrame();
     },
-    getStats: (): RenderStats => {
-      return renderer.getStats();
-    },
     dispose: async (): Promise<void> => {
       await renderer.dispose();
     },
@@ -115,9 +105,6 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
   let renderer: WorkerRenderer | null = null;
   let canvas: OffscreenCanvas | null = null;
   let isInitialized = false;
-  let frameCount = 0;
-  let totalFrameTime = 0;
-  let lastStatsTime = performance.now();
   let captureRequested = false;
   let captureFrame: ImageBitmap | null = null;
   let activePreset: RenderPreset | null = null;
@@ -154,7 +141,6 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
         workerRenderer.pipeline.resize(width, height);
       },
       captureFrame: () => workerRenderer.pipeline.captureFrame(),
-      getStats: () => workerRenderer.pipeline.getStats(),
       release: async () => {
         await workerRenderer.pipeline.dispose();
       }
@@ -188,9 +174,6 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
 
       isInitialized = true;
       captureRequested = false;
-      frameCount = 0;
-      totalFrameTime = 0;
-      lastStatsTime = performance.now();
 
       workerScope.postMessage(createWorkerResponse(WorkerResponseType.READY, {
         backend: nextRenderer.pipeline.backend
@@ -217,7 +200,6 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
   async function handleFrame(payload: FramePayload): Promise<void> {
     if (!isInitialized || !renderer) return;
 
-    const frameStart = performance.now();
     const { imageBitmap } = payload;
     try {
       renderer.render(imageBitmap);
@@ -226,11 +208,6 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
         captureFrame = await renderer.captureFrame();
         captureRequested = false;
       }
-
-      const frameTime = performance.now() - frameStart;
-      frameCount++;
-      totalFrameTime += frameTime;
-      maybePostStats();
 
       workerScope.postMessage(createWorkerResponse(WorkerResponseType.FRAME_RENDERED));
     } catch (error) {
@@ -241,31 +218,6 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
     } finally {
       imageBitmap?.close();
     }
-  }
-
-  function maybePostStats(): void {
-    if (!renderer) {
-      return;
-    }
-
-    const now = performance.now();
-    if (now - lastStatsTime < 1000) {
-      return;
-    }
-
-    const stats = renderer.getStats();
-    const averageFrameTime = frameCount > 0
-      ? totalFrameTime / frameCount
-      : stats.frameTime;
-    workerScope.postMessage(createWorkerResponse(WorkerResponseType.STATS, {
-      fps: frameCount,
-      frameTime: Number(averageFrameTime.toFixed(2)),
-      gpuTime: stats.gpuTime,
-      uploadTime: stats.uploadTime
-    }));
-    frameCount = 0;
-    totalFrameTime = 0;
-    lastStatsTime = now;
   }
 
   function handleResize(payload: ResizePayload): void {
@@ -367,9 +319,6 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
 
   async function handleRelease(): Promise<void> {
     clearCaptureState();
-    frameCount = 0;
-    totalFrameTime = 0;
-    lastStatsTime = performance.now();
     if (renderer) {
       try {
         await renderer.release();
@@ -404,8 +353,6 @@ export function startWorkerRendererService(workerScope: WorkerRendererServiceSco
     renderer = null;
     isInitialized = false;
     canvas = null;
-    frameCount = 0;
-    totalFrameTime = 0;
     workerScope.postMessage(createWorkerResponse(WorkerResponseType.DESTROYED));
     workerScope.close();
   }

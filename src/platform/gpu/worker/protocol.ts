@@ -30,7 +30,6 @@ export const WorkerResponseType = Object.freeze({
   READY: 'ready',
   FRAME_RENDERED: 'frameRendered',
   ERROR: 'error',
-  STATS: 'stats',
   CAPTURE_REQUESTED: 'captureRequested',
   CAPTURE_READY: 'captureReady',
   RELEASED: 'released',
@@ -107,13 +106,6 @@ export type WorkerReadyPayload = {
   backend: WorkerRenderBackend;
 };
 
-export type WorkerStatsPayload = {
-  fps: number;
-  frameTime: number | string;
-  gpuTime?: number;
-  uploadTime?: number;
-};
-
 export type WorkerErrorPayload = {
   message: string;
   stack?: string;
@@ -129,7 +121,6 @@ export type WorkerResponsePayloadMap = {
   [WorkerResponseType.READY]: WorkerReadyPayload;
   [WorkerResponseType.FRAME_RENDERED]: EmptyWorkerPayload;
   [WorkerResponseType.ERROR]: WorkerErrorPayload;
-  [WorkerResponseType.STATS]: WorkerStatsPayload;
   [WorkerResponseType.CAPTURE_REQUESTED]: EmptyWorkerPayload;
   [WorkerResponseType.CAPTURE_READY]: WorkerCaptureReadyPayload;
   [WorkerResponseType.RELEASED]: EmptyWorkerPayload;
@@ -294,14 +285,6 @@ export function isWorkerReadyPayload(value: unknown): value is WorkerReadyPayloa
   return isRecord(value) && isWorkerRenderBackend(value.backend);
 }
 
-export function isWorkerStatsPayload(value: unknown): value is WorkerStatsPayload {
-  return (
-    isRecord(value) &&
-    isNumber(value.fps) &&
-    (isNumber(value.frameTime) || isString(value.frameTime))
-  );
-}
-
 export function isWorkerErrorPayload(value: unknown): value is WorkerErrorPayload {
   return isRecord(value) && isString(value.message);
 }
@@ -317,7 +300,6 @@ const WORKER_RESPONSE_PAYLOAD_GUARDS: Record<WorkerResponseTypeValue, (payload: 
   [WorkerResponseType.RELEASED]: isEmptyWorkerPayload,
   [WorkerResponseType.DESTROYED]: isEmptyWorkerPayload,
   [WorkerResponseType.ERROR]: isWorkerErrorPayload,
-  [WorkerResponseType.STATS]: isWorkerStatsPayload,
   [WorkerResponseType.CAPTURE_READY]: isWorkerCaptureReadyPayload
 };
 
