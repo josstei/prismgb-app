@@ -1,11 +1,3 @@
-/**
- * Listbox helpers
- *
- * Shared helpers for rendering and updating listbox-style option lists.
- */
-
-
-
 export interface RenderListboxOptions<TOption> {
   container: Element | null | undefined;
   options: readonly TOption[];

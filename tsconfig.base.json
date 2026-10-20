@@ -55,12 +55,6 @@
       "@platform/transcode": [
         "./src/platform/transcode/index"
       ],
-      "@platform/ui-base/reactive": [
-        "./src/platform/ui-base/reactive/index"
-      ],
-      "@platform/ui-base": [
-        "./src/platform/ui-base/index"
-      ],
       "@platform/updates": [
         "./src/platform/updates/index"
       ]

@@ -55,22 +55,18 @@ vi.mock('@renderer/presentation/effects/controls-auto-hide.effect.ts', () => ({
   })
 }));
 
-vi.mock('@platform/ui-base', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@platform/ui-base')>();
-  return {
-    ...actual,
-    ActivityAutoHideController: vi.fn().mockImplementation(function ActivityAutoHideControllerMock(options) {
-      unifiedControllerOptions = options;
-      this.enable = vi.fn();
-      this.disable = vi.fn();
-      this.startTimer = vi.fn();
-      this.clearTimer = vi.fn();
-      this.dispose = vi.fn();
-      this.isEnabled = false;
-      unifiedControllerInstance = this;
-    })
-  };
-});
+vi.mock('@renderer/presentation/widgets/activity-auto-hide.controller', () => ({
+  ActivityAutoHideController: vi.fn().mockImplementation(function ActivityAutoHideControllerMock(options) {
+    unifiedControllerOptions = options;
+    this.enable = vi.fn();
+    this.disable = vi.fn();
+    this.startTimer = vi.fn();
+    this.clearTimer = vi.fn();
+    this.dispose = vi.fn();
+    this.isEnabled = false;
+    unifiedControllerInstance = this;
+  })
+}));
 
 import { UIEffects } from '@renderer/presentation/effects/ui-effects.host';
 import { TIMING } from '@renderer/lib/timing.config';

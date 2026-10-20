@@ -1,4 +1,4 @@
-import { PresentationComponent } from '@platform/ui-base';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { NotesListViewComponent } from './notes-list-view.component';
 import { NotesEditorViewComponent } from './notes-editor-view.component';

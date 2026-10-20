@@ -6,7 +6,7 @@ import {
   createTemplateRefSelector,
   getTemplateAction,
   getTemplateActionTarget
-} from '@platform/ui-base';
+} from '@renderer/presentation/primitives/template-refs.utils';
 import {
   UIActionDescriptors,
   UIActionEvents,

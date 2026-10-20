@@ -3,16 +3,14 @@ import { EventChannels } from '@renderer/lib/events/event-channels';
 import type { EventBus } from '@renderer/lib/events/event-bus';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { UpdateState, type UpdateStateValue } from '@platform/ipc';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import {
-  PresentationComponent,
   bindText,
   bindClass,
   bindProperty,
-  bindStyleProperty,
-  computed,
-  effect
-} from '@platform/ui-base';
-import { signal } from '@platform/ui-base/reactive';
+  bindStyleProperty
+} from '@renderer/presentation/primitives/signal-bindings.utils';
+import { computed, effect, signal } from '@preact/signals-core';
 
 type UpdateInfo = {
   version?: string;

@@ -1,6 +1,7 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent, bindText, bindClass, computed } from '@platform/ui-base';
-import { signal } from '@platform/ui-base/reactive';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { bindText, bindClass } from '@renderer/presentation/primitives/signal-bindings.utils';
+import { computed, signal } from '@preact/signals-core';
 import { sliderToBrightness, brightnessToSlider } from '@renderer/presentation/features/toolbar/brightness.utils';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import type { EventBus } from '@renderer/lib/events/event-bus';

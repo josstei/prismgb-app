@@ -1,4 +1,6 @@
-import { PresentationComponent, ListboxDropdownController, renderListboxOptions } from '@platform/ui-base';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { ListboxDropdownController } from '@renderer/presentation/widgets/listbox-dropdown.controller';
+import { renderListboxOptions } from '@renderer/presentation/widgets/listbox.utils';
 import type { Logger } from '@platform/core';
 
 const FILTER_SETUP_LIFECYCLE = Symbol('notesGameFilterSetupLifecycle');

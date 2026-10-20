@@ -6,7 +6,6 @@ import {
 } from '@platform/core';
 import { applyOptions as assignOptions } from './apply-options.utils';
 
-
 export type PresentationLifecycleToken = {
   isActive(): boolean;
   dispose(): void | Promise<void>;

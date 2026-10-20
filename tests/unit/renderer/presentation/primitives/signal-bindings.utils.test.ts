@@ -1,7 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { signal, bindText, bindClass, bindAttr, bindStyleProperty } from '@platform/ui-base/reactive';
+import { signal } from '@preact/signals-core';
+import {
+  bindText,
+  bindClass,
+  bindAttr,
+  bindStyleProperty
+} from '@renderer/presentation/primitives/signal-bindings.utils';
 
-describe('dom-bindings', () => {
+describe('signal bindings', () => {
   it('bindText updates textContent synchronously on signal write', () => {
     const el = document.createElement('span');
     const s = signal('a');

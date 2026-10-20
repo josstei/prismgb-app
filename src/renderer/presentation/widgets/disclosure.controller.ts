@@ -1,11 +1,4 @@
-/**
- * DisclosureController
- *
- * Shared show/hide logic for dropdowns and panels with
- * escape key and click-outside handling.
- */
-
-import { PresentationComponent } from '../lifecycle/presentation-component.base';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import type { Logger } from '@platform/core';
 
 export interface AnchoredLayoutSizeDefaults {

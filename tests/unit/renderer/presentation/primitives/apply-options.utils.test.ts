@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyOptions } from '../../../../../src/platform/ui-base/lifecycle/apply-options.utils.js';
+import { applyOptions } from '@renderer/presentation/primitives/apply-options.utils';
 
 describe('applyOptions', () => {
   it('assigns default values for fields omitted from options', () => {

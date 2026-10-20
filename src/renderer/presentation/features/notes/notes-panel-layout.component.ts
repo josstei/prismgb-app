@@ -1,8 +1,8 @@
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import {
-  PresentationComponent,
   calculateAnchoredDisclosureLayout,
   type AnchoredLayoutSizeDefaults
-} from '@platform/ui-base';
+} from '@renderer/presentation/widgets/disclosure.controller';
 import type { Logger } from '@platform/core';
 
 const RESIZE_DEBOUNCE_MS = 100;

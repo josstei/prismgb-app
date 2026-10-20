@@ -1,5 +1,4 @@
-import { effect } from '@preact/signals-core';
-import type { ReadonlySignal } from '@preact/signals-core';
+import { effect, type ReadonlySignal } from '@preact/signals-core';
 import type { DisposableFunction } from '@platform/core';
 
 interface TextSink {

@@ -1,10 +1,10 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import {
   PresentationComponent,
-  DisclosureController,
-  ListboxDropdownController,
   type PresentationLifecycleToken
-} from '@platform/ui-base';
+} from '@renderer/presentation/primitives/presentation-component.base';
+import { DisclosureController } from '@renderer/presentation/widgets/disclosure.controller';
+import { ListboxDropdownController } from '@renderer/presentation/widgets/listbox-dropdown.controller';
 import {
   getBooleanSettingsUiDefinitions,
   getListboxSettingsUiDefinitions,

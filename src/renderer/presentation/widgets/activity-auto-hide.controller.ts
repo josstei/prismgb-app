@@ -1,5 +1,4 @@
-import { PresentationComponent } from '../lifecycle/presentation-component.base';
-
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 
 type AutoHideActivityBinding = {
   target: EventTarget | null;

@@ -1,9 +1,8 @@
-/**
- * ActivityAutoHideController Unit Tests
- */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { PresentationComponent, ActivityAutoHideController } from '@platform/ui-base';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { ActivityAutoHideController } from '@renderer/presentation/widgets/activity-auto-hide.controller';
 import { createCallbackMap } from '../../../../factories/index.js';
+
 class TestComponent extends PresentationComponent {
   listenTo(target: EventTarget | null, type: string, handler: EventListener) {
     return this.listen(target, type, handler);

@@ -1,4 +1,4 @@
-import { signal, type ReadonlySignal } from '@platform/ui-base/reactive';
+import { signal, type ReadonlySignal } from '@preact/signals-core';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import type { EventBus } from '@renderer/lib/events/event-bus';
 import type { StreamInfoSettings } from '@renderer/presentation/features/streaming/streaming-controls.component';

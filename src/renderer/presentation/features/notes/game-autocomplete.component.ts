@@ -1,4 +1,5 @@
-import { PresentationComponent, ComboboxListboxController } from '@platform/ui-base';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { ComboboxListboxController } from '@renderer/presentation/widgets/combobox-listbox.controller';
 import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
 import type { Logger } from '@platform/core';
 

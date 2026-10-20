@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BodyClassManager } from '@renderer/presentation/effects/body-class.effect';
 import { PresentationModeStore } from '@renderer/presentation/state/presentation-mode.store';
-import { signal } from '@platform/ui-base/reactive';
+import { signal } from '@preact/signals-core';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import { EventBus } from '@renderer/lib/events/event-bus';
 

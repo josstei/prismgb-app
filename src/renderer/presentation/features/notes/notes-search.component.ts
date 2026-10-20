@@ -1,4 +1,4 @@
-import { PresentationComponent } from '@platform/ui-base';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import type { Logger } from '@platform/core';
 
 const SEARCH_DEBOUNCE_MS = 200;

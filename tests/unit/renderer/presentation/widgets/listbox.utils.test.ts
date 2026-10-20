@@ -1,9 +1,5 @@
-/**
- * Listbox helpers Unit Tests
- */
-
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { renderListboxOptions, updateListboxActiveState } from '@platform/ui-base';
+import { renderListboxOptions, updateListboxActiveState } from '@renderer/presentation/widgets/listbox.utils';
 
 describe('listbox helpers', () => {
   let container;

@@ -1,4 +1,4 @@
-import { signal, computed, type ReadonlySignal } from '@platform/ui-base/reactive';
+import { signal, computed, type ReadonlySignal } from '@preact/signals-core';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import type { EventBus } from '@renderer/lib/events/event-bus';
 import { ReactiveStore } from './reactive-store.base';

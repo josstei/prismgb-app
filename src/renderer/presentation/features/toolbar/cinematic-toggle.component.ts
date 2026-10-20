@@ -1,8 +1,9 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent, bindClass, bindText, bindAttr, computed } from '@platform/ui-base';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { bindClass, bindText, bindAttr } from '@renderer/presentation/primitives/signal-bindings.utils';
+import { computed, type ReadonlySignal } from '@preact/signals-core';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import type { EventBus } from '@renderer/lib/events/event-bus';
-import type { ReadonlySignal } from '@platform/ui-base/reactive';
 import type { Logger } from '@platform/core';
 
 export interface CinematicToggleAppState {

@@ -12,7 +12,6 @@ export function createTemplateRefSelector(ref: string): string {
   return `[${TEMPLATE_REF_ATTRIBUTE}="${escapeAttributeSelectorValue(ref)}"]`;
 }
 
-
 export function getTemplateAction(element: HTMLElement | null | undefined): string | null {
   return element?.getAttribute(TEMPLATE_ACTION_ATTRIBUTE) || null;
 }

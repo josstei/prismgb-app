@@ -1,4 +1,4 @@
-import { PresentationComponent } from '@platform/ui-base';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
 import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
 import type { Logger } from '@platform/core';
 

@@ -1,7 +1,7 @@
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import type { EventBus } from '@renderer/lib/events/event-bus';
 import { DisposableBag } from '@platform/core';
-import { signal, type Signal, type ReadonlySignal } from '@platform/ui-base/reactive';
+import { signal, type Signal, type ReadonlySignal } from '@preact/signals-core';
 
 interface StreamingServiceLike {
   readonly isStreaming: boolean;

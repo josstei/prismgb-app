@@ -1,12 +1,8 @@
-/**
- * DisclosureController Unit Tests
- */
-
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   DisclosureController,
   calculateAnchoredDisclosureLayout
-} from '@platform/ui-base';
+} from '@renderer/presentation/widgets/disclosure.controller';
 import { createLogger } from '../../../../factories/index.js';
 
 describe('calculateAnchoredDisclosureLayout', () => {

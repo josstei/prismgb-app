@@ -1,5 +1,6 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent, bindText } from '@platform/ui-base';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { bindText } from '@renderer/presentation/primitives/signal-bindings.utils';
 import type { StreamInfoStore } from '@renderer/presentation/state/stream-info.store.js';
 
 const STREAM_TRANSITION_DURATION = 1000;

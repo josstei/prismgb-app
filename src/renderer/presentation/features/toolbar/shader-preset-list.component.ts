@@ -1,6 +1,7 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { PresentationComponent, bindClass, computed } from '@platform/ui-base';
-import { signal } from '@platform/ui-base/reactive';
+import { PresentationComponent } from '@renderer/presentation/primitives/presentation-component.base';
+import { bindClass } from '@renderer/presentation/primitives/signal-bindings.utils';
+import { computed, signal } from '@preact/signals-core';
 import { getUiPresets, resolvePreset } from '@platform/gpu';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import type { EventBus } from '@renderer/lib/events/event-bus';
