@@ -1,19 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import {
-  externalUrlSchema,
-  enabledFlagSchema,
-  transcodeStartSchema,
-  deviceStatusPayloadSchema,
-  transcodeProgressSchema,
-  transcodeCompletedSchema,
-  transcodeCancelledSchema,
-  deviceInfoSchema,
-  nullableDeviceInfoSchema,
-  updateInfoSchema,
-  updateProgressSchema,
-  updateErrorSchema,
-  loginItemGetResponseSchema
-} from '@main/ipc/schemas/index.js';
+import { deviceInfoSchema, deviceStatusPayloadSchema, nullableDeviceInfoSchema } from '@platform/devices';
+import { externalUrlSchema, enabledFlagSchema, transcodeStartSchema } from '@main/ipc/ipc.schemas';
 import {
   createChromaticDeviceInfoPayload,
   createChromaticDeviceStatusPayload
@@ -61,7 +48,7 @@ describe('IPC input schemas (security)', () => {
   });
 });
 
-describe('IPC subscription payload schemas (defense-in-depth)', () => {
+describe('device payload schemas the router validates', () => {
   it('deviceInfoSchema accepts only the canonical strict device info shape', () => {
     expect(accepts(deviceInfoSchema, canonicalDeviceInfo)).toBe(true);
     expect(accepts(deviceInfoSchema, {})).toBe(false);
@@ -97,37 +84,5 @@ describe('IPC subscription payload schemas (defense-in-depth)', () => {
     expect(accepts(nullableDeviceInfoSchema, canonicalDeviceInfo)).toBe(true);
     expect(accepts(nullableDeviceInfoSchema, { vendorId: 'x' })).toBe(false);
   });
-
-  it('update payload schemas validate their optional fields', () => {
-    expect(accepts(updateInfoSchema, { version: '1.2.3' })).toBe(true);
-    expect(accepts(updateInfoSchema, { version: 5 })).toBe(false);
-    expect(accepts(updateProgressSchema, { percent: 50 })).toBe(true);
-    expect(accepts(updateProgressSchema, { percent: 'half' })).toBe(false);
-    expect(accepts(updateErrorSchema, { message: 'boom', code: 'E1' })).toBe(true);
-    expect(accepts(updateErrorSchema, { message: 42 })).toBe(false);
-  });
-
-  it('transcodeProgressSchema requires a numeric percent', () => {
-    expect(accepts(transcodeProgressSchema, { percent: 12.5, jobId: 'j' })).toBe(true);
-    expect(accepts(transcodeProgressSchema, { jobId: 'j' })).toBe(false);
-    expect(accepts(transcodeProgressSchema, { percent: 'x' })).toBe(false);
-  });
-
-  it('transcodeCompletedSchema accepts nullable filePath; cancelled accepts optional jobId', () => {
-    expect(accepts(transcodeCompletedSchema, { jobId: 'j', filePath: null })).toBe(true);
-    expect(accepts(transcodeCompletedSchema, { filePath: '/tmp/out.mp4' })).toBe(true);
-    expect(accepts(transcodeCompletedSchema, { filePath: 42 })).toBe(false);
-    expect(accepts(transcodeCancelledSchema, { jobId: 'j' })).toBe(true);
-    expect(accepts(transcodeCancelledSchema, {})).toBe(true);
-  });
 });
 
-describe('IPC query output schemas (trade e graceful fallback)', () => {
-
-  it('loginItemGetResponseSchema accepts the payload-only shape and rejects malformed or envelope-shaped values', () => {
-    expect(accepts(loginItemGetResponseSchema, { enabled: true })).toBe(true);
-    expect(accepts(loginItemGetResponseSchema, { enabled: false })).toBe(true);
-    expect(accepts(loginItemGetResponseSchema, { success: true, enabled: true })).toBe(false);
-    expect(accepts(loginItemGetResponseSchema, {})).toBe(false);
-  });
-});

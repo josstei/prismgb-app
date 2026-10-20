@@ -1,4 +1,5 @@
 export { IPC_CHANNELS } from './ipc-channels';
+export { identityTransformer } from './identity-transformer';
 export { UpdateState, TRANSCODE_FORMATS } from './ipc-payloads.contract';
 export type {
   UpdateInfoPayload,

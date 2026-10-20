@@ -39,7 +39,7 @@ describe('AppOrchestrator', () => {
     windowService: { createWindow: MockFn; showWindow: MockFn; destroyWindow: MockFn };
     deviceConnectionService: { onStatusChanged: MockFn; initialize: MockFn; reconcileDeviceStatus: MockFn; dispose: MockFn };
     trayService: { createTray: MockFn; updateTrayMenu: MockFn; dispose: MockFn };
-    ipcHandlerRegistry: { registerHandlers: MockFn; attachWindow: MockFn; dispose: MockFn };
+    ipcHost: { registerHandlers: MockFn; attachWindow: MockFn; dispose: MockFn };
     ipcPushBridge: { emit: MockFn };
     autoUpdateService: { initialize: MockFn; dispose: MockFn };
     transcodeService: { initialize: MockFn; dispose: MockFn };
@@ -82,10 +82,10 @@ describe('AppOrchestrator', () => {
           updateTrayMenu: vi.fn(),
           dispose: record('trayService.dispose')
         },
-        ipcHandlerRegistry: {
-          registerHandlers: record('ipcHandlerRegistry.registerHandlers'),
-          attachWindow: vi.fn((window) => calls.push(`ipcHandlerRegistry.attachWindow:${window === mainWindow}`)),
-          dispose: record('ipcHandlerRegistry.dispose')
+        ipcHost: {
+          registerHandlers: record('ipcHost.registerHandlers'),
+          attachWindow: vi.fn((window) => calls.push(`ipcHost.attachWindow:${window === mainWindow}`)),
+          dispose: record('ipcHost.dispose')
         },
         ipcPushBridge: { emit: vi.fn() },
         autoUpdateService: { initialize: record('autoUpdateService.initialize'), dispose: record('autoUpdateService.dispose') },
@@ -110,9 +110,9 @@ describe('AppOrchestrator', () => {
         'autoUpdateService.initialize',
         'transcodeService.initialize',
         'trayService.createTray',
-        'ipcHandlerRegistry.registerHandlers',
+        'ipcHost.registerHandlers',
         'windowService.createWindow',
-        'ipcHandlerRegistry.attachWindow:true',
+        'ipcHost.attachWindow:true',
         'deviceConnectionService.initialize',
         'deviceConnectionService.reconcileDeviceStatus:startup'
       ]);
@@ -202,7 +202,7 @@ describe('AppOrchestrator', () => {
 
       expect(calls).toEqual([
         'windowService.destroyWindow',
-        'ipcHandlerRegistry.dispose',
+        'ipcHost.dispose',
         'deviceConnectionService.dispose',
         'trayService.dispose',
         'autoUpdateService.dispose',
@@ -215,13 +215,13 @@ describe('AppOrchestrator', () => {
       deps.windowService.destroyWindow.mockImplementation(() => {
         throw new Error('window gone');
       });
-      deps.ipcHandlerRegistry.dispose.mockRejectedValue(new Error('ipc gone'));
+      deps.ipcHost.dispose.mockRejectedValue(new Error('ipc gone'));
 
       await orchestrator.cleanup();
 
       const logger = loggerFactory._getLogger('AppOrchestrator');
       expect(logger.error).toHaveBeenCalledWith('Error destroying window during cleanup:', expect.any(Error));
-      expect(logger.error).toHaveBeenCalledWith('Error disposing IPC handler registry:', expect.any(Error));
+      expect(logger.error).toHaveBeenCalledWith('Error disposing IPC host:', expect.any(Error));
       expect(deps.transcodeService.dispose).toHaveBeenCalledTimes(1);
     });
   });

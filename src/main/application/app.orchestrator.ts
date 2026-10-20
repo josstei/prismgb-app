@@ -12,7 +12,7 @@ import type {
   DeviceConnectionService
 } from '@main/infrastructure/devices/device-connection.service';
 import type { TrayService } from '@main/infrastructure/tray/tray.service';
-import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry';
+import type { IpcHost } from '@main/ipc/ipc.host';
 import type { IpcPushBridge } from '@main/ipc/ipc-push.bridge';
 import type { AutoUpdateService } from '@main/infrastructure/updates/auto-update.service';
 import type { TranscodeService } from '@main/infrastructure/transcode/transcode.service';
@@ -35,7 +35,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     @inject(TOKENS.windowService) private readonly windowService: WindowService,
     @inject(TOKENS.deviceConnectionService) private readonly deviceConnectionService: DeviceConnectionService,
     @inject(TOKENS.trayService) private readonly trayService: TrayService,
-    @inject(TOKENS.ipcHandlerRegistry) private readonly ipcHandlerRegistry: IpcHandlerRegistry,
+    @inject(TOKENS.ipcHost) private readonly ipcHost: IpcHost,
     @inject(TOKENS.ipcPushBridge) private readonly ipcPushBridge: IpcPushBridge,
     @inject(TOKENS.autoUpdateService) private readonly autoUpdateService: AutoUpdateService,
     @inject(TOKENS.transcodeService) private readonly transcodeService: TranscodeService,
@@ -68,7 +68,7 @@ export class AppOrchestrator extends BaseOrchestrator {
       }
     }
 
-    this.ipcHandlerRegistry.registerHandlers();
+    this.ipcHost.registerHandlers();
 
     const isHiddenLaunch = this.loginItemService.wasLaunchedAsHidden();
     if (isHiddenLaunch) {
@@ -76,7 +76,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     }
 
     const mainWindow = this.windowService.createWindow({ hidden: isHiddenLaunch });
-    this.ipcHandlerRegistry.attachWindow(mainWindow);
+    this.ipcHost.attachWindow(mainWindow);
 
     this.deviceConnectionService.initialize();
 
@@ -99,7 +99,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     }
 
     await safeDisposeAll(this.logger, [
-      ['IPC handler registry', () => this.ipcHandlerRegistry.dispose()],
+      ['IPC host', () => this.ipcHost.dispose()],
       ['device connection service', () => this.deviceConnectionService.dispose()],
       ['system tray', () => this.trayService.dispose()],
       ['auto-update service', () => this.autoUpdateService.dispose()],

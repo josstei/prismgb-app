@@ -7,9 +7,8 @@ import { TrayService } from '@main/infrastructure/tray/tray.service';
 import { LoginItemService } from '@main/infrastructure/system/login-item.service';
 import { createNodeUsbMonitor } from '@main/infrastructure/devices/usb.monitor';
 import { DeviceConnectionService } from '@main/infrastructure/devices/device-connection.service';
-import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry';
+import { IpcHost } from '@main/ipc/ipc.host';
 import { IpcPushBridge } from '@main/ipc/ipc-push.bridge';
-import { MainProcessTestControl } from '@main/ipc/test-control.port';
 import { AppOrchestrator } from './app.orchestrator';
 import { TOKENS } from './di/tokens';
 
@@ -17,19 +16,14 @@ export function createMainContainer(loggerFactory: LoggerFactory): Container {
   const container = new Container({ defaultScope: 'Singleton' });
 
   container.bind(TOKENS.loggerFactory).toConstantValue(loggerFactory);
-
   container.bind(TOKENS.usbMonitor).toDynamicValue(() => createNodeUsbMonitor());
-  container.bind(TOKENS.mainProcessTestControl).toDynamicValue((ctx) => new MainProcessTestControl({
-    enabled: process.env.PRISMGB_E2E_TEST_CONTROL === '1',
-    ipcPushBridge: ctx.get(TOKENS.ipcPushBridge)
-  }));
 
   container.bind(TOKENS.windowService).to(WindowService);
   container.bind(TOKENS.deviceConnectionService).to(DeviceConnectionService);
   container.bind(TOKENS.trayService).to(TrayService);
   container.bind(TOKENS.autoUpdateService).to(AutoUpdateService);
   container.bind(TOKENS.transcodeService).to(TranscodeService);
-  container.bind(TOKENS.ipcHandlerRegistry).to(IpcHandlerRegistry);
+  container.bind(TOKENS.ipcHost).to(IpcHost);
   container.bind(TOKENS.ipcPushBridge).to(IpcPushBridge);
   container.bind(TOKENS.loginItemService).to(LoginItemService);
   container.bind(TOKENS.appOrchestrator).to(AppOrchestrator);
