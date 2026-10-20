@@ -107,6 +107,7 @@ export class TranscodeProcess extends EventEmitter {
 
       this.startTime = Date.now();
 
+      // -progress pipe:1 streams key=value progress lines to stdout; -nostats keeps them off stderr.
       const args = [
         '-y',
         ...this.inputArgs,
