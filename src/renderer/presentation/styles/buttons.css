@@ -1,19 +1,14 @@
-/* =====================================================
-   Buttons
-   Button base styles and all variants
-   ===================================================== */
-
 .btn {
   padding: 12px 24px;
   border: none;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: var(--font-size-base);
   font-weight: 600;
   cursor: pointer;
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
               box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-              background 0.2s ease,
-              filter 0.2s ease;
+              background var(--transition-fast),
+              filter var(--transition-fast);
   outline: none;
   white-space: nowrap;
   position: relative;
@@ -41,21 +36,13 @@
 }
 
 .btn:hover {
-  transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
   text-shadow:
     -1px 0 var(--chromatic-magenta),
     1px 0 var(--chromatic-cyan);
 }
 
-.btn:active {
-  transform: translateY(0);
-}
-
-.btn:disabled,
-.btn:disabled:hover,
-.btn.disabled,
-.btn.disabled:hover {
+.btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
@@ -63,7 +50,6 @@
   pointer-events: none;
 }
 
-/* Ensure buttons have proper hover states when enabled */
 .btn:not(:disabled):hover {
   transform: translateY(-2px);
 }
@@ -89,39 +75,4 @@
 .btn-secondary:hover {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.08) 100%);
   border-color: rgba(var(--color-primary-rgb), 0.5);
-}
-
-/* Screenshot and record buttons (visibility controlled in states.css) */
-#screenshotBtn,
-#recordBtn {
-  display: inline-flex;
-}
-
-#recordBtn.recording {
-  background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
-  box-shadow: 0 0 0 2px rgba(var(--color-danger-rgb), 0.45), 0 10px 24px rgba(var(--color-danger-rgb), 0.35);
-  animation: pulse var(--animation-pulse) ease-in-out infinite;
-}
-
-/* Record button icon states */
-#recordBtn .record-dot {
-  display: inline;
-}
-
-#recordBtn .record-spinner {
-  display: none;
-}
-
-/* When recording: hide dot, show spinner with rotating ring */
-#recordBtn.recording .record-dot {
-  display: none;
-}
-
-#recordBtn.recording .record-spinner {
-  display: inline;
-}
-
-#recordBtn.recording .spinner-ring {
-  transform-origin: center;
-  animation: spin 1s linear infinite;
 }

@@ -1,16 +1,6 @@
-/* =====================================================
-   Global Application States
-   Cinematic mode, fullscreen mode, and cross-feature states
+/* Body-level presentation modes: cinematic, minimalist fullscreen, cursor auto-hide */
 
-   Feature-specific states are now co-located with their features:
-   - streaming/styles/streaming-states.css - overlay animations, video visibility
-   - toolbar/styles/toolbar-states.css - toolbar button visibility
-   ===================================================== */
-
-/* =====================================================
-   Cinematic Mode
-   Dims UI and darkens background for immersive viewing
-   ===================================================== */
+/* Cinematic mode: dims the UI and darkens the background */
 
 /* Darken body background when cinematic mode is enabled */
 body.cinematic-active {
@@ -23,13 +13,13 @@ body.cinematic-active::after {
   filter: blur(60px);
   background: conic-gradient(
     from 120deg,
-    rgba(255, 0, 128, 0.12),
+    rgba(var(--color-primary-rgb), 0.12),
     rgba(255, 100, 0, 0.10),
     rgba(255, 200, 0, 0.08),
     rgba(0, 255, 100, 0.08),
     rgba(0, 200, 255, 0.10),
     rgba(130, 0, 255, 0.12),
-    rgba(255, 0, 128, 0.12)
+    rgba(var(--color-primary-rgb), 0.12)
   );
 }
 
@@ -41,7 +31,7 @@ body.cinematic-active::before {
 /* Enhance atmospheric orbs in cinematic mode */
 body.cinematic-active .prismatic-orbs::before {
   opacity: 0.5;
-  background: radial-gradient(circle, rgba(255, 0, 128, 0.5) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(var(--color-primary-rgb), 0.5) 0%, transparent 70%);
 }
 
 body.cinematic-active .prismatic-orbs::after {
@@ -74,7 +64,7 @@ body.cinematic-active .footer:hover {
 /* Enhance stream container rainbow glow in cinematic mode */
 body.cinematic-active .stream-container {
   box-shadow:
-    0 0 50px rgba(255, 0, 128, 0.25),
+    0 0 50px rgba(var(--color-primary-rgb), 0.25),
     0 0 80px rgba(0, 200, 255, 0.15),
     0 20px 60px rgba(0, 0, 0, 0.8);
 }
@@ -83,7 +73,7 @@ body.cinematic-active .stream-container {
 body.cinematic-active .stream-container::before {
   background: linear-gradient(
     135deg,
-    rgba(255, 0, 128, 0.8) 0%,
+    rgba(var(--color-primary-rgb), 0.8) 0%,
     rgba(255, 150, 0, 0.7) 25%,
     rgba(0, 255, 100, 0.7) 50%,
     rgba(0, 180, 255, 0.8) 75%,
@@ -91,10 +81,7 @@ body.cinematic-active .stream-container::before {
   );
 }
 
-/* =====================================================
-   Minimalist Fullscreen Mode
-   Pure black fullscreen with minimal controls (streaming only)
-   ===================================================== */
+/* Minimalist fullscreen: pure black with minimal controls (streaming only) */
 
 body.minimalist-transition {
   transition: background 250ms ease;
@@ -159,52 +146,9 @@ body.fullscreen-active.streaming-mode.minimalist-fullscreen .fs-control-btn:focu
   outline-color: rgba(255, 255, 255, 0.5);
 }
 
-/* =====================================================
-   Cursor Auto-Hide
-   Hide cursor after inactivity during streaming
-   ===================================================== */
+/* Cursor auto-hide during streaming */
 
 body.cursor-hidden,
 body.cursor-hidden * {
   cursor: none !important;
-}
-
-/* =====================================================
-   Combined States
-   Streaming + Cinematic mode optimizations
-   ===================================================== */
-body.streaming-mode.cinematic-active .app-icon,
-body.streaming-mode.cinematic-active .app-logo {
-  /* Pause decorative header animations during streaming */
-  animation-play-state: paused;
-}
-
-/* =====================================================
-   Status Strip Toggle
-   Show/hide the footer status strip
-   ===================================================== */
-.footer.status-hidden .status-strip {
-  opacity: 0;
-  transform: translateY(10px);
-  pointer-events: none;
-}
-
-/* =====================================================
-   Status Message Colors
-   Data attribute driven status message colors
-   ===================================================== */
-.status-message[data-type="info"] {
-  color: var(--color-info);
-}
-
-.status-message[data-type="success"] {
-  color: var(--color-success);
-}
-
-.status-message[data-type="warning"] {
-  color: var(--color-warning);
-}
-
-.status-message[data-type="error"] {
-  color: var(--color-danger);
 }

@@ -1,8 +1,3 @@
-/* =====================================================
-   Update Section Styles
-   Eye-catching prismatic theme for auto-updates
-   ===================================================== */
-
 /* Flash animation for status text feedback */
 .flash-success {
   animation: flash-green 1.5s ease-out;
@@ -20,10 +15,6 @@
 }
 
 /* Settings button update badge */
-#settingsBtn {
-  position: relative;
-}
-
 .update-badge {
   position: absolute;
   top: 4px;
@@ -37,10 +28,6 @@
   animation: update-badge-pulse 1.5s ease-in-out infinite;
   pointer-events: none;
   z-index: 1;
-}
-
-.update-badge.hidden {
-  display: none;
 }
 
 @keyframes update-badge-pulse {
@@ -76,7 +63,7 @@
   padding: 2px;
   background: var(--rainbow-gradient);
   background-size: 300% 300%;
-  animation: rainbow-border-shift 3s ease infinite;
+  animation: rainbow-shift 3s ease infinite;
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
@@ -84,7 +71,7 @@
   pointer-events: none;
 }
 
-@keyframes rainbow-border-shift {
+@keyframes rainbow-shift {
   0% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
@@ -232,16 +219,11 @@
   transition: all var(--transition-fast);
 }
 
-.update-action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 /* Rainbow button for install action */
 .update-action-btn.btn-install {
   background: var(--rainbow-gradient);
   background-size: 200% 200%;
-  animation: rainbow-btn-shift 4s ease infinite;
+  animation: rainbow-shift 4s ease infinite;
   border: none;
   color: white;
   font-weight: 600;
@@ -252,10 +234,4 @@
   animation-duration: 2s;
   box-shadow: var(--shadow-glow-prismatic);
   transform: translateY(-1px);
-}
-
-@keyframes rainbow-btn-shift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
 }

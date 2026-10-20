@@ -1,14 +1,35 @@
-/* =====================================================
-   Capture Buttons (Screenshot, Record, Notes)
-   Toolbar action buttons with specific color themes
-   ===================================================== */
+/* Screenshot button click feedback */
+#screenshotBtn.capturing {
+  animation: capture-click 0.2s ease-out;
+}
+
+/* Screen flash overlay for screenshot */
+.shutter-flash {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle, rgba(var(--color-info-rgb), 0.4) 0%, rgba(255, 255, 255, 0.6) 100%);
+  pointer-events: none;
+  z-index: var(--z-notification);
+  animation: shutter-flash 0.2s ease-out forwards;
+}
+
+/* Button animation classes for feedback effects */
+.btn-pop {
+  transform: scale(1.15) !important;
+  transition: transform 0.1s ease-out !important;
+}
+
+.btn-press {
+  transform: scale(0.85) !important;
+  transition: transform 0.1s ease-out !important;
+}
 
 /* Hide capture buttons by default - shown via streaming-mode class */
 .toolbar-capture {
   opacity: 0;
   transform: scale(0);
   pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 /* Show capture buttons when streaming */
@@ -25,39 +46,46 @@ body.streaming-mode .stream-toolbar .toolbar-capture {
   pointer-events: none;
 }
 
-/* Screenshot button - success green */
+/* Accent color per button: screenshot green, record red, notes cyan */
 .toolbar-btn.toolbar-screenshot {
-  border-color: rgba(var(--color-success-rgb), 0.3);
-  background: linear-gradient(135deg, rgba(var(--color-success-rgb), 0.15) 0%, rgba(5, 150, 105, 0.1) 100%);
+  --accent-rgb: var(--color-success-rgb);
+  --accent-deep-rgb: 5, 150, 105;
 }
 
-.toolbar-btn.toolbar-screenshot:hover:not(:disabled) {
-  border-color: rgba(var(--color-success-rgb), 0.6);
-  background: linear-gradient(135deg, rgba(var(--color-success-rgb), 0.25) 0%, rgba(5, 150, 105, 0.2) 100%);
-  box-shadow: 0 0 12px rgba(var(--color-success-rgb), 0.4);
-}
-
-.toolbar-btn.toolbar-screenshot.capturing {
-  animation: capture-click 0.2s ease-out;
-}
-
-/* Record button - danger red */
 .toolbar-btn.toolbar-record {
-  border-color: rgba(var(--color-danger-rgb), 0.3);
-  background: linear-gradient(135deg, rgba(var(--color-danger-rgb), 0.15) 0%, rgba(200, 50, 50, 0.1) 100%);
+  --accent-rgb: var(--color-danger-rgb);
+  --accent-deep-rgb: 200, 50, 50;
 }
 
-.toolbar-btn.toolbar-record:hover:not(:disabled) {
-  border-color: rgba(var(--color-danger-rgb), 0.6);
-  background: linear-gradient(135deg, rgba(var(--color-danger-rgb), 0.25) 0%, rgba(200, 50, 50, 0.2) 100%);
-  box-shadow: 0 0 12px rgba(var(--color-danger-rgb), 0.4);
+.toolbar-btn.toolbar-notes {
+  --accent-rgb: var(--color-info-rgb);
+  --accent-deep-rgb: 0, 150, 180;
+}
+
+.toolbar-btn.toolbar-screenshot,
+.toolbar-btn.toolbar-record,
+.toolbar-btn.toolbar-notes {
+  border-color: rgba(var(--accent-rgb), 0.3);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.15) 0%, rgba(var(--accent-deep-rgb), 0.1) 100%);
+}
+
+.toolbar-btn.toolbar-screenshot:hover:not(:disabled),
+.toolbar-btn.toolbar-record:hover:not(:disabled),
+.toolbar-btn.toolbar-notes:hover:not(:disabled) {
+  border-color: rgba(var(--accent-rgb), 0.6);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.25) 0%, rgba(var(--accent-deep-rgb), 0.2) 100%);
+  box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.4);
 }
 
 /* Recording state */
 .toolbar-btn.toolbar-record.recording {
   border-color: rgba(var(--color-danger-rgb), 0.8);
-  background: linear-gradient(135deg, rgba(248, 113, 113, 0.4) 0%, rgba(239, 68, 68, 0.35) 100%);
-  box-shadow: 0 0 0 2px rgba(var(--color-danger-rgb), 0.45), 0 0 20px rgba(var(--color-danger-rgb), 0.35);
+}
+
+/* ID specificity is required to beat the (0,3,1) streaming reveal animation */
+#recordBtn.recording {
+  background: linear-gradient(135deg, #f87171, var(--color-danger));
+  box-shadow: 0 0 0 2px rgba(var(--color-danger-rgb), 0.45), 0 10px 24px rgba(var(--color-danger-rgb), 0.35);
   animation: pulse var(--animation-pulse) ease-in-out infinite;
 }
 
@@ -83,27 +111,13 @@ body.streaming-mode .stream-toolbar .toolbar-capture {
   animation: spin 1s linear infinite;
 }
 
-/* Notes button - info cyan */
-.toolbar-btn.toolbar-notes {
-  border-color: rgba(var(--color-info-rgb), 0.3);
-  background: linear-gradient(135deg, rgba(var(--color-info-rgb), 0.15) 0%, rgba(0, 150, 180, 0.1) 100%);
-}
-
-.toolbar-btn.toolbar-notes:hover:not(:disabled) {
-  border-color: rgba(var(--color-info-rgb), 0.6);
-  background: linear-gradient(135deg, rgba(var(--color-info-rgb), 0.25) 0%, rgba(0, 150, 180, 0.2) 100%);
-  box-shadow: 0 0 12px rgba(var(--color-info-rgb), 0.4);
-}
-
 .toolbar-btn.toolbar-notes.panel-open {
-  border-color: rgba(var(--color-info-rgb), 0.6);
-  background: linear-gradient(135deg, rgba(var(--color-info-rgb), 0.25) 0%, rgba(0, 150, 180, 0.2) 100%);
+  border-color: rgba(var(--accent-rgb), 0.6);
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.25) 0%, rgba(var(--accent-deep-rgb), 0.2) 100%);
   box-shadow: var(--shadow-glow-prismatic);
 }
 
-/* =====================================================
-   Reduced Motion Accessibility
-   ===================================================== */
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .toolbar-capture {
     transition: none !important;
@@ -114,5 +128,59 @@ body.streaming-mode .stream-toolbar .toolbar-capture {
     animation: none !important;
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+/* Button reveal - pop in from nothing */
+@keyframes button-reveal {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Button hide - shrink out */
+@keyframes button-hide {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+
+/* Screenshot button capture effect */
+@keyframes capture-click {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Screenshot shutter flash overlay */
+@keyframes shutter-flash {
+  0% {
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0;
   }
 }

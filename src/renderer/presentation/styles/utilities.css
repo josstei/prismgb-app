@@ -1,17 +1,56 @@
-/* =====================================================
-   Utility Classes
-   General-purpose utility classes for common patterns
-   ===================================================== */
+/* Accessibility Utilities */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Visibility Utilities */
+.hidden {
+  display: none;
+}
 
 /* Popup/Dropdown Animation Utility */
 .popup-animated {
   opacity: 0;
   transform: translateY(-10px);
   pointer-events: none;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .popup-animated.visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* Shared listbox menu base, opened with .visible */
+.settings-select-menu,
+.notes-game-filter-menu,
+.notes-game-autocomplete {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--blur-standard));
+  border-radius: var(--radius-sm);
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition:
+    opacity 0.15s ease-out,
+    transform 0.15s ease-out;
+}
+
+.settings-select-menu.visible,
+.notes-game-filter-menu.visible,
+.notes-game-autocomplete.visible {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;

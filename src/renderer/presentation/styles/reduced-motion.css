@@ -1,0 +1,33 @@
+/* Global prefers-reduced-motion overrides; keep this the last import */
+@media (prefers-reduced-motion: reduce) {
+  .status-indicator {
+    animation: none !important;
+  }
+
+  /* Hide decorative animated elements */
+  .overlay-particles,
+  .ready-ring {
+    display: none !important;
+  }
+
+  /* Keep icon visible but static with subtle glow */
+  .overlay-icon {
+    filter: drop-shadow(0 0 8px rgba(var(--color-primary-rgb), 0.6)) !important;
+  }
+
+  /* Disable prismatic sheen and orb animations */
+  body::after {
+    animation: none !important;
+  }
+
+  .prismatic-orbs::before,
+  .prismatic-orbs::after {
+    animation: none;
+  }
+
+  /* Remove backdrop blur effects for better performance */
+  .header,
+  .stream-overlay {
+    backdrop-filter: none !important;
+  }
+}

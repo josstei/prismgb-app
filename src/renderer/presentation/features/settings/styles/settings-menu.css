@@ -1,14 +1,5 @@
-/* =====================================================
-   Modals, Dropdowns & Popovers
-   Settings menu, tooltips
-   ===================================================== */
-
-/* =====================================================
-   Settings Menu
-   ===================================================== */
 .settings-control {
   position: relative;
-  display: inline-block;
 }
 
 /* Elevate settings-control when menu is open so it appears above notes panel */
@@ -24,14 +15,13 @@
   backdrop-filter: blur(var(--blur-standard));
   border: 1px solid transparent;
   border-radius: var(--radius-lg);
-  padding: 0;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   z-index: var(--z-dropdown);
   min-width: 300px;
   contain: layout style;
 }
 
-/* Subtle border - removed rainbow gradient for cleaner look */
+/* Subtle border */
 .settings-menu-container::before {
   content: '';
   position: absolute;
@@ -97,8 +87,6 @@
 }
 
 .settings-item-title {
-  font-size: var(--font-size-base);
-  color: var(--color-text-primary);
   font-weight: 500;
 }
 
@@ -124,7 +112,7 @@
   height: 22px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 11px;
-  transition: background 0.2s ease, box-shadow 0.2s ease;
+  transition: background var(--transition-fast), box-shadow var(--transition-fast);
   flex-shrink: 0;
   margin-left: var(--space-md);
   contain: layout style;
@@ -145,10 +133,10 @@
 .settings-item.toggle input[type="checkbox"]:checked + .toggle-slider {
   background: linear-gradient(
     90deg,
-    rgba(255, 0, 128, 0.9),
+    rgba(var(--color-primary-rgb), 0.9),
     rgba(130, 0, 255, 0.9)
   );
-  box-shadow: 0 0 12px rgba(255, 0, 128, 0.4);
+  box-shadow: 0 0 12px rgba(var(--color-primary-rgb), 0.4);
 }
 
 .settings-item.toggle input[type="checkbox"]:checked + .toggle-slider::after {
@@ -172,7 +160,7 @@
   padding: 7px 28px 7px 12px;
   background: rgba(var(--color-primary-rgb), 0.12);
   border: 1px solid rgba(var(--color-primary-rgb), 0.3);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: #fff;
   cursor: pointer;
   font-family: var(--font-display);
@@ -214,29 +202,11 @@
 
 /* Dropdown menu */
 .settings-select-menu {
-  position: absolute;
   top: calc(100% + 4px);
-  left: 0;
-  right: 0;
   z-index: 12;
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
   border: 1px solid rgba(var(--color-primary-rgb), 0.25);
-  border-radius: var(--radius-sm);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
   padding: 4px;
-  opacity: 0;
-  transform: translateY(-4px);
-  pointer-events: none;
-  transition:
-    opacity 0.15s ease-out,
-    transform 0.15s ease-out;
-}
-
-.settings-select-menu.visible {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
 }
 
 .settings-select-option {
@@ -386,7 +356,7 @@
   padding: 1px;
   background: linear-gradient(
     135deg,
-    rgba(255, 0, 128, 0.3),
+    rgba(var(--color-primary-rgb), 0.3),
     rgba(0, 200, 255, 0.3),
     rgba(130, 0, 255, 0.3)
   );

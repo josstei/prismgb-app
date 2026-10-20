@@ -1,7 +1,3 @@
-/* =====================================================
-   Editor
-   ===================================================== */
-
 .notes-editor {
   flex: 1;
   display: flex;
@@ -39,7 +35,7 @@
   border: none;
   color: var(--color-text-primary);
   font-family: var(--font-display);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   font-weight: 600;
   letter-spacing: 0.2px;
   outline: none;
@@ -57,7 +53,7 @@
   padding: 2px 6px;
   background: rgba(var(--color-info-rgb), 0.1);
   border: 1px solid rgba(var(--color-info-rgb), 0.2);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: rgba(var(--color-info-rgb), 0.85);
   font-family: var(--font-display);
   font-size: 9px;
@@ -86,7 +82,6 @@
 .notes-game-add-btn {
   width: 20px;
   height: 20px;
-  padding: 0;
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -161,17 +156,20 @@
 }
 
 .notes-content-area {
+  display: none;
   flex: 1;
   width: 100%;
   padding: 10px 0;
   background: transparent;
   border: none;
   color: var(--color-text-primary);
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   line-height: 1.5;
   resize: none;
   outline: none;
   min-height: 120px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--color-info-rgb), 0.25) transparent;
 }
 
 .notes-content-area::selection {
@@ -181,12 +179,6 @@
 .notes-content-area::placeholder {
   color: rgba(255, 255, 255, 0.25);
   font-style: italic;
-}
-
-/* Content area scrollbar - matches tag color */
-.notes-content-area {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(var(--color-info-rgb), 0.25) transparent;
 }
 
 .notes-content-area::-webkit-scrollbar {
@@ -235,19 +227,41 @@
   display: none;
 }
 
-/* Hide content area when no note selected */
-.notes-editor .notes-content-area {
-  display: none;
-}
-
 /* Show content area when note is selected */
 .notes-editor.has-note .notes-content-area {
   display: block;
 }
 
-/* Note: .notes-title-row visibility is handled above */
-/* Keep the selected-note input and content area visible together. */
-.notes-editor.has-note .notes-title-input,
-.notes-editor.has-note .notes-content-area {
-  display: block;
+/* Game autocomplete dropdown */
+.notes-game-autocomplete {
+  top: 100%;
+  z-index: 10;
+  border: 1px solid rgba(var(--color-info-rgb), 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  margin-top: 2px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.notes-game-autocomplete-item {
+  padding: 6px 8px;
+  font-family: var(--font-display);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.notes-game-autocomplete-item:hover,
+.notes-game-autocomplete-item.highlighted {
+  background: rgba(var(--color-info-rgb), 0.15);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.notes-game-autocomplete-item:first-child {
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.notes-game-autocomplete-item:last-child {
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
 }

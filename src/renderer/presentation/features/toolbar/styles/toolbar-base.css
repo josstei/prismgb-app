@@ -1,12 +1,4 @@
-/* =====================================================
-   Stream Toolbar - Base Styles
-   Container and base button styles
-   ===================================================== */
-
-/* =====================================================
-   Toolbar Container
-   Positioned at top right of stream-container
-   ===================================================== */
+/* Toolbar container, positioned at the top right of the stream container */
 .stream-toolbar {
   position: absolute;
   top: 0;
@@ -31,9 +23,7 @@ body.cinematic-active .stream-toolbar.toolbar-hidden {
   pointer-events: none;
 }
 
-/* =====================================================
-   Toolbar Buttons - Circular
-   ===================================================== */
+/* Circular toolbar buttons */
 .toolbar-btn {
   width: 44px;
   height: 44px;
@@ -45,7 +35,7 @@ body.cinematic-active .stream-toolbar.toolbar-hidden {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
   position: relative;
   backdrop-filter: blur(var(--blur-standard));
   outline: none;
@@ -60,12 +50,12 @@ body.cinematic-active .stream-toolbar.toolbar-hidden {
   border-radius: 50%;
   background: conic-gradient(
     from 0deg,
-    rgba(255, 0, 128, 0.6),
+    rgba(var(--color-primary-rgb), 0.6),
     rgba(255, 150, 0, 0.5),
     rgba(0, 255, 100, 0.5),
     rgba(0, 180, 255, 0.6),
     rgba(130, 0, 255, 0.5),
-    rgba(255, 0, 128, 0.6)
+    rgba(var(--color-primary-rgb), 0.6)
   );
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #fff calc(100% - 2px));
   mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #fff calc(100% - 2px));
@@ -78,17 +68,12 @@ body.cinematic-active .stream-toolbar.toolbar-hidden {
   border-color: transparent;
   background: linear-gradient(135deg, rgba(var(--color-primary-rgb), 0.25) 0%, rgba(var(--color-primary-darker-rgb), 0.2) 100%);
   transform: scale(1.08);
-  box-shadow: 0 0 20px rgba(255, 0, 128, 0.3), 0 0 40px rgba(0, 200, 255, 0.15);
+  box-shadow: 0 0 20px rgba(var(--color-primary-rgb), 0.3), 0 0 40px rgba(0, 200, 255, 0.15);
 }
 
 .toolbar-btn:hover::before {
   opacity: 1;
-  animation: toolbar-ring-spin 4s linear infinite;
-}
-
-@keyframes toolbar-ring-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  animation: spin 4s linear infinite;
 }
 
 .toolbar-btn:active {
@@ -130,19 +115,13 @@ body.cinematic-active .stream-toolbar.toolbar-hidden {
   z-index: var(--z-tooltip);
 }
 
-/* =====================================================
-   Fullscreen Mode - Toolbar Behavior
-   ===================================================== */
-
-/* Fullscreen: Adjust position */
+/* Fullscreen: adjust position */
 html:fullscreen .stream-toolbar,
 html:-webkit-full-screen .stream-toolbar {
   top: 20px;
 }
 
-/* =====================================================
-   Cinematic Mode - Toolbar Dimming
-   ===================================================== */
+/* Cinematic mode dimming */
 body.cinematic-active .stream-toolbar {
   opacity: 0.7;
   filter: brightness(0.85);
@@ -159,12 +138,20 @@ body.cinematic-active .stream-toolbar:has(.shader-panel.visible) {
   filter: brightness(1);
 }
 
-/* =====================================================
-   Reduced Motion Accessibility
-   ===================================================== */
+/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .toolbar-btn {
     transition: none !important;
     animation: none !important;
+  }
+}
+
+/* Shared by the hover ring, the record spinner and the transcode ring */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }

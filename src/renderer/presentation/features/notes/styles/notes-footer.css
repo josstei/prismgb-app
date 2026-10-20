@@ -1,14 +1,10 @@
-/* =====================================================
-   Footer
-   ===================================================== */
-
 .notes-panel-footer {
   display: flex;
   gap: 8px;
   padding: 10px 14px;
   position: relative;
   background: rgba(0, 0, 0, 0.12);
-  border-radius: 0 0 var(--side-panel-border-radius) var(--side-panel-border-radius);
+  border-radius: 0 0 var(--notes-panel-radius) var(--notes-panel-radius);
 }
 
 /* Subtle gradient divider at top */
@@ -101,7 +97,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(239, 68, 68, 0.3);
+  background: rgba(var(--color-danger-rgb), 0.3);
   border-radius: inherit;
   pointer-events: none;
   z-index: 0;

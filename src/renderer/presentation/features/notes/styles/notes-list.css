@@ -1,6 +1,4 @@
-/* =====================================================
-   Content area (split list + editor)
-   ===================================================== */
+/* Content area (split list + editor) */
 
 .notes-panel-content {
   --notes-list-width: 130px;
@@ -12,7 +10,7 @@
 
 /* List wrapper - handles collapse animation */
 .notes-list-wrapper {
-  width: var(--notes-list-width, 130px);
+  width: var(--notes-list-width);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -21,7 +19,7 @@
   will-change: width, opacity;
   transition:
     width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-    opacity 0.2s ease;
+    opacity var(--transition-fast);
 }
 
 /* Collapsed state */
@@ -67,8 +65,7 @@
   border: 1px solid transparent;
   transition:
     background 0.15s ease,
-    border-color 0.15s ease,
-    transform 0.15s ease;
+    border-color 0.15s ease;
 }
 
 .note-list-item:hover {
@@ -115,9 +112,7 @@
   font-style: italic;
 }
 
-/* =====================================================
-   Game Groups
-   ===================================================== */
+/* Game groups */
 
 .notes-game-group {
   margin-bottom: 4px;
@@ -161,7 +156,7 @@
   color: rgba(255, 255, 255, 0.4);
   background: rgba(255, 255, 255, 0.06);
   padding: 2px 5px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   font-variant-numeric: tabular-nums;
 }
 
@@ -169,7 +164,7 @@
   width: 10px;
   height: 10px;
   color: rgba(255, 255, 255, 0.4);
-  transition: transform 0.2s ease;
+  transition: transform var(--transition-fast);
 }
 
 .notes-game-group.collapsed .notes-game-header .game-chevron {
@@ -190,24 +185,59 @@
   opacity: 0;
 }
 
-/* Game tag on note items */
-.note-list-item-game-tag {
-  display: inline-block;
-  font-size: 8px;
-  font-weight: 500;
-  color: rgba(var(--color-info-rgb), 0.7);
-  background: rgba(var(--color-info-rgb), 0.1);
-  padding: 1px 4px;
-  border-radius: 3px;
-  margin-top: 2px;
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* List toggle divider */
+
+.notes-list-toggle {
+  width: 10px;
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  cursor: col-resize;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast);
 }
 
-/* Hide game tag when viewing a filtered game or in grouped view */
-.notes-game-notes .note-list-item-game-tag,
-.notes-list[data-filtered] .note-list-item-game-tag {
-  display: none;
+.notes-list-toggle:hover {
+  background: rgba(var(--color-info-rgb), 0.05);
+}
+
+.notes-list-toggle .toggle-handle {
+  width: 2px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 1px;
+  transition:
+    background var(--transition-fast),
+    height var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.notes-list-toggle:hover .toggle-handle {
+  background: rgba(var(--color-info-rgb), 0.5);
+  height: 36px;
+  box-shadow: 0 0 8px rgba(var(--color-info-rgb), 0.3);
+}
+
+/* Dragging state */
+.notes-list-toggle.dragging {
+  background: rgba(var(--color-info-rgb), 0.1);
+}
+
+.notes-list-toggle.dragging .toggle-handle {
+  background: rgba(var(--color-info-rgb), 0.7);
+  height: 44px;
+  box-shadow: 0 0 12px rgba(var(--color-info-rgb), 0.4);
+}
+
+/* Disable transition during drag for responsive feedback */
+.notes-panel-content:has(.notes-list-toggle.dragging) .notes-list-wrapper {
+  transition: none;
+}
+
+/* Visual indicator when collapsed */
+.notes-panel-content.notes-list-collapsed .notes-list-toggle .toggle-handle {
+  background: rgba(var(--color-info-rgb), 0.4);
 }

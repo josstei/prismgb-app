@@ -1,7 +1,3 @@
-/* =====================================================
-   Toolbar (Search + Filter)
-   ===================================================== */
-
 .notes-panel-toolbar {
   display: flex;
   align-items: center;
@@ -61,7 +57,7 @@
   border-radius: var(--radius-sm);
   color: var(--color-text-primary);
   font-family: var(--font-display);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   outline: none;
   transition:
     border-color var(--transition-fast),
@@ -93,7 +89,7 @@
   padding: 2px 18px 2px 20px;
   background: rgba(var(--color-info-rgb), 0.1);
   border: 1px solid rgba(var(--color-info-rgb), 0.2);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: rgba(var(--color-info-rgb), 0.85);
   cursor: pointer;
   font-family: var(--font-display);
@@ -139,7 +135,6 @@
   display: inline-flex;
   align-items: center;
   width: 100%;
-  padding: 0;
   background: transparent;
   border: none;
   color: inherit;
@@ -164,31 +159,13 @@
 }
 
 .notes-game-filter-menu {
-  position: absolute;
   top: calc(100% + 4px);
-  left: 0;
-  right: 0;
   z-index: 12;
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
   border: 1px solid rgba(var(--color-info-rgb), 0.2);
-  border-radius: var(--radius-sm);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
   padding: 4px;
   max-height: 140px;
   overflow-y: auto;
-  opacity: 0;
-  transform: translateY(-4px);
-  pointer-events: none;
-  transition:
-    opacity 0.15s ease-out,
-    transform 0.15s ease-out;
-}
-
-.notes-game-filter-menu.visible {
-  opacity: 1;
-  transform: translateY(0);
-  pointer-events: auto;
 }
 
 .notes-game-filter-option {

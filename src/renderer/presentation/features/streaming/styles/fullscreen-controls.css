@@ -1,8 +1,3 @@
-/* =====================================================
-   Fullscreen Controls Styles
-   Minimal pill-shaped control bar for fullscreen mode
-   ===================================================== */
-
 /* Hidden by default, only visible in fullscreen */
 .fullscreen-controls {
   display: none;
@@ -44,13 +39,11 @@ body.fullscreen-active .fullscreen-controls.fullscreen-hidden {
   justify-content: center;
   width: 44px;
   height: 44px;
-  padding: 0;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: transparent;
   color: var(--color-text-primary);
-  cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, transform 0.1s ease;
+  transition: background var(--transition-fast), color var(--transition-fast), transform 0.1s ease;
   contain: layout style;
 }
 
@@ -61,11 +54,6 @@ body.fullscreen-active .fullscreen-controls.fullscreen-hidden {
 
 .fs-control-btn:active {
   transform: scale(0.95);
-}
-
-.fs-control-btn:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
 }
 
 /* Prevent macOS cursor caching - fullscreen buttons use default cursor */
