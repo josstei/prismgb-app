@@ -1,4 +1,5 @@
 import { BaseService, type EventSource } from './service.base';
+import { getEventHandlerBindings } from './event-decorator';
 import type { LoggerFactory } from './logger';
 
 export abstract class BaseOrchestrator extends BaseService {
@@ -25,6 +26,8 @@ export abstract class BaseOrchestrator extends BaseService {
     try {
       if (this.eventSource) {
         this.bindEventHandlers(this.eventSource);
+      } else if (getEventHandlerBindings(this.constructor).length > 0) {
+        this.logger.warn('Cannot subscribe - eventBus not available');
       }
       await this.onInitialize();
 

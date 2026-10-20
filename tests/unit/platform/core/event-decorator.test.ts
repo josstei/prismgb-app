@@ -31,8 +31,8 @@ type RecordingBus = ReturnType<typeof createRecordingBus>['bus'];
 class AlphaOrchestrator extends BaseOrchestrator {
   received: unknown[] = [];
 
-  constructor(bus: RecordingBus | null = null) {
-    super(createLoggerFactory(), 'AlphaOrchestrator', bus);
+  constructor(bus: RecordingBus | null = null, loggerFactory = createLoggerFactory()) {
+    super(loggerFactory, 'AlphaOrchestrator', bus);
   }
 
   @OnTestEvent('test:alpha')
@@ -167,10 +167,22 @@ describe('BaseOrchestrator declared-event subscription', () => {
     expect(bus.subscribe).toHaveBeenCalledTimes(4);
   });
 
-  it('skips subscription without an event bus', async () => {
-    const orchestrator = new AlphaOrchestrator();
+  it('skips subscription and warns without an event bus', async () => {
+    const loggerFactory = createLoggerFactory();
+    const orchestrator = new AlphaOrchestrator(null, loggerFactory);
 
     await expect(orchestrator.initialize()).resolves.toBeUndefined();
     expect(orchestrator.isInitialized).toBe(true);
+    expect(loggerFactory._getLogger('AlphaOrchestrator').warn).toHaveBeenCalledWith('Cannot subscribe - eventBus not available');
+  });
+
+  it('does not warn without an event bus when no handlers are declared', async () => {
+    class PlainOrchestrator extends BaseOrchestrator {}
+    const loggerFactory = createLoggerFactory();
+    const orchestrator = new PlainOrchestrator(loggerFactory, 'PlainOrchestrator');
+
+    await orchestrator.initialize();
+
+    expect(loggerFactory._getLogger('PlainOrchestrator').warn).not.toHaveBeenCalled();
   });
 });
