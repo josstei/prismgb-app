@@ -21,13 +21,11 @@
    Hide video/canvas when not streaming to prevent stale frames
    ===================================================== */
 
-#streamVideo,
 #streamCanvas {
   opacity: 0;
   visibility: hidden;
 }
 
-body.streaming-mode #streamVideo,
 body.streaming-mode #streamCanvas {
   opacity: 1;
   visibility: visible;
@@ -96,25 +94,20 @@ body.streaming-mode #streamCanvas {
 .stream-overlay:has(#overlayMessage.ready) .ready-ring {
   visibility: visible;
   opacity: 1;
-  animation-play-state: running;
 }
 
 /* Prismatic inner ring - synced with 1.4s heartbeat pulse */
 .stream-overlay:has(#overlayMessage.ready) .ready-ring-inner {
-  opacity: 1;
-  border-width: 4px;
   animation: prismatic-ring-pulse 1.4s ease-in-out infinite;
 }
 
 /* Prismatic outer ring - expands on each pulse beat */
 .stream-overlay:has(#overlayMessage.ready) .ready-ring-outer {
-  opacity: 1;
   animation: prismatic-ring-expand 1.4s ease-out infinite;
 }
 
 /* Prismatic ripple ring - slightly offset for layered effect */
 .stream-overlay:has(#overlayMessage.ready) .ready-ring-ripple {
-  opacity: 1;
   animation: prismatic-ring-ripple 1.4s ease-out infinite;
   animation-delay: 0.1s;
 }
@@ -165,8 +158,6 @@ body.streaming-mode #streamCanvas {
 @media (prefers-reduced-motion: reduce) {
   .stream-overlay,
   .stream-overlay .overlay-icon,
-  .stream-overlay .particle,
-  .stream-overlay .ready-ring,
   .stream-overlay .gem-glow,
   .stream-overlay .ready-flash,
   .stream-overlay .scanlines {
@@ -175,16 +166,6 @@ body.streaming-mode #streamCanvas {
   }
 
   /* Keep essential state visibility changes */
-  .stream-overlay:has(#overlayMessage.ready) .overlay-icon {
-    opacity: 1;
-    filter: brightness(1.1) saturate(1.1);
-  }
-
-  .stream-overlay:has(#overlayMessage.ready) .ready-ring {
-    visibility: visible;
-    opacity: 0.8;
-  }
-
   .stream-overlay:has(#overlayMessage.ready) .gem-glow {
     opacity: 0.6;
   }
@@ -201,8 +182,6 @@ body.streaming-mode #streamCanvas {
   }
 
   .stream-overlay.transitioning-to-stream .icon-wrapper,
-  .stream-overlay.transitioning-to-stream .ready-ring,
-  .stream-overlay.transitioning-to-stream .particle,
   .stream-overlay.transitioning-to-stream .gem-glow,
   .stream-overlay.transitioning-to-stream .scanlines {
     animation: none !important;

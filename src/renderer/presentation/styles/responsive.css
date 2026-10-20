@@ -15,12 +15,7 @@
    Respects user's OS-level reduced motion preference
    ===================================================== */
 @media (prefers-reduced-motion: reduce) {
-  /* Disable all infinite animations */
-  .status-indicator,
-  .stream-overlay,
-  .overlay-icon,
-  .particle,
-  .ready-ring {
+  .status-indicator {
     animation: none !important;
   }
 
@@ -37,12 +32,6 @@
 
   /* Disable prismatic sheen animation */
   body::after {
-    animation: none !important;
-  }
-
-  /* Remove pseudo-element animations */
-  .stream-overlay::before,
-  .stream-overlay::after {
     animation: none !important;
   }
 

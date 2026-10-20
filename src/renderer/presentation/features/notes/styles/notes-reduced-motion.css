@@ -7,14 +7,6 @@
     transition: none !important;
   }
 
-  .notes-panel:not(.visible) {
-    transform: translateX(100%) !important;
-  }
-
-  .notes-panel.visible {
-    transform: translateX(0) !important;
-  }
-
   .notes-footer-btn,
   .note-list-item,
   .notes-list-wrapper,

@@ -126,9 +126,6 @@ body::after {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body::after {
-    animation: none;
-  }
   .prismatic-orbs::before,
   .prismatic-orbs::after {
     animation: none;
@@ -185,9 +182,6 @@ body.app-animations-off .particle {
 }
 
 body.app-animations-off .ready-ring,
-body.app-animations-off .ready-ring-inner,
-body.app-animations-off .ready-ring-outer,
-body.app-animations-off .ready-ring-ripple,
 body.app-animations-off .gem-glow {
   animation: none !important;
   will-change: auto;
