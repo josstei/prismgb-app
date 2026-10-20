@@ -8,7 +8,7 @@
   padding: 10px 14px;
   position: relative;
   background: rgba(0, 0, 0, 0.12);
-  border-radius: 0 0 var(--side-panel-border-radius) var(--side-panel-border-radius);
+  border-radius: 0 0 var(--notes-panel-radius) var(--notes-panel-radius);
 }
 
 /* Subtle gradient divider at top */

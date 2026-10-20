@@ -3,38 +3,23 @@
    Premium Prismatic Minimalism
    ===================================================== */
 
-/* Notes panel overrides (inherits from side-panel system in tokens.css)
-   Adjust these to customize notes panel specifically */
-:root {
-  --notes-panel-height: var(--side-panel-height);
-  --notes-panel-max-height: var(--side-panel-max-height);
-  --notes-panel-min-height: var(--side-panel-min-height);
-  --notes-panel-min-width: var(--side-panel-min-width);
-  --notes-panel-max-width: var(--side-panel-max-width);
-}
-
-/* Sidebar Container - Glass morphism with prismatic border */
+/* Sidebar Container - Glass morphism with prismatic border.
+   notes-panel-layout sets the --notes-panel-* overrides inline; the fallbacks are the pre-layout defaults. */
 .notes-panel {
-  /* Default values before JS initialization */
-  --notes-list-width: 130px;
-  --notes-panel-top: 80px;
-  --notes-panel-height: calc(100vh - 160px);
+  --notes-panel-radius: 18px;
 
   position: fixed;
-  /* Top position set dynamically by JS to align with toolbar */
-  top: var(--notes-panel-top, var(--side-panel-center-offset));
-  right: var(--side-panel-offset-right);
-  /* Left position set dynamically by JS based on toolbar location */
-  left: var(--notes-panel-left, var(--side-panel-offset-left));
+  top: var(--notes-panel-top, 80px);
+  right: 8px;
+  left: var(--notes-panel-left, 70%);
   bottom: auto;
 
-  /* Dimensions from panel system */
-  height: var(--notes-panel-height);
-  max-height: var(--notes-panel-max-height);
-  min-height: var(--notes-panel-min-height);
+  height: calc(100vh - 160px);
+  max-height: var(--notes-panel-max-height, calc(100vh - 130px));
+  min-height: var(--notes-panel-min-height, 300px);
   /* Width determined by left/right positioning, with constraints */
-  min-width: var(--notes-panel-min-width);
-  max-width: var(--notes-panel-max-width);
+  min-width: var(--notes-panel-min-width, 200px);
+  max-width: var(--notes-panel-max-width, 450px);
 
   z-index: var(--z-dropdown);
 
@@ -44,7 +29,7 @@
   -webkit-backdrop-filter: blur(var(--blur-standard));
 
   border: 1px solid transparent;
-  border-radius: var(--side-panel-border-radius);
+  border-radius: var(--notes-panel-radius);
   box-shadow:
     -1px 0 0 rgba(var(--color-primary-rgb), 0.15),
     -8px 0 32px rgba(0, 0, 0, 0.4),

@@ -161,6 +161,7 @@
 }
 
 .notes-content-area {
+  display: none;
   flex: 1;
   width: 100%;
   padding: 10px 0;
@@ -172,6 +173,8 @@
   resize: none;
   outline: none;
   min-height: 120px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(var(--color-info-rgb), 0.25) transparent;
 }
 
 .notes-content-area::selection {
@@ -181,12 +184,6 @@
 .notes-content-area::placeholder {
   color: rgba(255, 255, 255, 0.25);
   font-style: italic;
-}
-
-/* Content area scrollbar - matches tag color */
-.notes-content-area {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(var(--color-info-rgb), 0.25) transparent;
 }
 
 .notes-content-area::-webkit-scrollbar {
@@ -235,19 +232,7 @@
   display: none;
 }
 
-/* Hide content area when no note selected */
-.notes-editor .notes-content-area {
-  display: none;
-}
-
 /* Show content area when note is selected */
-.notes-editor.has-note .notes-content-area {
-  display: block;
-}
-
-/* Note: .notes-title-row visibility is handled above */
-/* Keep the selected-note input and content area visible together. */
-.notes-editor.has-note .notes-title-input,
 .notes-editor.has-note .notes-content-area {
   display: block;
 }

@@ -75,6 +75,8 @@
   flex-direction: column;
   gap: 2px;
   padding: 2px;
+  flex: 1;
+  min-width: 140px;
 }
 
 .shader-option {
@@ -139,11 +141,6 @@
   flex-direction: row;
   gap: 16px;
   align-items: flex-start;
-}
-
-.shader-options {
-  flex: 1;
-  min-width: 140px;
 }
 
 .shader-options.hidden {
