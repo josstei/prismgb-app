@@ -39,6 +39,14 @@ describe('Renderer container', () => {
     expect(container.get(TOKENS.loggerFactory)).toBe(fakeLoggerFactory);
   });
 
+  it('hands out the container singletons through the component host', () => {
+    const container = createRendererContainer();
+    const host = container.get(TOKENS.uiComponentHost);
+
+    expect(host.get('streamingControlsComponent')).toBe(container.get(TOKENS.streamingControlsComponent));
+    expect(host.get('notesPanelComponent')).toBe(container.get(TOKENS.notesPanelComponent));
+  });
+
   it('resolves streamingRenderService before canvasLifecycleService without a circular error', () => {
     const container = createRendererContainer();
 

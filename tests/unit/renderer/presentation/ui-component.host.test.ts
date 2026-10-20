@@ -20,7 +20,7 @@ function createHost(createComponent: (id: string) => ComponentStub = (id) => ({ 
   return { host, resolve, logger: loggerFactory.create('UiComponentHost') };
 }
 
-const resolvedIds = (resolve: ReturnType<typeof vi.fn>) => resolve.mock.results.map(({ value }) => value.id);
+const resolutionOrder = (resolve: ReturnType<typeof vi.fn>) => resolve.mock.results.map(({ value }) => value.id);
 
 describe('UiComponentHost', () => {
   it('resolves a component through its token only when first accessed', () => {
@@ -48,7 +48,7 @@ describe('UiComponentHost', () => {
 
     host.resolveCore();
 
-    expect(resolvedIds(resolve)).toEqual([
+    expect(resolutionOrder(resolve)).toEqual([
       'statusNotificationComponent',
       'deviceStatusComponent',
       'streamingControlsComponent',
@@ -61,7 +61,7 @@ describe('UiComponentHost', () => {
 
     host.resolveDeferred();
 
-    expect(resolvedIds(resolve)).toEqual(['settingsMenuComponent', 'shaderSelectorComponent', 'notesPanelComponent']);
+    expect(resolutionOrder(resolve)).toEqual(['settingsMenuComponent', 'shaderSelectorComponent', 'notesPanelComponent']);
   });
 
   it('does not re-resolve components that were already accessed', () => {
@@ -70,7 +70,7 @@ describe('UiComponentHost', () => {
     host.get('shaderSelectorComponent');
     host.resolveDeferred();
 
-    expect(resolvedIds(resolve)).toEqual(['shaderSelectorComponent', 'settingsMenuComponent', 'notesPanelComponent']);
+    expect(resolutionOrder(resolve)).toEqual(['shaderSelectorComponent', 'settingsMenuComponent', 'notesPanelComponent']);
   });
 
   it('disposes resolved components in reverse resolution order', async () => {
