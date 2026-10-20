@@ -1,10 +1,6 @@
 /* =====================================================
    Global Application States
    Cinematic mode, fullscreen mode, and cross-feature states
-
-   Feature-specific states are now co-located with their features:
-   - streaming/styles/streaming-states.css - overlay animations, video visibility
-   - toolbar/styles/toolbar-states.css - toolbar button visibility
    ===================================================== */
 
 /* =====================================================
@@ -167,16 +163,6 @@ body.fullscreen-active.streaming-mode.minimalist-fullscreen .fs-control-btn:focu
 body.cursor-hidden,
 body.cursor-hidden * {
   cursor: none !important;
-}
-
-/* =====================================================
-   Combined States
-   Streaming + Cinematic mode optimizations
-   ===================================================== */
-body.streaming-mode.cinematic-active .app-icon,
-body.streaming-mode.cinematic-active .app-logo {
-  /* Pause decorative header animations during streaming */
-  animation-play-state: paused;
 }
 
 /* =====================================================

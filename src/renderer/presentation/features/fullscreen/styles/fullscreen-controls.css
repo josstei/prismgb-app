@@ -49,7 +49,6 @@ body.fullscreen-active .fullscreen-controls.fullscreen-hidden {
   border-radius: 12px;
   background: transparent;
   color: var(--color-text-primary);
-  cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease, transform 0.1s ease;
   contain: layout style;
 }
@@ -61,11 +60,6 @@ body.fullscreen-active .fullscreen-controls.fullscreen-hidden {
 
 .fs-control-btn:active {
   transform: scale(0.95);
-}
-
-.fs-control-btn:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
 }
 
 /* Prevent macOS cursor caching - fullscreen buttons use default cursor */

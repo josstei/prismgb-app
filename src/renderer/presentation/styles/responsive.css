@@ -16,7 +16,6 @@
    ===================================================== */
 @media (prefers-reduced-motion: reduce) {
   /* Disable all infinite animations */
-  .app-icon,
   .status-indicator,
   .stream-overlay,
   .overlay-icon,

@@ -3,16 +3,6 @@
    Keyframe definitions for UI animations
    ===================================================== */
 
-/* Icon glow animation for app icon */
-@keyframes icon-glow {
-  0%, 100% {
-    filter: drop-shadow(0 0 8px rgba(var(--color-primary-rgb), 0.6));
-  }
-  50% {
-    filter: drop-shadow(0 0 10px rgba(var(--color-primary-rgb), 0.7));
-  }
-}
-
 /* Simple pulse animation for status indicators */
 @keyframes pulse {
   0%, 100% { opacity: 1; }

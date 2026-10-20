@@ -101,11 +101,6 @@
   appearance: none;
 }
 
-.shader-option:focus {
-  outline: none;
-  box-shadow: none;
-}
-
 .shader-option:hover {
   background: rgba(var(--color-primary-rgb), 0.15);
   color: rgba(255, 255, 255, 0.95);
@@ -134,11 +129,6 @@
 
 .shader-option.just-selected {
   animation: selection-flash 0.25s ease-out forwards;
-}
-
-.shader-option-name {
-  font-size: inherit;
-  letter-spacing: inherit;
 }
 
 /* =====================================================

@@ -18,7 +18,6 @@
   align-items: center;
   justify-content: center;
   transition: opacity 0.5s ease;
-  cursor: pointer;
   overflow: hidden;
   animation: screen-flicker var(--animation-flicker) ease-in-out infinite;
   /* Performance: isolate repaints to this container */
