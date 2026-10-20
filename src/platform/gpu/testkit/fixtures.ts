@@ -1,4 +1,4 @@
-import type { RenderCapabilities, RenderCanvas } from '../domain/types';
+import type { RenderCapabilities } from '../domain/types';
 import type { PipelineUniforms } from '../infrastructure/webgpu-passes.definitions';
 
 type DeepPartial<T> = {
@@ -11,7 +11,10 @@ type DeepPartial<T> = {
 
 export type MockCanvasContextMap = Partial<Record<string, unknown>>;
 
-export type MockRenderCanvas = RenderCanvas & {
+export type MockRenderCanvas = {
+  width: number;
+  height: number;
+  getContext(contextType: string): unknown;
   transferControlToOffscreen(): OffscreenCanvas;
 };
 

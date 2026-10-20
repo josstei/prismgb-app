@@ -7,14 +7,13 @@ import type {
   RenderWorkerResponse
 } from '../../../../../src/platform/gpu/worker/render-worker.contract';
 
-const { mockCreateGpuRenderer } = vi.hoisted(() => ({ mockCreateGpuRenderer: vi.fn() }));
+const { mockCreateDriver } = vi.hoisted(() => ({ mockCreateDriver: vi.fn() }));
 
-vi.mock('../../../../../src/platform/gpu/application/renderer.service', () => ({
-  createGpuRenderer: mockCreateGpuRenderer
+vi.mock('../../../../../src/platform/gpu/infrastructure/webgpu.driver', () => ({
+  WebGpuDriver: { create: mockCreateDriver }
 }));
 
 const renderer = {
-  backend: 'webgpu',
   renderFrame: vi.fn(),
   resize: vi.fn(),
   captureFrame: vi.fn(),
@@ -66,10 +65,10 @@ async function createInitializedHost() {
 
 describe('render worker host', () => {
   beforeEach(() => {
-    mockCreateGpuRenderer.mockResolvedValue(renderer);
+    mockCreateDriver.mockResolvedValue(renderer);
   });
 
-  it('sizes the canvas, creates a WebGPU-only renderer with the resolved preset and brightness, then reports ready', async () => {
+  it('sizes the canvas, creates the WebGPU driver with the resolved preset and brightness, then reports ready', async () => {
     const host = createHost();
     const canvas = createCanvas();
 
@@ -77,20 +76,17 @@ describe('render worker host', () => {
 
     expect(canvas.width).toBe(640);
     expect(canvas.height).toBe(576);
-    expect(mockCreateGpuRenderer).toHaveBeenCalledWith(expect.objectContaining({
-      canvas,
+    expect(mockCreateDriver).toHaveBeenCalledWith(canvas, {
       nativeWidth: 160,
       nativeHeight: 144,
-      preferredBackend: 'webgpu',
-      allowCanvas2D: false,
-      preset: resolvePreset('vintage')
-    }));
-    expect(renderer.setBrightness).toHaveBeenCalledWith(1.3);
+      preset: resolvePreset('vintage'),
+      brightness: 1.3
+    });
     expect(host.responses()).toEqual([{ type: 'ready' }]);
   });
 
   it('reports an initialization failure as an error message', async () => {
-    mockCreateGpuRenderer.mockRejectedValueOnce(new Error('WebGPU adapter not available'));
+    mockCreateDriver.mockRejectedValueOnce(new Error('WebGPU adapter not available'));
     const host = createHost();
 
     await host.send({ type: 'init', canvas: createCanvas(), config: CONFIG });

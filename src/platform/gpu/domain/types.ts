@@ -1,11 +1,5 @@
 export type RenderBackend = 'webgpu' | 'canvas2d';
 
-export interface RenderCanvas {
-  width: number;
-  height: number;
-  getContext(...args: readonly unknown[]): unknown;
-}
-
 export interface UnsharpConfig {
   readonly enabled: boolean;
   readonly strength: number;
@@ -37,15 +31,6 @@ export interface RenderPreset {
   readonly crt: CRTConfig;
 }
 
-export interface RenderPipelineConfig {
-  canvas: RenderCanvas;
-  nativeWidth: number;
-  nativeHeight: number;
-  preset: RenderPreset;
-  preferredBackend?: RenderBackend;
-  allowCanvas2D?: boolean;
-}
-
 export interface WebGPULimits {
   maxTextureDimension2D: number;
   maxBindGroups: number;
@@ -58,33 +43,4 @@ export interface RenderCapabilities {
   preferredBackend: RenderBackend;
   maxTextureSize: number;
   webgpuLimits?: WebGPULimits;
-}
-
-export interface GpuVideoRendererError {
-  message: string;
-  code?: string;
-}
-
-export interface RenderPipeline {
-  readonly backend: RenderBackend;
-  readonly isInitialized: boolean;
-  readonly isActive: boolean;
-
-  initialize(): Promise<void>;
-  renderFrame(source: TexImageSource): void;
-  resize(width: number, height: number): void;
-
-  setPreset(preset: RenderPreset): void;
-  getPreset(): RenderPreset;
-
-  setBrightness(value: number): void;
-
-  captureFrame(): Promise<ImageBitmap>;
-  clearFrame(): void;
-
-  pause(): void;
-  resume(): void;
-
-  releaseResources(): void;
-  dispose(): Promise<void>;
 }

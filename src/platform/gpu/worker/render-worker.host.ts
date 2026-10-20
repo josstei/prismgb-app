@@ -1,7 +1,5 @@
 import { resolvePreset } from '../domain/presets.definitions';
-import { createGpuRenderer } from '../application/renderer.service';
-import { detectWorkerGpuCapabilities } from '../infrastructure/capabilities.worker';
-import type { RenderPipeline } from '../domain/types';
+import { WebGpuDriver } from '../infrastructure/webgpu.driver';
 import type { RenderWorkerConfig, RenderWorkerRequest, RenderWorkerResponse } from './render-worker.contract';
 
 export type RenderWorkerScope = {
@@ -10,7 +8,7 @@ export type RenderWorkerScope = {
 };
 
 export function startRenderWorkerHost(scope: RenderWorkerScope): void {
-  let renderer: RenderPipeline | null = null;
+  let renderer: WebGpuDriver | null = null;
   let captureRequested = false;
 
   const post = (response: RenderWorkerResponse, transfer: Transferable[] = []): void => {
@@ -26,17 +24,12 @@ export function startRenderWorkerHost(scope: RenderWorkerScope): void {
       canvas.width = config.targetWidth;
       canvas.height = config.targetHeight;
 
-      const nextRenderer = await createGpuRenderer({
-        canvas,
+      renderer = await WebGpuDriver.create(canvas, {
         nativeWidth: config.nativeWidth,
         nativeHeight: config.nativeHeight,
-        preferredBackend: 'webgpu',
-        capabilities: detectWorkerGpuCapabilities(canvas, 'webgpu'),
-        allowCanvas2D: false,
-        preset: resolvePreset(config.presetId)
+        preset: resolvePreset(config.presetId),
+        brightness: config.brightness
       });
-      nextRenderer.setBrightness(config.brightness);
-      renderer = nextRenderer;
 
       post({ type: 'ready' });
     } catch (error) {
@@ -65,7 +58,7 @@ export function startRenderWorkerHost(scope: RenderWorkerScope): void {
     }
   }
 
-  function apply(update: (activeRenderer: RenderPipeline) => void): void {
+  function apply(update: (activeRenderer: WebGpuDriver) => void): void {
     if (!renderer) return;
 
     try {

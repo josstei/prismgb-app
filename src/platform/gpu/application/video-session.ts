@@ -1,13 +1,9 @@
 import { resolvePreset } from '../domain/presets.definitions';
-import { createGpuRenderer } from './renderer.service';
+import { Canvas2dDriver } from '../infrastructure/canvas2d.driver';
 import { WorkerRendererClient } from '../worker/client';
-import type {
-  RenderBackend,
-  RenderPreset,
-  GpuVideoRendererError,
-  RenderPipeline,
-  RenderCapabilities
-} from '../domain/types';
+import type { RenderBackend, RenderPreset, RenderCapabilities } from '../domain/types';
+
+type GpuVideoRendererError = { message: string; code?: string };
 
 export type GpuVideoRendererSession = {
   readonly backend: RenderBackend;
@@ -54,7 +50,7 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
   private presetId: string;
   private currentPreset: RenderPreset;
 
-  private localPipeline: RenderPipeline | null = null;
+  private localPipeline: Canvas2dDriver | null = null;
 
   private onReadyCb?: (event: { backend: RenderBackend }) => void;
   private onErrorCb?: (error: GpuVideoRendererError) => void;
@@ -102,16 +98,7 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
   async initialize(canvas: HTMLCanvasElement, options: GpuVideoRendererSessionOptions): Promise<void> {
     if (this.backend === 'canvas2d') {
       try {
-        this.localPipeline = await createGpuRenderer({
-          canvas,
-          nativeWidth: this.nativeWidth,
-          nativeHeight: this.nativeHeight,
-          preferredBackend: 'canvas2d',
-          preset: this.currentPreset,
-          allowCanvas2D: true,
-          capabilities: options.capabilities
-        });
-        this.localPipeline.setBrightness(this.brightness);
+        this.localPipeline = new Canvas2dDriver(canvas, this.nativeWidth, this.nativeHeight);
         this.onReadyCb?.({ backend: 'canvas2d' });
       } catch (err: unknown) {
         this.logger.error('Failed to initialize local Canvas2D pipeline:', err);
@@ -262,23 +249,15 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
     this.presetId = preset.id;
     this.currentPreset = preset;
 
-    if (this.backend === 'canvas2d') {
-      this.localPipeline?.setPreset(preset);
-    } else {
-      if (this.workerClient && this.workerClient.isReady()) {
-        this.workerClient.setPreset(preset.id);
-      }
+    if (this.backend === 'webgpu' && this.workerClient && this.workerClient.isReady()) {
+      this.workerClient.setPreset(preset.id);
     }
   }
 
   setBrightness(value: number): void {
     this.brightness = value;
-    if (this.backend === 'canvas2d') {
-      this.localPipeline?.setBrightness(value);
-    } else {
-      if (this.workerClient && this.workerClient.isReady()) {
-        this.workerClient.setBrightness(value);
-      }
+    if (this.backend === 'webgpu' && this.workerClient && this.workerClient.isReady()) {
+      this.workerClient.setBrightness(value);
     }
   }
 
@@ -343,7 +322,7 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
 
     if (this.backend === 'canvas2d') {
       if (this.localPipeline) {
-        this.localPipeline.dispose().catch(() => {});
+        this.localPipeline.dispose();
         this.localPipeline = null;
       }
     } else {

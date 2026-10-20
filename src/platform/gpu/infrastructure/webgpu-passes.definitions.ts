@@ -136,7 +136,7 @@ export type WebGpuPass = {
   readonly sampler: 'nearest' | 'linear';
   readonly byteLength: number;
   isEnabled(uniforms: PipelineUniforms): boolean;
-  pack(uniforms: PipelineUniforms): Float32Array;
+  pack(uniforms: PipelineUniforms): Float32Array<ArrayBuffer>;
 };
 
 // Each pack() mirrors its WGSL uniform struct field by field, padded to byteLength.
