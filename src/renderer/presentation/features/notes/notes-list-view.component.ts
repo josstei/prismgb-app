@@ -96,23 +96,6 @@ class NotesListViewComponent extends PresentationComponent {
       .join('');
   }
 
-  updateItemDisplay(noteId: string, title: string, gameName?: string): void {
-    const item = this.listElement?.querySelector<HTMLElement>(`[data-note-id="${noteId}"]`);
-    if (!item) return;
-
-    for (const child of item.children) {
-      const element = child as HTMLElement;
-      if (element.classList.contains('note-list-item-title')) {
-        element.textContent = title || 'Untitled Note';
-      } else if (element.classList.contains('note-list-item-date')) {
-        element.textContent = new Date().toLocaleDateString();
-      } else if (element.classList.contains('note-list-item-game-tag') && gameName !== undefined) {
-        element.textContent = gameName || '';
-        element.style.display = gameName ? '' : 'none';
-      }
-    }
-  }
-
   updateActiveState(noteId: string | null): void {
     const items = this.listElement?.querySelectorAll<HTMLElement>('.note-list-item');
     items?.forEach((item) => {

@@ -145,11 +145,6 @@ class NotesEditorViewComponent extends PresentationComponent {
     this.onSave?.();
   }
 
-  cancelPendingSave(): void {
-    this.cancelManaged(SAVE_DEBOUNCE_TIMEOUT);
-    this._hasPendingSave = false;
-  }
-
   scheduleSave(): void {
     this._scheduleSave();
   }

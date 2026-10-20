@@ -134,7 +134,6 @@ export const presentationModule = new ContainerModule(({ bind }) => {
   bind(TOKENS.notesPanelComponent).toDynamicValue((ctx) => {
     const component = new NotesPanelComponent({
       notesService: ctx.get(TOKENS.notesService),
-      eventBus: ctx.get(TOKENS.eventBus),
       logger: ctx.get(TOKENS.loggerFactory).create('NotesPanelComponent')
     });
     component.initialize(createTemplateComponentElements('notesPanelComponent', ctx.get(TOKENS.domBindings)));
@@ -142,7 +141,6 @@ export const presentationModule = new ContainerModule(({ bind }) => {
   }).inSingletonScope();
 
   bind(TOKENS.notesService).toDynamicValue((ctx) => new NotesService({
-    eventBus: ctx.get(TOKENS.eventBus),
     storageService: ctx.get(TOKENS.storageService),
     loggerFactory: ctx.get(TOKENS.loggerFactory)
   })).inSingletonScope();

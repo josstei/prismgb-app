@@ -4,13 +4,11 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { NotesService } from '@platform/notes';
-import { EventChannels } from '@platform/events';
 import { NotesStorageKeys } from '@renderer/lib/storage-keys.config';
-import { createEventBus, createLoggerFactory, createStorageService } from '../../../factories/index.js';
+import { createLoggerFactory, createStorageService } from '../../../factories/index.js';
 
 describe('NotesService', () => {
   let service;
-  let mockEventBus;
   let mockLogger;
   let mockLoggerFactory;
   let mockStorageService;
@@ -30,10 +28,8 @@ describe('NotesService', () => {
   beforeEach(() => {
     mockStorageService = createStorageService();
     mockLoggerFactory = createLoggerFactory();
-    mockEventBus = createEventBus();
 
     service = new NotesService({
-      eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory,
       storageService: mockStorageService
     });
@@ -206,15 +202,6 @@ describe('NotesService', () => {
       expect(stored[0].title).toBe('Test');
     });
 
-    it('should publish NOTE_CREATED event', () => {
-      const note = service.createNote('Test', 'Content');
-
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.NOTES.NOTE_CREATED,
-        note
-      );
-    });
-
     it('should add new note at beginning of list', () => {
       const storedNotes = [{ id: 'existing', title: 'Existing', updatedAt: 1000 }];
       setStoredNotes(storedNotes);
@@ -280,15 +267,6 @@ describe('NotesService', () => {
       expect(stored[0].title).toBe('Updated');
     });
 
-    it('should publish NOTE_UPDATED event', () => {
-      const updated = service.updateNote('note_1', { title: 'Updated' });
-
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.NOTES.NOTE_UPDATED,
-        updated
-      );
-    });
-
     it('should return null if storage fails', () => {
       mockStorageService.setItem = vi.fn(() => { throw new Error('Storage error'); });
 
@@ -331,15 +309,6 @@ describe('NotesService', () => {
       const stored = getStoredNotes();
       expect(stored).toHaveLength(1);
       expect(stored[0].id).toBe('note_2');
-    });
-
-    it('should publish NOTE_DELETED event', () => {
-      service.deleteNote('note_1');
-
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.NOTES.NOTE_DELETED,
-        { id: 'note_1' }
-      );
     });
 
     it('should return false if storage fails', () => {

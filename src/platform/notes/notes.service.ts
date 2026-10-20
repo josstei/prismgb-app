@@ -1,7 +1,5 @@
 import { BaseService } from '@platform/core';
 import type { LoggerFactory, KeyValueStore } from '@platform/core';
-import { EventChannels } from '@platform/events';
-import type { IEventBus as EventBusLike } from '@platform/events';
 
 const NotesStorageKeys = {
   USER_NOTES: 'userNotes' as const
@@ -20,13 +18,11 @@ type NoteUpdates = Partial<Pick<UserNote, 'title' | 'content' | 'gameName'>>;
 
 
 type NotesServiceDependencies = {
-  eventBus: EventBusLike;
   loggerFactory: LoggerFactory;
   storageService: KeyValueStore;
 };
 
 class NotesService extends BaseService {
-  private readonly eventBus: EventBusLike;
   private readonly storageService: KeyValueStore;
   _notesCache: UserNote[] | null;
   _cacheValid: boolean;
@@ -34,7 +30,6 @@ class NotesService extends BaseService {
   constructor(dependencies: NotesServiceDependencies) {
     super(dependencies.loggerFactory, 'NotesService');
 
-    this.eventBus = dependencies.eventBus;
     this.storageService = dependencies.storageService;
     this._notesCache = null;
     this._cacheValid = false;
@@ -101,7 +96,6 @@ class NotesService extends BaseService {
     }
 
     this.logger.debug(`Created note: ${note.id}`);
-    this.eventBus.publish(EventChannels.NOTES.NOTE_CREATED, note);
 
     return note;
   }
@@ -129,7 +123,6 @@ class NotesService extends BaseService {
     }
 
     this.logger.debug(`Updated note: ${id}`);
-    this.eventBus.publish(EventChannels.NOTES.NOTE_UPDATED, updatedNote);
 
     return updatedNote;
   }
@@ -173,7 +166,6 @@ class NotesService extends BaseService {
     }
 
     this.logger.debug(`Deleted note: ${id}`);
-    this.eventBus.publish(EventChannels.NOTES.NOTE_DELETED, { id });
 
     return true;
   }

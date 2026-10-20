@@ -1,6 +1,5 @@
 import { PresentationComponent } from '@platform/ui-base';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { EventChannels } from '@platform/events';
 import { NotesListViewComponent } from './notes-list-view.component';
 import { NotesEditorViewComponent } from './notes-editor-view.component';
 import { NotesSearchComponent } from './notes-search.component';
@@ -12,9 +11,6 @@ import type { Logger } from '@platform/core';
 import { wireNotesPanel } from './notes-panel-wiring';
 
 
-const NOTES_CREATED_SUBSCRIPTION = Symbol('notesPanelCreatedSubscription');
-const NOTES_DELETED_SUBSCRIPTION = Symbol('notesPanelDeletedSubscription');
-const NOTES_UPDATED_SUBSCRIPTION = Symbol('notesPanelUpdatedSubscription');
 const NOTES_PANEL_SETUP_LIFECYCLE = Symbol('notesPanelSetupLifecycle');
 const NOTES_PANEL_SUBCOMPONENT_LIFECYCLE = Symbol('notesPanelSubcomponentLifecycle');
 
@@ -35,10 +31,6 @@ interface NotesServiceLike {
   deleteNote(id: string): boolean;
   searchNotes(query: string, gameFilter?: string): UserNoteLike[];
   getUniqueGames(): string[];
-}
-
-interface NotesEventBusLike {
-  subscribe(event: string, handler: (payload?: unknown) => void): () => void;
 }
 
 export interface NotesPanelElements {
@@ -68,19 +60,11 @@ export interface NotesPanelElements {
 
 export interface NotesPanelComponentOptions {
   notesService: NotesServiceLike;
-  eventBus: NotesEventBusLike;
   logger?: Logger | null;
-}
-
-function getPayloadNoteId(payload: unknown): string | undefined {
-  return payload && typeof payload === 'object' && 'id' in payload
-    ? String((payload as { id?: unknown }).id)
-    : undefined;
 }
 
 class NotesPanelComponent extends PresentationComponent {
   declare notesService: NotesServiceLike | null;
-  declare eventBus: NotesEventBusLike | null;
   declare logger: Logger | null | undefined;
   declare isVisible: boolean;
   declare currentNoteId: string | null;
@@ -155,7 +139,6 @@ class NotesPanelComponent extends PresentationComponent {
     this._resetPanelVisibilityState();
     const currentGameFilter = this.gameFilter?.getCurrentFilter?.() || '';
     this.cancelManaged(NOTES_PANEL_SETUP_LIFECYCLE);
-    [NOTES_CREATED_SUBSCRIPTION, NOTES_DELETED_SUBSCRIPTION, NOTES_UPDATED_SUBSCRIPTION].forEach((key) => this.cancelManaged(key));
     this._replaceSubComponents();
 
     this.elements = {
@@ -205,7 +188,6 @@ class NotesPanelComponent extends PresentationComponent {
       toolbarElement: this.elements.streamToolbar,
       streamContainer: this.elements.streamContainer
     });
-    this._subscribeToEvents();
 
     this.logger?.debug('NotesPanelComponent initialized');
   }
@@ -327,11 +309,7 @@ class NotesPanelComponent extends PresentationComponent {
       return;
     }
 
-    if (result.gameChanged) {
-      this._refreshGameFilterOptionsAndRenderList(this.searchComponent!.getQuery());
-    } else {
-      this.listView!.updateItemDisplay(this.currentNoteId, title, gameName);
-    }
+    this._refreshGameFilterOptionsAndRenderList(this.searchComponent!.getQuery());
   }
 
   _setupNewButton(setupDisposers: Array<() => void>): void {
@@ -398,50 +376,6 @@ class NotesPanelComponent extends PresentationComponent {
     }));
   }
 
-  _subscribeToEvents(): void {
-    this.replaceManaged(
-      NOTES_CREATED_SUBSCRIPTION,
-      this.trackSubscription(
-        this.eventBus!.subscribe(EventChannels.NOTES.NOTE_CREATED, (note) => {
-          const noteId = getPayloadNoteId(note);
-          if (note && noteId !== this.currentNoteId) {
-            this._refreshGameFilterOptionsAndRenderList(this.searchComponent!.getQuery());
-          }
-        }),
-        (error) => this.logger?.warn('Error unsubscribing from event', error)
-      )
-    );
-
-    this.replaceManaged(
-      NOTES_DELETED_SUBSCRIPTION,
-      this.trackSubscription(
-        this.eventBus!.subscribe(EventChannels.NOTES.NOTE_DELETED, (payload) => {
-          const searchQuery = this.searchComponent!.getQuery();
-          const currentFilter = this._refreshGameFilterOptionsAndRenderList(searchQuery);
-          if (getPayloadNoteId(payload) === this.currentNoteId) {
-            this.editorView!.cancelPendingSave();
-            this.currentNoteId = null;
-            this.editorView!.clear();
-            this._selectFirstNoteForFilter(currentFilter, searchQuery);
-          }
-        }),
-        (error) => this.logger?.warn('Error unsubscribing from event', error)
-      )
-    );
-
-    this.replaceManaged(
-      NOTES_UPDATED_SUBSCRIPTION,
-      this.trackSubscription(
-        this.eventBus!.subscribe(EventChannels.NOTES.NOTE_UPDATED, (note) => {
-          if (note) {
-            this._refreshGameFilterOptionsAndRenderList(this.searchComponent!.getQuery());
-          }
-        }),
-        (error) => this.logger?.warn('Error unsubscribing from event', error)
-      )
-    );
-  }
-
   protected override onDisposeError(error: unknown): void {
     this.logger?.warn('Error disposing notes panel lifecycle resources', error);
   }
@@ -452,7 +386,6 @@ class NotesPanelComponent extends PresentationComponent {
     await super.dispose();
     this.elements = null;
     this.notesService = null;
-    this.eventBus = null;
     this.logger = null;
     this.currentNoteId = null;
     this.isVisible = false;
