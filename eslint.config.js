@@ -7,12 +7,7 @@ export default [
   {
     files: ['src/**/*.ts'],
     languageOptions: {
-      parser: tsParser,
-      ecmaVersion: 2025,
-      sourceType: 'module',
-      parserOptions: {
-        ecmaFeatures: { jsx: false }
-      }
+      parser: tsParser
     },
     plugins: {
       '@typescript-eslint': tsEslintPlugin
@@ -24,11 +19,5 @@ export default [
       'no-redeclare': 'off',
       '@typescript-eslint/no-redeclare': 'error'
     }
-  },
-  {
-    ignores: [
-      'node_modules/**',
-      'dist/**'
-    ]
   }
 ];
