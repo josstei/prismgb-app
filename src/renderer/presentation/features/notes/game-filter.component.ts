@@ -1,5 +1,5 @@
 import { PresentationComponent, ListboxDropdownController, renderListboxOptions } from '@platform/ui-base';
-import type { LoggerLike } from '@platform/core';
+import type { Logger } from '@platform/core';
 
 const FILTER_SETUP_LIFECYCLE = Symbol('notesGameFilterSetupLifecycle');
 
@@ -9,7 +9,7 @@ interface NotesGameServiceLike {
 
 export interface GameFilterComponentOptions {
   notesService: NotesGameServiceLike;
-  logger?: LoggerLike | null;
+  logger?: Logger | null;
 }
 
 export interface GameFilterInitializeOptions {
@@ -21,7 +21,7 @@ export interface GameFilterInitializeOptions {
 
 class GameFilterComponent extends PresentationComponent {
   declare notesService: NotesGameServiceLike | null;
-  declare logger: LoggerLike | null | undefined;
+  declare logger: Logger | null | undefined;
   declare currentGameFilter: string;
   declare isGameFilterOpen: boolean;
   declare _filterDropdown: ListboxDropdownController | null;

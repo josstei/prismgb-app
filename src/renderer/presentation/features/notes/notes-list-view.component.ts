@@ -1,7 +1,7 @@
 import { PresentationComponent } from '@platform/ui-base';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { escapeHtml } from '@platform/core';
-import type { LoggerLike } from '@platform/core';
+import { escapeHtml } from '@renderer/presentation/primitives/html-escape.utils';
+import type { Logger } from '@platform/core';
 
 const LIST_SETUP_LIFECYCLE = Symbol('notesListSetupLifecycle');
 
@@ -19,7 +19,7 @@ interface NotesListServiceLike {
 
 export interface NotesListViewComponentOptions {
   notesService: NotesListServiceLike;
-  logger?: LoggerLike | null;
+  logger?: Logger | null;
 }
 
 export interface NotesListViewInitializeOptions {
@@ -29,7 +29,7 @@ export interface NotesListViewInitializeOptions {
 
 class NotesListViewComponent extends PresentationComponent {
   declare notesService: NotesListServiceLike | null;
-  declare logger: LoggerLike | null | undefined;
+  declare logger: Logger | null | undefined;
   declare currentNoteId: string | null;
   declare currentGameFilter: string;
   declare collapsedGameGroups: Set<string>;

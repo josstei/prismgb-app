@@ -2,10 +2,8 @@ import { BaseService } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import { DeviceCatalog } from '@platform/devices';
 import type { TypedEventBusLike } from '@platform/events';
-import type { Dimensions } from '@renderer/infrastructure/services/streaming/streaming.contract.js';
-import type {
-  LoggerFactoryLike
-} from '@platform/core';
+import type { Dimensions } from '@renderer/infrastructure/services/streaming/streaming.contract';
+import type { LoggerFactory } from '@platform/core';
 
 type StreamViewServiceLike = {
   getCanvas(): HTMLCanvasElement | null;
@@ -38,7 +36,7 @@ type CanvasLifecycleDependencies = {
   viewportService: ViewportServiceLike;
   streamingRenderService: StreamingRenderServiceLike;
   eventBus: TypedEventBusLike;
-  loggerFactory: LoggerFactoryLike;
+  loggerFactory: LoggerFactory;
 };
 
 class StreamingCanvasLifecycleService extends BaseService {
@@ -55,11 +53,7 @@ class StreamingCanvasLifecycleService extends BaseService {
   }
 
   constructor(dependencies: CanvasLifecycleDependencies) {
-    const { streamViewService, viewportService, eventBus, loggerFactory } = dependencies;
-    super(
-      { streamViewService, viewportService, eventBus, loggerFactory },
-      'StreamingCanvasLifecycleService'
-    );
+    super(dependencies.loggerFactory, 'StreamingCanvasLifecycleService');
 
     this.dependencies = dependencies;
     this.streamViewService = dependencies.streamViewService;
@@ -157,7 +151,7 @@ class StreamingCanvasLifecycleService extends BaseService {
     this.viewportService.cleanup();
   }
 
-  override dispose(): void | Promise<void> {
+  override dispose(): Promise<void> {
     this.cleanup();
     return super.dispose();
   }

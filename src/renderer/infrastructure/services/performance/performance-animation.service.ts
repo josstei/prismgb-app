@@ -8,8 +8,8 @@
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import type { PerformanceStatePayload } from '@platform/events';
-import type { LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { LoggerFactory } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 type AnimationSuppressionReason = 'reducedMotion' | 'weakGPU' | 'performanceMode';
 type AnimationSuppressionState = Record<AnimationSuppressionReason, boolean>;
@@ -30,8 +30,8 @@ class PerformanceAnimationService extends BaseService {
   private _isHidden: boolean;
   private _isIdle: boolean;
 
-  constructor(@inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike) {
-    super({ loggerFactory }, 'PerformanceAnimationService');
+  constructor(@inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory) {
+    super(loggerFactory, 'PerformanceAnimationService');
 
     this._animationSuppression = {
       reducedMotion: false,

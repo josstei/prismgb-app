@@ -4,7 +4,7 @@ import { signal } from '@platform/ui-base/reactive';
 import { sliderToBrightness, brightnessToSlider } from '@renderer/presentation/features/toolbar/brightness.utils';
 import { EventChannels } from '@platform/events';
 import type { TypedEventBusLike } from '@platform/events';
-import type { LoggerLike } from '@platform/core';
+import type { Logger } from '@platform/core';
 
 export interface ShaderSliderSettingsService {
   getNumberSetting(name: string): number;
@@ -15,7 +15,7 @@ export interface ShaderSliderSettingsService {
 export interface ShaderSliderControlsComponentOptions {
   settingsService: ShaderSliderSettingsService;
   eventBus: TypedEventBusLike;
-  logger?: LoggerLike | null;
+  logger?: Logger | null;
 }
 
 export interface ShaderSliderControlsElements {
@@ -30,7 +30,7 @@ export interface ShaderSliderControlsElements {
 class ShaderSliderControlsComponent extends PresentationComponent {
   declare settingsService: ShaderSliderSettingsService;
   declare eventBus: TypedEventBusLike;
-  declare logger: LoggerLike | null | undefined;
+  declare logger: Logger | null | undefined;
   declare brightnessSlider: HTMLInputElement | null | undefined;
   declare brightnessPercentage: HTMLElement | null | undefined;
   declare brightnessControl: HTMLElement | null | undefined;

@@ -5,10 +5,9 @@
 
 import { Container } from 'inversify';
 import pkg from '../../../package.json' assert { type: 'json' };
-import { TOKENS, TOKEN_KEYS, type TokenKey } from './di/tokens.js';
-import { mainModule } from './di/main.module.js';
-import type { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
-import { applyBindingOverrides } from '@platform/core';
+import { TOKENS, TOKEN_KEYS } from './di/tokens';
+import { mainModule } from './di/main.module';
+import type { MainLogger } from '@main/infrastructure/logging/logger.factory';
 
 /**
  * Main-process DI container, backed by Inversify.
@@ -17,13 +16,9 @@ export type MainServiceContainer = Container;
 
 /**
  * Build the main-process DI container: pre-seeded config + logger constants,
- * every service bound via {@link mainModule}, then test overrides. No
- * hand-rolled switch — the binding module is the source of truth.
+ * then every service bound via {@link mainModule}.
  */
-export function createMainContainer(
-  loggerFactory: MainLogger,
-  overrides: Partial<Record<TokenKey, unknown>> = {}
-): MainServiceContainer {
+export function createMainContainer(loggerFactory: MainLogger): MainServiceContainer {
   const container = new Container({ defaultScope: 'Singleton' });
 
   container.bind(TOKENS.config).toConstantValue({
@@ -34,8 +29,6 @@ export function createMainContainer(
   container.bind(TOKENS.loggerFactory).toConstantValue(loggerFactory);
 
   container.load(mainModule);
-
-  applyBindingOverrides(container, TOKENS, overrides);
 
   return container;
 }

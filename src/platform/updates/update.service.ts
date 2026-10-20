@@ -2,7 +2,8 @@ import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
 import type { UpdateInfo, ProgressInfo } from 'electron-updater';
 import { BaseService, getElectronApp } from '@platform/core';
-import type { LoggerFactoryLike as LoggerFactory, EventBusLike } from '@platform/core';
+import type { LoggerFactory } from '@platform/core';
+import type { EventBusLike } from '@platform/events';
 import { MainEventChannels } from '@platform/events';
 import { IPC_CHANNELS } from '@platform/ipc';
 import { UpdateState, type UpdateStateValue } from '@platform/config';
@@ -58,9 +59,10 @@ class UpdateService extends BaseService {
   error: Error | null;
 
   private _autoCheckRunning: boolean;
+  private initialized = false;
 
   constructor(dependencies: UpdateServiceDependencies) {
-    super(dependencies, 'UpdateService');
+    super(dependencies.loggerFactory, 'UpdateService');
 
     this.windowService = dependencies.windowService;
     this.eventBus = dependencies.eventBus;
@@ -78,7 +80,12 @@ class UpdateService extends BaseService {
    * Initialize the update service
    * Sets up autoUpdater configuration and event listeners
    */
-  protected override onInitialize(): void {
+  initialize(): void {
+    if (this.initialized) {
+      this.logger.warn('UpdateService already initialized');
+      return;
+    }
+
     this.logger.info('Initializing update service');
 
     // Configure autoUpdater
@@ -109,6 +116,7 @@ class UpdateService extends BaseService {
       allowPrerelease: autoUpdater.allowPrerelease,
       version
     });
+    this.initialized = true;
   }
 
   /**
@@ -231,7 +239,7 @@ class UpdateService extends BaseService {
    * @returns Update check result
    */
   async checkForUpdates({ force = false }: { force?: boolean } = {}): Promise<UpdateCheckResult> {
-    if (!this._initialized) {
+    if (!this.initialized) {
       throw new Error('UpdateService not initialized');
     }
 
@@ -270,7 +278,7 @@ class UpdateService extends BaseService {
    * @returns Promise that resolves when download completes
    */
   async downloadUpdate(): Promise<void> {
-    if (!this._initialized) {
+    if (!this.initialized) {
       throw new Error('UpdateService not initialized');
     }
 
@@ -300,7 +308,7 @@ class UpdateService extends BaseService {
    * Install downloaded update and restart app
    */
   installUpdate(): void {
-    if (!this._initialized) {
+    if (!this.initialized) {
       throw new Error('UpdateService not initialized');
     }
 
@@ -328,13 +336,13 @@ class UpdateService extends BaseService {
 
     this._autoCheckRunning = true;
 
-    this.schedule(INITIAL_UPDATE_CHECK_LIFECYCLE, () => {
+    this.disposables.schedule(INITIAL_UPDATE_CHECK_LIFECYCLE, () => {
       this.checkForUpdates().catch((error) => {
         this.logger.warn('Initial update check failed', (error as Error).message);
       });
     }, 10000);
 
-    this.scheduleInterval(PERIODIC_UPDATE_CHECK_LIFECYCLE, () => {
+    this.disposables.scheduleInterval(PERIODIC_UPDATE_CHECK_LIFECYCLE, () => {
       this.checkForUpdates().catch((error) => {
         this.logger.warn('Periodic update check failed', (error as Error).message);
       });
@@ -348,8 +356,8 @@ class UpdateService extends BaseService {
    */
   stopAutoCheck(): void {
     const wasRunning = this._autoCheckRunning;
-    this.cancelScheduled(INITIAL_UPDATE_CHECK_LIFECYCLE);
-    this.cancelScheduled(PERIODIC_UPDATE_CHECK_LIFECYCLE);
+    this.disposables.cancel(INITIAL_UPDATE_CHECK_LIFECYCLE);
+    this.disposables.cancel(PERIODIC_UPDATE_CHECK_LIFECYCLE);
     this._autoCheckRunning = false;
     if (wasRunning) {
       this.logger.info('Auto-update check stopped');
@@ -372,10 +380,10 @@ class UpdateService extends BaseService {
   /**
    * Clean up resources
    */
-  async dispose(): Promise<void> {
+  override async dispose(): Promise<void> {
     this.stopAutoCheck();
     await super.dispose();
-    this._initialized = false;
+    this.initialized = false;
     this.logger.info('UpdateService disposed');
   }
 }

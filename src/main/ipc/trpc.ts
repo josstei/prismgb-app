@@ -1,12 +1,12 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import type { App, Shell } from 'electron';
 import { getErrorMessage } from '@platform/core';
-import type { LoggerLike } from '@platform/core';
+import type { Logger } from '@platform/core';
 import type { DeviceStatus } from '@platform/devices';
 import type { UpdateStatusPayload, TranscodeFormat } from '@platform/ipc';
 import type { TranscodeResult, CancelResult, StatusResult } from '@platform/transcode/service';
-import type { IpcPushBridge } from './ipc-push.bridge.js';
-import type { MainProcessTestControlPort } from './test-control.port.js';
+import type { IpcPushBridge } from './ipc-push.bridge';
+import type { MainProcessTestControlPort } from './test-control.port';
 
 export interface DeviceConnectionPort {
   getStatus(): DeviceStatus;
@@ -56,7 +56,7 @@ export interface IpcContext {
   loginItemService: LoginItemService;
   app: App;
   shell: Shell;
-  logger: LoggerLike;
+  logger: Logger;
   ipcPushBridge: IpcPushBridge;
 }
 
@@ -89,7 +89,7 @@ export const publicProcedure = t.procedure;
  */
 export async function rethrowAsTrpcError<TResult>(
   label: string,
-  logger: LoggerLike,
+  logger: Logger,
   run: () => TResult | Promise<TResult>
 ): Promise<TResult> {
   try {

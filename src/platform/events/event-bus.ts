@@ -1,11 +1,19 @@
 import EventEmitter from 'eventemitter3';
-import { isPromiseLike } from '@platform/core';
+import { isPromiseLike, type DisposableFunction, type Logger } from '@platform/core';
 
 export type EventHandler<T = unknown> = (data: T) => void | Promise<void>;
 export type UnsubscribeFn = () => void;
 
-interface EventBusLogger {
-  error(message: string, error: Error): void;
+type EventBusLogger = Pick<Logger, 'error'>;
+
+export interface EventPublisherLike {
+  publish(event: string, payload?: unknown): void;
+}
+
+export interface EventBusLike extends EventPublisherLike {
+  publishAsync?(event: string, payload?: unknown): Promise<void>;
+  subscribe(event: string, handler: (...args: unknown[]) => void | Promise<void>): DisposableFunction;
+  unsubscribe?(event: string, handler: (...args: unknown[]) => void): void;
 }
 
 interface EventBusDependencies {

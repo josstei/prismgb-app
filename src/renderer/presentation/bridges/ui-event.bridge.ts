@@ -6,8 +6,8 @@ import type {
   UiButtonFeedbackPayload,
   UiStreamingModePayload
 } from '@platform/events';
-import type { LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { LoggerFactory } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 type UiControllerLike = {
   updateDeviceStatus(status: unknown): void;
@@ -45,13 +45,13 @@ export class UIEventBridge extends BaseService {
     @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
     @inject(TOKENS.uiController) private readonly uiController: UiControllerLike,
     @inject(TOKENS.presentationModeService) private readonly presentationModeService: PresentationModeServiceLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'UIEventBridge');
+    super(loggerFactory, 'UIEventBridge');
   }
 
   initialize(): void {
-    this.bindEventHandlers();
+    this.bindEventHandlers(this.eventBus);
     this.logger.info('UIEventBridge initialized');
   }
 
@@ -132,7 +132,7 @@ export class UIEventBridge extends BaseService {
     this.presentationModeService.handleFullscreenState(active);
   }
 
-  override dispose(): void | Promise<void> {
+  override dispose(): Promise<void> {
     const disposed = super.dispose();
     this.logger.info('UIEventBridge disposed');
     return disposed;

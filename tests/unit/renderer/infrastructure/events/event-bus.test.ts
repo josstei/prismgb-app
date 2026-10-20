@@ -5,8 +5,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { EventBus } from '@renderer/infrastructure/events/event-bus.js';
-import type { LoggerFactoryLike } from '@platform/core';
+import { EventBus } from '@renderer/infrastructure/events/event-bus';
+import type { LoggerFactory } from '@platform/core';
 import { createLoggerFactory } from '../../../../factories/index.js';
 
 type EventTestHandler = (payload?: unknown) => void;
@@ -22,7 +22,7 @@ describe('EventBus', () => {
 
   describe('Constructor', () => {
     it('should create EventBus without logger', () => {
-      const bus = new EventBus(undefined as unknown as LoggerFactoryLike);
+      const bus = new EventBus(undefined as unknown as LoggerFactory);
       expect(bus).toBeDefined();
       expect(bus.emitter).toBeDefined();
     });
@@ -103,7 +103,7 @@ describe('EventBus', () => {
     });
 
     it('should handle errors when no logger is configured', () => {
-      const busWithoutLogger = new EventBus(undefined as unknown as LoggerFactoryLike);
+      const busWithoutLogger = new EventBus(undefined as unknown as LoggerFactory);
       const throwingHandler = vi.fn(() => {
         throw new Error('Handler error');
       });

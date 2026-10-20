@@ -1,5 +1,6 @@
 import { EventChannels } from '@platform/events';
-import { DisposableBag, type EventBusLike } from '@platform/core';
+import { DisposableBag } from '@platform/core';
+import type { EventBusLike } from '@platform/events';
 import { signal, type Signal, type ReadonlySignal } from '@platform/ui-base/reactive';
 
 interface StreamingServiceLike {

@@ -5,9 +5,9 @@ import { dirname } from 'path';
 import { uiConfig } from '@platform/config';
 import { IPC_CHANNELS } from '@platform/ipc';
 import { injectable, inject } from 'inversify';
-import { BaseService, type LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@main/application/di/tokens.js';
-import type { IpcPushBridge } from '@main/ipc/ipc-push.bridge.js';
+import { BaseService, type LoggerFactory } from '@platform/core';
+import { TOKENS } from '@main/application/di/tokens';
+import type { IpcPushBridge } from '@main/ipc/ipc-push.bridge';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const { WINDOW_CONFIG } = uiConfig;
@@ -50,9 +50,9 @@ class WindowService extends BaseService {
 
   constructor(
     @inject(TOKENS.ipcPushBridge) private readonly ipcPushBridge: IpcPushBridge,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory }, 'WindowService');
+    super(loggerFactory, 'WindowService');
   }
 
   createWindow(options: CreateWindowOptions = {}): BrowserWindow {
@@ -335,7 +335,7 @@ class WindowService extends BaseService {
     }
   }
 
-  override dispose(): void | Promise<void> {
+  override dispose(): Promise<void> {
     this._cleanupWindowListeners({
       includeCloseListener: true,
       includeClosedListener: true

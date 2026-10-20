@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-type ElectronAppModule = typeof import('../../../../src/platform/core/primitives/electron-app.utils.js');
+type ElectronAppModule = typeof import('../../../../src/platform/core/electron-app.utils');
 
 async function importFreshModule(): Promise<ElectronAppModule> {
   vi.resetModules();
-  return import('../../../../src/platform/core/primitives/electron-app.utils.js');
+  return import('../../../../src/platform/core/electron-app.utils');
 }
 
 describe('getElectronApp', () => {

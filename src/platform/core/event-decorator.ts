@@ -1,14 +1,10 @@
 /**
- * Typed event-subscription method decorator factory.
- *
  * Decoration-time metadata lives in a module-scoped WeakMap keyed by class
  * constructor, so no reflect-metadata dependency is required and worker
- * bundles stay clean. Lifecycle hosts (BaseOrchestrator, BaseService) walk
- * the prototype chain at initialize time and subscribe each binding through
- * their own bus/disposal machinery.
+ * bundles stay clean.
  */
 
-export interface EventHandlerBinding {
+interface EventHandlerBinding {
   readonly channel: string;
   readonly methodKey: string | symbol;
 }
@@ -40,29 +36,11 @@ export function createOnEventDecorator<TPayloadMap>() {
   };
 }
 
-/**
- * Collects the event-handler bindings declared on a class and its ancestors.
- * Bindings are deduplicated by (channel, method) so inherited handlers are
- * reported exactly once even when a subclass re-declares them.
- */
+/** Collects the event-handler bindings declared on a class and its ancestors. */
 export function getEventHandlerBindings(constructor: Function): EventHandlerBinding[] {
   const collected: EventHandlerBinding[] = [];
-  const seen = new Set<string>();
-
-  let current: Function | null = constructor;
-  while (typeof current === 'function') {
-    const bindings = eventHandlerBindings.get(current);
-    if (bindings) {
-      for (const binding of bindings) {
-        const dedupeKey = `${String(binding.methodKey)}\0${binding.channel}`;
-        if (!seen.has(dedupeKey)) {
-          seen.add(dedupeKey);
-          collected.push(binding);
-        }
-      }
-    }
-    current = Object.getPrototypeOf(current) as Function | null;
+  for (let current: Function | null = constructor; typeof current === 'function'; current = Object.getPrototypeOf(current) as Function | null) {
+    collected.push(...(eventHandlerBindings.get(current) ?? []));
   }
-
   return collected;
 }

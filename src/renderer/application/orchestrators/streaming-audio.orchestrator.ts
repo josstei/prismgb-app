@@ -2,9 +2,10 @@ import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
 import { EventChannels, OnEvent } from '@platform/events';
 import type { StreamStartedPayload } from '@platform/events';
-import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
-import type { AppState } from '@renderer/application/state/app-state.js';
+import type { LoggerFactory } from '@platform/core';
+import type { EventBusLike } from '@platform/events';
+import { TOKENS } from '@renderer/application/di/tokens';
+import type { AppState } from '@renderer/application/state/app-state';
 
 type StreamingAudioPipelineServiceLike = {
   start(stream: MediaStream): Promise<boolean>;
@@ -27,9 +28,9 @@ export class StreamingAudioOrchestrator extends BaseOrchestrator {
     @inject(TOKENS.streamViewService) private readonly streamViewService: StreamViewServiceLike,
     @inject(TOKENS.appState) private readonly appState: AppStateLike,
     @inject(TOKENS.eventBus) eventBus: EventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'StreamingAudioOrchestrator');
+    super(loggerFactory, 'StreamingAudioOrchestrator', eventBus);
 
     this._activeStream = null;
     this._fallbackUnmuted = false;

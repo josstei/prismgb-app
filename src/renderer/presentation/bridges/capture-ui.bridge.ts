@@ -8,8 +8,9 @@ import type {
   UiButtonFeedbackPayload
 } from '@platform/events';
 import { TIMING } from '@platform/config';
-import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { LoggerFactory } from '@platform/core';
+import type { EventBusLike } from '@platform/events';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 type CaptureUiControllerLike = {
   triggerDownload(blob: Blob, filename: string): void;
@@ -20,17 +21,17 @@ class CaptureUIBridge extends BaseService {
   constructor(
     @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
     @inject(TOKENS.uiController) private readonly uiController: CaptureUiControllerLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'CaptureUIBridge');
+    super(loggerFactory, 'CaptureUIBridge');
   }
 
   initialize() {
-    this.bindEventHandlers();
+    this.bindEventHandlers(this.eventBus);
     this.logger.info('CaptureUIBridge initialized');
   }
 
-  override dispose(): void | Promise<void> {
+  override dispose(): Promise<void> {
     const disposed = super.dispose();
     this.logger.info('CaptureUIBridge disposed');
     return disposed;

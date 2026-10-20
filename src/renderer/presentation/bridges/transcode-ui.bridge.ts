@@ -6,20 +6,21 @@ import type {
   TranscodeErrorPayload,
   TranscodeStartedPayload
 } from '@platform/events';
-import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { LoggerFactory } from '@platform/core';
+import type { EventBusLike } from '@platform/events';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 @injectable()
 class TranscodeUIBridge extends BaseService {
   constructor(
     @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'TranscodeUIBridge');
+    super(loggerFactory, 'TranscodeUIBridge');
   }
 
   initialize() {
-    this.bindEventHandlers();
+    this.bindEventHandlers(this.eventBus);
     this.logger.info('TranscodeUIBridge initialized');
   }
 

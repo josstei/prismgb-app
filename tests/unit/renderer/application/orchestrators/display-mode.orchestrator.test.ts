@@ -4,8 +4,9 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { SettingsDisplayModeOrchestrator } from '@renderer/application/orchestrators/display-mode.orchestrator';
+import { EventChannels } from '@platform/events';
 import { createSettingsServiceMock } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness';
 import { installDocumentPropertyMock } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('SettingsDisplayModeOrchestrator', () => {
@@ -42,7 +43,12 @@ describe('SettingsDisplayModeOrchestrator', () => {
       expect(orchestrator.fullscreenService).toBe(mockSettingsFullscreenService);
       expect(orchestrator.cinematicModeService).toBe(mockSettingsCinematicModeService);
       expect(orchestrator.settingsService).toBe(mockSettingsService);
-      expect(orchestrator.eventBus).toBe(mockEventBus);
+    });
+
+    it('subscribes its startup handler through the injected event bus on initialize', async () => {
+      await orchestrator.initialize();
+
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith(EventChannels.SETTINGS.PREFERENCES_LOADED, expect.any(Function));
     });
   });
 

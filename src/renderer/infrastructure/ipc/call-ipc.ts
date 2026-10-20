@@ -1,5 +1,5 @@
 import { getErrorMessage } from '@platform/core';
-import type { LoggerLike } from '@platform/core';
+import type { Logger } from '@platform/core';
 
 /**
  * The uniform outcome `callIpc` resolves to. Never rejects: a thrown `TRPCError` (or any other
@@ -25,7 +25,7 @@ export type CallIpcResult<TValue> =
 export async function callIpc<TValue>(
   label: string,
   thunk: () => Promise<TValue>,
-  logger: LoggerLike
+  logger: Logger
 ): Promise<CallIpcResult<TValue>> {
   try {
     const value = await thunk();

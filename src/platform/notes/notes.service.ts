@@ -1,5 +1,5 @@
-import { BaseService, generateEntityId } from '@platform/core';
-import type { LoggerFactoryLike, StorageServiceLike } from '@platform/core';
+import { BaseService } from '@platform/core';
+import type { LoggerFactory, KeyValueStore } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import type { IEventBus as EventBusLike } from '@platform/events';
 
@@ -21,23 +21,27 @@ type NoteUpdates = Partial<Pick<UserNote, 'title' | 'content' | 'gameName'>>;
 
 type NotesServiceDependencies = {
   eventBus: EventBusLike;
-  loggerFactory: LoggerFactoryLike;
-  storageService: StorageServiceLike;
+  loggerFactory: LoggerFactory;
+  storageService: KeyValueStore;
 };
 
 class NotesService extends BaseService {
   private readonly eventBus: EventBusLike;
-  private readonly storageService: StorageServiceLike;
+  private readonly storageService: KeyValueStore;
   _notesCache: UserNote[] | null;
   _cacheValid: boolean;
 
   constructor(dependencies: NotesServiceDependencies) {
-    super(dependencies, 'NotesService');
+    super(dependencies.loggerFactory, 'NotesService');
 
     this.eventBus = dependencies.eventBus;
     this.storageService = dependencies.storageService;
     this._notesCache = null;
     this._cacheValid = false;
+  }
+
+  private createNoteId(): string {
+    return `note_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   }
 
   _invalidateCache() {
@@ -80,7 +84,7 @@ class NotesService extends BaseService {
   createNote(title = '', content = '', gameName = '') {
     const now = Date.now();
     const note = {
-      id: generateEntityId('note'),
+      id: this.createNoteId(),
       gameName: gameName || '',
       title: title || 'Untitled Note',
       content,

@@ -3,7 +3,7 @@ import { PresentationComponent, bindClass, bindText, bindAttr, computed } from '
 import { EventChannels } from '@platform/events';
 import type { TypedEventBusLike } from '@platform/events';
 import type { ReadonlySignal } from '@platform/ui-base/reactive';
-import type { LoggerLike } from '@platform/core';
+import type { Logger } from '@platform/core';
 
 export interface CinematicToggleAppState {
   cinematicModeSignal: ReadonlySignal<boolean>;
@@ -12,7 +12,7 @@ export interface CinematicToggleAppState {
 export interface CinematicToggleComponentOptions {
   eventBus: TypedEventBusLike;
   appState?: CinematicToggleAppState | null;
-  logger?: LoggerLike | null;
+  logger?: Logger | null;
 }
 
 export interface CinematicToggleElements {
@@ -24,7 +24,7 @@ export interface CinematicToggleElements {
 class CinematicToggleComponent extends PresentationComponent {
   declare eventBus: TypedEventBusLike;
   declare appState: CinematicToggleAppState | null | undefined;
-  declare logger: LoggerLike | null | undefined;
+  declare logger: Logger | null | undefined;
   declare toggleElement: HTMLElement | null | undefined;
   declare textElement: HTMLElement | null | undefined;
 

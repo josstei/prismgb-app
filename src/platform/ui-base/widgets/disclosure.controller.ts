@@ -5,8 +5,8 @@
  * escape key and click-outside handling.
  */
 
-import { PresentationComponent } from '../lifecycle/presentation-component.base.js';
-import type { LoggerLike } from '@platform/core';
+import { PresentationComponent } from '../lifecycle/presentation-component.base';
+import type { Logger } from '@platform/core';
 
 export interface AnchoredLayoutSizeDefaults {
   minWidth: number;
@@ -48,7 +48,7 @@ type DisclosureCallback = () => void;
 export interface DisclosureControllerOptions {
   toggleElement: HTMLElement | null;
   panelElement: HTMLElement | null;
-  logger?: LoggerLike | null;
+  logger?: Logger | null;
   visibleClass?: string;
   toggleOpenClass?: string | null;
   ariaExpandedElement?: HTMLElement | null;

@@ -3,7 +3,7 @@
  *
  * Proves the Inversify wiring in `main.module.ts` is complete and correct:
  * every token resolves without throwing, resolution is singleton-scoped, and
- * overrides replace an already-bound token — mirroring the renderer's
+ * test overrides replace an already-bound token — mirroring the renderer's
  * container test shape (tests/unit/renderer/application/container.test.ts).
  */
 
@@ -60,9 +60,10 @@ vi.mock('electron-updater', () => {
 });
 
 import type { ServiceIdentifier } from 'inversify';
-import { createMainContainer } from '@main/application/container.js';
-import { TOKENS, TOKEN_KEYS } from '@main/application/di/tokens.js';
+import { createMainContainer } from '@main/application/container';
+import { TOKENS, TOKEN_KEYS } from '@main/application/di/tokens';
 import { createLoggerFactory } from '../../../factories/index.js';
+import { applyBindingOverrides } from '../../../support/di/binding-overrides';
 
 describe('Main container', () => {
   let loggerFactory: ReturnType<typeof createLoggerFactory>;
@@ -88,14 +89,14 @@ describe('Main container', () => {
 
   it('replaces an already-bound token with an override', () => {
     const fakeLoggerFactory = { create: vi.fn() };
-    const container = createMainContainer(loggerFactory, { loggerFactory: fakeLoggerFactory });
+    const container = applyBindingOverrides(createMainContainer(loggerFactory), TOKENS, { loggerFactory: fakeLoggerFactory });
 
     expect(container.get(TOKENS.loggerFactory)).toBe(fakeLoggerFactory);
   });
 
   it('binds an override for a token constructed from the overridden value', () => {
     const fakeTranscodeService = { initialize: vi.fn(), dispose: vi.fn() };
-    const container = createMainContainer(loggerFactory, { transcodeService: fakeTranscodeService });
+    const container = applyBindingOverrides(createMainContainer(loggerFactory), TOKENS, { transcodeService: fakeTranscodeService });
 
     expect(container.get(TOKENS.transcodeService)).toBe(fakeTranscodeService);
   });

@@ -1,14 +1,19 @@
-export interface ErrorLike {
+interface ErrorLike {
   message: string;
 }
 
-export function isErrorLike(value: unknown): value is ErrorLike {
+function isErrorLike(value: unknown): value is ErrorLike {
   return (
     typeof value === 'object' &&
     value !== null &&
     'message' in value &&
     typeof value.message === 'string'
   );
+}
+
+/** Narrows to a thenable. */
+export function isPromiseLike<T = unknown>(value: unknown): value is Promise<T> {
+  return typeof value === 'object' && value !== null && typeof (value as { then?: unknown }).then === 'function';
 }
 
 export function getErrorMessage(value: unknown, fallback = 'Unknown error'): string {

@@ -1,9 +1,9 @@
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import type {
-  LoggerFactoryLike
+  LoggerFactory
 } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 type StreamHealthyPayload = {
   frameTime: number;
@@ -41,8 +41,8 @@ export class StreamingHealthService extends BaseService {
   private _onUnhealthy: ((payload: StreamUnhealthyPayload) => void) | null;
   private _videoElement: HTMLVideoElement | null;
 
-  constructor(@inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike) {
-    super({ loggerFactory }, 'StreamingHealthService');
+  constructor(@inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory) {
+    super(loggerFactory, 'StreamingHealthService');
 
     this._timeoutMs = 4000;
     this._isMonitoring = false;
@@ -73,7 +73,7 @@ export class StreamingHealthService extends BaseService {
     this._isMonitoring = true;
     this._firstFrameReceived = false;
 
-    this.schedule(HEALTH_TIMEOUT_LIFECYCLE, () => this._handleTimeout(), this._timeoutMs);
+    this.disposables.schedule(HEALTH_TIMEOUT_LIFECYCLE, () => this._handleTimeout(), this._timeoutMs);
 
     // Register for first frame callback
     this._registerFrameCallback();
@@ -159,7 +159,7 @@ export class StreamingHealthService extends BaseService {
   }
 
   _clearTimeout(): void {
-    this.cancelScheduled(HEALTH_TIMEOUT_LIFECYCLE);
+    this.disposables.cancel(HEALTH_TIMEOUT_LIFECYCLE);
   }
 
   _cancelRvfc(): void {
@@ -186,7 +186,7 @@ export class StreamingHealthService extends BaseService {
   /**
    * Dispose the service
    */
-  override dispose(): void | Promise<void> {
+  override dispose(): Promise<void> {
     this.cleanup();
     const disposed = super.dispose();
     this.logger.info('StreamingHealthService disposed');

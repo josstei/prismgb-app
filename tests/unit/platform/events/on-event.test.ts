@@ -1,17 +1,17 @@
-/**
- * OnEvent typed decorator unit tests (concrete EventPayloadMap instantiation)
- */
-
 import { describe, it, expect, vi } from 'vitest';
-import { BaseOrchestrator, getEventHandlerBindings } from '@platform/core';
+import { BaseOrchestrator } from '@platform/core';
+import { getEventHandlerBindings } from '../../../../src/platform/core/event-decorator';
 import { EventChannels, OnEvent } from '@platform/events';
 import type { StreamStartedPayload } from '@platform/events';
+import { createLoggerFactory } from '../../../factories/index.js';
+
+type SubscribeFn = (channel: string, handler: (payload: unknown) => void | Promise<void>) => () => void;
 
 class TypedSubscriberOrchestrator extends BaseOrchestrator {
   payloads: StreamStartedPayload[] = [];
 
-  constructor(dependencies: object) {
-    super(dependencies, 'TypedSubscriberOrchestrator');
+  constructor(bus: { subscribe: SubscribeFn }) {
+    super(createLoggerFactory(), 'TypedSubscriberOrchestrator', bus);
   }
 
   @OnEvent(EventChannels.STREAM.STARTED)
@@ -49,7 +49,7 @@ describe('OnEvent', () => {
         return vi.fn();
       })
     };
-    const orchestrator = new TypedSubscriberOrchestrator({ eventBus: bus });
+    const orchestrator = new TypedSubscriberOrchestrator(bus);
 
     await orchestrator.initialize();
     const payload = { stream: {}, device: {}, settings: null, capabilities: {} } as StreamStartedPayload;

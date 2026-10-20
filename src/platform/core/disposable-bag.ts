@@ -1,4 +1,4 @@
-import { isPromiseLike } from './guards.utils.js';
+import { isPromiseLike } from './guards.utils';
 
 export type DisposableFunction = () => void | Promise<void>;
 
@@ -10,15 +10,6 @@ type DisposableObject = {
 
 export type Disposable = DisposableFunction | DisposableObject | null | undefined;
 export type DisposableKey = string | symbol;
-
-export type EventTargetLike = {
-  addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: AddEventListenerOptions | boolean): void;
-  removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: EventListenerOptions | boolean): void;
-};
-
-type TimerHandle = ReturnType<typeof setTimeout> | number;
-type AnimationFrameHandle = ReturnType<typeof requestAnimationFrame> | number;
-
 
 function toDisposableFunction(disposable: Disposable): DisposableFunction | null {
   if (!disposable) {
@@ -77,16 +68,8 @@ export class DisposableBag {
 
   replace(key: DisposableKey, disposable: Disposable): DisposableFunction {
     const cancelled = this.cancel(key);
-    if (isPromiseLike<void>(cancelled)) throw new Error('DisposableBag.replace() cannot replace pending async cleanup; use replaceAsync()');
-    return this.setManaged(key, disposable);
-  }
+    if (isPromiseLike<void>(cancelled)) throw new Error('DisposableBag.replace() cannot replace pending async cleanup');
 
-  async replaceAsync(key: DisposableKey, disposable: Disposable): Promise<DisposableFunction> {
-    await this.cancel(key);
-    return this.setManaged(key, disposable);
-  }
-
-  private setManaged(key: DisposableKey, disposable: Disposable): DisposableFunction {
     const release = this.add(disposable);
     const managedRelease = () => {
       if (this.managed.get(key) === managedRelease) {
@@ -123,33 +106,67 @@ export class DisposableBag {
     });
   }
 
-  addEvent(
-    target: EventTargetLike,
+  /** Calls addEventListener with exactly two arguments when no options are given. */
+  listen(
+    target: EventTarget | null | undefined,
     type: string,
     listener: EventListenerOrEventListenerObject,
     options?: AddEventListenerOptions | boolean
   ): DisposableFunction {
+    if (!target) {
+      return () => {};
+    }
+
+    if (options === undefined) {
+      target.addEventListener(type, listener);
+      return this.add(() => target.removeEventListener(type, listener));
+    }
+
     target.addEventListener(type, listener, options);
     return this.add(() => target.removeEventListener(type, listener, options));
   }
 
-  addTimeout(handle: TimerHandle): DisposableFunction {
-    return this.add(() => clearTimeout(handle));
+  timeout(handler: () => void, delay: number): DisposableFunction {
+    let release: DisposableFunction = () => {};
+    const handle = setTimeout(() => {
+      release();
+      handler();
+    }, delay);
+    release = this.add(() => clearTimeout(handle));
+    return release;
   }
 
-  addInterval(handle: TimerHandle): DisposableFunction {
+  interval(handler: () => void, delay: number): DisposableFunction {
+    const handle = setInterval(handler, delay);
     return this.add(() => clearInterval(handle));
   }
 
-  addAnimationFrame(handle: AnimationFrameHandle): DisposableFunction {
-    return this.add(() => cancelAnimationFrame(handle));
+  schedule(key: DisposableKey, handler: () => void, delay: number): DisposableFunction {
+    let release: DisposableFunction = () => {};
+    const handle = setTimeout(() => {
+      release();
+      handler();
+    }, delay);
+    release = this.replace(key, () => clearTimeout(handle));
+    return release;
   }
 
-  addObserver(observer: { disconnect(): void }): DisposableFunction {
-    return this.add(() => observer.disconnect());
+  scheduleInterval(key: DisposableKey, handler: () => void, delay: number): DisposableFunction {
+    const handle = setInterval(handler, delay);
+    return this.replace(key, () => clearInterval(handle));
   }
 
-  clear(): Promise<void> {
+  scheduleFrame(key: DisposableKey, callback: FrameRequestCallback): DisposableFunction {
+    let release: DisposableFunction = () => {};
+    const handle = requestAnimationFrame((time) => {
+      release();
+      callback(time);
+    });
+    release = this.replace(key, () => cancelAnimationFrame(handle));
+    return release;
+  }
+
+  dispose(): Promise<void> {
     this.managed.clear();
     const pending = [...this.disposables].reverse();
     this.disposables = [];
@@ -178,9 +195,5 @@ export class DisposableBag {
         throw new AggregateError(errors, 'Multiple disposables failed during cleanup');
       }
     });
-  }
-
-  dispose(): Promise<void> {
-    return this.clear();
   }
 }

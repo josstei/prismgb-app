@@ -1,4 +1,4 @@
-import { getIconSvg } from '@renderer/presentation/icons/icon.utils.js';
+import { getIconSvg } from '@renderer/presentation/icons/icon.utils';
 import {
   getSettingsListboxOptions,
   getSettingsUiDefinitions,
@@ -6,8 +6,8 @@ import {
   type SettingsControlDefinition,
   type SettingsControlUi,
   type SettingsListboxDefinition
-} from '@renderer/lib/settings.definitions.js';
-import { escapeHtml } from '@platform/core';
+} from '@renderer/lib/settings.definitions';
+import { escapeHtml } from '@renderer/presentation/primitives/html-escape.utils';
 
 function createListboxOptionsTemplate(options: ReturnType<typeof getSettingsListboxOptions>): string {
   return options

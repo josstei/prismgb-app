@@ -13,9 +13,9 @@ import { BaseService, abortableDelay } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import { getErrorMessage } from '@platform/core';
 import type { TypedEventBusLike } from '@platform/events';
-import type { LoggerFactoryLike } from '@platform/core';
-import { computeRms, createEaseInCurve } from './audio-gain.utils.js';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { LoggerFactory } from '@platform/core';
+import { computeRms, createEaseInCurve } from './audio-gain.utils';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 type AudioWarmupResult = {
   ready: boolean;
@@ -62,10 +62,10 @@ export class StreamingAudioPipelineService extends BaseService {
 
   constructor(
     @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory,
     @inject(TOKENS.settingsService) private readonly settingsService: SettingsServiceLike
   ) {
-    super({ loggerFactory, eventBus }, 'StreamingAudioPipelineService');
+    super(loggerFactory, 'StreamingAudioPipelineService');
 
     this._audioContext = null;
     this._sourceNode = null;
@@ -270,7 +270,7 @@ export class StreamingAudioPipelineService extends BaseService {
     return super.dispose();
   }
 
-  override dispose(): void | Promise<void> {
+  override dispose(): Promise<void> {
     this.stop();
     return super.dispose();
   }

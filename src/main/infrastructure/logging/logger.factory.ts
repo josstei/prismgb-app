@@ -1,13 +1,15 @@
 import log from 'electron-log/main';
 import path from 'path';
-import type { LoggerLike, LoggerFactoryLike, LogLevel } from '@platform/core';
+import type { Logger, LoggerFactory } from '@platform/core';
+
+type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 /**
  * electron-log-backed logger factory for the main process. Configures the
  * shared console/file transports once from the environment (NODE_ENV,
  * LOG_LEVEL, LOG_FILE, LOG_DIR) and hands out scoped loggers per DI context.
  */
-export class MainLogger implements LoggerFactoryLike {
+export class MainLogger implements LoggerFactory {
   constructor() {
     this._configureTransports();
   }
@@ -26,7 +28,7 @@ export class MainLogger implements LoggerFactoryLike {
     }
   }
 
-  create(context: string): LoggerLike {
+  create(context: string): Logger {
     const scoped = log.scope(context);
 
     return {

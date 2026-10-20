@@ -1,6 +1,6 @@
 import { PresentationComponent, ComboboxListboxController } from '@platform/ui-base';
 import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
-import type { LoggerLike } from '@platform/core';
+import type { Logger } from '@platform/core';
 
 const AUTOCOMPLETE_DEBOUNCE_MS = 100;
 
@@ -13,7 +13,7 @@ type AutocompleteSelectCallback = (value: string) => void;
 
 export interface GameAutocompleteComponentOptions {
   notesService: NotesGameServiceLike;
-  logger?: LoggerLike | null;
+  logger?: Logger | null;
 }
 
 export interface GameAutocompleteInitializeOptions {
@@ -29,7 +29,7 @@ export interface GameAutocompleteInitializeOptions {
 
 class GameAutocompleteComponent extends PresentationComponent {
   declare notesService: NotesGameServiceLike | null;
-  declare logger: LoggerLike | null | undefined;
+  declare logger: Logger | null | undefined;
   declare gameInput: HTMLInputElement | null | undefined;
   declare autocompleteDropdown: HTMLElement | null | undefined;
   declare comboboxController: ComboboxListboxController<string> | null;

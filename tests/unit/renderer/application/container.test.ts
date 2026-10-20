@@ -5,7 +5,8 @@ import {
   initializeContainer
 } from '@renderer/application/container';
 import type { ServiceIdentifier } from 'inversify';
-import { TOKENS, TOKEN_KEYS } from '@renderer/application/di/tokens.js';
+import { TOKENS, TOKEN_KEYS } from '@renderer/application/di/tokens';
+import { applyBindingOverrides } from '../../../support/di/binding-overrides';
 
 const RESOLVABLE_TOKEN_KEYS = TOKEN_KEYS.filter((key) => key !== 'uiController');
 
@@ -27,7 +28,7 @@ describe('Renderer container', () => {
   });
 
   it('resolves every token once uiController is bound, matching bootstrap order', () => {
-    const container = createRendererContainer({ uiController: createFakeUiController() });
+    const container = applyBindingOverrides(createRendererContainer(), TOKENS, { uiController: createFakeUiController() });
 
     for (const key of RESOLVABLE_TOKEN_KEYS) {
       expect(() => container.get(TOKENS[key] as ServiceIdentifier)).not.toThrow();
@@ -42,14 +43,14 @@ describe('Renderer container', () => {
 
   it('replaces an already-bound token with an override', () => {
     const fakeLoggerFactory = { create: vi.fn() };
-    const container = createRendererContainer({ loggerFactory: fakeLoggerFactory });
+    const container = applyBindingOverrides(createRendererContainer(), TOKENS, { loggerFactory: fakeLoggerFactory });
 
     expect(container.get(TOKENS.loggerFactory)).toBe(fakeLoggerFactory);
   });
 
   it('binds an override for a token with no default binding', () => {
     const fakeUiController = { initializeComponents: vi.fn(), dispose: vi.fn() };
-    const container = createRendererContainer({ uiController: fakeUiController });
+    const container = applyBindingOverrides(createRendererContainer(), TOKENS, { uiController: fakeUiController });
 
     expect(container.get(TOKENS.uiController)).toBe(fakeUiController);
   });
@@ -61,14 +62,14 @@ describe('Renderer container', () => {
   });
 
   it('resolves streamingRenderService before canvasLifecycleService without a circular error', () => {
-    const container = createRendererContainer({ uiController: createFakeUiController() });
+    const container = applyBindingOverrides(createRendererContainer(), TOKENS, { uiController: createFakeUiController() });
 
     expect(() => container.get(TOKENS.streamingRenderService)).not.toThrow();
     expect(() => container.get(TOKENS.canvasLifecycleService)).not.toThrow();
   });
 
   it('resolves canvasLifecycleService before streamingRenderService without a circular error', () => {
-    const container = createRendererContainer({ uiController: createFakeUiController() });
+    const container = applyBindingOverrides(createRendererContainer(), TOKENS, { uiController: createFakeUiController() });
 
     expect(() => container.get(TOKENS.canvasLifecycleService)).not.toThrow();
     expect(() => container.get(TOKENS.streamingRenderService)).not.toThrow();

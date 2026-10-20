@@ -9,18 +9,19 @@ import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
 import nodeModule from 'node:module';
-import { BaseService, type EventBusLike, type LoggerFactoryLike, getElectronApp } from '@platform/core';
+import { BaseService, type LoggerFactory, getElectronApp } from '@platform/core';
+import type { EventBusLike } from '@platform/events';
 import { IPC_CHANNELS } from '@platform/ipc';
-import { TRANSCODE_CONFIG, TranscodeState } from './transcode.config.js';
-import { validateFfmpegBinaries } from './ffmpeg-path.utils.js';
+import { TRANSCODE_CONFIG, TranscodeState } from './transcode.config';
+import { validateFfmpegBinaries } from './ffmpeg-path.utils';
 import {
   createTempSession,
   writeTempFile,
   cleanupSession,
   cleanupAllSessions,
   SessionInfo
-} from './transcode-temp.utils.js';
-import { TranscodeProcess, probeDuration, TranscodeProgressData } from './transcode-process.js';
+} from './transcode-temp.utils';
+import { TranscodeProcess, probeDuration, TranscodeProgressData } from './transcode-process';
 
 /**
  * Transcode job info
@@ -80,7 +81,7 @@ interface TranscodeServiceDependencies {
     send: (channel: string, data: unknown) => void;
   };
   eventBus: EventBusLike;
-  loggerFactory: LoggerFactoryLike;
+  loggerFactory: LoggerFactory;
 }
 
 type TranscodeFormatKey = keyof typeof TRANSCODE_CONFIG.formats;
@@ -97,16 +98,19 @@ class TranscodeService extends BaseService {
   private _processes: Map<string, TranscodeProcess> = new Map();
   private _sessions: Map<string, SessionInfo> = new Map();
   private _isDisposing = false;
+  private initialized = false;
 
   constructor(dependencies: TranscodeServiceDependencies) {
-    super(dependencies, 'TranscodeService');
+    super(dependencies.loggerFactory, 'TranscodeService');
     this.windowService = dependencies.windowService;
   }
 
-  /**
-   * Initialize the transcode service
-   */
-  protected override onInitialize(): void {
+  initialize(): void {
+    if (this.initialized) {
+      this.logger.warn('TranscodeService already initialized');
+      return;
+    }
+
     this.logger.info('Initializing transcode service');
     this._isDisposing = false;
 
@@ -120,10 +124,11 @@ class TranscodeService extends BaseService {
     }
 
     this.logger.info('TranscodeService initialized');
+    this.initialized = true;
   }
 
   async transcode({ inputBuffer, format, outputFilename, inputArgs }: TranscodeOptions): Promise<TranscodeResult> {
-    if (!this._initialized) {
+    if (!this.initialized) {
       return { success: false, error: 'TranscodeService not initialized' };
     }
 
@@ -315,7 +320,7 @@ class TranscodeService extends BaseService {
     }
 
     const cleanupLifecycleKey = transcodeCleanupLifecycleKey(jobId);
-    this.schedule(cleanupLifecycleKey, () => {
+    this.disposables.schedule(cleanupLifecycleKey, () => {
       if (this._jobs.has(jobId)) {
         this._jobs.delete(jobId);
         this.logger.debug('Removed stale job record', { jobId });
@@ -361,7 +366,7 @@ class TranscodeService extends BaseService {
     this._processes.clear();
     this._sessions.clear();
 
-    this._initialized = false;
+    this.initialized = false;
     this.logger.info('TranscodeService disposed');
   }
 }

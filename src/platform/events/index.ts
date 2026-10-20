@@ -1,7 +1,7 @@
-export { PlatformEventBus } from './event-bus.js';
-export type { IEventBus } from './event-bus.js';
-export { EventChannels } from './event-channels.js';
-export { OnEvent } from './on-event.js';
+export { PlatformEventBus } from './event-bus';
+export type { IEventBus, EventBusLike, EventPublisherLike } from './event-bus';
+export { EventChannels } from './event-channels';
+export { OnEvent } from './on-event';
 export type {
   EventPayloadMap,
   TypedEventBusLike,
@@ -31,9 +31,9 @@ export type {
   StreamStartedPayload,
   SupportedDeviceAvailablePayload,
   NativeResolution
-} from './event-payloads.js';
+} from './event-payloads';
 export type { DeviceInfoPayload, DeviceStatus } from '@platform/devices';
 
-export { getEventManifestScopeEvents, getEventManifestScopeValues } from './event.manifest.js';
-export { MainEventChannels } from './main-event-channels.js';
-export type { MainEventChannel } from './main-event-channels.js';
+export { getEventManifestScopeEvents, getEventManifestScopeValues } from './event.manifest';
+export { MainEventChannels } from './main-event-channels';
+export type { MainEventChannel } from './main-event-channels';

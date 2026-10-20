@@ -1,15 +1,15 @@
 import { PresentationComponent } from '@platform/ui-base';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { EventChannels } from '@platform/events';
-import { NotesListViewComponent } from './notes-list-view.component.js';
-import { NotesEditorViewComponent } from './notes-editor-view.component.js';
-import { NotesSearchComponent } from './notes-search.component.js';
-import { GameFilterComponent } from './game-filter.component.js';
-import { GameAutocompleteComponent } from './game-autocomplete.component.js';
-import { NotesResizeHandlerComponent } from './notes-resize-handler.component.js';
-import { NotesPanelLayoutComponent } from './notes-panel-layout.component.js';
-import type { LoggerLike } from '@platform/core';
-import { wireNotesPanel } from './notes-panel-wiring.js';
+import { NotesListViewComponent } from './notes-list-view.component';
+import { NotesEditorViewComponent } from './notes-editor-view.component';
+import { NotesSearchComponent } from './notes-search.component';
+import { GameFilterComponent } from './game-filter.component';
+import { GameAutocompleteComponent } from './game-autocomplete.component';
+import { NotesResizeHandlerComponent } from './notes-resize-handler.component';
+import { NotesPanelLayoutComponent } from './notes-panel-layout.component';
+import type { Logger } from '@platform/core';
+import { wireNotesPanel } from './notes-panel-wiring';
 
 
 const NOTES_CREATED_SUBSCRIPTION = Symbol('notesPanelCreatedSubscription');
@@ -69,7 +69,7 @@ export interface NotesPanelElements {
 export interface NotesPanelComponentOptions {
   notesService: NotesServiceLike;
   eventBus: NotesEventBusLike;
-  logger?: LoggerLike | null;
+  logger?: Logger | null;
 }
 
 function getPayloadNoteId(payload: unknown): string | undefined {
@@ -81,7 +81,7 @@ function getPayloadNoteId(payload: unknown): string | undefined {
 class NotesPanelComponent extends PresentationComponent {
   declare notesService: NotesServiceLike | null;
   declare eventBus: NotesEventBusLike | null;
-  declare logger: LoggerLike | null | undefined;
+  declare logger: Logger | null | undefined;
   declare isVisible: boolean;
   declare currentNoteId: string | null;
   declare elements: NotesPanelElements | null;

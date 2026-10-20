@@ -1,11 +1,11 @@
-import type { LoggerFactoryLike, LoggerLike } from '@platform/core';
-import type { StatusNotificationComponent } from '@renderer/presentation/shared/status-notification.component.js';
-import type { DeviceStatusComponent } from '@renderer/presentation/shared/device-status.component.js';
-import type { StreamingControlsComponent } from '@renderer/presentation/features/streaming/streaming-controls.component.js';
-import type { TranscodeToastComponent } from '@renderer/presentation/features/transcode/transcode-toast.component.js';
-import type { SettingsMenuComponent } from '@renderer/presentation/features/settings/settings-menu.component.js';
-import type { ShaderSelectorComponent } from '@renderer/presentation/features/toolbar/shader-selector.component.js';
-import type { NotesPanelComponent } from '@renderer/presentation/features/notes/notes-panel.component.js';
+import type { LoggerFactory, Logger } from '@platform/core';
+import type { StatusNotificationComponent } from '@renderer/presentation/shared/status-notification.component';
+import type { DeviceStatusComponent } from '@renderer/presentation/shared/device-status.component';
+import type { StreamingControlsComponent } from '@renderer/presentation/features/streaming/streaming-controls.component';
+import type { TranscodeToastComponent } from '@renderer/presentation/features/transcode/transcode-toast.component';
+import type { SettingsMenuComponent } from '@renderer/presentation/features/settings/settings-menu.component';
+import type { ShaderSelectorComponent } from '@renderer/presentation/features/toolbar/shader-selector.component';
+import type { NotesPanelComponent } from '@renderer/presentation/features/notes/notes-panel.component';
 
 export interface RendererUiComponentInstanceMap {
   statusNotificationComponent: StatusNotificationComponent;
@@ -41,13 +41,13 @@ function hasDisposer(component: unknown): component is DisposableComponent {
 export class UiComponentHost<TComponentMap extends object> {
   private readonly _resolved = new Map<keyof TComponentMap, TComponentMap[keyof TComponentMap]>();
   private readonly _resolutionOrder: (keyof TComponentMap)[] = [];
-  private readonly _logger: LoggerLike | undefined;
+  private readonly _logger: Logger | undefined;
 
   constructor(
     private readonly _resolve: UiComponentTokenResolver,
     private readonly _coreTokens: Partial<UiComponentTokenMap<TComponentMap>>,
     private readonly _allTokens: UiComponentTokenMap<TComponentMap>,
-    loggerFactory?: LoggerFactoryLike | null
+    loggerFactory?: LoggerFactory | null
   ) {
     this._logger = loggerFactory?.create('UiComponentHost');
   }

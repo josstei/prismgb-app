@@ -1,4 +1,5 @@
-import type { EventBusLike, LoggerFactoryLike, LoggerLike } from '@platform/core';
+import type { LoggerFactory, Logger } from '@platform/core';
+import type { EventBusLike } from '@platform/events';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { EventChannels } from '@platform/events';
 import { UpdateState } from '@platform/config';
@@ -138,7 +139,7 @@ function createEmptyUpdateSectionElements(): CachedUpdateSectionElements {
 export interface UpdateSectionComponentOptions {
   updateService: UpdateServiceLike;
   eventBus: EventBusLike;
-  loggerFactory?: LoggerFactoryLike | null;
+  loggerFactory?: LoggerFactory | null;
 }
 
 /**
@@ -149,7 +150,7 @@ export interface UpdateSectionComponentOptions {
 class UpdateSectionComponent extends PresentationComponent {
   private readonly updateService: UpdateServiceLike;
   private readonly eventBus: EventBusLike;
-  private readonly logger: LoggerLike;
+  private readonly logger: Logger;
   private _initialized: boolean;
   elements: CachedUpdateSectionElements;
 

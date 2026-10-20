@@ -1,10 +1,10 @@
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import type { LoggerFactoryLike } from '@platform/core';
-import { FilenameGenerator } from '@renderer/lib/filename-generator.utils.js';
+import type { LoggerFactory } from '@platform/core';
+import { FilenameGenerator } from '@renderer/lib/filename-generator.utils';
 import { EventChannels } from '@platform/events';
 import type { RecordingReadyPayload, TypedEventBusLike } from '@platform/events';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 type MediaRecorderErrorEvent = Event & {
   error?: DOMException | Error | { message?: string; name?: string };
@@ -45,9 +45,9 @@ class CaptureService extends BaseService {
 
   constructor(
     @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'CaptureService');
+    super(loggerFactory, 'CaptureService');
 
     this.isRecording = false;
     this.mediaRecorder = null;

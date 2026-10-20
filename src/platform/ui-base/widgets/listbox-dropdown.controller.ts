@@ -1,7 +1,7 @@
-import { PresentationComponent } from '../lifecycle/presentation-component.base.js';
-import type { LoggerLike } from '@platform/core';
-import { DisclosureController } from './disclosure.controller.js';
-import { updateListboxActiveState } from './listbox.utils.js';
+import { PresentationComponent } from '../lifecycle/presentation-component.base';
+import type { Logger } from '@platform/core';
+import { DisclosureController } from './disclosure.controller';
+import { updateListboxActiveState } from './listbox.utils';
 
 const LISTBOX_DROPDOWN_RUNTIME_LIFECYCLE = Symbol('listboxDropdownRuntimeLifecycle');
 
@@ -22,7 +22,7 @@ export interface ListboxDropdownControllerOptions {
   enableTriggerKeyboard?: boolean;
   focusOnTriggerOpen?: boolean;
   onChange?: ListboxDropdownChangeCallback | null;
-  logger?: LoggerLike | null;
+  logger?: Logger | null;
 }
 
 export interface ListboxDropdownInitializeOptions {
@@ -55,7 +55,7 @@ class ListboxDropdownController extends PresentationComponent {
   declare enableTriggerKeyboard: boolean;
   declare focusOnTriggerOpen: boolean;
   declare onChange: ListboxDropdownChangeCallback | null | undefined;
-  declare logger: LoggerLike | null | undefined;
+  declare logger: Logger | null | undefined;
   declare private _disclosure: DisclosureController | null;
 
   constructor(options: ListboxDropdownControllerOptions) {

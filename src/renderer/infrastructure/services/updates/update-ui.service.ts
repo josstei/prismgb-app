@@ -1,33 +1,31 @@
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import { EventChannels } from '@platform/events';
-import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import { EventChannels, OnEvent } from '@platform/events';
+import type { LoggerFactory } from '@platform/core';
+import type { EventBusLike } from '@platform/events';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 @injectable()
 class UpdateUiService extends BaseService {
   constructor(
     @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'UpdateUiService');
+    super(loggerFactory, 'UpdateUiService');
   }
 
   initialize() {
-    this.listen(EventChannels.UPDATE.AVAILABLE, (info: unknown) => this._handleUpdateAvailable(info));
-    this.listen(EventChannels.UPDATE.NOT_AVAILABLE, () => this._handleNoUpdate());
-    this.listen(EventChannels.UPDATE.PROGRESS, (progress: unknown) => this._handleProgress(progress));
-    this.listen(EventChannels.UPDATE.DOWNLOADED, (info: unknown) => this._handleDownloaded(info));
-    this.listen(EventChannels.UPDATE.ERROR, (error: unknown) => this._handleError(error));
+    this.bindEventHandlers(this.eventBus);
     this.logger.info('UpdateUiService initialized');
   }
 
-  override dispose(): void | Promise<void> {
+  override dispose(): Promise<void> {
     const disposed = super.dispose();
     this.logger.info('UpdateUiService disposed');
     return disposed;
   }
 
+  @OnEvent(EventChannels.UPDATE.AVAILABLE)
   _handleUpdateAvailable(info: unknown) {
     const payload = typeof info === 'object' && info !== null
       ? info as { version?: string }
@@ -42,6 +40,7 @@ class UpdateUiService extends BaseService {
     this.eventBus.publish(EventChannels.UPDATE.BADGE_SHOW);
   }
 
+  @OnEvent(EventChannels.UPDATE.NOT_AVAILABLE)
   _handleNoUpdate() {
     this.logger.debug('No update available');
 
@@ -53,6 +52,7 @@ class UpdateUiService extends BaseService {
     this.eventBus.publish(EventChannels.UPDATE.BADGE_HIDE);
   }
 
+  @OnEvent(EventChannels.UPDATE.PROGRESS)
   _handleProgress(progress: unknown) {
     const payload = typeof progress === 'object' && progress !== null
       ? progress as { percent?: number }
@@ -60,6 +60,7 @@ class UpdateUiService extends BaseService {
     this.logger.debug('Download progress', { percent: payload.percent?.toFixed(1) });
   }
 
+  @OnEvent(EventChannels.UPDATE.DOWNLOADED)
   _handleDownloaded(info: unknown) {
     const payload = typeof info === 'object' && info !== null
       ? info as { version?: string }
@@ -74,6 +75,7 @@ class UpdateUiService extends BaseService {
     this.eventBus.publish(EventChannels.UPDATE.BADGE_SHOW);
   }
 
+  @OnEvent(EventChannels.UPDATE.ERROR)
   _handleError(error: unknown) {
     const payload = typeof error === 'object' && error !== null
       ? error as { message?: string }

@@ -37,7 +37,6 @@ describe('TranscodeService', () => {
 
       expect(service.isTranscoding()).toBe(false);
       expect(service._activeJobId).toBeNull();
-      expect(service._initialized).toBe(false);
     });
   });
 
@@ -53,11 +52,6 @@ describe('TranscodeService', () => {
       expect(trpcClient.transcode.onCompleted.subscribe).toHaveBeenCalledWith(undefined, { onData: expect.any(Function) });
       expect(trpcClient.transcode.onError.subscribe).toHaveBeenCalledWith(undefined, { onData: expect.any(Function) });
       expect(trpcClient.transcode.onCancelled.subscribe).toHaveBeenCalledWith(undefined, { onData: expect.any(Function) });
-    });
-
-    it('should set initialized flag', () => {
-      service.initialize();
-      expect(service._initialized).toBe(true);
     });
 
     it('should log initialization', () => {
@@ -375,7 +369,11 @@ describe('TranscodeService', () => {
 
       expect(service.isTranscoding()).toBe(false);
       expect(service._activeJobId).toBeNull();
-      expect(service._initialized).toBe(false);
+
+      mockLogger.warn.mockClear();
+      service.initialize();
+      expect(mockLogger.warn).not.toHaveBeenCalledWith('TranscodeService already initialized');
+      expect(trpcClient.transcode.onProgress.subscribe).toHaveBeenCalledTimes(2);
     });
 
     it('should log disposal', () => {

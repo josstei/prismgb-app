@@ -3,14 +3,14 @@ import {
   calculateAnchoredDisclosureLayout,
   type AnchoredLayoutSizeDefaults
 } from '@platform/ui-base';
-import type { LoggerLike } from '@platform/core';
+import type { Logger } from '@platform/core';
 
 const RESIZE_DEBOUNCE_MS = 100;
 const RESIZE_DEBOUNCE_TIMEOUT = Symbol('notesPanelLayoutResizeDebounceTimeout');
 const LAYOUT_SETUP_LIFECYCLE = Symbol('notesPanelLayoutSetupLifecycle');
 
 export interface NotesPanelLayoutComponentOptions {
-  logger?: LoggerLike | null;
+  logger?: Logger | null;
 }
 
 export interface NotesPanelLayoutInitializeOptions {
@@ -20,7 +20,7 @@ export interface NotesPanelLayoutInitializeOptions {
 }
 
 class NotesPanelLayoutComponent extends PresentationComponent {
-  declare logger: LoggerLike | null | undefined;
+  declare logger: Logger | null | undefined;
   declare _resizeObserver: ResizeObserver | null;
   declare _panelSizeDefaults: AnchoredLayoutSizeDefaults | null;
   declare panelElement: HTMLElement | null | undefined;

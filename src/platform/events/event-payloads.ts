@@ -1,6 +1,14 @@
-import type { LeafValues, AssertNever } from '@platform/core';
 import type { DeviceInfoPayload, DeviceStatus } from '@platform/devices';
-import { EventChannels } from './event-channels.js';
+import { EventChannels } from './event-channels';
+
+type LeafValues<T> = T extends string
+  ? T
+  : T extends Record<string, unknown>
+    ? LeafValues<T[keyof T]>
+    : never;
+
+type AssertNever<T extends never> = T;
+
 export interface UpdateInfoPayload {
   version?: string;
   releaseDate?: string;

@@ -15,13 +15,13 @@ import {
   type UIActionControllerCommand,
   type UIActionDescriptor,
   type UIActionEvent
-} from '@renderer/presentation/primitives/template-ref.utils.js';
-import { TOKENS } from '@renderer/application/di/tokens.js';
-import type { LoggerFactoryLike } from '@platform/core';
+} from '@renderer/presentation/primitives/template-ref.utils';
+import { TOKENS } from '@renderer/application/di/tokens';
+import type { LoggerFactory } from '@platform/core';
 import type { TypedEventBusLike } from '@platform/events';
-import type { UIController } from '@renderer/presentation/controller/ui.controller.js';
-import { RendererTemplateDeferredComponentIds } from '@renderer/presentation/primitives/template-dom.contract.js';
-import type { AppState } from '@renderer/application/state/app-state.js';
+import type { UIController } from '@renderer/presentation/controller/ui.controller';
+import { RendererTemplateDeferredComponentIds } from '@renderer/presentation/primitives/template-dom.contract';
+import type { AppState } from '@renderer/application/state/app-state';
 
 type AppStateLike = Pick<AppState, 'isStreaming'>;
 
@@ -34,10 +34,10 @@ export class UISetupOrchestrator extends BaseOrchestrator {
   constructor(
     @inject(TOKENS.appState) private readonly appState: AppStateLike,
     @inject(TOKENS.uiController) private readonly uiController: UIController,
-    @inject(TOKENS.eventBus) protected readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.loggerFactory) private readonly loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
+    @inject(TOKENS.loggerFactory) private readonly loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'UISetupOrchestrator');
+    super(loggerFactory, 'UISetupOrchestrator', eventBus);
 
     this._uiActionsBound = false;
   }
@@ -54,11 +54,11 @@ export class UISetupOrchestrator extends BaseOrchestrator {
     }
     const actionRoot = this._getUiActionRoot();
     const listenerDisposers = UIActionEvents.map((eventName) =>
-      this.listen(actionRoot, eventName, (event) =>
+      this.disposables.listen(actionRoot, eventName, (event) =>
         this._executeDelegatedUiAction(eventName, event, actionRoot)
       )
     );
-    this.replaceManaged(UI_ACTION_LISTENERS_LIFECYCLE, () => {
+    this.disposables.replace(UI_ACTION_LISTENERS_LIFECYCLE, () => {
       listenerDisposers.splice(0).reverse().forEach((dispose) => dispose());
     });
     this._warnMissingDeclaredActionTargets(actionRoot);
@@ -176,7 +176,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
 
   async onCleanup(): Promise<void> {
     this.logger.info('Cleaning up UISetupOrchestrator...');
-    await this.cancelManaged(UI_ACTION_LISTENERS_LIFECYCLE);
+    await this.disposables.cancel(UI_ACTION_LISTENERS_LIFECYCLE);
     this._uiActionsBound = false;
     this.logger.info('UISetupOrchestrator cleanup complete');
   }

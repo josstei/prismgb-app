@@ -1,9 +1,8 @@
-import { PresentationComponent } from '../lifecycle/presentation-component.base.js';
-import type { EventTargetLike } from '@platform/core';
+import { PresentationComponent } from '../lifecycle/presentation-component.base';
 
 
 type AutoHideActivityBinding = {
-  target: EventTargetLike | null;
+  target: EventTarget | null;
   type: string;
   options?: AddEventListenerOptions | boolean;
 };

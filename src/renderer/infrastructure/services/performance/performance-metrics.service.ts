@@ -7,10 +7,10 @@
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import type { MemorySnapshotRequestPayload } from '@platform/events';
-import type { LoggerFactoryLike } from '@platform/core';
+import type { LoggerFactory } from '@platform/core';
 import type { ProcessMetricPayload, ProcessMetricsPayload } from '@platform/ipc';
-import type { CallIpcResult } from '@renderer/infrastructure/ipc/call-ipc.js';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { CallIpcResult } from '@renderer/infrastructure/ipc/call-ipc';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 type MetricsAdapterLike = {
   isAvailable: () => boolean;
@@ -41,10 +41,10 @@ export class PerformanceMetricsService extends BaseService {
   private readonly _initialDelayMs: number;
 
   constructor(
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory,
     @inject(TOKENS.metricsAdapter) private readonly metricsAdapter: MetricsAdapterLike
   ) {
-    super({ loggerFactory }, 'PerformanceMetricsService');
+    super(loggerFactory, 'PerformanceMetricsService');
 
     this._pendingSnapshotCancels = new Set();
     this._periodicIntervalCancel = null;
@@ -66,7 +66,7 @@ export class PerformanceMetricsService extends BaseService {
 
     if (delayMs > 0) {
       let cancelSnapshot: () => void | Promise<void> = () => {};
-      cancelSnapshot = this.timeout(() => {
+      cancelSnapshot = this.disposables.timeout(() => {
         this._pendingSnapshotCancels.delete(cancelSnapshot);
         void cancelSnapshot();
         this._logSnapshot(label);
@@ -83,12 +83,12 @@ export class PerformanceMetricsService extends BaseService {
       return;
     }
 
-    this._periodicStartCancel = this.timeout(() => {
+    this._periodicStartCancel = this.disposables.timeout(() => {
       const cancelStart = this._periodicStartCancel;
       this._periodicStartCancel = null;
       void cancelStart?.();
       this._logSnapshot('periodic');
-      this._periodicIntervalCancel = this.interval(() => this._logSnapshot('periodic'), this._intervalMs);
+      this._periodicIntervalCancel = this.disposables.interval(() => this._logSnapshot('periodic'), this._intervalMs);
     }, this._initialDelayMs);
   }
 
@@ -109,7 +109,7 @@ export class PerformanceMetricsService extends BaseService {
   /**
    * Cleanup all resources and stop all timers
    */
-  override dispose(): void | Promise<void> {
+  override dispose(): Promise<void> {
     this.stopPeriodicSnapshots();
     this.clearPendingRequests();
     return super.dispose();

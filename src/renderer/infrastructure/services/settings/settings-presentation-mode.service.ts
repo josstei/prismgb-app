@@ -8,8 +8,8 @@
 
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import type { LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { LoggerFactory } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 type PresentationModeUiControllerLike = {
   setStreamingMode(enabled: boolean): void;
@@ -22,9 +22,9 @@ type PresentationModeUiControllerLike = {
 export class PresentationModeService extends BaseService {
   constructor(
     @inject(TOKENS.uiController) private readonly uiController: PresentationModeUiControllerLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory }, 'PresentationModeService');
+    super(loggerFactory, 'PresentationModeService');
   }
 
   handleStreamingMode(enabled: boolean) {

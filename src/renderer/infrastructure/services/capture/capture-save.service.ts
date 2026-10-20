@@ -1,11 +1,12 @@
 import { injectable, inject } from 'inversify';
 import { BaseService, getErrorMessage } from '@platform/core';
 import { EventChannels } from '@platform/events';
-import { downloadFile } from '@renderer/lib/file-download.utils.js';
-import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
-import type { CallIpcResult } from '@renderer/infrastructure/ipc/call-ipc.js';
+import { downloadFile } from '@renderer/lib/file-download.utils';
+import type { LoggerFactory } from '@platform/core';
+import type { EventBusLike } from '@platform/events';
+import type { CallIpcResult } from '@renderer/infrastructure/ipc/call-ipc';
 import type { TranscodeStartPayload } from '@platform/ipc';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 interface RecordingSaveOptions {
   interrupted?: boolean;
@@ -37,9 +38,9 @@ class CaptureSaveService extends BaseService {
     @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
     @inject(TOKENS.settingsService) private readonly settingsService: CaptureSettingsServiceLike,
     @inject(TOKENS.transcodeService) private readonly transcodeService: CaptureTranscodeServiceLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'CaptureSaveService');
+    super(loggerFactory, 'CaptureSaveService');
   }
 
   async saveRecording(blob: Blob, filename: string, options: RecordingSaveOptions = {}): Promise<SaveResult> {
@@ -110,7 +111,7 @@ class CaptureSaveService extends BaseService {
     }
   }
 
-  override dispose(): void | Promise<void> {
+  override dispose(): Promise<void> {
     this.logger.info('CaptureSaveService disposed');
     return super.dispose();
   }

@@ -2,8 +2,8 @@ import { injectable, inject } from 'inversify';
 import { BaseService, getErrorMessage } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import type { TypedEventBusLike } from '@platform/events';
-import type { LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { LoggerFactory } from '@platform/core';
+import { TOKENS } from '@renderer/application/di/tokens';
 import {
   getDeviceAcquisitionProfile,
   getDeviceStreamProfile
@@ -14,14 +14,14 @@ import type {
   DeviceStatus,
   DeviceStreamProfile
 } from '@platform/devices';
-import type { DevicePreferenceStore } from './storage-device-preference.store.js';
-import type { DeviceStatusPort } from './trpc-device-status.port.js';
-import type { MediaDevicesPort } from './browser-media-devices.port.js';
+import type { DevicePreferenceStore } from './storage-device-preference.store';
+import type { DeviceStatusPort } from './trpc-device-status.port';
+import type { MediaDevicesPort } from './browser-media-devices.port';
 import {
   getDeviceDescriptor,
   labelsAreHidden,
   selectDevice
-} from './device-selection.utils.js';
+} from './device-selection.utils';
 
 export interface RendererDeviceSnapshot {
   status: DeviceStatus;
@@ -100,10 +100,10 @@ export class RendererDeviceRuntime extends BaseService {
     @inject(TOKENS.mediaDevicesPort) private readonly mediaDevicesPort: MediaDevicesPort,
     @inject(TOKENS.devicePreferenceStore) private readonly devicePreferenceStore: DevicePreferenceStore,
     @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike,
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory,
     private readonly now: () => number = Date.now
   ) {
-    super({ loggerFactory, eventBus }, 'RendererDeviceRuntime');
+    super(loggerFactory, 'RendererDeviceRuntime');
   }
 
   get isConnected(): boolean {

@@ -6,9 +6,9 @@
 import { Tray, Menu, app, MenuItemConstructorOptions } from 'electron';
 import path from 'path';
 import { injectable, inject } from 'inversify';
-import { BaseService, type LoggerFactoryLike } from '@platform/core';
+import { BaseService, type LoggerFactory } from '@platform/core';
 import type { DeviceConnectionReason } from '@platform/devices/runtime';
-import { TOKENS } from '@main/application/di/tokens.js';
+import { TOKENS } from '@main/application/di/tokens';
 
 /**
  * Menu configuration item
@@ -49,9 +49,9 @@ class TrayService extends BaseService {
   constructor(
     @inject(TOKENS.windowService) private readonly windowService: TrayWindowServiceLike,
     @inject(TOKENS.deviceConnectionService) private readonly deviceConnectionService: TrayDeviceConnectionServiceLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory }, 'TrayService');
+    super(loggerFactory, 'TrayService');
   }
 
   /**

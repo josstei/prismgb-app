@@ -1,12 +1,12 @@
 import {
   DeviceCatalog,
   getDeviceStreamProfile
-} from '../domain/catalog.js';
-import { deepFreeze } from '@platform/core';
+} from '../domain/catalog';
+import { deepFreeze } from '../domain/object.utils';
 import {
   toDeviceInfo,
   toDeviceInfoPayload
-} from '../domain/payloads.js';
+} from '../domain/payloads';
 import type {
   DeviceDescriptor,
   DeviceFixtureFrameData,
@@ -17,7 +17,7 @@ import type {
   DeviceStatusPayload,
   ObservedMediaDevice,
   ObservedUsbDevice
-} from '../domain/types.js';
+} from '../domain/types';
 
 type FixtureSource = DeviceId | DeviceDescriptor | undefined;
 

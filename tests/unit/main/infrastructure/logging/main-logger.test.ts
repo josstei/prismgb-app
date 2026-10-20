@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { LoggerLike } from '@platform/core';
+import type { Logger } from '@platform/core';
 import { installProcessEnvMock } from '../../../../support/mocks/runtime-property.installers.js';
 
 type ProcessEnvOverrides = Record<string, string | number | boolean | undefined>;
@@ -12,7 +12,7 @@ type ProcessEnvMock = ReturnType<typeof installProcessEnvMock> & {
   setEnv(nextOverrides?: ProcessEnvOverrides): NodeJS.ProcessEnv;
 };
 
-const scopedLogger: LoggerLike = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+const scopedLogger: Logger = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
 vi.mock('electron-log/main', () => ({
   default: {
@@ -25,7 +25,7 @@ vi.mock('electron-log/main', () => ({
 }));
 
 import log from 'electron-log/main';
-import { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
+import { MainLogger } from '@main/infrastructure/logging/logger.factory';
 
 describe('MainLogger', () => {
   let envMock: ProcessEnvMock;

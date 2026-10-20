@@ -1,7 +1,7 @@
 import { PresentationComponent } from '@platform/ui-base';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
-import type { LoggerLike } from '@platform/core';
+import type { Logger } from '@platform/core';
 
 const DRAG_THRESHOLD = NotesPanelConfig.DRAG_THRESHOLD;
 const LIST_WIDTH_MIN = NotesPanelConfig.LIST_WIDTH.MIN;
@@ -19,7 +19,7 @@ const LIST_TOGGLE_SETUP_LIFECYCLE = Symbol('notesResizeListToggleSetupLifecycle'
 type BodyStyleSnapshot = { cursor: string; userSelect: string };
 
 export interface NotesResizeHandlerComponentOptions {
-  logger?: LoggerLike | null;
+  logger?: Logger | null;
 }
 
 export interface NotesResizeHandlerInitializeOptions {
@@ -31,7 +31,7 @@ export interface NotesResizeHandlerInitializeOptions {
 }
 
 class NotesResizeHandlerComponent extends PresentationComponent {
-  declare logger: LoggerLike | null | undefined;
+  declare logger: Logger | null | undefined;
   declare isListVisible: boolean;
   declare _isDragging: boolean;
   declare _dragStartX: number;

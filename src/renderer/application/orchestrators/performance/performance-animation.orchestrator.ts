@@ -9,13 +9,14 @@ import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
 import { EventChannels, OnEvent } from '@platform/events';
 import type { PerformanceStatePayload } from '@platform/events';
-import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
+import type { LoggerFactory } from '@platform/core';
+import type { EventBusLike } from '@platform/events';
 import type {
   AnimationPerformanceState,
   PerformanceAnimationService
 } from '@renderer/infrastructure/services/performance/performance-animation.service';
 import type { BodyClassManager } from '@renderer/presentation/effects/body-class.effect';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 @injectable()
 export class PerformanceAnimationOrchestrator extends BaseOrchestrator {
@@ -23,9 +24,9 @@ export class PerformanceAnimationOrchestrator extends BaseOrchestrator {
     @inject(TOKENS.eventBus) eventBus: EventBusLike,
     @inject(TOKENS.animationPerformanceService) private readonly animationPerformanceService: PerformanceAnimationService,
     @inject(TOKENS.bodyClassManager) private readonly bodyClassManager: BodyClassManager,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'PerformanceAnimationOrchestrator');
+    super(loggerFactory, 'PerformanceAnimationOrchestrator', eventBus);
   }
 
   @OnEvent(EventChannels.PERFORMANCE.STATE_CHANGED)

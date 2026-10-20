@@ -4,7 +4,7 @@ import { signal } from '@platform/ui-base/reactive';
 import { getUiPresets, resolvePreset } from '@platform/gpu';
 import { EventChannels } from '@platform/events';
 import type { TypedEventBusLike } from '@platform/events';
-import type { LoggerLike } from '@platform/core';
+import type { Logger } from '@platform/core';
 
 type UiShaderPreset = ReturnType<typeof getUiPresets>[number];
 const presetOptionListenersKey = Symbol('shader-preset-option-listeners');
@@ -18,7 +18,7 @@ export interface ShaderPresetSettingsService {
 export interface ShaderPresetListComponentOptions {
   settingsService: ShaderPresetSettingsService;
   eventBus: TypedEventBusLike;
-  logger?: LoggerLike | null;
+  logger?: Logger | null;
 }
 
 export interface ShaderPresetListElements {
@@ -29,7 +29,7 @@ export interface ShaderPresetListElements {
 class ShaderPresetListComponent extends PresentationComponent {
   declare settingsService: ShaderPresetSettingsService;
   declare eventBus: TypedEventBusLike;
-  declare logger: LoggerLike | null | undefined;
+  declare logger: Logger | null | undefined;
   declare optionsContainer: HTMLElement | null | undefined;
   declare unavailableMessage: HTMLElement | null | undefined;
   declare currentPresetId: string | null;

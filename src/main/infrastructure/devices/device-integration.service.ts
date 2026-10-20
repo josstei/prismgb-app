@@ -8,11 +8,11 @@ import type {
   DeviceConnectionReason,
   DeviceConnectionService
 } from '@platform/devices/runtime';
-import type { LoggerFactoryLike } from '@platform/core';
+import type { LoggerFactory } from '@platform/core';
 import type { PlatformEventBus } from '@platform/events';
-import type { TrayService } from '@main/infrastructure/tray/tray.service.js';
-import type { WindowService } from '@main/infrastructure/window/window.service.js';
-import { TOKENS } from '@main/application/di/tokens.js';
+import type { TrayService } from '@main/infrastructure/tray/tray.service';
+import type { WindowService } from '@main/infrastructure/window/window.service';
+import { TOKENS } from '@main/application/di/tokens';
 
 const WINDOW_LAUNCH_LIFECYCLE = Symbol('deviceIntegrationWindowLaunch');
 
@@ -26,9 +26,9 @@ export class DeviceIntegrationService extends BaseService {
     @inject(TOKENS.trayService) private readonly trayService: TrayService,
     @inject(TOKENS.windowService) private readonly windowService: WindowService,
     @inject(TOKENS.eventBus) private readonly eventBus: PlatformEventBus,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'DeviceIntegrationService');
+    super(loggerFactory, 'DeviceIntegrationService');
   }
 
   initialize(): void {

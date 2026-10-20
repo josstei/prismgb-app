@@ -1,6 +1,6 @@
 import { PresentationComponent } from '@platform/ui-base';
 import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
-import type { LoggerLike } from '@platform/core';
+import type { Logger } from '@platform/core';
 
 const SAVE_DEBOUNCE_MS = NotesPanelConfig.AUTOSAVE_DEBOUNCE_MS;
 const SAVE_DEBOUNCE_TIMEOUT = Symbol('notesEditorSaveDebounceTimeout');
@@ -18,7 +18,7 @@ type EditorCallback = () => void;
 
 export interface NotesEditorViewComponentOptions {
   notesService?: unknown;
-  logger?: LoggerLike | null;
+  logger?: Logger | null;
 }
 
 export interface NotesEditorViewInitializeOptions {
@@ -38,7 +38,7 @@ export interface NotesEditorViewInitializeOptions {
 
 class NotesEditorViewComponent extends PresentationComponent {
   declare notesService: unknown;
-  declare logger: LoggerLike | null | undefined;
+  declare logger: Logger | null | undefined;
   declare currentNoteId: string | null | undefined;
   declare hasNote: boolean;
   declare editorElement: HTMLElement | null | undefined;

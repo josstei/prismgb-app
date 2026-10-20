@@ -5,8 +5,9 @@ import { createTrpcEventBridge } from '@renderer/infrastructure/services/platfor
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { UpdateState } from '@platform/config';
 import type { UpdateStateValue } from '@platform/config';
-import type { EventPublisherLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { LoggerFactory } from '@platform/core';
+import type { EventPublisherLike } from '@platform/events';
+import { TOKENS } from '@renderer/application/di/tokens';
 import type {
   UpdateCheckPayload,
   UpdateErrorPayload,
@@ -27,12 +28,13 @@ class UpdateService extends BaseService {
   private _updateInfo: UpdateInfoPayload | null;
   private _downloadProgress: UpdateProgressPayload | null;
   private _error: string | UpdateErrorPayload | null;
+  private initialized = false;
 
   constructor(
     @inject(TOKENS.eventBus) private readonly eventBus: EventPublisherLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'UpdateService');
+    super(loggerFactory, 'UpdateService');
 
     this._state = UpdateState.IDLE;
     this._updateInfo = null;
@@ -40,7 +42,12 @@ class UpdateService extends BaseService {
     this._error = null;
   }
 
-  protected override async onInitialize(): Promise<void> {
+  async initialize(): Promise<void> {
+    if (this.initialized) {
+      this.logger.warn('UpdateService already initialized');
+      return;
+    }
+
     this.logger.info('Initializing UpdateService');
 
     await this._loadInitialStatus();
@@ -54,6 +61,7 @@ class UpdateService extends BaseService {
     ], this.logger));
 
     this.logger.info('UpdateService initialized');
+    this.initialized = true;
   }
 
   async _loadInitialStatus() {
@@ -196,12 +204,12 @@ class UpdateService extends BaseService {
     }
   }
 
-  override dispose(): void | Promise<void> {
+  override dispose(): Promise<void> {
     this._state = UpdateState.IDLE;
     this._updateInfo = null;
     this._downloadProgress = null;
     this._error = null;
-    this._initialized = false;
+    this.initialized = false;
     this.logger.info('UpdateService disposed');
     return super.dispose();
   }

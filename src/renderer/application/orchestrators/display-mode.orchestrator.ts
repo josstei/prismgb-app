@@ -1,8 +1,9 @@
 import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
 import { EventChannels, OnEvent } from '@platform/events';
-import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { LoggerFactory } from '@platform/core';
+import type { EventBusLike } from '@platform/events';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 type FullscreenServiceLike = {
   initialize(): void;
@@ -28,9 +29,9 @@ export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
     @inject(TOKENS.cinematicModeService) private readonly cinematicModeService: CinematicModeServiceLike,
     @inject(TOKENS.settingsService) private readonly settingsService: SettingsServiceLike,
     @inject(TOKENS.eventBus) eventBus: EventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'SettingsDisplayModeOrchestrator');
+    super(loggerFactory, 'SettingsDisplayModeOrchestrator', eventBus);
   }
 
   /**
@@ -55,7 +56,8 @@ export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
           this._clearStartupVisibilityListener();
           this.fullscreenService.enterFullscreen();
         };
-        this.replaceManaged(STARTUP_VISIBILITY_LIFECYCLE, this.listen(document, 'visibilitychange', onVisible));
+        document.addEventListener('visibilitychange', onVisible);
+        this.disposables.replace(STARTUP_VISIBILITY_LIFECYCLE, () => document.removeEventListener('visibilitychange', onVisible));
       } else {
         this.fullscreenService.enterFullscreen();
       }
@@ -63,7 +65,7 @@ export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
   }
 
   _clearStartupVisibilityListener(): void {
-    this.cancelManaged(STARTUP_VISIBILITY_LIFECYCLE);
+    this.disposables.cancel(STARTUP_VISIBILITY_LIFECYCLE);
   }
 
   async onCleanup(): Promise<void> {

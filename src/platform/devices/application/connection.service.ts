@@ -1,17 +1,18 @@
-import { BaseService, pruneUndefined } from '@platform/core';
-import { matchByUsb } from '../domain/matching.js';
-import { toDeviceInfo } from '../domain/payloads.js';
+import { BaseService } from '@platform/core';
+import { pruneUndefined } from '../domain/object.utils';
+import { matchByUsb } from '../domain/matching';
+import { toDeviceInfo } from '../domain/payloads';
 import type {
   DeviceInfo,
   DeviceStatus,
   ObservedUsbDevice
-} from '../domain/types.js';
+} from '../domain/types';
 import {
   createNodeUsbMonitor,
   type UsbDevice,
   type UsbMonitor
-} from '../infrastructure/usb.monitor.js';
-import type { LoggerFactoryLike } from '@platform/core';
+} from '../infrastructure/usb.monitor';
+import type { LoggerFactory } from '@platform/core';
 
 export type DeviceConnectionReason =
   | 'startup'
@@ -26,7 +27,7 @@ export interface DeviceConnectionCheckError {
 }
 
 export interface DeviceConnectionDependencies {
-  loggerFactory: LoggerFactoryLike;
+  loggerFactory: LoggerFactory;
   usbMonitor?: UsbMonitor;
   now?: () => number;
 }
@@ -93,7 +94,7 @@ export class DeviceConnectionService extends BaseService {
   private readonly checkErrorListeners = new Set<DeviceCheckErrorListener>();
 
   constructor(dependencies: DeviceConnectionDependencies) {
-    super(dependencies, 'DeviceConnectionService');
+    super(dependencies.loggerFactory, 'DeviceConnectionService');
     this.usbMonitor = dependencies.usbMonitor ?? createNodeUsbMonitor();
     this.now = dependencies.now ?? Date.now;
     this.status = createInitialStatus(this.now);

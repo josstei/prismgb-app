@@ -1,10 +1,11 @@
 import { injectable, inject } from 'inversify';
 import { BaseService, isPromiseLike } from '@platform/core';
 import { EventChannels } from '@platform/events';
-import { SettingsDefinitions, getStartupPreferenceEventDefinitions } from '@renderer/lib/settings.definitions.js';
+import { SettingsDefinitions, getStartupPreferenceEventDefinitions } from '@renderer/lib/settings.definitions';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
-import type { EventPublisherLike, LoggerFactoryLike, LoggerLike, StorageServiceLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { LoggerFactory, Logger, KeyValueStore } from '@platform/core';
+import type { EventPublisherLike } from '@platform/events';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 type SettingDefinition = (typeof SettingsDefinitions.definitions)[number];
 type SettingDefaultValue = string | number | boolean;
@@ -26,7 +27,7 @@ type SettingEncodeResult = { ok: true; value: SettingValue } | { ok: false };
  */
 interface SettingCodec {
   decode(saved: string, definition: SettingDefinition): SettingValue;
-  encode(value: unknown, definition: SettingDefinition, logger: LoggerLike): SettingEncodeResult;
+  encode(value: unknown, definition: SettingDefinition, logger: Logger): SettingEncodeResult;
 }
 
 function createDefinitionMap(definitions: readonly SettingDefinition[]): Map<string, SettingDefinition> {
@@ -120,10 +121,10 @@ class SettingsService extends BaseService {
 
   constructor(
     @inject(TOKENS.eventBus) private readonly eventBus: EventPublisherLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike,
-    @inject(TOKENS.storageService) private readonly storageService: StorageServiceLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory,
+    @inject(TOKENS.storageService) private readonly storageService: KeyValueStore
   ) {
-    super({ loggerFactory, eventBus }, 'SettingsService');
+    super(loggerFactory, 'SettingsService');
 
     this.settingDefinitions = SettingsDefinitions.definitions;
     this.settingDefinitionMap = createDefinitionMap(this.settingDefinitions);

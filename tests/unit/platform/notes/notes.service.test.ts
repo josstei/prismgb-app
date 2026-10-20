@@ -161,6 +161,25 @@ describe('NotesService', () => {
       expect(note.updatedAt).toBeDefined();
     });
 
+    it('should generate persisted ids as note_<timestamp>_<base36 suffix>', () => {
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(new Date('2024-01-15T12:00:00Z'));
+        const note = service.createNote();
+
+        expect(note.id).toMatch(/^note_\d+_[a-z0-9]{1,7}$/);
+        expect(note.id.startsWith(`note_${Date.now()}_`)).toBe(true);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('should generate unique ids', () => {
+      const ids = new Set(Array.from({ length: 50 }, () => service.createNote().id));
+
+      expect(ids.size).toBe(50);
+    });
+
     it('should create note with provided title and content', () => {
       const note = service.createNote('My Title', 'My Content');
 

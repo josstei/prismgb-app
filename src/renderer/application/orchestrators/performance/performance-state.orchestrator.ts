@@ -9,23 +9,23 @@ import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
 import { EventChannels, OnEvent } from '@platform/events';
 import type { PerformanceUiModePayload, TypedEventBusLike } from '@platform/events';
-import type { LoggerFactoryLike } from '@platform/core';
+import type { LoggerFactory } from '@platform/core';
 import type {
   PerformanceState,
   PerformanceStateService
 } from '@renderer/infrastructure/services/performance/performance-state.service';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 @injectable()
 export class PerformanceStateOrchestrator extends BaseOrchestrator {
   private _lastUiMode: PerformanceUiModePayload | null;
 
   constructor(
-    @inject(TOKENS.eventBus) protected readonly eventBus: TypedEventBusLike,
+    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
     @inject(TOKENS.performanceStateService) private readonly performanceStateService: PerformanceStateService,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'PerformanceStateOrchestrator');
+    super(loggerFactory, 'PerformanceStateOrchestrator', eventBus);
 
     this._lastUiMode = null;
   }

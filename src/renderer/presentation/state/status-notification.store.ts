@@ -1,7 +1,7 @@
 import { signal, type ReadonlySignal } from '@platform/ui-base/reactive';
 import { EventChannels } from '@platform/events';
-import type { EventBusLike } from '@platform/core';
-import { ReactiveStore } from './reactive-store.base.js';
+import type { EventBusLike } from '@platform/events';
+import { ReactiveStore } from './reactive-store.base';
 
 const VALID_TYPES = ['info', 'success', 'warning', 'error'] as const;
 export type StatusNotificationType = (typeof VALID_TYPES)[number];

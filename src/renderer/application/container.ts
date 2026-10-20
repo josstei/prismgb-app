@@ -1,15 +1,14 @@
 import { Container, type ServiceIdentifier } from 'inversify';
-import { TOKENS, type TokenKey } from './di/tokens.js';
-import { infrastructureModule } from './di/infrastructure.module.js';
-import { applicationModule } from './di/application.module.js';
-import { presentationModule } from './di/presentation.module.js';
-import { StreamingCanvasLifecycleService } from '../infrastructure/services/streaming/canvas-lifecycle.service.js';
+import { TOKENS } from './di/tokens';
+import { infrastructureModule } from './di/infrastructure.module';
+import { applicationModule } from './di/application.module';
+import { presentationModule } from './di/presentation.module';
+import { StreamingCanvasLifecycleService } from '../infrastructure/services/streaming/canvas-lifecycle.service';
 import {
   UiComponentHost,
   type RendererUiComponentInstanceMap
-} from '../presentation/controller/ui-component.host.js';
-import { RendererTemplateCoreComponentIds } from '../presentation/primitives/template-dom.contract.js';
-import { applyBindingOverrides } from '@platform/core';
+} from '../presentation/controller/ui-component.host';
+import { RendererTemplateCoreComponentIds } from '../presentation/primitives/template-dom.contract';
 
 export type RendererServiceContainer = Container;
 
@@ -30,12 +29,11 @@ const CORE_COMPONENT_TOKEN_MAP: Partial<Record<keyof RendererUiComponentInstance
 
 /**
  * Build a renderer DI container wired onto inversify: layer binding modules
- * register every token's construction, `canvasLifecycleService` binds here so
- * its lazy read of `streamingRenderService` can close over this container and
- * break their circular dependency, then overrides replace bindings for tests.
- * No code generation — the binding modules are the source of truth.
+ * register every token's construction, and `canvasLifecycleService` binds here
+ * so its lazy read of `streamingRenderService` can close over this container
+ * and break their circular dependency.
  */
-export function createRendererContainer(overrides: Partial<Record<TokenKey, unknown>> = {}): RendererServiceContainer {
+export function createRendererContainer(): RendererServiceContainer {
   const container = new Container({ defaultScope: 'Singleton' });
   container.load(infrastructureModule, applicationModule, presentationModule);
 
@@ -55,8 +53,6 @@ export function createRendererContainer(overrides: Partial<Record<TokenKey, unkn
     ALL_COMPONENT_TOKEN_MAP,
     container.get(TOKENS.loggerFactory)
   )).inSingletonScope();
-
-  applyBindingOverrides(container, TOKENS, overrides);
 
   return container;
 }

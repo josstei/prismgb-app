@@ -1,9 +1,9 @@
 import { app, ipcMain, shell } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { injectable, inject } from 'inversify';
-import { BaseService, type LoggerFactoryLike } from '@platform/core';
+import { BaseService, type LoggerFactory } from '@platform/core';
 import { createIPCHandler } from 'electron-trpc/main';
-import { appRouter } from './router.js';
+import { appRouter } from './router';
 import type {
   IpcContext,
   DeviceConnectionPort,
@@ -11,12 +11,12 @@ import type {
   WindowService,
   LoginItemService,
   TranscodeService
-} from './trpc.js';
-import type { IpcPushBridge } from './ipc-push.bridge.js';
-import { TEST_CONTROL_CHANNELS } from './test-control.port.js';
-import type { MainProcessTestControlPort } from './test-control.port.js';
+} from './trpc';
+import type { IpcPushBridge } from './ipc-push.bridge';
+import { TEST_CONTROL_CHANNELS } from './test-control.port';
+import type { MainProcessTestControlPort } from './test-control.port';
 import type { DeviceStatusPayload } from '@platform/ipc';
-import { TOKENS } from '@main/application/di/tokens.js';
+import { TOKENS } from '@main/application/di/tokens';
 
 const ELECTRON_TRPC_CHANNEL = 'electron-trpc';
 
@@ -39,9 +39,9 @@ class IpcHandlerRegistry extends BaseService {
     @inject(TOKENS.transcodeService) private readonly transcodeService: TranscodeService,
     @inject(TOKENS.loginItemService) private readonly loginItemService: LoginItemService,
     @inject(TOKENS.ipcPushBridge) private readonly ipcPushBridge: IpcPushBridge,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory }, 'IpcHandlerRegistry');
+    super(loggerFactory, 'IpcHandlerRegistry');
   }
 
   registerHandlers(): void {
@@ -59,7 +59,7 @@ class IpcHandlerRegistry extends BaseService {
     this.handler?.attachWindow(window);
   }
 
-  dispose(): void {
+  override async dispose(): Promise<void> {
     this.logger.info('Removing IPC handlers');
     // Tear down active subscriptions explicitly rather than relying on the window's `destroyed`
     // event (which may not have fired yet on hot-reload / error-recovery / test teardown). On the

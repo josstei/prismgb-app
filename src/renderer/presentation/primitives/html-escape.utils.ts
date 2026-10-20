@@ -16,7 +16,3 @@ export function escapeHtml(value: HtmlEscapableValue): string {
 
   return String(value).replace(/[&<>"']/g, (char) => HTML_ENTITIES[char as HtmlEscapableCharacter]);
 }
-
-export function generateEntityId(prefix: string = 'id'): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-}

@@ -28,7 +28,7 @@ vi.mock('@renderer/presentation/shell/app-shell.renderer.js', () => ({
   renderAppShell: vi.fn()
 }));
 
-const { RendererBootstrap } = await import('@renderer/app-bootstrap.js');
+const { RendererBootstrap } = await import('@renderer/app-bootstrap');
 
 describe('RendererBootstrap', () => {
   let app;
@@ -120,12 +120,12 @@ describe('RendererBootstrap', () => {
       expect(orchestrator.cleanup).toHaveBeenCalled();
     });
 
-    it('should dispose container', async () => {
+    it('should dispose the UI controller', async () => {
       await app.initialize();
-      const container = app.container;
+      const uiController = app._uiController;
       await app.cleanup();
 
-      expect(container.dispose).toHaveBeenCalled();
+      expect(uiController.dispose).toHaveBeenCalled();
     });
 
     it('should set isInitialized to false', async () => {

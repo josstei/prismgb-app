@@ -1,7 +1,7 @@
 import { signal, computed, type ReadonlySignal } from '@platform/ui-base/reactive';
 import { EventChannels } from '@platform/events';
-import type { EventBusLike } from '@platform/core';
-import { ReactiveStore } from './reactive-store.base.js';
+import type { EventBusLike } from '@platform/events';
+import { ReactiveStore } from './reactive-store.base';
 
 function readBooleanField(payload: unknown, key: string): boolean | null {
   if (typeof payload !== 'object' || payload === null) return null;

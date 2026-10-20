@@ -1,12 +1,16 @@
-import type { LoggerFactoryLike, LoggerLike } from './service.base.js';
+export interface Logger {
+  info(...args: unknown[]): void;
+  debug(...args: unknown[]): void;
+  warn(...args: unknown[]): void;
+  error(...args: unknown[]): void;
+}
 
-/**
- * Console-backed {@link LoggerFactoryLike} implementation. Domain-agnostic and
- * safe in both Node and browser contexts; the default concrete logger for the
- * base layer.
- */
-export class ConsoleLoggerFactory implements LoggerFactoryLike {
-  create(name = 'Log'): LoggerLike {
+export interface LoggerFactory {
+  create(name: string): Logger;
+}
+
+export class ConsoleLoggerFactory implements LoggerFactory {
+  create(name: string): Logger {
     const prefix = `[${name}]`;
 
     return {

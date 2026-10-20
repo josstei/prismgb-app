@@ -7,7 +7,7 @@
 
 import { injectable, inject } from 'inversify';
 import { BaseService, raceWithTimeout } from '@platform/core';
-import type { LoggerFactoryLike, TimedRaceOutcome } from '@platform/core';
+import type { LoggerFactory, TimedRaceOutcome } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import type { TypedEventBusLike } from '@platform/events';
 import { getErrorMessage } from '@platform/core';
@@ -15,8 +15,8 @@ import type {
   GpuRecordingStartOptions,
   GpuRendererServiceLike,
   RecordingScaleParams
-} from '@renderer/infrastructure/services/streaming/streaming.contract.js';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+} from '@renderer/infrastructure/services/streaming/streaming.contract';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 const RECORDING_FRAME_LIFECYCLE = Symbol('gpuRecordingFrame');
 
@@ -40,9 +40,9 @@ class CaptureGpuRecordingService extends BaseService {
   constructor(
     @inject(TOKENS.streamingRenderService) private readonly gpuRendererService: GpuRendererServiceLike,
     @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'CaptureGpuRecordingService');
+    super(loggerFactory, 'CaptureGpuRecordingService');
 
     this._recordingCanvas = null;
     this._recordingCtx = null;
@@ -163,7 +163,7 @@ class CaptureGpuRecordingService extends BaseService {
     this._cleanupGpuRecording();
   }
 
-  override dispose(): void | Promise<void> {
+  override dispose(): Promise<void> {
     this._cleanupGpuRecording();
     const disposed = super.dispose();
     this.logger.info('CaptureGpuRecordingService disposed');

@@ -1,5 +1,5 @@
-import { PresentationComponent } from '../lifecycle/presentation-component.base.js';
-import type { LoggerLike } from '@platform/core';
+import { PresentationComponent } from '../lifecycle/presentation-component.base';
+import type { Logger } from '@platform/core';
 
 const COMBOBOX_DEBOUNCE_TIMEOUT = Symbol('comboboxDebounceTimeout');
 const COMBOBOX_BLUR_TIMEOUT = Symbol('comboboxBlurTimeout');
@@ -22,7 +22,7 @@ const COMBOBOX_LISTBOX_DEFAULTS: Partial<ComboboxListboxControllerOptions<unknow
 };
 
 export interface ComboboxListboxControllerOptions<TOption = unknown> {
-  logger?: LoggerLike | null;
+  logger?: Logger | null;
   optionSelector?: string;
   optionClassName?: string;
   optionIdPrefix?: string;
@@ -48,7 +48,7 @@ export interface ComboboxListboxInitializeOptions {
 }
 
 export class ComboboxListboxController<TOption = unknown> extends PresentationComponent {
-  declare logger: LoggerLike | null | undefined;
+  declare logger: Logger | null | undefined;
   declare optionSelector: string;
   declare optionClassName: string;
   declare optionIdPrefix: string;

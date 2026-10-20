@@ -4,15 +4,15 @@ import { EventChannels } from '@platform/events';
 import { DeviceCatalog } from '@platform/devices';
 import { getErrorMessage } from '@platform/core';
 import type { TypedEventBusLike } from '@platform/events';
-import type { LoggerFactoryLike } from '@platform/core';
+import type { LoggerFactory } from '@platform/core';
 import type {
   Dimensions,
   StreamingCapabilities
-} from '@renderer/infrastructure/services/streaming/streaming.contract.js';
+} from '@renderer/infrastructure/services/streaming/streaming.contract';
 import { createGpuVideoRendererSession, detectBrowserGpuCapabilities } from '@platform/gpu/runtime';
 import type { GpuVideoRendererSession, GpuVideoRendererStats } from '@platform/gpu/runtime';
 import type { RenderCapabilities } from '@platform/gpu';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import { TOKENS } from '@renderer/application/di/tokens';
 
 type VideoFrameCallbackMetadata = {
   mediaTime: number;
@@ -84,9 +84,9 @@ export class StreamingRenderService extends BaseService {
     @inject(TOKENS.streamHealthService) private readonly streamHealthService: StreamHealthServiceLike,
     @inject(TOKENS.settingsService) private readonly settingsService: SettingsServiceLike,
     @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
-    super({ loggerFactory, eventBus }, 'StreamingRenderService');
+    super(loggerFactory, 'StreamingRenderService');
 
     this._currentCapabilities = null;
     this._session = null;
