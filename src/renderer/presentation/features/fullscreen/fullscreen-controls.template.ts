@@ -5,7 +5,7 @@
  * Extracted from stream-viewer.template.js for feature separation.
  */
 
-import { getIconSvg } from '@renderer/presentation/icons/icon.utils.js';
+import { getIconSvg } from '@renderer/presentation/icons/icon.utils';
 
 export function createFullscreenControlsTemplate(): string {
   return `

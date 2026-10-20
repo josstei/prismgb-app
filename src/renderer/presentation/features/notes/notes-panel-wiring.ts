@@ -1,4 +1,4 @@
-import type { NotesPanelComponent, NotesPanelElements } from './notes-panel.component.js';
+import type { NotesPanelComponent, NotesPanelElements } from './notes-panel.component';
 
 export function wireNotesPanel(component: NotesPanelComponent, elements: NotesPanelElements): void {
   component.searchComponent!.initialize({

@@ -1,4 +1,4 @@
-import { createAppShellTemplate } from './app-shell.template.js';
+import { createAppShellTemplate } from './app-shell.template';
 
 export function renderAppShell(container: HTMLElement | null): void {
   if (!container) return;
