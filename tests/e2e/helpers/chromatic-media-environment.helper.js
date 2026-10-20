@@ -385,7 +385,7 @@ export async function installChromaticMediaEnvironment(page, options = {}) {
   };
 }
 
-export async function connectChromaticMedia(page) {
+async function connectChromaticMedia(page) {
   await page.evaluate(() => {
     const state = window.__chromaticMediaEnvironment;
     if (!state) {
@@ -399,7 +399,7 @@ export async function connectChromaticMedia(page) {
   });
 }
 
-export async function disconnectChromaticMedia(page) {
+async function disconnectChromaticMedia(page) {
   await page.evaluate(() => {
     const state = window.__chromaticMediaEnvironment;
     if (!state) return;
@@ -411,7 +411,7 @@ export async function disconnectChromaticMedia(page) {
   });
 }
 
-export async function setChromaticTestPattern(page, pattern) {
+async function setChromaticTestPattern(page, pattern) {
   await page.evaluate((p) => {
     if (window.__chromaticMediaEnvironment) {
       window.__chromaticMediaEnvironment.testPattern = p;
@@ -419,7 +419,7 @@ export async function setChromaticTestPattern(page, pattern) {
   }, pattern);
 }
 
-export async function getChromaticMediaEnvironmentStatus(page) {
+async function getChromaticMediaEnvironmentStatus(page) {
   return page.evaluate(() => {
     const state = window.__chromaticMediaEnvironment;
     if (!state) {
