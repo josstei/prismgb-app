@@ -56,7 +56,6 @@ screenshots/
 *.webm
 
 # Test coverage and generated reports
-.vitest/
 artifacts/
 
 # Playwright E2E test artifacts
