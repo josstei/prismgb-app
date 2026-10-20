@@ -13,21 +13,11 @@ import type { TranscodeService } from '@main/infrastructure/transcode/transcode.
 import type { LoginItemService } from '@main/infrastructure/system/login-item.service';
 import type { AppOrchestrator } from '../app.orchestrator';
 
-/**
- * Shape of the pre-seeded application config value registered as the `config` token.
- */
-export interface MainAppConfig {
-  isDevelopment: boolean;
-  appName: string;
-  version: string;
-}
-
 function token<T>(name: string): ServiceIdentifier<T> {
   return Symbol.for(name) as ServiceIdentifier<T>;
 }
 
 export const TOKENS = {
-  config: token<MainAppConfig>('config'),
   loggerFactory: token<MainLogger>('loggerFactory'),
   windowService: token<WindowService>('windowService'),
   usbMonitor: token<UsbMonitor>('usbMonitor'),

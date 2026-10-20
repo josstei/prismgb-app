@@ -1,63 +1,52 @@
 import { app } from 'electron';
-import pkg from 'electron-updater';
+import updater from 'electron-updater';
 import type { UpdateInfo, ProgressInfo } from 'electron-updater';
 import { injectable, inject } from 'inversify';
 import { BaseService, type LoggerFactory } from '@platform/core';
-import { IPC_CHANNELS, UpdateState, type UpdateStateValue } from '@platform/ipc';
-import { TOKENS, type MainAppConfig } from '@main/application/di/tokens';
-import type { WindowService } from '@main/infrastructure/window/window.service';
+import {
+  IPC_CHANNELS,
+  UpdateState,
+  type UpdateCheckPayload,
+  type UpdateStateValue,
+  type UpdateStatusPayload
+} from '@platform/ipc';
+import pkg from '../../../../package.json' assert { type: 'json' };
+import { TOKENS } from '@main/application/di/tokens';
+import type { IpcPushBridge } from '@main/ipc/ipc-push.bridge';
 
-const { autoUpdater } = pkg;
+const { autoUpdater } = updater;
 
-const INITIAL_UPDATE_CHECK_LIFECYCLE = Symbol('initialUpdateCheck');
-const PERIODIC_UPDATE_CHECK_LIFECYCLE = Symbol('periodicUpdateCheck');
-
-interface UpdateCheckResult {
-  updateAvailable: boolean;
-  updateInfo?: UpdateInfo;
-  skipped?: boolean;
-  reason?: string;
-}
-
-interface UpdateStatus {
-  state: UpdateStateValue;
-  updateInfo: UpdateInfo | null;
-  downloadProgress: ProgressInfo | null;
-  error: string | null;
-}
+const INITIAL_CHECK_KEY = Symbol('initialUpdateCheck');
+const PERIODIC_CHECK_KEY = Symbol('periodicUpdateCheck');
+const INITIAL_CHECK_DELAY_MS = 10000;
+const CHECK_INTERVAL_MS = 60 * 60 * 1000;
 
 type AutoUpdaterEventName = Parameters<typeof autoUpdater.on>[0];
 type AutoUpdaterListener = Parameters<typeof autoUpdater.on>[1];
 
+/** A release published without this platform's manifest reads as "no update", not as an error. */
+export function isPlatformManifestMissing(message: string | null | undefined): boolean {
+  return /Cannot find latest(?:-[^/\s]+)?\.yml/.test(message || '');
+}
+
 @injectable()
 export class AutoUpdateService extends BaseService {
-  state: UpdateStateValue;
-  updateInfo: UpdateInfo | null;
-  downloadProgress: ProgressInfo | null;
-  error: Error | null;
+  state: UpdateStateValue = UpdateState.IDLE;
+  updateInfo: UpdateInfo | null = null;
+  downloadProgress: ProgressInfo | null = null;
+  error: string | null = null;
 
-  private _autoCheckRunning: boolean;
+  private readonly version = pkg.version;
+  private readonly isDevelopment = process.env.NODE_ENV === 'development';
   private initialized = false;
 
   constructor(
-    @inject(TOKENS.windowService) private readonly windowService: WindowService,
-    @inject(TOKENS.config) private readonly config: MainAppConfig,
+    @inject(TOKENS.ipcPushBridge) private readonly ipcPushBridge: IpcPushBridge,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
     super(loggerFactory, 'AutoUpdateService');
-
-    this.state = UpdateState.IDLE;
-    this.updateInfo = null;
-    this.downloadProgress = null;
-    this.error = null;
-
-    this._autoCheckRunning = false;
   }
 
-  /**
-   * Initialize the update service
-   * Sets up autoUpdater configuration and event listeners
-   */
   initialize(): void {
     if (this.initialized) {
       this.logger.warn('UpdateService already initialized');
@@ -66,12 +55,11 @@ export class AutoUpdateService extends BaseService {
 
     this.logger.info('Initializing update service');
 
-    // Configure autoUpdater
     autoUpdater.logger = {
       info: (msg: string) => this.logger.info(msg),
       warn: (msg: string) => this.logger.warn(msg),
       error: (msg: string | Error) => {
-        if (this._isPlatformNotFoundMessage(String(msg))) {
+        if (isPlatformManifestMissing(String(msg))) {
           return;
         }
         this.logger.error(msg);
@@ -79,148 +67,31 @@ export class AutoUpdateService extends BaseService {
       debug: (msg: string) => this.logger.debug(msg)
     };
 
-    // Don't auto-download updates - let user decide
+    // The user decides when to download.
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.allowPrerelease = this.version.includes('beta');
 
-    // Allow pre-release updates if running a beta version
-    const version = this.config.version || '';
-    autoUpdater.allowPrerelease = version.includes('beta');
-
-    // Set up event listeners
-    this._setupEventListeners();
+    this.listenToAutoUpdater();
 
     this.logger.info('Update service initialized', {
       allowPrerelease: autoUpdater.allowPrerelease,
-      version
+      version: this.version
     });
     this.initialized = true;
+    this.startAutoCheck();
   }
 
-  /**
-   * Set up autoUpdater event listeners
-   * @private
-   */
-  private _setupEventListeners(): void {
-    this._listenToAutoUpdater('checking-for-update', () => {
-      this.logger.info('Checking for updates...');
-      this.state = UpdateState.CHECKING;
-    });
-
-    this._listenToAutoUpdater('update-available', (info: UpdateInfo) => {
-      this.logger.info('Update available', { version: info.version });
-      this.updateInfo = info;
-      this.state = UpdateState.AVAILABLE;
-      this._notifyRenderer(IPC_CHANNELS.UPDATE.AVAILABLE, info);
-    });
-
-    this._listenToAutoUpdater('update-not-available', (info: UpdateInfo) => {
-      this.logger.info('No updates available', { version: info.version });
-      this.updateInfo = info;
-      this.state = UpdateState.NOT_AVAILABLE;
-      this._notifyRenderer(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, info);
-    });
-
-    this._listenToAutoUpdater('download-progress', (progress: ProgressInfo) => {
-      this.logger.debug('Download progress', {
-        percent: progress.percent?.toFixed(1),
-        transferred: progress.transferred,
-        total: progress.total
-      });
-      this.downloadProgress = progress;
-      this._notifyRenderer(IPC_CHANNELS.UPDATE.PROGRESS, progress);
-    });
-
-    this._listenToAutoUpdater('update-downloaded', (info: UpdateInfo) => {
-      this.logger.info('Update downloaded', { version: info.version });
-      this.updateInfo = info;
-      this.state = UpdateState.DOWNLOADED;
-      this._notifyRenderer(IPC_CHANNELS.UPDATE.DOWNLOADED, info);
-    });
-
-    this._listenToAutoUpdater('error', (error: Error) => {
-      if (this._isPlatformNotFoundError(error)) {
-        this.logger.info('No updates available for this platform');
-        this.state = UpdateState.NOT_AVAILABLE;
-        this._notifyRenderer(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, {
-          version: this.config.version,
-          reason: 'platform-not-supported'
-        });
-        return;
-      }
-
-      this.logger.error('Update error', error);
-      this.error = error;
-      this.state = UpdateState.ERROR;
-      this._notifyRenderer(IPC_CHANNELS.UPDATE.ERROR, { message: error.message });
-    });
-  }
-
-  private _listenToAutoUpdater(eventName: AutoUpdaterEventName, listener: AutoUpdaterListener): void {
-    autoUpdater.on(eventName, listener);
-    this.disposables.add(() => {
-      autoUpdater.removeListener(eventName, listener);
-    });
-  }
-
-  /**
-   * Check if error is a platform manifest not found (404)
-   * This happens when running on a platform that wasn't published in a release
-   * @param error - The error from autoUpdater
-   * @returns True if this is a platform-not-found error
-   * @private
-   */
-  private _isPlatformNotFoundError(error: Error): boolean {
-    const message = error?.message || '';
-    return this._isPlatformNotFoundMessage(message);
-  }
-
-  /**
-   * Check if a message indicates platform manifest not found
-   * @param message - The message to check
-   * @returns True if this is a platform-not-found message
-   * @private
-   */
-  _isPlatformNotFoundMessage(message: string | null | undefined): boolean {
-    return /Cannot find latest(?:-[^/\s]+)?\.yml/.test(message || '');
-  }
-
-  /**
-   * Notify renderer process of update events
-   * @param channel - IPC channel name
-   * @param data - Data to send
-   * @private
-   */
-  _notifyRenderer(channel: string, data: unknown): void {
-    try {
-      this.windowService.send(channel, data);
-    } catch (error) {
-      this.logger.warn('Failed to notify renderer', { channel, error: (error as Error).message });
-    }
-  }
-
-  /**
-   * Check for updates
-   * @param options - Check options
-   * @param options.force - Force check even if already downloaded/downloading
-   * @returns Update check result
-   */
-  async checkForUpdates({ force = false }: { force?: boolean } = {}): Promise<UpdateCheckResult> {
-    if (!this.initialized) {
-      throw new Error('UpdateService not initialized');
-    }
-
-    // Skip if already downloaded or downloading (unless forced by user)
-    if (!force && (this.state === UpdateState.DOWNLOADED || this.state === UpdateState.DOWNLOADING)) {
+  async checkForUpdates(): Promise<UpdateCheckPayload> {
+    if (this.state === UpdateState.DOWNLOADED || this.state === UpdateState.DOWNLOADING) {
       this.logger.info('Skipping update check - update already in progress or downloaded');
       return { updateAvailable: true, updateInfo: this.updateInfo || undefined, skipped: true };
     }
 
-    // Skip in development mode
-    if (this.config.isDevelopment) {
+    if (this.isDevelopment) {
       this.logger.info('Skipping update check in development mode');
       this.state = UpdateState.NOT_AVAILABLE;
-      this._notifyRenderer(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, { version: this.config.version, reason: 'development' });
+      this.ipcPushBridge.emit(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, { version: this.version, reason: 'development' });
       return { updateAvailable: false, reason: 'development' };
     }
 
@@ -228,11 +99,11 @@ export class AutoUpdateService extends BaseService {
       this.logger.info('Checking for updates...');
       const result = await autoUpdater.checkForUpdates();
       return {
-        updateAvailable: result?.updateInfo?.version !== this.config.version,
+        updateAvailable: result?.updateInfo?.version !== this.version,
         updateInfo: result?.updateInfo
       };
     } catch (error) {
-      if (this._isPlatformNotFoundError(error as Error)) {
+      if (isPlatformManifestMissing((error as Error)?.message)) {
         return { updateAvailable: false, reason: 'platform-not-supported' };
       }
       this.logger.error('Failed to check for updates', error as Error);
@@ -240,18 +111,10 @@ export class AutoUpdateService extends BaseService {
     }
   }
 
-  /**
-   * Download available update
-   * @returns Promise that resolves when download completes
-   */
   async downloadUpdate(): Promise<void> {
-    if (!this.initialized) {
-      throw new Error('UpdateService not initialized');
-    }
-
     if (this.state === UpdateState.DOWNLOADED) {
       this.logger.info('Update already downloaded');
-      this._notifyRenderer(IPC_CHANNELS.UPDATE.DOWNLOADED, this.updateInfo);
+      this.ipcPushBridge.emit(IPC_CHANNELS.UPDATE.DOWNLOADED, this.updateInfo);
       return;
     }
 
@@ -266,19 +129,12 @@ export class AutoUpdateService extends BaseService {
     } catch (error) {
       this.logger.error('Failed to download update', error as Error);
       this.state = UpdateState.ERROR;
-      this.error = error as Error;
+      this.error = (error as Error)?.message || null;
       throw error;
     }
   }
 
-  /**
-   * Install downloaded update and restart app
-   */
   installUpdate(): void {
-    if (!this.initialized) {
-      throw new Error('UpdateService not initialized');
-    }
-
     if (this.state !== UpdateState.DOWNLOADED) {
       throw new Error('No update downloaded to install');
     }
@@ -288,66 +144,96 @@ export class AutoUpdateService extends BaseService {
     autoUpdater.quitAndInstall(false, true);
   }
 
-  /**
-   * Start automatic update checking at specified interval
-   * @param intervalMs - Check interval in milliseconds (default: 1 hour)
-   */
-  startAutoCheck(intervalMs = 60 * 60 * 1000): void {
-    if (this._autoCheckRunning) {
-      this.logger.warn('Auto-check already running');
-      return;
-    }
-
-    this._autoCheckRunning = true;
-
-    this.disposables.schedule(INITIAL_UPDATE_CHECK_LIFECYCLE, () => {
-      this.checkForUpdates().catch((error) => {
-        this.logger.warn('Initial update check failed', (error as Error).message);
-      });
-    }, 10000);
-
-    this.disposables.scheduleInterval(PERIODIC_UPDATE_CHECK_LIFECYCLE, () => {
-      this.checkForUpdates().catch((error) => {
-        this.logger.warn('Periodic update check failed', (error as Error).message);
-      });
-    }, intervalMs);
-
-    this.logger.info(`Auto-update check started (interval: ${intervalMs / 1000 / 60} minutes)`);
-  }
-
-  /**
-   * Stop automatic update checking
-   */
-  stopAutoCheck(): void {
-    const wasRunning = this._autoCheckRunning;
-    this.disposables.cancel(INITIAL_UPDATE_CHECK_LIFECYCLE);
-    this.disposables.cancel(PERIODIC_UPDATE_CHECK_LIFECYCLE);
-    this._autoCheckRunning = false;
-    if (wasRunning) {
-      this.logger.info('Auto-update check stopped');
-    }
-  }
-
-  /**
-   * Get current update status
-   * @returns Current status object
-   */
-  getStatus(): UpdateStatus {
+  getStatus(): UpdateStatusPayload {
     return {
       state: this.state,
       updateInfo: this.updateInfo,
       downloadProgress: this.downloadProgress,
-      error: this.error?.message || null
+      error: this.error
     };
   }
 
-  /**
-   * Clean up resources
-   */
   override async dispose(): Promise<void> {
-    this.stopAutoCheck();
     await super.dispose();
     this.initialized = false;
     this.logger.info('UpdateService disposed');
+  }
+
+  private listenToAutoUpdater(): void {
+    this.onAutoUpdater('checking-for-update', () => {
+      this.logger.info('Checking for updates...');
+      this.state = UpdateState.CHECKING;
+    });
+
+    this.onAutoUpdater('update-available', (info: UpdateInfo) => {
+      this.logger.info('Update available', { version: info.version });
+      this.updateInfo = info;
+      this.state = UpdateState.AVAILABLE;
+      this.ipcPushBridge.emit(IPC_CHANNELS.UPDATE.AVAILABLE, info);
+    });
+
+    this.onAutoUpdater('update-not-available', (info: UpdateInfo) => {
+      this.logger.info('No updates available', { version: info.version });
+      this.updateInfo = info;
+      this.state = UpdateState.NOT_AVAILABLE;
+      this.ipcPushBridge.emit(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, info);
+    });
+
+    this.onAutoUpdater('download-progress', (progress: ProgressInfo) => {
+      this.logger.debug('Download progress', {
+        percent: progress.percent?.toFixed(1),
+        transferred: progress.transferred,
+        total: progress.total
+      });
+      this.downloadProgress = progress;
+      this.ipcPushBridge.emit(IPC_CHANNELS.UPDATE.PROGRESS, progress);
+    });
+
+    this.onAutoUpdater('update-downloaded', (info: UpdateInfo) => {
+      this.logger.info('Update downloaded', { version: info.version });
+      this.updateInfo = info;
+      this.state = UpdateState.DOWNLOADED;
+      this.ipcPushBridge.emit(IPC_CHANNELS.UPDATE.DOWNLOADED, info);
+    });
+
+    this.onAutoUpdater('error', (error: Error) => {
+      if (isPlatformManifestMissing(error?.message)) {
+        this.logger.info('No updates available for this platform');
+        this.state = UpdateState.NOT_AVAILABLE;
+        this.ipcPushBridge.emit(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, {
+          version: this.version,
+          reason: 'platform-not-supported'
+        });
+        return;
+      }
+
+      this.logger.error('Update error', error);
+      this.error = error.message || null;
+      this.state = UpdateState.ERROR;
+      this.ipcPushBridge.emit(IPC_CHANNELS.UPDATE.ERROR, { message: error.message });
+    });
+  }
+
+  private onAutoUpdater(eventName: AutoUpdaterEventName, listener: AutoUpdaterListener): void {
+    autoUpdater.on(eventName, listener);
+    this.disposables.add(() => {
+      autoUpdater.removeListener(eventName, listener);
+    });
+  }
+
+  private startAutoCheck(): void {
+    this.disposables.schedule(INITIAL_CHECK_KEY, () => {
+      this.checkForUpdates().catch((error) => {
+        this.logger.warn('Initial update check failed', (error as Error).message);
+      });
+    }, INITIAL_CHECK_DELAY_MS);
+
+    this.disposables.scheduleInterval(PERIODIC_CHECK_KEY, () => {
+      this.checkForUpdates().catch((error) => {
+        this.logger.warn('Periodic update check failed', (error as Error).message);
+      });
+    }, CHECK_INTERVAL_MS);
+
+    this.logger.info(`Auto-update check started (interval: ${CHECK_INTERVAL_MS / 1000 / 60} minutes)`);
   }
 }

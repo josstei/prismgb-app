@@ -1,16 +1,21 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { app } from 'electron';
-import { AutoUpdateService } from '@main/infrastructure/updates/auto-update.service';
+import { AutoUpdateService, isPlatformManifestMissing } from '@main/infrastructure/updates/auto-update.service';
+import { IpcPushBridge } from '@main/ipc/ipc-push.bridge';
 import { UpdateState } from '@platform/ipc';
 import type { Logger } from '@platform/core';
 import type { ProgressInfo, UpdateInfo } from 'electron-updater';
-import { createLoggerFactory, createUpdateConfigMock, createWindowServiceMock } from '../../../../factories/index.js';
+import { createLoggerFactory } from '../../../../factories/index.js';
+
+const packageJson = vi.hoisted(() => ({ version: '1.0.0' }));
 
 vi.mock('electron', () => ({
   app: {
     isQuitting: false
   }
 }));
+
+vi.mock('../../../../../package.json', () => ({ default: packageJson }));
 
 vi.mock('electron-updater', () => {
   const autoUpdater = {
@@ -33,22 +38,8 @@ vi.mock('electron-updater', () => {
 
 import { autoUpdater } from 'electron-updater';
 
-type MockFn = ReturnType<typeof vi.fn>;
-type MockWindowService = ReturnType<typeof createWindowServiceMock> & {
-  send: MockFn;
-};
 type MockLoggerFactory = ReturnType<typeof createLoggerFactory> & {
   _getLogger(name: string): Logger;
-};
-type UpdateConfigMock = ReturnType<typeof createUpdateConfigMock>;
-type UpdateServiceConfig = {
-  isDevelopment?: boolean;
-  version?: string;
-};
-type TestableUpdateService = Omit<AutoUpdateService, 'config'> & {
-  _autoCheckRunning: boolean;
-  config: UpdateServiceConfig;
-  windowService: MockWindowService | null;
 };
 type UpdateEventHandlers = Record<string, (...args: unknown[]) => void>;
 type AutoUpdaterCheckResult = Awaited<ReturnType<typeof autoUpdater.checkForUpdates>>;
@@ -66,34 +57,27 @@ function createAutoUpdaterCheckResult(version: string): NonNullable<AutoUpdaterC
 }
 
 describe('AutoUpdateService', () => {
-  let service: TestableUpdateService;
-  let mockWindowService: MockWindowService;
+  let service: AutoUpdateService;
+  let push: IpcPushBridge;
   let mockLogger: Logger;
   let mockLoggerFactory: MockLoggerFactory;
-  let mockConfig: UpdateConfigMock;
 
   beforeEach(() => {
-
+    packageJson.version = '1.0.0';
     mockLoggerFactory = createLoggerFactory();
-
-    mockWindowService = createWindowServiceMock({ send: vi.fn() });
-
-    mockConfig = createUpdateConfigMock();
-
+    push = new IpcPushBridge(mockLoggerFactory);
+    vi.spyOn(push, 'emit');
     service = createService();
     mockLogger = mockLoggerFactory._getLogger('AutoUpdateService');
   });
 
-  function createService(): TestableUpdateService {
-    return new AutoUpdateService(
-      mockWindowService as never,
-      mockConfig as never,
-      mockLoggerFactory
-    ) as unknown as TestableUpdateService;
+  function createService(): AutoUpdateService {
+    return new AutoUpdateService(push, mockLoggerFactory);
   }
 
   afterEach(async () => {
     await service.dispose();
+    vi.unstubAllEnvs();
   });
 
   describe('constructor', () => {
@@ -102,9 +86,7 @@ describe('AutoUpdateService', () => {
       expect(service.updateInfo).toBeNull();
       expect(service.downloadProgress).toBeNull();
       expect(service.error).toBeNull();
-      expect(() => service.installUpdate()).toThrow('UpdateService not initialized');
     });
-
   });
 
   describe('initialize', () => {
@@ -125,14 +107,14 @@ describe('AutoUpdateService', () => {
     });
 
     it('should set allowPrerelease for beta versions', () => {
-      service.config = { version: '1.0.0-beta.1' };
+      packageJson.version = '1.0.0-beta.1';
+      service = createService();
       service.initialize();
 
       expect(autoUpdater.allowPrerelease).toBe(true);
     });
 
     it('should not set allowPrerelease for stable versions', () => {
-      service.config = { version: '1.0.0' };
       service.initialize();
 
       expect(autoUpdater.allowPrerelease).toBe(false);
@@ -190,7 +172,7 @@ describe('AutoUpdateService', () => {
 
       expect(service.state).toBe(UpdateState.AVAILABLE);
       expect(service.updateInfo).toBe(updateInfo);
-      expect(mockWindowService.send).toHaveBeenCalledWith('update:available', updateInfo);
+      expect(push.emit).toHaveBeenCalledWith('update:available', updateInfo);
     });
 
     it('should handle update-not-available event', () => {
@@ -199,7 +181,7 @@ describe('AutoUpdateService', () => {
 
       expect(service.state).toBe(UpdateState.NOT_AVAILABLE);
       expect(service.updateInfo).toBe(updateInfo);
-      expect(mockWindowService.send).toHaveBeenCalledWith('update:not-available', updateInfo);
+      expect(push.emit).toHaveBeenCalledWith('update:not-available', updateInfo);
     });
 
     it('should handle download-progress event', () => {
@@ -207,7 +189,7 @@ describe('AutoUpdateService', () => {
       eventHandlers['download-progress'](progress);
 
       expect(service.downloadProgress).toBe(progress);
-      expect(mockWindowService.send).toHaveBeenCalledWith('update:progress', progress);
+      expect(push.emit).toHaveBeenCalledWith('update:progress', progress);
     });
 
     it('should handle update-downloaded event', () => {
@@ -216,7 +198,7 @@ describe('AutoUpdateService', () => {
 
       expect(service.state).toBe(UpdateState.DOWNLOADED);
       expect(service.updateInfo).toBe(updateInfo);
-      expect(mockWindowService.send).toHaveBeenCalledWith('update:downloaded', updateInfo);
+      expect(push.emit).toHaveBeenCalledWith('update:downloaded', updateInfo);
     });
 
     it('should handle error event', () => {
@@ -224,8 +206,8 @@ describe('AutoUpdateService', () => {
       eventHandlers['error'](error);
 
       expect(service.state).toBe(UpdateState.ERROR);
-      expect(service.error).toBe(error);
-      expect(mockWindowService.send).toHaveBeenCalledWith('update:error', { message: 'Network error' });
+      expect(service.error).toBe('Network error');
+      expect(push.emit).toHaveBeenCalledWith('update:error', { message: 'Network error' });
     });
 
     it('should handle platform manifest not found as not-available', () => {
@@ -234,7 +216,7 @@ describe('AutoUpdateService', () => {
 
       expect(service.state).toBe(UpdateState.NOT_AVAILABLE);
       expect(service.error).toBeNull();
-      expect(mockWindowService.send).toHaveBeenCalledWith('update:not-available', {
+      expect(push.emit).toHaveBeenCalledWith('update:not-available', {
         version: '1.0.0',
         reason: 'platform-not-supported'
       });
@@ -261,17 +243,16 @@ describe('AutoUpdateService', () => {
       service.initialize();
     });
 
-    it('should throw if not initialized', async () => {
-      await expect(createService().checkForUpdates()).rejects.toThrow('UpdateService not initialized');
-    });
-
     it('should skip check in development mode', async () => {
-      service.config = { isDevelopment: true, version: '1.0.0' };
+      vi.stubEnv('NODE_ENV', 'development');
+      service = createService();
+      service.initialize();
 
       const result = await service.checkForUpdates();
 
       expect(result).toEqual({ updateAvailable: false, reason: 'development' });
       expect(service.state).toBe(UpdateState.NOT_AVAILABLE);
+      expect(push.emit).toHaveBeenCalledWith('update:not-available', { version: '1.0.0', reason: 'development' });
       expect(autoUpdater.checkForUpdates).not.toHaveBeenCalled();
     });
 
@@ -293,15 +274,6 @@ describe('AutoUpdateService', () => {
 
       expect(result.skipped).toBe(true);
       expect(autoUpdater.checkForUpdates).not.toHaveBeenCalled();
-    });
-
-    it('should force check even if downloaded', async () => {
-      service.state = UpdateState.DOWNLOADED;
-      vi.mocked(autoUpdater.checkForUpdates).mockResolvedValue(createAutoUpdaterCheckResult('2.0.0'));
-
-      await service.checkForUpdates({ force: true });
-
-      expect(autoUpdater.checkForUpdates).toHaveBeenCalled();
     });
 
     it('should call autoUpdater.checkForUpdates', async () => {
@@ -354,10 +326,6 @@ describe('AutoUpdateService', () => {
       service.initialize();
     });
 
-    it('should throw if not initialized', async () => {
-      await expect(createService().downloadUpdate()).rejects.toThrow('UpdateService not initialized');
-    });
-
     it('should throw if no update available', async () => {
       service.state = UpdateState.IDLE;
 
@@ -370,7 +338,7 @@ describe('AutoUpdateService', () => {
 
       await service.downloadUpdate();
 
-      expect(mockWindowService.send).toHaveBeenCalledWith('update:downloaded', { version: '2.0.0' });
+      expect(push.emit).toHaveBeenCalledWith('update:downloaded', { version: '2.0.0' });
       expect(autoUpdater.downloadUpdate).not.toHaveBeenCalled();
     });
 
@@ -391,17 +359,13 @@ describe('AutoUpdateService', () => {
 
       await expect(service.downloadUpdate()).rejects.toThrow('Download failed');
       expect(service.state).toBe(UpdateState.ERROR);
-      expect(service.error).toBe(error);
+      expect(service.error).toBe('Download failed');
     });
   });
 
   describe('installUpdate', () => {
     beforeEach(() => {
       service.initialize();
-    });
-
-    it('should throw if not initialized', () => {
-      expect(() => createService().installUpdate()).toThrow('UpdateService not initialized');
     });
 
     it('should throw if no update downloaded', () => {
@@ -421,9 +385,10 @@ describe('AutoUpdateService', () => {
     });
   });
 
-  describe('startAutoCheck', () => {
+  describe('automatic checks', () => {
     beforeEach(() => {
       vi.useFakeTimers();
+      vi.mocked(autoUpdater.checkForUpdates).mockResolvedValue(createAutoUpdaterCheckResult('1.0.0'));
       service.initialize();
     });
 
@@ -431,56 +396,42 @@ describe('AutoUpdateService', () => {
       vi.useRealTimers();
     });
 
-    it('should perform initial check after delay', async () => {
-      vi.mocked(autoUpdater.checkForUpdates).mockResolvedValue(createAutoUpdaterCheckResult('1.0.0'));
-
-      service.startAutoCheck(60000);
-
+    it('should perform the first check 10 seconds after initialize', async () => {
       expect(autoUpdater.checkForUpdates).not.toHaveBeenCalled();
 
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(9999);
+      expect(autoUpdater.checkForUpdates).not.toHaveBeenCalled();
 
+      await vi.advanceTimersByTimeAsync(1);
       expect(autoUpdater.checkForUpdates).toHaveBeenCalledTimes(1);
     });
 
-    it('should set up periodic checks', async () => {
-      vi.mocked(autoUpdater.checkForUpdates).mockResolvedValue(createAutoUpdaterCheckResult('1.0.0'));
-
-      service.startAutoCheck(60000);
-
+    it('should check again every hour', async () => {
       await vi.advanceTimersByTimeAsync(10000);
       expect(autoUpdater.checkForUpdates).toHaveBeenCalledTimes(1);
 
-      await vi.advanceTimersByTimeAsync(60000);
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000 - 10000);
       expect(autoUpdater.checkForUpdates).toHaveBeenCalledTimes(2);
+
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+      expect(autoUpdater.checkForUpdates).toHaveBeenCalledTimes(3);
     });
 
-    it('should warn if already running', () => {
-      service.startAutoCheck(60000);
-      service.startAutoCheck(60000);
+    it('should warn when an automatic check fails', async () => {
+      vi.mocked(autoUpdater.checkForUpdates).mockRejectedValue(new Error('offline'));
 
-      expect(mockLogger.warn).toHaveBeenCalledWith('Auto-check already running');
-    });
-  });
+      await vi.advanceTimersByTimeAsync(10000);
+      expect(mockLogger.warn).toHaveBeenCalledWith('Initial update check failed', 'offline');
 
-  describe('stopAutoCheck', () => {
-    beforeEach(() => {
-      vi.useFakeTimers();
-      service.initialize();
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+      expect(mockLogger.warn).toHaveBeenCalledWith('Periodic update check failed', 'offline');
     });
 
-    afterEach(() => {
-      vi.useRealTimers();
-    });
-
-    it('should stop periodic checks', async () => {
-      vi.mocked(autoUpdater.checkForUpdates).mockResolvedValue(createAutoUpdaterCheckResult('1.0.0'));
-
-      service.startAutoCheck(60000);
+    it('should stop checking after dispose', async () => {
       await vi.advanceTimersByTimeAsync(10000);
 
-      service.stopAutoCheck();
-      await vi.advanceTimersByTimeAsync(120000);
+      await service.dispose();
+      await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000);
 
       expect(autoUpdater.checkForUpdates).toHaveBeenCalledTimes(1);
     });
@@ -491,7 +442,7 @@ describe('AutoUpdateService', () => {
       service.state = UpdateState.AVAILABLE;
       service.updateInfo = createUpdateInfo('2.0.0');
       service.downloadProgress = createDownloadProgress(50);
-      service.error = new Error('Test error');
+      service.error = 'Test error';
 
       const status = service.getStatus();
 
@@ -512,19 +463,7 @@ describe('AutoUpdateService', () => {
 
   describe('dispose', () => {
     beforeEach(() => {
-      vi.useFakeTimers();
       service.initialize();
-    });
-
-    afterEach(() => {
-      vi.useRealTimers();
-    });
-
-    it('should stop auto-check', async () => {
-      service.startAutoCheck(60000);
-      await service.dispose();
-
-      expect(service._autoCheckRunning).toBe(false);
     });
 
     it('should remove only listeners owned by the update service', async () => {
@@ -540,60 +479,37 @@ describe('AutoUpdateService', () => {
       expect(autoUpdater.removeListener).toHaveBeenCalledWith('error', expect.any(Function));
     });
 
-    it('should require initialize again after dispose', async () => {
+    it('should allow initialize again after dispose', async () => {
       await service.dispose();
+      vi.mocked(autoUpdater.on).mockClear();
 
-      expect(() => service.installUpdate()).toThrow('UpdateService not initialized');
+      service.initialize();
+
+      expect(autoUpdater.on).toHaveBeenCalledTimes(6);
     });
   });
 
-  describe('_isPlatformNotFoundMessage', () => {
-    it('should return true for latest-linux-arm64.yml message', () => {
-      expect(service._isPlatformNotFoundMessage('Cannot find latest-linux-arm64.yml in the latest release artifacts')).toBe(true);
-    });
+});
 
-    it('should return true for latest-mac.yml message', () => {
-      expect(service._isPlatformNotFoundMessage('Cannot find latest-mac.yml in the release')).toBe(true);
-    });
-
-    it('should return true for latest.yml message', () => {
-      expect(service._isPlatformNotFoundMessage('Cannot find latest.yml in the release')).toBe(true);
-    });
-
-    it('should return false for other error messages', () => {
-      expect(service._isPlatformNotFoundMessage('Network connection failed')).toBe(false);
-    });
-
-    it('should handle null/undefined message', () => {
-      expect(service._isPlatformNotFoundMessage(null)).toBe(false);
-      expect(service._isPlatformNotFoundMessage(undefined)).toBe(false);
-    });
+describe('isPlatformManifestMissing', () => {
+  it('should return true for latest-linux-arm64.yml message', () => {
+    expect(isPlatformManifestMissing('Cannot find latest-linux-arm64.yml in the latest release artifacts')).toBe(true);
   });
 
-  describe('_notifyRenderer', () => {
-    it('should call windowService.send', () => {
-      service._notifyRenderer('test-channel', { data: 'test' });
+  it('should return true for latest-mac.yml message', () => {
+    expect(isPlatformManifestMissing('Cannot find latest-mac.yml in the release')).toBe(true);
+  });
 
-      expect(mockWindowService.send).toHaveBeenCalledWith('test-channel', { data: 'test' });
-    });
+  it('should return true for latest.yml message', () => {
+    expect(isPlatformManifestMissing('Cannot find latest.yml in the release')).toBe(true);
+  });
 
-    it('should handle missing windowService gracefully', () => {
-      service.windowService = null;
+  it('should return false for other error messages', () => {
+    expect(isPlatformManifestMissing('Network connection failed')).toBe(false);
+  });
 
-      expect(() => service._notifyRenderer('test-channel', {})).not.toThrow();
-    });
-
-    it('should log warning on error', () => {
-      mockWindowService.send.mockImplementation(() => {
-        throw new Error('Send failed');
-      });
-
-      service._notifyRenderer('test-channel', {});
-
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        'Failed to notify renderer',
-        expect.objectContaining({ channel: 'test-channel' })
-      );
-    });
+  it('should handle null/undefined message', () => {
+    expect(isPlatformManifestMissing(null)).toBe(false);
+    expect(isPlatformManifestMissing(undefined)).toBe(false);
   });
 });

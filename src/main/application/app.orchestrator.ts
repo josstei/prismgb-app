@@ -55,8 +55,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     // Subscribe app-owned device side effects before the first runtime reconciliation.
     this.deviceIntegrationService.initialize();
 
-    await this.autoUpdateService.initialize();
-    this.autoUpdateService.startAutoCheck(3600000);
+    this.autoUpdateService.initialize();
 
     // Initialize transcode service (validates ffmpeg binaries)
     this.transcodeService.initialize();

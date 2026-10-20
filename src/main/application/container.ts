@@ -1,5 +1,4 @@
 import { Container } from 'inversify';
-import pkg from '../../../package.json' assert { type: 'json' };
 import type { MainLogger } from '@main/infrastructure/logging/logger.factory';
 import { WindowService } from '@main/infrastructure/window/window.service';
 import { AutoUpdateService } from '@main/infrastructure/updates/auto-update.service';
@@ -18,11 +17,6 @@ import { TOKENS } from './di/tokens';
 export function createMainContainer(loggerFactory: MainLogger): Container {
   const container = new Container({ defaultScope: 'Singleton' });
 
-  container.bind(TOKENS.config).toConstantValue({
-    isDevelopment: process.env.NODE_ENV === 'development',
-    appName: 'PrismGB',
-    version: pkg.version
-  });
   container.bind(TOKENS.loggerFactory).toConstantValue(loggerFactory);
 
   container.bind(TOKENS.usbMonitor).toDynamicValue(() => createNodeUsbMonitor());
