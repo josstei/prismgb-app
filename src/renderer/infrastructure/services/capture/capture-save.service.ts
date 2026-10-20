@@ -4,9 +4,10 @@ import { EventChannels } from '@renderer/lib/events/event-channels';
 import type { EventBus } from '@renderer/lib/events/event-bus';
 import { downloadFile } from '@renderer/lib/file-download.utils';
 import type { LoggerFactory } from '@platform/core';
-import type { CallIpcResult } from '@renderer/infrastructure/ipc/call-ipc';
-import type { TranscodeStartPayload } from '@platform/ipc';
+import type { TranscodeFormat } from '@platform/ipc';
 import { TOKENS } from '@renderer/application/di/tokens';
+import type { SettingsService } from '@renderer/infrastructure/services/settings/settings.service';
+import type { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service';
 
 interface RecordingSaveOptions {
   interrupted?: boolean;
@@ -18,26 +19,12 @@ interface SaveResult {
   error?: string;
 }
 
-type CaptureSettingsServiceLike = {
-  getStringSetting(name: string): string;
-};
-
-type CaptureTranscodeServiceLike = {
-  isAvailable(): boolean;
-  transcode(
-    blob: Blob,
-    format: string,
-    outputBaseName: string,
-    options: { inputArgs?: string[]; interrupted: boolean }
-  ): Promise<CallIpcResult<TranscodeStartPayload>>;
-};
-
 @injectable()
 class CaptureSaveService extends BaseService {
   constructor(
     @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
-    @inject(TOKENS.settingsService) private readonly settingsService: CaptureSettingsServiceLike,
-    @inject(TOKENS.transcodeService) private readonly transcodeService: CaptureTranscodeServiceLike,
+    @inject(TOKENS.settingsService) private readonly settingsService: Pick<SettingsService, 'getStringSetting'>,
+    @inject(TOKENS.transcodeService) private readonly transcodeService: Pick<TranscodeService, 'isAvailable' | 'transcode'>,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
     super(loggerFactory, 'CaptureSaveService');
@@ -54,7 +41,8 @@ class CaptureSaveService extends BaseService {
     }
 
     const baseName = filename.replace(/\.[^.]+$/, '');
-    return this._transcodeAndSave(blob, format, baseName, { interrupted });
+    // The recordingFormat setting only admits TRANSCODE_FORMATS values.
+    return this._transcodeAndSave(blob, format as TranscodeFormat, baseName, { interrupted });
   }
 
   async saveScreenshot(blob: Blob, filename: string): Promise<SaveResult> {
@@ -76,18 +64,14 @@ class CaptureSaveService extends BaseService {
 
   async _transcodeAndSave(
     blob: Blob,
-    format: string,
+    format: TranscodeFormat,
     outputBaseName: string,
     options: RecordingSaveOptions = {}
   ): Promise<SaveResult> {
     try {
       this.logger.info(`Starting transcode to ${format}`);
-      const interrupted = Boolean(options.interrupted);
-      const inputArgs = interrupted ? ['-fflags', '+genpts', '-err_detect', 'ignore_err'] : undefined;
-
       const result = await this.transcodeService.transcode(blob, format, outputBaseName, {
-        inputArgs,
-        interrupted
+        interrupted: Boolean(options.interrupted)
       });
 
       if (result.status === 'error') {

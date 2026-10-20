@@ -1,9 +1,17 @@
-import { describe, it, expect, vi } from 'vitest';
-import { IpcPushBridge } from '@main/ipc/ipc-push.bridge.js';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { IpcPushBridge } from '@main/ipc/ipc-push.bridge';
+import { createLoggerFactory } from '../../../factories/index.js';
 
 describe('IpcPushBridge', () => {
+  let loggerFactory: ReturnType<typeof createLoggerFactory>;
+  let bridge: IpcPushBridge;
+
+  beforeEach(() => {
+    loggerFactory = createLoggerFactory();
+    bridge = new IpcPushBridge(loggerFactory);
+  });
+
   it('delivers an emitted payload to a registered listener', () => {
-    const bridge = new IpcPushBridge();
     const listener = vi.fn();
     bridge.on('device:connected', listener);
 
@@ -14,7 +22,6 @@ describe('IpcPushBridge', () => {
   });
 
   it('delivers an undefined payload for void channels', () => {
-    const bridge = new IpcPushBridge();
     const listener = vi.fn();
     bridge.on('window:enter-fullscreen', listener);
 
@@ -24,7 +31,6 @@ describe('IpcPushBridge', () => {
   });
 
   it('fans out to multiple listeners on the same channel', () => {
-    const bridge = new IpcPushBridge();
     const a = vi.fn();
     const b = vi.fn();
     bridge.on('transcode:progress', a);
@@ -36,8 +42,23 @@ describe('IpcPushBridge', () => {
     expect(b).toHaveBeenCalledWith({ percent: 50 });
   });
 
+  it('isolates a throwing listener and still delivers to the others', () => {
+    const after = vi.fn();
+    bridge.on('update:error', () => {
+      throw new Error('renderer gone');
+    });
+    bridge.on('update:error', after);
+
+    expect(() => bridge.emit('update:error', { message: 'boom' })).not.toThrow();
+
+    expect(after).toHaveBeenCalledWith({ message: 'boom' });
+    expect(loggerFactory._getLogger('IpcPushBridge').warn).toHaveBeenCalledWith(
+      'Failed to deliver push',
+      { channel: 'update:error', error: 'renderer gone' }
+    );
+  });
+
   it('stops delivering after a listener is removed', () => {
-    const bridge = new IpcPushBridge();
     const listener = vi.fn();
     bridge.on('transcode:completed', listener);
     bridge.off('transcode:completed', listener);
@@ -48,7 +69,6 @@ describe('IpcPushBridge', () => {
   });
 
   it('does not cross-deliver between channels', () => {
-    const bridge = new IpcPushBridge();
     const listener = vi.fn();
     bridge.on('device:connected', listener);
 

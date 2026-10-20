@@ -1,45 +1,30 @@
 import type { ServiceIdentifier } from 'inversify';
-import type { MainLogger } from '@main/infrastructure/logging/logger.factory';
+import type { LoggerFactory } from '@platform/core';
 import type { WindowService } from '@main/infrastructure/window/window.service';
-import type { DeviceConnectionService } from '@platform/devices/runtime';
+import type { DeviceConnectionService } from '@main/infrastructure/devices/device-connection.service';
+import type { UsbMonitor } from '@main/infrastructure/devices/usb.monitor';
 import type { TrayService } from '@main/infrastructure/tray/tray.service';
-import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry';
+import type { IpcHost } from '@main/ipc/ipc.host';
 import type { IpcPushBridge } from '@main/ipc/ipc-push.bridge';
-import type { MainProcessTestControl } from '@main/ipc/test-control.port';
-import type { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service';
-import type { UpdateService } from '@platform/updates';
-import type { TranscodeService } from '@platform/transcode/service';
-import type { LoginItemService } from '@main/infrastructure/window/login-item.service';
+import type { AutoUpdateService } from '@main/infrastructure/updates/auto-update.service';
+import type { TranscodeService } from '@main/infrastructure/transcode/transcode.service';
+import type { LoginItemService } from '@main/infrastructure/system/login-item.service';
 import type { AppOrchestrator } from '../app.orchestrator';
-
-/**
- * Shape of the pre-seeded application config value registered as the `config` token.
- */
-export interface MainAppConfig {
-  isDevelopment: boolean;
-  appName: string;
-  version: string;
-}
 
 function token<T>(name: string): ServiceIdentifier<T> {
   return Symbol.for(name) as ServiceIdentifier<T>;
 }
 
 export const TOKENS = {
-  config: token<MainAppConfig>('config'),
-  loggerFactory: token<MainLogger>('loggerFactory'),
+  loggerFactory: token<LoggerFactory>('loggerFactory'),
   windowService: token<WindowService>('windowService'),
+  usbMonitor: token<UsbMonitor>('usbMonitor'),
   deviceConnectionService: token<DeviceConnectionService>('deviceConnectionService'),
   trayService: token<TrayService>('trayService'),
-  ipcHandlerRegistry: token<IpcHandlerRegistry>('ipcHandlerRegistry'),
+  ipcHost: token<IpcHost>('ipcHost'),
   ipcPushBridge: token<IpcPushBridge>('ipcPushBridge'),
-  mainProcessTestControl: token<MainProcessTestControl>('mainProcessTestControl'),
-  deviceIntegrationService: token<DeviceIntegrationService>('deviceIntegrationService'),
-  updateService: token<UpdateService>('updateService'),
+  autoUpdateService: token<AutoUpdateService>('autoUpdateService'),
   transcodeService: token<TranscodeService>('transcodeService'),
   loginItemService: token<LoginItemService>('loginItemService'),
   appOrchestrator: token<AppOrchestrator>('appOrchestrator')
 } as const;
-
-export type TokenKey = keyof typeof TOKENS;
-export const TOKEN_KEYS = Object.keys(TOKENS) as readonly TokenKey[];

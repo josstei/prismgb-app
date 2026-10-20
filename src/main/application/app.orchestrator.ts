@@ -1,23 +1,24 @@
-/**
- * Application Orchestrator
- * Coordinates main process services and application lifecycle
- */
-
 import { app } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import { injectable, inject } from 'inversify';
-import { BaseOrchestrator, safeDisposeAll } from '@platform/core';
+import { BaseOrchestrator, safeDisposeAll, type LoggerFactory } from '@platform/core';
+import { IPC_CHANNELS } from '@platform/ipc';
+import { DeviceCatalog, type DeviceStatus } from '@platform/devices';
 import { TOKENS } from './di/tokens';
-import type { MainLogger } from '@main/infrastructure/logging/logger.factory';
 import type { WindowService } from '@main/infrastructure/window/window.service';
-import type { DeviceConnectionService } from '@platform/devices/runtime';
-import type { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service';
+import type {
+  DeviceConnectionReason,
+  DeviceConnectionService
+} from '@main/infrastructure/devices/device-connection.service';
 import type { TrayService } from '@main/infrastructure/tray/tray.service';
-import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry';
-import type { UpdateService } from '@platform/updates';
-import type { TranscodeService } from '@platform/transcode/service';
-import type { LoginItemService } from '@main/infrastructure/window/login-item.service';
+import type { IpcHost } from '@main/ipc/ipc.host';
+import type { IpcPushBridge } from '@main/ipc/ipc-push.bridge';
+import type { AutoUpdateService } from '@main/infrastructure/updates/auto-update.service';
+import type { TranscodeService } from '@main/infrastructure/transcode/transcode.service';
+import type { LoginItemService } from '@main/infrastructure/system/login-item.service';
+
+const DEVICE_WINDOW_LAUNCH_KEY = Symbol('deviceWindowLaunch');
 
 function resolveDevDockIconPath(appPath: string): string | null {
   const candidates = [
@@ -30,42 +31,33 @@ function resolveDevDockIconPath(appPath: string): string | null {
 
 @injectable()
 export class AppOrchestrator extends BaseOrchestrator {
-
   constructor(
     @inject(TOKENS.windowService) private readonly windowService: WindowService,
     @inject(TOKENS.deviceConnectionService) private readonly deviceConnectionService: DeviceConnectionService,
-    @inject(TOKENS.deviceIntegrationService) private readonly deviceIntegrationService: DeviceIntegrationService,
     @inject(TOKENS.trayService) private readonly trayService: TrayService,
-    @inject(TOKENS.ipcHandlerRegistry) private readonly ipcHandlerRegistry: IpcHandlerRegistry,
-    @inject(TOKENS.updateService) private readonly updateService: UpdateService,
+    @inject(TOKENS.ipcHost) private readonly ipcHost: IpcHost,
+    @inject(TOKENS.ipcPushBridge) private readonly ipcPushBridge: IpcPushBridge,
+    @inject(TOKENS.autoUpdateService) private readonly autoUpdateService: AutoUpdateService,
     @inject(TOKENS.transcodeService) private readonly transcodeService: TranscodeService,
     @inject(TOKENS.loginItemService) private readonly loginItemService: LoginItemService,
-    @inject(TOKENS.loggerFactory) loggerFactory: MainLogger
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
     super(loggerFactory, 'AppOrchestrator');
   }
 
-  /**
-   * Initialize the application and DI container
-   * Called by BaseOrchestrator.initialize()
-   */
-  async onInitialize(): Promise<void> {
+  override async onInitialize(): Promise<void> {
     this.logger.info('Starting PrismGB...');
 
-    // Subscribe app-owned device side effects before the first runtime reconciliation.
-    this.deviceIntegrationService.initialize();
+    // Subscribed before the first reconciliation so the startup status reaches tray and renderer.
+    this.disposables.add(this.deviceConnectionService.onStatusChanged(
+      (status, reason) => this.onDeviceStatusChanged(status, reason)
+    ));
 
-    await this.updateService.initialize();
-    this.updateService.startAutoCheck(3600000);
-
-    // Initialize transcode service (validates ffmpeg binaries)
+    this.autoUpdateService.initialize();
     this.transcodeService.initialize();
-
-    // Create system tray
     this.trayService.createTray();
 
-    // Set dock icon in dev mode (macOS only)
-    // In production, macOS uses icon.icns from app bundle automatically
+    // In production, macOS uses icon.icns from the app bundle.
     if (process.platform === 'darwin' && !app.isPackaged) {
       const iconPath = resolveDevDockIconPath(app.getAppPath());
       if (iconPath) {
@@ -76,22 +68,19 @@ export class AppOrchestrator extends BaseOrchestrator {
       }
     }
 
-    // Register IPC handlers
-    this.ipcHandlerRegistry.registerHandlers();
+    this.ipcHost.registerHandlers();
 
-    // Detect hidden launch (login item / auto-start)
     const isHiddenLaunch = this.loginItemService.wasLaunchedAsHidden();
     if (isHiddenLaunch) {
       this.logger.info('Hidden launch detected - starting in system tray');
     }
 
-    // Create main window (hidden if launched as login item)
     const mainWindow = this.windowService.createWindow({ hidden: isHiddenLaunch });
-    this.ipcHandlerRegistry.attachWindow(mainWindow);
+    this.ipcHost.attachWindow(mainWindow);
 
-    await this.deviceConnectionService.initialize();
+    this.deviceConnectionService.initialize();
 
-    const status = await this.deviceConnectionService.reconcileDeviceStatus('startup');
+    const status = this.deviceConnectionService.reconcileDeviceStatus('startup');
     if (status.connected) {
       this.logger.info('Device already connected');
     }
@@ -99,14 +88,10 @@ export class AppOrchestrator extends BaseOrchestrator {
     this.logger.info('PrismGB initialized successfully');
   }
 
-  /**
-   * Cleanup on app quit
-   * Called by BaseOrchestrator.cleanup()
-   */
-  async onCleanup(): Promise<void> {
+  override async onCleanup(): Promise<void> {
     this.logger.info('Shutting down PrismGB...');
+    this.disposables.cancel(DEVICE_WINDOW_LAUNCH_KEY);
 
-    // Window cleanup is safely handled by the window service
     try {
       this.windowService.destroyWindow();
     } catch (error) {
@@ -114,14 +99,32 @@ export class AppOrchestrator extends BaseOrchestrator {
     }
 
     await safeDisposeAll(this.logger, [
-      ['IPC handler registry', () => this.ipcHandlerRegistry.dispose()],
-      ['device integration service', () => this.deviceIntegrationService.dispose()],
+      ['IPC host', () => this.ipcHost.dispose()],
       ['device connection service', () => this.deviceConnectionService.dispose()],
-      ['system tray', () => this.trayService.destroy()],
-      ['update service', () => this.updateService.dispose()],
+      ['system tray', () => this.trayService.dispose()],
+      ['auto-update service', () => this.autoUpdateService.dispose()],
       ['transcode service', () => this.transcodeService.dispose()]
     ]);
 
     this.logger.info('PrismGB shutdown complete');
+  }
+
+  private onDeviceStatusChanged(status: DeviceStatus, reason: DeviceConnectionReason): void {
+    this.trayService.updateTrayMenu();
+
+    if (status.connected && status.device) {
+      this.ipcPushBridge.emit(IPC_CHANNELS.DEVICE.CONNECTED, status.device);
+      this.disposables.schedule(
+        DEVICE_WINDOW_LAUNCH_KEY,
+        () => this.windowService.showWindow(),
+        DeviceCatalog.get(status.device.id)!.behavior.showWindowOnConnectDelayMs
+      );
+      this.logger.info(`Device connected via ${reason}`);
+      return;
+    }
+
+    this.disposables.cancel(DEVICE_WINDOW_LAUNCH_KEY);
+    this.ipcPushBridge.emit(IPC_CHANNELS.DEVICE.DISCONNECTED);
+    this.logger.info(`Device disconnected via ${reason}`);
   }
 }

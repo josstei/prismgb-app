@@ -1,1 +1,1 @@
-import './app-bootstrap';
+import '@main/application/session.orchestrator';

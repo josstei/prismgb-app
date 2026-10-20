@@ -1,5 +1,6 @@
 import { createTRPCProxyClient } from '@trpc/client';
 import { ipcLink } from 'electron-trpc/renderer';
+import { identityTransformer } from '@platform/ipc';
 import type { AppRouter } from '@main/ipc/router';
 
 /**
@@ -9,11 +10,6 @@ import type { AppRouter } from '@main/ipc/router';
  * mock this module. `import type { AppRouter }` is the renderer→main boundary exception (type-only,
  * zero runtime coupling) the layer checker permits for end-to-end tRPC inference.
  */
-const identityTransformer = {
-  serialize: (object: unknown) => object,
-  deserialize: (object: unknown) => object
-};
-
 export const trpcClient = createTRPCProxyClient<AppRouter>({
   transformer: identityTransformer,
   links: [ipcLink<AppRouter>()]

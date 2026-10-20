@@ -1,13 +1,9 @@
-/**
- * WindowService Unit Tests
- */
-
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
   createPreventDefaultEventMock,
   createWindowServiceElectronMock
 } from '../../../../factories/index.js';
-import { createInjectableHarness, type LoggerMockLike } from '../../../../support/di/injectable.harness.js';
+import { createInjectableHarness, type LoggerMockLike } from '../../../../support/di/injectable.harness';
 
 type UrlModuleWithDefault = typeof import('node:url') & { default: typeof import('node:url') };
 type PathModuleWithDefault = typeof import('node:path') & { default: typeof import('node:path') };
@@ -53,7 +49,7 @@ vi.mock('path', async (importOriginal) => {
   };
 });
 
-import { WindowService } from '@main/infrastructure/window/window.service.js';
+import { WindowService } from '@main/infrastructure/window/window.service';
 import { app } from 'electron';
 
 type MockFn = ReturnType<typeof vi.fn>;
@@ -75,12 +71,20 @@ type MockBrowserWindow = {
     off: MockFn;
     isDevToolsOpened: MockFn;
     closeDevTools: MockFn;
+    session: {
+      on: MockFn;
+      off: MockFn;
+    };
   };
 };
 type TestableWindowService = Omit<WindowService, 'getMainWindow'> & {
   mainWindow: MockBrowserWindow | null;
-  _forceWindowToForeground(): void;
   getMainWindow(): MockBrowserWindow | null;
+};
+type DownloadItemMock = {
+  getFilename: MockFn;
+  setSavePath: MockFn;
+  once: MockFn;
 };
 type MockLoggerFactory = {
   create: MockFn;
@@ -221,32 +225,12 @@ describe('WindowService', () => {
     });
   });
 
-  describe('send', () => {
-    it('forwards the channel and the first argument to the push bridge', () => {
-      windowService.createWindow();
-
-      windowService.send('test-channel', 'payload');
-
-      expect(mockIpcPushBridge.emit).toHaveBeenCalledWith('test-channel', 'payload');
-    });
-
-    it('emits a void payload when called without arguments', () => {
-      windowService.send('window:enter-fullscreen');
-
-      expect(mockIpcPushBridge.emit).toHaveBeenCalledWith('window:enter-fullscreen', undefined);
-    });
-
-    it('emits regardless of window lifecycle (the bridge owns delivery)', () => {
-      expect(() => windowService.send('test-channel', 'data')).not.toThrow();
-      expect(mockIpcPushBridge.emit).toHaveBeenCalledWith('test-channel', 'data');
-    });
-  });
-
-  describe('_forceWindowToForeground', () => {
+  describe('bringing the window to the foreground', () => {
     it('should show and focus window', () => {
       windowService.createWindow();
+      windowService.mainWindow.show.mockClear();
 
-      windowService._forceWindowToForeground();
+      windowService.showWindow();
 
       expect(windowService.mainWindow.show).toHaveBeenCalled();
       expect(windowService.mainWindow.focus).toHaveBeenCalled();
@@ -256,14 +240,93 @@ describe('WindowService', () => {
       windowService.createWindow();
       windowService.mainWindow.isMinimized.mockReturnValue(true);
 
-      windowService._forceWindowToForeground();
+      windowService.showWindow();
 
       expect(windowService.mainWindow.restore).toHaveBeenCalled();
     });
 
-    it('should do nothing if window does not exist', () => {
-      // Should not throw
-      expect(() => windowService._forceWindowToForeground()).not.toThrow();
+    it('shows the window on ready-to-show unless launched hidden', () => {
+      windowService.createWindow();
+      const readyToShow = windowService.mainWindow.once.mock.calls.find(call => call[0] === 'ready-to-show')[1];
+
+      readyToShow();
+
+      expect(windowService.mainWindow.show).toHaveBeenCalled();
+    });
+
+    it('stays hidden on ready-to-show for a hidden launch', () => {
+      windowService.createWindow({ hidden: true });
+      const readyToShow = windowService.mainWindow.once.mock.calls.find(call => call[0] === 'ready-to-show')[1];
+
+      readyToShow();
+
+      expect(windowService.mainWindow.show).not.toHaveBeenCalled();
+      expect(mockLogger.info).toHaveBeenCalledWith('Window created in hidden mode - awaiting tray click');
+    });
+  });
+
+  describe('fullscreen and resize pushes', () => {
+    it.each([
+      ['enter-full-screen', 'window:enter-fullscreen'],
+      ['leave-full-screen', 'window:leave-fullscreen'],
+      ['resized', 'window:resized']
+    ])('pushes %s as %s', (windowEvent, channel) => {
+      windowService.createWindow();
+      const handler = windowService.mainWindow.on.mock.calls.find(call => call[0] === windowEvent)[1];
+
+      handler();
+
+      expect(mockIpcPushBridge.emit).toHaveBeenCalledWith(channel);
+    });
+
+    it('reports simple fullscreen as fullscreen', () => {
+      windowService.createWindow();
+      Object.assign(windowService.mainWindow, {
+        isSimpleFullScreen: vi.fn(() => true),
+        isFullScreen: vi.fn(() => false)
+      });
+
+      expect(windowService.isFullScreen()).toBe(true);
+    });
+  });
+
+  describe('downloads', () => {
+    function downloadHandler() {
+      windowService.createWindow();
+      return windowService.mainWindow.webContents.session.on.mock.calls.find(call => call[0] === 'will-download')[1];
+    }
+
+    function downloadItem(filename: string): DownloadItemMock {
+      return { getFilename: vi.fn(() => filename), setSavePath: vi.fn(), once: vi.fn() };
+    }
+
+    it('auto-saves into Downloads with a sanitized file name', () => {
+      const item = downloadItem('my recording?.png');
+      const event = createPreventDefaultEventMock();
+
+      downloadHandler()(event, item);
+
+      expect(item.setSavePath).toHaveBeenCalledWith('/downloads/my_recording_.png');
+      expect(event.preventDefault).not.toHaveBeenCalled();
+    });
+
+    it('falls back to a default name when nothing survives sanitizing', () => {
+      const item = downloadItem('');
+
+      downloadHandler()(createPreventDefaultEventMock(), item);
+
+      expect(item.setSavePath).toHaveBeenCalledWith('/downloads/download');
+    });
+
+    it('blocks a name that still escapes Downloads', () => {
+      const item = downloadItem('..');
+      const event = createPreventDefaultEventMock();
+
+      downloadHandler()(event, item);
+
+      expect(event.preventDefault).toHaveBeenCalled();
+      expect(item.setSavePath).not.toHaveBeenCalled();
+      expect(mockLogger.error).toHaveBeenCalledWith('Path traversal attempt blocked: ..');
     });
   });
 
@@ -301,21 +364,17 @@ describe('WindowService', () => {
       expect(mockEvent.preventDefault).not.toHaveBeenCalled();
     });
 
-    it('should clean up webContents listener on close event when quitting', () => {
+    it('removes the session will-download listener on closed', () => {
       windowService.createWindow();
       const win = windowService.mainWindow;
+      const downloadListener = win.webContents.session.on.mock.calls.find(call => call[0] === 'will-download')[1];
 
-      const closeHandler = win.on.mock.calls.find(
-        call => call[0] === 'close'
+      const closedHandler = win.on.mock.calls.find(
+        call => call[0] === 'closed'
       )[1];
+      closedHandler();
 
-      const mockEvent = createPreventDefaultEventMock();
-      app.isQuitting = true;
-
-      closeHandler(mockEvent);
-
-      // Verify webContents listener was removed during close (before destroy)
-      expect(win.webContents.off).toHaveBeenCalledWith('console-message', expect.any(Function));
+      expect(win.webContents.session.off).toHaveBeenCalledWith('will-download', downloadListener);
     });
 
     it('should null window reference on closed event', () => {
@@ -341,8 +400,10 @@ describe('WindowService', () => {
       )[1];
 
       consoleHandler({}, 1, 'Test message', 10, 'source.js');
+      consoleHandler({}, 7, 'Odd level', 10, 'source.js');
 
-      expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Test message'));
+      expect(consoleLogSpy).toHaveBeenCalledWith('[Renderer INFO] Test message');
+      expect(consoleLogSpy).toHaveBeenCalledWith('[Renderer 7] Odd level');
       consoleLogSpy.mockRestore();
     });
   });
@@ -371,17 +432,25 @@ describe('WindowService', () => {
 
       expect(win.webContents.closeDevTools).toHaveBeenCalled();
     });
-  });
 
-  describe('dispose', () => {
-    it('should clean up all listeners and dispose service', () => {
+    it('removes the session will-download listener', () => {
       windowService.createWindow();
       const win = windowService.mainWindow;
 
-      windowService.dispose();
+      windowService.destroyWindow();
 
-      // Verify a listener removal, e.g. console-message
-      expect(win.webContents.off).toHaveBeenCalledWith('console-message', expect.any(Function));
+      expect(win.webContents.session.off).toHaveBeenCalledWith('will-download', expect.any(Function));
+    });
+  });
+
+  describe('dispose', () => {
+    it('removes the session will-download listener', async () => {
+      windowService.createWindow();
+      const win = windowService.mainWindow;
+
+      await windowService.dispose();
+
+      expect(win.webContents.session.off).toHaveBeenCalledWith('will-download', expect.any(Function));
     });
   });
 });

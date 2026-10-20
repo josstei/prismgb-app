@@ -1,4 +1,4 @@
-import { BrowserWindow, app, DownloadItem, Event } from 'electron';
+import { BrowserWindow, app, type DownloadItem, type Event } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -9,49 +9,17 @@ import { TOKENS } from '@main/application/di/tokens';
 import type { IpcPushBridge } from '@main/ipc/ipc-push.bridge';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const WINDOW_BOUNDS = {
-  width: 1280,
-  height: 720,
-  minWidth: 800,
-  minHeight: 600,
-  backgroundColor: '#0f0f1e'
-} as const;
 
-type ConsoleMessageListener = (
-  event: Event,
-  level: number,
-  message: string,
-  line: number,
-  sourceId: string
-) => void;
+const DEV_SERVER_URL = 'http://127.0.0.1:3000/src/renderer/index.html';
+const RENDERER_CONSOLE_LEVELS = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
 
-type DownloadHandler = (event: Event, item: DownloadItem) => void;
-
-type FullscreenListener = () => void;
-
-interface CreateWindowOptions {
-  hidden?: boolean;
-}
-
-const WINDOW_DOWNLOAD_LIFECYCLE = Symbol('windowDownload');
-const WINDOW_CONSOLE_LIFECYCLE = Symbol('windowConsole');
-const WINDOW_READY_TO_SHOW_LIFECYCLE = Symbol('windowReadyToShow');
-const WINDOW_ENTER_FULLSCREEN_LIFECYCLE = Symbol('windowEnterFullscreen');
-const WINDOW_LEAVE_FULLSCREEN_LIFECYCLE = Symbol('windowLeaveFullscreen');
-const WINDOW_RESIZED_LIFECYCLE = Symbol('windowResized');
-const WINDOW_CLOSE_LIFECYCLE = Symbol('windowClose');
-const WINDOW_CLOSED_LIFECYCLE = Symbol('windowClosed');
-
-type CleanupWindowListenersOptions = {
-  includeCloseListener?: boolean;
-  includeClosedListener?: boolean;
-};
+/** The download listener sits on the shared default session, which outlives the window. */
+const DOWNLOAD_LISTENER_KEY = Symbol('windowDownloadListener');
 
 @injectable()
-class WindowService extends BaseService {
-
+export class WindowService extends BaseService {
   private mainWindow: BrowserWindow | null = null;
-  private _isHiddenLaunch: boolean = false;
+  private isHiddenLaunch = false;
 
   constructor(
     @inject(TOKENS.ipcPushBridge) private readonly ipcPushBridge: IpcPushBridge,
@@ -60,192 +28,91 @@ class WindowService extends BaseService {
     super(loggerFactory, 'WindowService');
   }
 
-  createWindow(options: CreateWindowOptions = {}): BrowserWindow {
+  createWindow(options: { hidden?: boolean } = {}): BrowserWindow {
     if (this.mainWindow) {
-      this._forceWindowToForeground();
+      this.forceWindowToForeground();
       return this.mainWindow;
     }
 
-    this._isHiddenLaunch = options.hidden ?? false;
+    this.isHiddenLaunch = options.hidden ?? false;
 
     this.logger.info('Creating main window');
 
     const isDev = process.env.ELECTRON_IS_DEV === '0' ? false : !app.isPackaged;
     const appPath = app.getAppPath();
-
     const preloadPath = path.join(__dirname, '../preload/index.js');
 
     this.logger.info(`isDev: ${isDev}`);
     this.logger.debug(`appPath: ${appPath}, preloadPath: ${preloadPath}`);
 
-    this.mainWindow = new BrowserWindow({
-      ...WINDOW_BOUNDS,
+    const mainWindow = new BrowserWindow({
+      width: 1280,
+      height: 720,
+      minWidth: 800,
+      minHeight: 600,
+      backgroundColor: '#0f0f1e',
       title: 'PrismGB',
       autoHideMenuBar: true,
-      frame: true,
-      transparent: false,
-      skipTaskbar: false, // Ensure window appears in taskbar
-      focusable: true, // Ensure window can receive focus
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
         sandbox: true,
         preload: preloadPath
       },
-      show: false // Don't show until ready
+      show: false
     });
-    const mainWindow = this.mainWindow;
+    this.mainWindow = mainWindow;
 
-    const downloadHandler: DownloadHandler = (event: Event, item: DownloadItem) => {
-      const downloadsPath = app.getPath('downloads');
-      const rawFilename = item.getFilename();
-
-      const baseName = path.basename(rawFilename);
-      const sanitizedFilename = baseName.replace(/[^a-zA-Z0-9._-]/g, '_');
-
-      const filename = sanitizedFilename || 'download';
-
-      const savePath = path.join(downloadsPath, filename);
-
-      const resolvedPath = path.resolve(savePath);
-      if (!resolvedPath.startsWith(path.resolve(downloadsPath))) {
-        this.logger.error(`Path traversal attempt blocked: ${rawFilename}`);
-        event.preventDefault();
-        return;
-      }
-
-      this.logger.info(`Auto-saving download: ${filename} to ${downloadsPath}`);
-      item.setSavePath(savePath);
-
-      item.once('done', (event: Event, state: string) => {
-        if (state === 'completed') {
-          this.logger.info(`Download completed: ${savePath}`);
-        } else {
-          this.logger.warn(`Download failed: ${state}`);
-        }
-      });
-    };
-    mainWindow.webContents.session.on('will-download', downloadHandler);
-    this.disposables.replace(WINDOW_DOWNLOAD_LIFECYCLE, () => {
-      if (mainWindow.isDestroyed()) return;
-      mainWindow.webContents.session.off('will-download', downloadHandler);
+    const { session } = mainWindow.webContents;
+    const downloadHandler = (event: Event, item: DownloadItem) => this.saveDownload(event, item);
+    session.on('will-download', downloadHandler);
+    this.disposables.replace(DOWNLOAD_LISTENER_KEY, () => {
+      session.off('will-download', downloadHandler);
     });
 
     if (isDev) {
-      this.mainWindow.loadURL('http://127.0.0.1:3000/src/renderer/index.html');
-      this.logger.info('Loading from Vite dev server: http://127.0.0.1:3000/src/renderer/index.html');
+      mainWindow.loadURL(DEV_SERVER_URL);
+      this.logger.info(`Loading from Vite dev server: ${DEV_SERVER_URL}`);
+      // scripts/dev-boot-smoke.js matches this '[Renderer <LEVEL>] <message>' stdout format.
+      mainWindow.webContents.on('console-message', (_event: Event, level: number, message: string) => {
+        console.log(`[Renderer ${RENDERER_CONSOLE_LEVELS[level] || level}] ${message}`);
+      });
     } else {
-      this.mainWindow.loadFile(path.join(__dirname, '../renderer/src/renderer/index.html'));
+      mainWindow.loadFile(path.join(__dirname, '../renderer/src/renderer/index.html'));
       this.logger.info('Loading built files');
     }
 
-    if (isDev) {
-      const consoleMessageListener: ConsoleMessageListener = (
-        event: Event,
-        level: number,
-        message: string,
-        _line: number,
-        _sourceId: string
-      ) => {
-        const levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
-        console.log(`[Renderer ${levels[level] || level}] ${message}`);
-      };
-      mainWindow.webContents.on('console-message', consoleMessageListener);
-      this.disposables.replace(WINDOW_CONSOLE_LIFECYCLE, () => {
-        if (mainWindow.isDestroyed()) return;
-        mainWindow.webContents.off('console-message', consoleMessageListener);
-      });
-    }
-
-    const readyToShowListener = () => {
-      if (!this._isHiddenLaunch) {
-        this._forceWindowToForeground();
+    mainWindow.once('ready-to-show', () => {
+      if (!this.isHiddenLaunch) {
+        this.forceWindowToForeground();
       } else {
         this.logger.info('Window created in hidden mode - awaiting tray click');
       }
-    };
-    mainWindow.once('ready-to-show', readyToShowListener);
-    this.disposables.replace(WINDOW_READY_TO_SHOW_LIFECYCLE, () => {
-      mainWindow.off('ready-to-show', readyToShowListener);
     });
 
-    const enterFullscreenListener: FullscreenListener = () => {
-      this.send(IPC_CHANNELS.WINDOW.ENTER_FULLSCREEN);
-    };
-    const leaveFullscreenListener: FullscreenListener = () => {
-      this.send(IPC_CHANNELS.WINDOW.LEAVE_FULLSCREEN);
-    };
-    const resizedListener = () => {
-      this.send(IPC_CHANNELS.WINDOW.RESIZED);
-    };
-    mainWindow.on('enter-full-screen', enterFullscreenListener);
-    this.disposables.replace(WINDOW_ENTER_FULLSCREEN_LIFECYCLE, () => {
-      mainWindow.off('enter-full-screen', enterFullscreenListener);
-    });
-    mainWindow.on('leave-full-screen', leaveFullscreenListener);
-    this.disposables.replace(WINDOW_LEAVE_FULLSCREEN_LIFECYCLE, () => {
-      mainWindow.off('leave-full-screen', leaveFullscreenListener);
-    });
-    mainWindow.on('resized', resizedListener);
-    this.disposables.replace(WINDOW_RESIZED_LIFECYCLE, () => {
-      mainWindow.off('resized', resizedListener);
-    });
+    mainWindow.on('enter-full-screen', () => this.ipcPushBridge.emit(IPC_CHANNELS.WINDOW.ENTER_FULLSCREEN));
+    mainWindow.on('leave-full-screen', () => this.ipcPushBridge.emit(IPC_CHANNELS.WINDOW.LEAVE_FULLSCREEN));
+    mainWindow.on('resized', () => this.ipcPushBridge.emit(IPC_CHANNELS.WINDOW.RESIZED));
 
-    const closeListener = (event: Event) => {
+    mainWindow.on('close', (event: Event) => {
       if (!app.isQuitting) {
         event.preventDefault();
         mainWindow.hide();
-        return;
       }
-
-      this._cleanupWindowListeners({
-        includeCloseListener: false,
-        includeClosedListener: false
-      });
-    };
-    mainWindow.on('close', closeListener);
-    this.disposables.replace(WINDOW_CLOSE_LIFECYCLE, () => {
-      mainWindow.off('close', closeListener);
     });
 
-    const closedListener = () => {
-      this._cleanupWindowListeners({
-        includeCloseListener: true,
-        includeClosedListener: true
-      });
+    mainWindow.on('closed', () => {
+      this.disposables.cancel(DOWNLOAD_LISTENER_KEY);
       this.mainWindow = null;
-    };
-    mainWindow.on('closed', closedListener);
-    this.disposables.replace(WINDOW_CLOSED_LIFECYCLE, () => {
-      mainWindow.off('closed', closedListener);
     });
 
-    return this.mainWindow;
-  }
-
-  private _forceWindowToForeground(): void {
-    if (!this.mainWindow) return;
-
-    if (this.mainWindow.isMinimized()) {
-      this.mainWindow.restore();
-    }
-
-    this.mainWindow.show();
-    this.mainWindow.focus();
-
-    if (process.platform === 'darwin') {
-      app.focus({ steal: true });
-    }
-
-    if (process.platform === 'win32') {
-      this.mainWindow.setSkipTaskbar(false);
-    }
+    return mainWindow;
   }
 
   showWindow(): void {
-    this._isHiddenLaunch = false;
+    this.isHiddenLaunch = false;
     if (this.mainWindow) {
-      this._forceWindowToForeground();
+      this.forceWindowToForeground();
     } else {
       this.createWindow();
     }
@@ -258,31 +125,16 @@ class WindowService extends BaseService {
     }
 
     this.logger.info('Destroying main window safely');
+    this.disposables.cancel(DOWNLOAD_LISTENER_KEY);
 
-    // 1. Clean up listeners while the window is still alive
-    this._cleanupWindowListeners({
-      includeCloseListener: true,
-      includeClosedListener: true
-    });
-
-    // 2. Close DevTools if open
-    try {
-      if (this.mainWindow.webContents && !this.mainWindow.webContents.isDestroyed() && this.mainWindow.webContents.isDevToolsOpened()) {
-        this.mainWindow.webContents.closeDevTools();
-        this.logger.debug('Closed DevTools');
-      }
-    } catch (error) {
-      this.logger.error('Error closing DevTools during window destroy:', error);
+    const { webContents } = this.mainWindow;
+    if (!webContents.isDestroyed() && webContents.isDevToolsOpened()) {
+      webContents.closeDevTools();
+      this.logger.debug('Closed DevTools');
     }
 
-    // 3. Destroy window
-    try {
-      this.mainWindow.destroy();
-      this.logger.debug('Destroyed main window');
-    } catch (error) {
-      this.logger.error('Error destroying window:', error);
-    }
-
+    this.mainWindow.destroy();
+    this.logger.debug('Destroyed main window');
     this.mainWindow = null;
   }
 
@@ -303,46 +155,47 @@ class WindowService extends BaseService {
     return false;
   }
 
-  send(channel: string, ...args: unknown[]): void {
-    this.ipcPushBridge.emit(channel, args[0]);
+  private forceWindowToForeground(): void {
+    if (!this.mainWindow) return;
+
+    if (this.mainWindow.isMinimized()) {
+      this.mainWindow.restore();
+    }
+
+    this.mainWindow.show();
+    this.mainWindow.focus();
+
+    if (process.platform === 'darwin') {
+      app.focus({ steal: true });
+    }
+
+    if (process.platform === 'win32') {
+      this.mainWindow.setSkipTaskbar(false);
+    }
   }
 
-  private _cleanupWindowListeners({
-    includeCloseListener = true,
-    includeClosedListener = false
-  }: CleanupWindowListenersOptions = {}): void {
-    const lifecycles = [
-      WINDOW_READY_TO_SHOW_LIFECYCLE,
-      WINDOW_CONSOLE_LIFECYCLE,
-      WINDOW_DOWNLOAD_LIFECYCLE,
-      WINDOW_ENTER_FULLSCREEN_LIFECYCLE,
-      WINDOW_LEAVE_FULLSCREEN_LIFECYCLE,
-      WINDOW_RESIZED_LIFECYCLE
-    ];
+  /** Auto-saves into Downloads; a sanitized name can still be '..', hence the resolve check. */
+  private saveDownload(event: Event, item: DownloadItem): void {
+    const downloadsPath = app.getPath('downloads');
+    const rawFilename = item.getFilename();
+    const filename = path.basename(rawFilename).replace(/[^a-zA-Z0-9._-]/g, '_') || 'download';
+    const savePath = path.join(downloadsPath, filename);
 
-    if (includeCloseListener) {
-      lifecycles.push(WINDOW_CLOSE_LIFECYCLE);
-    }
-    if (includeClosedListener) {
-      lifecycles.push(WINDOW_CLOSED_LIFECYCLE);
+    if (!path.resolve(savePath).startsWith(path.resolve(downloadsPath))) {
+      this.logger.error(`Path traversal attempt blocked: ${rawFilename}`);
+      event.preventDefault();
+      return;
     }
 
-    for (const key of lifecycles) {
-      try {
-        this.disposables.cancel(key);
-      } catch (error) {
-        this.logger.error(`Error cancelling window lifecycle listener for key ${String(key)}:`, error);
+    this.logger.info(`Auto-saving download: ${filename} to ${downloadsPath}`);
+    item.setSavePath(savePath);
+
+    item.once('done', (_event: Event, state: string) => {
+      if (state === 'completed') {
+        this.logger.info(`Download completed: ${savePath}`);
+      } else {
+        this.logger.warn(`Download failed: ${state}`);
       }
-    }
-  }
-
-  override dispose(): Promise<void> {
-    this._cleanupWindowListeners({
-      includeCloseListener: true,
-      includeClosedListener: true
     });
-    return super.dispose();
   }
 }
-
-export { WindowService };

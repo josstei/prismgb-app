@@ -1,12 +1,10 @@
-/**
- * Main Entry Point
- * Initializes the application using dependency injection
- */
-
 import { app, BrowserWindow, dialog, Menu, type MenuItemConstructorOptions } from 'electron';
-import { MainBootstrap } from './app-bootstrap.js';
-import { getGpuPolicy, applyChromiumFlags, GPU_ENV_VARS } from './infrastructure/gpu/gpu-policy.js';
-import { TOKENS } from './application/di/tokens.js';
+import type { Container } from 'inversify';
+import { configureChromium } from './infrastructure/gpu/gpu-policy';
+import { MainLoggerFactory } from './infrastructure/logging/logger.factory';
+import { createMainContainer } from './application/container';
+import type { AppOrchestrator } from './application/app.orchestrator';
+import { TOKENS } from './application/di/tokens';
 
 const APP_NAME = 'PrismGB';
 
@@ -63,10 +61,7 @@ if (process.platform === 'darwin') {
   });
 }
 
-// =================================================================
-// SMOKE TEST MODE
-// Exit cleanly after startup for CI/CD validation
-// =================================================================
+// --smoke-test exits cleanly after startup for CI/CD validation
 if (process.argv.includes('--smoke-test')) {
   app.whenReady().then(() => {
     console.log('Smoke test: Electron app ready');
@@ -83,45 +78,20 @@ if (process.argv.includes('--smoke-test')) {
     // Don't quit on window close in smoke test mode
   });
 } else {
-  // =================================================================
-  // NORMAL APPLICATION MODE
-  // =================================================================
+  configureChromium(app);
 
-  // Hardware acceleration is enabled by default for better performance.
-  // Users with GPU driver issues can disable it via environment variable:
-  //   PRISMGB_DISABLE_GPU=1 prismgb
-  if (process.env[GPU_ENV_VARS.DISABLE_GPU] === '1') {
-    app.disableHardwareAcceleration();
-  }
-
-  // Apply platform-aware GPU flags (must be before app.whenReady)
-  // Addresses ARM64 Linux Vulkan driver issues by disabling WebGPU probing
-  const gpuPolicy = getGpuPolicy();
-  applyChromiumFlags(app, gpuPolicy);
-  if (gpuPolicy.reason) {
-    console.log(`[GPU Policy] WebGPU disabled: ${gpuPolicy.reason}`);
-  }
-
-  // Limit main process V8 heap size for memory efficiency
-  // Main process doesn't need large heap - most work happens in renderer
-  app.commandLine.appendSwitch('js-flags', '--max-old-space-size=128');
-
-  // =================================================================
-  // SINGLE INSTANCE LOCK
   // Prevent multiple instances of the app from running simultaneously
-  // =================================================================
   const gotTheLock = app.requestSingleInstanceLock();
 
   if (!gotTheLock) {
     console.log('Another instance is already running. Exiting.');
     app.quit();
   } else {
-    // Create application instance
-    const application = new MainBootstrap();
+    let container: Container | null = null;
+    let orchestrator: AppOrchestrator | null = null;
 
     // Handle second instance launch - focus existing window
     app.on('second-instance', () => {
-      const container = application.getContainer();
       if (container) {
         const windowService = container.get(TOKENS.windowService);
         const win = windowService?.getMainWindow();
@@ -142,7 +112,9 @@ if (process.argv.includes('--smoke-test')) {
       }
 
       try {
-        await application.initialize();
+        container = createMainContainer(new MainLoggerFactory());
+        orchestrator = container.get(TOKENS.appOrchestrator);
+        await orchestrator.initialize();
       } catch (error) {
         console.error('Application initialization failed:', error);
         dialog.showErrorBox(
@@ -155,12 +127,8 @@ if (process.argv.includes('--smoke-test')) {
 
       // macOS: recreate window when dock icon clicked
       app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) {
-          const container = application.getContainer();
-          if (container) {
-            const windowService = container.get(TOKENS.windowService);
-            windowService.createWindow();
-          }
+        if (BrowserWindow.getAllWindows().length === 0 && container) {
+          container.get(TOKENS.windowService).createWindow();
         }
       });
     });
@@ -183,7 +151,7 @@ if (process.argv.includes('--smoke-test')) {
       app.isQuitting = true;
 
       if (!quitCleanupPromise) {
-        quitCleanupPromise = application.cleanup()
+        quitCleanupPromise = (orchestrator?.cleanup() ?? Promise.resolve())
           .catch((error: unknown) => {
             console.error('Application cleanup failed:', error);
           })

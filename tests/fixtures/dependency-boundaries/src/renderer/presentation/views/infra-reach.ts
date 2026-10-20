@@ -1,1 +1,1 @@
-import '@/renderer/infrastructure/services/stream.service';
+import '@renderer/infrastructure/services/stream.service';

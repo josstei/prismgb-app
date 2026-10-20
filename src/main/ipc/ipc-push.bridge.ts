@@ -1,35 +1,40 @@
 import { EventEmitter } from 'node:events';
-import { injectable } from 'inversify';
+import { injectable, inject } from 'inversify';
+import { getErrorMessage, type Logger, type LoggerFactory } from '@platform/core';
+import { TOKENS } from '@main/application/di/tokens';
 
-type IpcPushChannelListener = (payload: unknown) => void;
+type IpcPushListener = (payload: unknown) => void;
 
 /**
- * In-process fan-out for main → renderer push channels.
- *
- * `WindowService.send` (and through it the device/update/transcode package emitters) publishes here
- * instead of calling `webContents.send` directly; the tRPC router's subscription procedures consume
- * the same channels via {@link IpcPushBridge.on} and relay payloads to renderer clients. Decoupling
- * the emit side from the transport preserves the existing single-funnel emit path while the tRPC
- * boundary owns delivery.
+ * The only main-to-renderer push path: services emit here and the router's subscription procedures
+ * relay each channel to the renderer. A throwing listener is logged and never blocks the others.
  */
 @injectable()
 export class IpcPushBridge {
   private static readonly MAX_LISTENERS_PER_CHANNEL = 50;
   private readonly emitter = new EventEmitter();
+  private readonly logger: Logger;
 
-  constructor() {
+  constructor(@inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory) {
+    this.logger = loggerFactory.create('IpcPushBridge');
     this.emitter.setMaxListeners(IpcPushBridge.MAX_LISTENERS_PER_CHANNEL);
   }
 
   emit(channel: string, payload?: unknown): void {
-    this.emitter.emit(channel, payload);
+    for (const listener of this.emitter.listeners(channel) as IpcPushListener[]) {
+      try {
+        listener(payload);
+      } catch (error) {
+        this.logger.warn('Failed to deliver push', { channel, error: getErrorMessage(error) });
+      }
+    }
   }
 
-  on(channel: string, listener: IpcPushChannelListener): void {
+  on(channel: string, listener: IpcPushListener): void {
     this.emitter.on(channel, listener);
   }
 
-  off(channel: string, listener: IpcPushChannelListener): void {
+  off(channel: string, listener: IpcPushListener): void {
     this.emitter.off(channel, listener);
   }
 }

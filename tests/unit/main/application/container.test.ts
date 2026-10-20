@@ -1,12 +1,3 @@
-/**
- * Main-process DI container binding tests.
- *
- * Proves the Inversify wiring in `main.module.ts` is complete and correct:
- * every token resolves without throwing, resolution is singleton-scoped, and
- * test overrides replace an already-bound token — mirroring the renderer's
- * container test shape (tests/unit/renderer/application/container.test.ts).
- */
-
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 vi.mock('electron', () => {
@@ -33,7 +24,7 @@ vi.mock('electron', () => {
     BrowserWindow: MockBrowserWindow,
     Tray: MockTray,
     Menu: { buildFromTemplate: vi.fn(() => ({})), setApplicationMenu: vi.fn() },
-    ipcMain: { handle: vi.fn(), removeHandler: vi.fn(), on: vi.fn(), removeAllListeners: vi.fn() },
+    ipcMain: { on: vi.fn(), removeAllListeners: vi.fn() },
     shell: { openExternal: vi.fn() },
     dialog: { showErrorBox: vi.fn() },
     nativeImage: { createFromPath: vi.fn(() => ({ isEmpty: () => true })) }
@@ -61,7 +52,7 @@ vi.mock('electron-updater', () => {
 
 import type { ServiceIdentifier } from 'inversify';
 import { createMainContainer } from '@main/application/container';
-import { TOKENS, TOKEN_KEYS } from '@main/application/di/tokens';
+import { TOKENS } from '@main/application/di/tokens';
 import { createLoggerFactory } from '../../../factories/index.js';
 import { applyBindingOverrides } from '../../../support/di/binding-overrides';
 
@@ -75,17 +66,16 @@ describe('Main container', () => {
   it('resolves every token without throwing', () => {
     const container = createMainContainer(loggerFactory);
 
-    for (const key of TOKEN_KEYS) {
-      expect(() => container.get(TOKENS[key] as ServiceIdentifier)).not.toThrow();
+    for (const token of Object.values(TOKENS)) {
+      expect(() => container.get(token as ServiceIdentifier)).not.toThrow();
     }
   });
 
   it('returns the same singleton instance for every token across repeated resolutions', () => {
     const container = createMainContainer(loggerFactory);
 
-    for (const key of TOKEN_KEYS) {
-      const token = TOKENS[key] as ServiceIdentifier;
-      expect(container.get(token), key).toBe(container.get(token));
+    for (const [key, token] of Object.entries(TOKENS)) {
+      expect(container.get(token as ServiceIdentifier), key).toBe(container.get(token as ServiceIdentifier));
     }
   });
 

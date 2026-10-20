@@ -1,5 +1,3 @@
-import type { IpcRenderer } from 'electron';
-
 /**
  * Preload bridge for electron-trpc (the renderer↔main tRPC transport).
  *
@@ -9,14 +7,9 @@ import type { IpcRenderer } from 'electron';
  * renderer's `ipcLink`; its `{ sendMessage, onMessage }` shape is electron-trpc's contract.
  */
 
-type PreloadElectron = {
-  contextBridge: typeof import('electron')['contextBridge'];
-  ipcRenderer: IpcRenderer;
-};
-
 const ELECTRON_TRPC_CHANNEL = 'electron-trpc';
 
-const { contextBridge, ipcRenderer } = require('electron') as PreloadElectron;
+const { contextBridge, ipcRenderer } = require('electron') as typeof import('electron');
 
 contextBridge.exposeInMainWorld('electronTRPC', {
   sendMessage: (operation: unknown) => ipcRenderer.send(ELECTRON_TRPC_CHANNEL, operation),

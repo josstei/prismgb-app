@@ -1,0 +1,88 @@
+import { describe, it, expect } from 'vitest';
+import { deviceInfoSchema, deviceStatusPayloadSchema, nullableDeviceInfoSchema } from '@platform/devices';
+import { externalUrlSchema, enabledFlagSchema, transcodeStartSchema } from '@main/ipc/ipc.schemas';
+import {
+  createChromaticDeviceInfoPayload,
+  createChromaticDeviceStatusPayload
+} from '../../../devices/media.testkit';
+
+const accepts = (schema: { safeParse: (v: unknown) => { success: boolean } }, value: unknown) =>
+  schema.safeParse(value).success;
+
+const canonicalDeviceInfo = createChromaticDeviceInfoPayload();
+
+describe('IPC input schemas (security)', () => {
+  it('externalUrlSchema accepts http/https and rejects other protocols, empty, and over-length', () => {
+    expect(accepts(externalUrlSchema, { url: 'https://example.com' })).toBe(true);
+    expect(accepts(externalUrlSchema, { url: 'http://example.com/path' })).toBe(true);
+    expect(accepts(externalUrlSchema, { url: 'ftp://example.com' })).toBe(false);
+    expect(accepts(externalUrlSchema, { url: 'javascript:alert(1)' })).toBe(false);
+    expect(accepts(externalUrlSchema, { url: '' })).toBe(false);
+    expect(accepts(externalUrlSchema, { url: `https://example.com/${'a'.repeat(2048)}` })).toBe(false);
+    expect(accepts(externalUrlSchema, { url: 42 })).toBe(false);
+  });
+
+  it('enabledFlagSchema accepts a boxed boolean flag (incl. false) and rejects bare or malformed values', () => {
+    expect(accepts(enabledFlagSchema, { enabled: true })).toBe(true);
+    expect(accepts(enabledFlagSchema, { enabled: false })).toBe(true);
+    expect(accepts(enabledFlagSchema, true)).toBe(false);
+    expect(accepts(enabledFlagSchema, false)).toBe(false);
+    expect(accepts(enabledFlagSchema, {})).toBe(false);
+    expect(accepts(enabledFlagSchema, { enabled: 'true' })).toBe(false);
+    expect(accepts(enabledFlagSchema, { enabled: 1 })).toBe(false);
+  });
+
+  it('transcodeStartSchema requires an ArrayBuffer and an exact supported format', () => {
+    expect(accepts(transcodeStartSchema, { inputBuffer: new ArrayBuffer(8), format: 'mp4' })).toBe(true);
+    expect(accepts(transcodeStartSchema, { inputBuffer: new ArrayBuffer(8), format: 'webm', outputFilename: 'rec' })).toBe(true);
+    expect(accepts(transcodeStartSchema, { inputBuffer: new ArrayBuffer(8), format: 'WEBM' })).toBe(false);
+    expect(accepts(transcodeStartSchema, { inputBuffer: new ArrayBuffer(8), format: 'avi' })).toBe(false);
+    expect(accepts(transcodeStartSchema, { inputBuffer: 'not-a-buffer', format: 'mp4' })).toBe(false);
+  });
+
+  it('transcodeStartSchema accepts an optional boolean interrupted flag and strips unknown keys', () => {
+    expect(accepts(transcodeStartSchema, { inputBuffer: new ArrayBuffer(8), format: 'mp4', interrupted: true })).toBe(true);
+    expect(accepts(transcodeStartSchema, { inputBuffer: new ArrayBuffer(8), format: 'mp4', interrupted: 'yes' })).toBe(false);
+    const parsed = transcodeStartSchema.parse({ inputBuffer: new ArrayBuffer(8), format: 'mp4', inputArgs: ['-vf', 'scale=1'] });
+    expect(parsed).not.toHaveProperty('inputArgs');
+  });
+});
+
+describe('device payload schemas the router validates', () => {
+  it('deviceInfoSchema accepts only the canonical strict device info shape', () => {
+    expect(accepts(deviceInfoSchema, canonicalDeviceInfo)).toBe(true);
+    expect(accepts(deviceInfoSchema, {})).toBe(false);
+    expect(accepts(deviceInfoSchema, { vendorId: 'not-a-number' })).toBe(false);
+    expect(accepts(deviceInfoSchema, { ...canonicalDeviceInfo, deviceName: 'legacy' })).toBe(false);
+  });
+
+  it('deviceStatusPayloadSchema requires a canonical payload-only status and rejects an envelope-shaped one', () => {
+    const status = {
+      state: 'connected',
+      connected: true,
+      device: canonicalDeviceInfo
+    };
+
+    expect(accepts(deviceStatusPayloadSchema, status)).toBe(true);
+    expect(accepts(deviceStatusPayloadSchema, { ...status, success: true })).toBe(false);
+    expect(accepts(deviceStatusPayloadSchema, { connected: null })).toBe(false);
+  });
+
+  it('E2E device helpers produce canonical payloads accepted by strict schemas', () => {
+    const deviceInfo = createChromaticDeviceInfoPayload();
+    const connectedStatus = createChromaticDeviceStatusPayload(true);
+    const disconnectedStatus = createChromaticDeviceStatusPayload(false);
+
+    expect(accepts(deviceInfoSchema, deviceInfo)).toBe(true);
+    expect(accepts(deviceStatusPayloadSchema, connectedStatus)).toBe(true);
+    expect(accepts(deviceStatusPayloadSchema, disconnectedStatus)).toBe(true);
+  });
+
+  it('nullableDeviceInfoSchema also accepts null and undefined', () => {
+    expect(accepts(nullableDeviceInfoSchema, null)).toBe(true);
+    expect(accepts(nullableDeviceInfoSchema, undefined)).toBe(true);
+    expect(accepts(nullableDeviceInfoSchema, canonicalDeviceInfo)).toBe(true);
+    expect(accepts(nullableDeviceInfoSchema, { vendorId: 'x' })).toBe(false);
+  });
+});
+

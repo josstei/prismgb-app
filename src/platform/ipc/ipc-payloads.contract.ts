@@ -70,22 +70,8 @@ export interface TranscodeErrorPayload {
   message?: string;
 }
 
-export interface TranscodeJobPayload {
-  id: string;
-  state: string;
-  progress: number;
-  outputPath: string | null;
-  error: string | null;
-  startTime: number;
-}
-
 export interface TranscodeStartPayload {
-  jobId?: string;
-  filePath?: string;
-}
-
-export interface TranscodeStatusPayload {
-  jobs: TranscodeJobPayload[];
+  jobId: string;
 }
 
 export interface ProcessMetricPayload {

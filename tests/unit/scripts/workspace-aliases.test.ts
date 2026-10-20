@@ -23,13 +23,11 @@ const MODULE_NAMES: string[] = [
   'core',
   'devices',
   'gpu',
-  'ipc',
-  'transcode',
-  'updates'
+  'ipc'
 ];
 
 describe('workspace-aliases registry', () => {
-  it('declares exactly the six platform modules', () => {
+  it('declares exactly the four platform modules', () => {
     expect(PLATFORM_MODULES.map((module) => module.name).sort()).toEqual(MODULE_NAMES);
   });
 
@@ -39,11 +37,9 @@ describe('workspace-aliases registry', () => {
     );
     expect(entrypointsByName).toEqual({
       core: ['.'],
-      devices: ['.', './runtime', './testkit'],
+      devices: ['.', './testkit'],
       gpu: ['.', './runtime', './testkit'],
-      ipc: ['.'],
-      transcode: ['.', './service'],
-      updates: ['.']
+      ipc: ['.']
     });
   });
 
@@ -52,7 +48,7 @@ describe('workspace-aliases registry', () => {
     const keys = Object.keys(aliasMap);
     expect(keys.indexOf('@platform/gpu/runtime')).toBeLessThan(keys.indexOf('@platform/gpu'));
     expect(aliasMap['@platform/gpu']).toBe(resolve('/repo', 'src/platform/gpu/index.ts'));
-    expect(aliasMap['@platform/devices/runtime']).toBe(resolve('/repo', 'src/platform/devices/runtime.ts'));
+    expect(aliasMap['@platform/devices/testkit']).toBe(resolve('/repo', 'src/platform/devices/testkit.ts'));
   });
 
   it('emits exact-match regex entries for the vite array form', () => {

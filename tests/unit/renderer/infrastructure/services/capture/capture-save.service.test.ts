@@ -126,7 +126,7 @@ describe('CaptureSaveService', () => {
           mockBlob,
           'mp4',
           'recording',
-          expect.objectContaining({ interrupted: false })
+          { interrupted: false }
         );
       });
 
@@ -140,7 +140,7 @@ describe('CaptureSaveService', () => {
           mockBlob,
           'mov',
           'recording',
-          expect.objectContaining({ interrupted: false })
+          { interrupted: false }
         );
       });
 
@@ -194,11 +194,11 @@ describe('CaptureSaveService', () => {
           mockBlob,
           'mp4',
           'my-recording-2024-01-15',
-          expect.objectContaining({ interrupted: false })
+          { interrupted: false }
         );
       });
 
-      it('should pass interrupted flag and inputArgs when recording was interrupted', async () => {
+      it('should pass only the interrupted flag when recording was interrupted', async () => {
         mockSettingsService.setSetting('recordingFormat', 'mp4');
         const mockBlob = new Blob(['test data'], { type: 'video/webm' });
 
@@ -208,10 +208,7 @@ describe('CaptureSaveService', () => {
           mockBlob,
           'mp4',
           'recording',
-          {
-            inputArgs: ['-fflags', '+genpts', '-err_detect', 'ignore_err'],
-            interrupted: true
-          }
+          { interrupted: true }
         );
       });
     });

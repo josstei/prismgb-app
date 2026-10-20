@@ -5,16 +5,19 @@ import type { Logger, LoggerFactory } from '@platform/core';
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 /**
- * electron-log-backed logger factory for the main process. Configures the
- * shared console/file transports once from the environment (NODE_ENV,
- * LOG_LEVEL, LOG_FILE, LOG_DIR) and hands out scoped loggers per DI context.
+ * electron-log-backed logger factory for the main process. Configures the shared console/file
+ * transports once from the environment (NODE_ENV, LOG_LEVEL, LOG_FILE, LOG_DIR).
  */
-export class MainLogger implements LoggerFactory {
+export class MainLoggerFactory implements LoggerFactory {
   constructor() {
-    this._configureTransports();
+    this.configureTransports();
   }
 
-  private _configureTransports(): void {
+  create(context: string): Logger {
+    return log.scope(context);
+  }
+
+  private configureTransports(): void {
     const isDevelopment = process.env.NODE_ENV !== 'production';
     const logLevel = (process.env.LOG_LEVEL as LogLevel) || (isDevelopment ? 'debug' : 'info');
 
@@ -26,16 +29,5 @@ export class MainLogger implements LoggerFactory {
     if (logDir) {
       log.transports.file.resolvePathFn = () => path.join(logDir, 'combined.log');
     }
-  }
-
-  create(context: string): Logger {
-    const scoped = log.scope(context);
-
-    return {
-      debug: (...args: unknown[]): void => { scoped.debug(...args); },
-      info: (...args: unknown[]): void => { scoped.info(...args); },
-      warn: (...args: unknown[]): void => { scoped.warn(...args); },
-      error: (...args: unknown[]): void => { scoped.error(...args); }
-    };
   }
 }

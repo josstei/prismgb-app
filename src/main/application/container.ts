@@ -1,49 +1,32 @@
-/**
- * Dependency Injection Container
- * Wires every main-process service onto an Inversify container.
- */
-
 import { Container } from 'inversify';
-import pkg from '../../../package.json' assert { type: 'json' };
-import { TOKENS, TOKEN_KEYS } from './di/tokens';
-import { mainModule } from './di/main.module';
-import type { MainLogger } from '@main/infrastructure/logging/logger.factory';
+import type { LoggerFactory } from '@platform/core';
+import { WindowService } from '@main/infrastructure/window/window.service';
+import { AutoUpdateService } from '@main/infrastructure/updates/auto-update.service';
+import { TranscodeService } from '@main/infrastructure/transcode/transcode.service';
+import { TrayService } from '@main/infrastructure/tray/tray.service';
+import { LoginItemService } from '@main/infrastructure/system/login-item.service';
+import { createNodeUsbMonitor } from '@main/infrastructure/devices/usb.monitor';
+import { DeviceConnectionService } from '@main/infrastructure/devices/device-connection.service';
+import { IpcHost } from '@main/ipc/ipc.host';
+import { IpcPushBridge } from '@main/ipc/ipc-push.bridge';
+import { AppOrchestrator } from './app.orchestrator';
+import { TOKENS } from './di/tokens';
 
-/**
- * Main-process DI container, backed by Inversify.
- */
-export type MainServiceContainer = Container;
-
-/**
- * Build the main-process DI container: pre-seeded config + logger constants,
- * then every service bound via {@link mainModule}.
- */
-export function createMainContainer(loggerFactory: MainLogger): MainServiceContainer {
+export function createMainContainer(loggerFactory: LoggerFactory): Container {
   const container = new Container({ defaultScope: 'Singleton' });
 
-  container.bind(TOKENS.config).toConstantValue({
-    isDevelopment: process.env.NODE_ENV === 'development',
-    appName: 'PrismGB',
-    version: pkg.version
-  });
   container.bind(TOKENS.loggerFactory).toConstantValue(loggerFactory);
+  container.bind(TOKENS.usbMonitor).toDynamicValue(() => createNodeUsbMonitor());
 
-  container.load(mainModule);
-
-  return container;
-}
-
-/**
- * Create the container. Device monitoring starts from AppOrchestrator after
- * app-owned integration side effects have subscribed to runtime events.
- */
-export async function createAppContainer(loggerFactory: MainLogger): Promise<MainServiceContainer> {
-  const containerLogger = loggerFactory.create('Container');
-  containerLogger.info('Initializing dependency injection container');
-
-  const container = createMainContainer(loggerFactory);
-
-  containerLogger.info(`Registered ${TOKEN_KEYS.length} dependencies`);
+  container.bind(TOKENS.windowService).to(WindowService);
+  container.bind(TOKENS.deviceConnectionService).to(DeviceConnectionService);
+  container.bind(TOKENS.trayService).to(TrayService);
+  container.bind(TOKENS.autoUpdateService).to(AutoUpdateService);
+  container.bind(TOKENS.transcodeService).to(TranscodeService);
+  container.bind(TOKENS.ipcHost).to(IpcHost);
+  container.bind(TOKENS.ipcPushBridge).to(IpcPushBridge);
+  container.bind(TOKENS.loginItemService).to(LoginItemService);
+  container.bind(TOKENS.appOrchestrator).to(AppOrchestrator);
 
   return container;
 }
