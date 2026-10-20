@@ -1,5 +1,4 @@
 import { ContainerModule } from 'inversify';
-import { NotesService } from '@platform/notes';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { PROTECTED_STORAGE_KEYS } from '@renderer/lib/storage-keys.config';
 import { BodyClassManager } from '../../presentation/effects/body-class.effect';
@@ -27,6 +26,7 @@ import { BrowserStorageAdapter } from '../../infrastructure/adapters/browser-sto
 import { BrowserMediaDevicesPort } from '../../infrastructure/services/devices/browser-media-devices.port';
 import { StorageDevicePreferenceStore } from '../../infrastructure/services/devices/storage-device-preference.store';
 import { TrpcDeviceStatusPort } from '../../infrastructure/services/devices/trpc-device-status.port';
+import { NotesService } from '../../infrastructure/services/notes/notes.service';
 import { TOKENS } from './tokens';
 
 /**
@@ -34,8 +34,8 @@ import { TOKENS } from './tokens';
  * bridges/effects bind straight to their class; the non-standard-construction
  * tokens (platform storage/device ports, the seven UI components sharing a
  * lazily-resolved `domBindings` singleton) and the non-decorated
- * platform-adjacent classes (`NotesService`, `AppState`, `UIEffects`) bind
- * through factories that assemble their dependency objects explicitly.
+ * classes (`AppState`, `UIEffects`) bind through factories that assemble
+ * their dependency objects explicitly.
  */
 export const presentationModule = new ContainerModule(({ bind }) => {
   bind(TOKENS.bodyClassManager).to(BodyClassManager).inSingletonScope();
@@ -140,10 +140,7 @@ export const presentationModule = new ContainerModule(({ bind }) => {
     return component;
   }).inSingletonScope();
 
-  bind(TOKENS.notesService).toDynamicValue((ctx) => new NotesService({
-    storageService: ctx.get(TOKENS.storageService),
-    loggerFactory: ctx.get(TOKENS.loggerFactory)
-  })).inSingletonScope();
+  bind(TOKENS.notesService).to(NotesService);
 
   bind(TOKENS.appState).toDynamicValue((ctx) => new AppState({
     streamingService: ctx.get(TOKENS.streamingService),

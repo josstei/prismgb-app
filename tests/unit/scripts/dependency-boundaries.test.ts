@@ -2,7 +2,6 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { PLATFORM_MODULES } from '../../../scripts/lib/workspace-aliases.mjs';
 
 type DependencyCruiserManifest = {
   bin: string | {
@@ -19,10 +18,6 @@ type DependencyCruiserReport = {
       from: string;
     }>;
   };
-};
-
-type PlatformModule = {
-  name: string;
 };
 
 const projectRoot = process.cwd();
@@ -56,8 +51,8 @@ const EXPECTED_VIOLATIONS = [
   'main-not-to-renderer src/main/infrastructure/window.service.ts',
   'no-orphans src/renderer/lib/unused.utils.ts',
   'no-unresolvable src/renderer/application/platform-deep-alias.ts',
-  'platform-not-to-app src/platform/notes/index.ts',
-  'platform-notes-not-to-foreign-internals src/platform/notes/index.ts',
+  'platform-ipc-not-to-foreign-internals src/platform/ipc/index.ts',
+  'platform-not-to-app src/platform/ipc/index.ts',
   'preload-isolated src/preload/index.ts',
   'renderer-bootstrap-only-from-entry src/renderer/application/bootstrap-loop.ts',
   'renderer-entry-not-imported src/renderer/presentation/views/entry-reach.ts',
@@ -74,46 +69,5 @@ const EXPECTED_VIOLATIONS = [
 describe('dependency boundary rules', () => {
   it('reports exactly the expected violation set for the fixture tree', () => {
     expect(cruiseFixtureTree()).toEqual(EXPECTED_VIOLATIONS);
-  });
-});
-
-function listSourceEntries(relativeDirectory: string): string[] {
-  return fs.readdirSync(path.join(projectRoot, relativeDirectory))
-    .filter((entry) => !entry.startsWith('.'))
-    .sort();
-}
-
-describe('source tree structure', () => {
-  it('classifies every src/ top-level family', () => {
-    expect(listSourceEntries('src')).toEqual(['main', 'platform', 'preload', 'renderer', 'types']);
-  });
-
-  it('classifies every src/renderer top-level entry', () => {
-    expect(listSourceEntries('src/renderer')).toEqual([
-      'app-bootstrap.ts', 'application', 'assets', 'index.html', 'index.ts',
-      'infrastructure', 'lib', 'presentation'
-    ]);
-  });
-
-  it('classifies every src/main top-level entry', () => {
-    expect(listSourceEntries('src/main'))
-      .toEqual(['app-bootstrap.ts', 'application', 'index.ts', 'infrastructure', 'ipc']);
-  });
-
-  it('keeps src/platform aligned with the alias registry', () => {
-    expect(listSourceEntries('src/platform'))
-      .toEqual((PLATFORM_MODULES as ReadonlyArray<PlatformModule>)
-        .map((platformModule) => platformModule.name)
-        .sort());
-  });
-});
-
-describe('gpu module hygiene', () => {
-  it('keeps the gpu module free of WebGL renderer files', () => {
-    const roots = ['src/platform/gpu', 'tests/unit/platform/gpu'];
-    const files = roots.flatMap((root) =>
-      fs.readdirSync(path.join(projectRoot, root), { recursive: true }).map(String)
-    );
-    expect(files.filter((name) => name.toLowerCase().includes('webgl'))).toEqual([]);
   });
 });

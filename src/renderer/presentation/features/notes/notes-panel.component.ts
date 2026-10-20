@@ -24,7 +24,7 @@ interface UserNoteLike {
 interface NotesServiceLike {
   getNote(id: string | null | undefined): UserNoteLike | null | undefined;
   createNote(title?: string, content?: string, gameName?: string): UserNoteLike | null;
-  updateNoteWithChangeDetection(
+  updateNote(
     id: string,
     updates: { title: string; content: string; gameName: string }
   ): { note: UserNoteLike; gameChanged: boolean } | null;
@@ -303,7 +303,7 @@ class NotesPanelComponent extends PresentationComponent {
     if (!this.currentNoteId) return;
 
     const { title, content, gameName } = this.editorView!.getValues();
-    const result = this.notesService!.updateNoteWithChangeDetection(this.currentNoteId, { title, content, gameName });
+    const result = this.notesService!.updateNote(this.currentNoteId, { title, content, gameName });
     if (!result) {
       this.logger?.warn('Failed to save note - may have been deleted');
       return;

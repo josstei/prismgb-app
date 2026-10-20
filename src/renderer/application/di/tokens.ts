@@ -1,8 +1,8 @@
 import type { ServiceIdentifier } from 'inversify';
 import type { LoggerFactory, KeyValueStore } from '@platform/core';
-import type { NotesService } from '@platform/notes';
 import type { EventBus } from '../../lib/events/event-bus';
 import type { RendererDeviceRuntime } from '../../infrastructure/services/devices/device-runtime.service';
+import type { NotesService } from '../../infrastructure/services/notes/notes.service';
 import type { DeviceMediaAcquirer } from '../../infrastructure/services/streaming/device-media-acquirer.service';
 import type { StreamingService } from '../../infrastructure/services/streaming/streaming.service';
 import type { AppState } from '../state/app-state';

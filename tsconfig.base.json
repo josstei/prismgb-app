@@ -49,9 +49,6 @@
       "@platform/ipc": [
         "./src/platform/ipc/index"
       ],
-      "@platform/notes": [
-        "./src/platform/notes/index"
-      ],
       "@platform/transcode/service": [
         "./src/platform/transcode/service"
       ],

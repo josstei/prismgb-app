@@ -1,11 +1,7 @@
-/**
- * NotesService Unit Tests
- */
-
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { NotesService } from '@platform/notes';
-import { NotesStorageKeys } from '@renderer/lib/storage-keys.config';
-import { createLoggerFactory, createStorageService } from '../../../factories/index.js';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { NotesService } from '@renderer/infrastructure/services/notes/notes.service';
+import { NOTES_STORAGE_KEY } from '@renderer/lib/storage-keys.config';
+import { createLoggerFactory, createStorageService } from '../../../../../factories/index.js';
 
 describe('NotesService', () => {
   let service;
@@ -14,33 +10,23 @@ describe('NotesService', () => {
   let mockStorageService;
 
   function setStoredNotes(notes) {
-    mockStorageService.setItem(NotesStorageKeys.USER_NOTES, JSON.stringify(notes));
+    mockStorageService.setItem(NOTES_STORAGE_KEY, JSON.stringify(notes));
   }
 
   function setStoredNotesRaw(rawNotes) {
-    mockStorageService.setItem(NotesStorageKeys.USER_NOTES, rawNotes);
+    mockStorageService.setItem(NOTES_STORAGE_KEY, rawNotes);
   }
 
   function getStoredNotes() {
-    return JSON.parse(mockStorageService.getItem(NotesStorageKeys.USER_NOTES));
+    return JSON.parse(mockStorageService.getItem(NOTES_STORAGE_KEY));
   }
 
   beforeEach(() => {
     mockStorageService = createStorageService();
     mockLoggerFactory = createLoggerFactory();
 
-    service = new NotesService({
-      loggerFactory: mockLoggerFactory,
-      storageService: mockStorageService
-    });
+    service = new NotesService(mockStorageService, mockLoggerFactory);
     mockLogger = mockLoggerFactory._getLogger('NotesService');
-  });
-
-  describe('Constructor', () => {
-    it('should create service with empty cache', () => {
-      expect(service._notesCache).toBeNull();
-      expect(service._cacheValid).toBe(false);
-    });
   });
 
   describe('getAllNotes', () => {
@@ -193,7 +179,7 @@ describe('NotesService', () => {
       service.createNote('Test', 'Content');
 
       expect(mockStorageService.setItem).toHaveBeenCalledWith(
-        NotesStorageKeys.USER_NOTES,
+        NOTES_STORAGE_KEY,
         expect.any(String)
       );
 
@@ -205,7 +191,6 @@ describe('NotesService', () => {
     it('should add new note at beginning of list', () => {
       const storedNotes = [{ id: 'existing', title: 'Existing', updatedAt: 1000 }];
       setStoredNotes(storedNotes);
-      service._invalidateCache();
 
       service.createNote('New Note');
 
@@ -229,28 +214,40 @@ describe('NotesService', () => {
         { id: 'note_1', title: 'Original', content: 'Original Content', updatedAt: 1000 }
       ];
       setStoredNotes(storedNotes);
-      service._invalidateCache();
     });
 
     it('should update note title', () => {
-      const updated = service.updateNote('note_1', { title: 'Updated Title' });
+      const result = service.updateNote('note_1', { title: 'Updated Title' });
 
-      expect(updated).not.toBeNull();
-      expect(updated.title).toBe('Updated Title');
-      expect(updated.content).toBe('Original Content');
+      expect(result).not.toBeNull();
+      expect(result.note.title).toBe('Updated Title');
+      expect(result.note.content).toBe('Original Content');
     });
 
     it('should update note content', () => {
-      const updated = service.updateNote('note_1', { content: 'Updated Content' });
+      const result = service.updateNote('note_1', { content: 'Updated Content' });
 
-      expect(updated.content).toBe('Updated Content');
+      expect(result.note.content).toBe('Updated Content');
     });
 
     it('should update updatedAt timestamp', () => {
       const beforeUpdate = Date.now();
-      const updated = service.updateNote('note_1', { title: 'New' });
+      const result = service.updateNote('note_1', { title: 'New' });
 
-      expect(updated.updatedAt).toBeGreaterThanOrEqual(beforeUpdate);
+      expect(result.note.updatedAt).toBeGreaterThanOrEqual(beforeUpdate);
+    });
+
+    it('should report no game change when gameName is omitted or unchanged', () => {
+      expect(service.updateNote('note_1', { title: 'New' }).gameChanged).toBe(false);
+      expect(service.updateNote('note_1', { gameName: '' }).gameChanged).toBe(false);
+    });
+
+    it('should report a game change when gameName differs', () => {
+      const result = service.updateNote('note_1', { gameName: 'Zelda' });
+
+      expect(result.gameChanged).toBe(true);
+      expect(result.note.gameName).toBe('Zelda');
+      expect(service.updateNote('note_1', { gameName: 'Zelda' }).gameChanged).toBe(false);
     });
 
     it('should return null for non-existent note', () => {
@@ -273,7 +270,20 @@ describe('NotesService', () => {
       const updated = service.updateNote('note_1', { title: 'New' });
 
       expect(updated).toBeNull();
-      expect(mockLogger.error).toHaveBeenCalled();
+      expect(mockLogger.error).toHaveBeenCalledWith('Failed to save notes to storage', expect.any(Error));
+      expect(mockLogger.error).toHaveBeenCalledWith('Failed to update note: note_1 - storage error');
+    });
+
+    it('should return null and reload from storage when storage rejects the save', () => {
+      service.getAllNotes();
+      mockStorageService.setItem = vi.fn(() => false);
+
+      const updated = service.updateNote('note_1', { title: 'New' });
+
+      expect(updated).toBeNull();
+      expect(mockLogger.error).toHaveBeenCalledWith('Storage rejected notes save');
+      expect(service.getNote('note_1').title).toBe('Original');
+      expect(mockStorageService.getItem).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -284,7 +294,6 @@ describe('NotesService', () => {
         { id: 'note_2', title: 'Second', updatedAt: 2000 }
       ];
       setStoredNotes(storedNotes);
-      service._invalidateCache();
     });
 
     it('should delete existing note', () => {
@@ -329,7 +338,6 @@ describe('NotesService', () => {
         { id: 'note_3', title: 'CSS Styling', content: 'CSS tutorial and tips', updatedAt: 1000 }
       ];
       setStoredNotes(storedNotes);
-      service._invalidateCache();
     });
 
     it('should return all notes for empty query', () => {
@@ -390,7 +398,6 @@ describe('NotesService', () => {
         { id: 'note_2', title: 'Other Note', content: 'This is a tutorial', updatedAt: 2000 }
       ];
       setStoredNotes(storedNotes);
-      service._invalidateCache();
 
       const results = service.searchNotes('tutorial');
 
@@ -404,7 +411,6 @@ describe('NotesService', () => {
         { id: 'note_1', content: 'Content with search term', updatedAt: 1000 }
       ];
       setStoredNotes(storedNotes);
-      service._invalidateCache();
 
       const results = service.searchNotes('search');
 
@@ -416,7 +422,6 @@ describe('NotesService', () => {
         { id: 'note_1', title: 'Search Title', updatedAt: 1000 }
       ];
       setStoredNotes(storedNotes);
-      service._invalidateCache();
 
       const results = service.searchNotes('search');
 
@@ -428,7 +433,6 @@ describe('NotesService', () => {
         { id: 'note_1', title: 123, content: null, updatedAt: 1000 }
       ];
       setStoredNotes(storedNotes);
-      service._invalidateCache();
 
       // Should not throw
       const results = service.searchNotes('test');
@@ -436,81 +440,76 @@ describe('NotesService', () => {
     });
   });
 
-  describe('_fuzzyScore', () => {
-    it('should return 0 for no match', () => {
-      const score = service._fuzzyScore('hello world', 'xyz');
+  describe('search ranking', () => {
+    it('should rank an earlier match above a later one in the same field', () => {
+      setStoredNotes([
+        { id: 'late', title: 'hello world', updatedAt: 2000 },
+        { id: 'early', title: 'world hello', updatedAt: 1000 }
+      ]);
 
-      expect(score).toBe(0);
+      expect(service.searchNotes('world').map((note) => note.id)).toEqual(['early', 'late']);
     });
 
-    it('should return higher score for match at start', () => {
-      const scoreStart = service._fuzzyScore('hello world', 'hello');
-      const scoreEnd = service._fuzzyScore('hello world', 'world');
+    it('should weight game matches above content matches', () => {
+      setStoredNotes([
+        { id: 'content', title: 'A', content: 'zelda', gameName: '', updatedAt: 2000 },
+        { id: 'game', title: 'B', content: '', gameName: 'zelda', updatedAt: 1000 }
+      ]);
 
-      expect(scoreStart).toBeGreaterThan(scoreEnd);
+      expect(service.searchNotes('zelda').map((note) => note.id)).toEqual(['game', 'content']);
     });
 
-    it('should return 1 for match at index 0', () => {
-      const score = service._fuzzyScore('hello', 'hello');
+    it('should restrict results to the game filter', () => {
+      setStoredNotes([
+        { id: 'zelda', title: 'Boss notes', gameName: 'Zelda', updatedAt: 2000 },
+        { id: 'pokemon', title: 'Boss notes', gameName: 'Pokemon', updatedAt: 1000 }
+      ]);
 
-      expect(score).toBe(1);
-    });
-  });
-
-  describe('_invalidateCache', () => {
-    it('should clear cache', () => {
-      service._notesCache = [{ id: 'note_1' }];
-      service._cacheValid = true;
-
-      service._invalidateCache();
-
-      expect(service._notesCache).toBeNull();
-      expect(service._cacheValid).toBe(false);
+      expect(service.searchNotes('boss', 'Zelda').map((note) => note.id)).toEqual(['zelda']);
+      expect(service.searchNotes('', 'Pokemon').map((note) => note.id)).toEqual(['pokemon']);
     });
   });
 
-  describe('_saveNotes', () => {
-    it('should save and update cache', () => {
-      const notes = [{ id: 'note_1', title: 'Test', updatedAt: 1000 }];
+  describe('cache', () => {
+    it('should serve writes from the cache sorted by updatedAt', () => {
+      setStoredNotes([{ id: 'note_1', title: 'Old', updatedAt: 1000 }]);
+      service.getAllNotes();
 
-      const result = service._saveNotes(notes);
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(5000);
+        service.createNote('New');
+      } finally {
+        vi.useRealTimers();
+      }
 
-      expect(result).toBe(true);
-      expect(service._cacheValid).toBe(true);
-      expect(service._notesCache).toEqual(notes);
+      expect(service.getAllNotes().map((note) => note.title)).toEqual(['New', 'Old']);
+      expect(mockStorageService.getItem).toHaveBeenCalledTimes(1);
     });
 
-    it('should sort cache by updatedAt', () => {
-      const notes = [
-        { id: 'note_1', title: 'Old', updatedAt: 1000 },
-        { id: 'note_2', title: 'New', updatedAt: 2000 }
-      ];
+    it('should persist the JSON array in its existing order and field layout', () => {
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(1234);
+        const note = service.createNote('Title', 'Body', 'Game');
 
-      service._saveNotes(notes);
-
-      expect(service._notesCache[0].title).toBe('New');
-      expect(service._notesCache[1].title).toBe('Old');
+        expect(mockStorageService.setItem).toHaveBeenLastCalledWith(
+          'userNotes',
+          JSON.stringify([{ id: note.id, gameName: 'Game', title: 'Title', content: 'Body', createdAt: 1234, updatedAt: 1234 }])
+        );
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
-    it('should handle storage errors', () => {
+    it('should reload from storage after a failed save', () => {
+      setStoredNotes([{ id: 'note_1', title: 'Stored', updatedAt: 1000 }]);
+      service.getAllNotes();
       mockStorageService.setItem = vi.fn(() => { throw new Error('Storage full'); });
 
-      const result = service._saveNotes([{ id: 'note_1' }]);
-
-      expect(result).toBe(false);
-      expect(service._cacheValid).toBe(false);
-      expect(mockLogger.error).toHaveBeenCalledWith(
-        'Failed to save notes to storage',
-        expect.any(Error)
-      );
-    });
-
-    it('should handle null storageService', () => {
-      service.storageService = null;
-
-      const result = service._saveNotes([{ id: 'note_1' }]);
-
-      expect(result).toBe(true);
+      expect(service.createNote('Lost')).toBeNull();
+      expect(service.getAllNotes().map((note) => note.title)).toEqual(['Stored']);
+      expect(mockStorageService.getItem).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -532,32 +531,6 @@ describe('NotesService', () => {
       const games = service.getUniqueGames();
 
       expect(games).toEqual(['Pokemon', 'Zelda']);
-    });
-  });
-
-  describe('getNotesGroupedByGame', () => {
-    it('should return empty object when no notes exist', () => {
-      const groups = service.getNotesGroupedByGame();
-      expect(groups).toEqual({});
-    });
-
-    it('should group notes by game name', () => {
-      const storedNotes = [
-        { id: 'note_1', gameName: 'Zelda', title: 'Note 1', updatedAt: 1000 },
-        { id: 'note_2', gameName: 'Pokemon', title: 'Note 2', updatedAt: 2000 },
-        { id: 'note_3', gameName: 'Zelda', title: 'Note 3', updatedAt: 3000 },
-        { id: 'note_4', gameName: '', title: 'General Note', updatedAt: 4000 }
-      ];
-      setStoredNotes(storedNotes);
-
-      const groups = service.getNotesGroupedByGame();
-
-      expect(Object.keys(groups)).toContain('Zelda');
-      expect(Object.keys(groups)).toContain('Pokemon');
-      expect(Object.keys(groups)).toContain('');
-      expect(groups['Zelda']).toHaveLength(2);
-      expect(groups['Pokemon']).toHaveLength(1);
-      expect(groups['']).toHaveLength(1);
     });
   });
 });

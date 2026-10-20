@@ -108,13 +108,13 @@ describe('NotesPanelComponent', () => {
       replacementElements.notesList.className = 'notes-list';
       mockNotesService.getNote.mockReturnValue(note);
       mockNotesService.searchNotes.mockReturnValue([note]);
-      mockNotesService.updateNoteWithChangeDetection.mockReturnValue({ note, gameChanged: false });
+      mockNotesService.updateNote.mockReturnValue({ note, gameChanged: false });
       component.initialize(mockElements);
       component._selectNote('note_1');
       component.initialize(replacementElements);
       replacementElements.notesTitleInput.dispatchEvent(new Event('input'));
       component.hide();
-      expect(mockNotesService.updateNoteWithChangeDetection).toHaveBeenLastCalledWith('note_1', {
+      expect(mockNotesService.updateNote).toHaveBeenLastCalledWith('note_1', {
         title: 'Persisted Title',
         content: 'Persisted Content',
         gameName: 'Game Alpha'
@@ -129,14 +129,14 @@ describe('NotesPanelComponent', () => {
       mockNotesService.getNote.mockReturnValueOnce(oldNote).mockReturnValue(savedNote);
       mockNotesService.searchNotes.mockReturnValue([oldNote]);
       mockNotesService.getUniqueGames.mockReturnValue(['New Game']);
-      mockNotesService.updateNoteWithChangeDetection.mockReturnValue({ note: savedNote, gameChanged: true });
+      mockNotesService.updateNote.mockReturnValue({ note: savedNote, gameChanged: true });
       component.initialize(mockElements);
       component.gameFilter.setCurrentFilter('Old Game');
       component._selectNote('note_1');
       mockElements.notesGameInput.value = 'New Game';
       mockElements.notesGameInput.dispatchEvent(new Event('input'));
       component.initialize(replacementElements);
-      expect(mockNotesService.updateNoteWithChangeDetection).toHaveBeenCalledWith('note_1', {
+      expect(mockNotesService.updateNote).toHaveBeenCalledWith('note_1', {
         title: 'Title',
         content: 'Body',
         gameName: 'New Game'
@@ -228,9 +228,9 @@ describe('NotesPanelComponent', () => {
       mockElements.notesGameInput.dispatchEvent(new Event('input'));
       mockElements.notesTitleInput.dispatchEvent(new Event('input'));
       mockElements.notesContentArea.dispatchEvent(new Event('input'));
-      mockNotesService.updateNoteWithChangeDetection.mockReturnValue({ note: createTestNote({ id: 'note_1' }), gameChanged: false });
+      mockNotesService.updateNote.mockReturnValue({ note: createTestNote({ id: 'note_1' }), gameChanged: false });
       component.hide();
-      expect(mockNotesService.updateNoteWithChangeDetection).toHaveBeenCalledWith('note_1', {
+      expect(mockNotesService.updateNote).toHaveBeenCalledWith('note_1', {
         title: 'Test Title',
         content: 'Test Content',
         gameName: ''
@@ -393,16 +393,16 @@ describe('NotesPanelComponent', () => {
     it('should not save if no current note', () => {
       component.currentNoteId = null;
       component._saveCurrentNote();
-      expect(mockNotesService.updateNoteWithChangeDetection).not.toHaveBeenCalled();
+      expect(mockNotesService.updateNote).not.toHaveBeenCalled();
     });
     it('should save current note with editor values', () => {
       component.currentNoteId = 'note_1';
       mockElements.notesGameInput.value = 'Test Game';
       mockElements.notesTitleInput.value = 'Updated Title';
       mockElements.notesContentArea.value = 'Updated Content';
-      mockNotesService.updateNoteWithChangeDetection.mockReturnValue({ note: createTestNote({ id: 'note_1' }), gameChanged: false });
+      mockNotesService.updateNote.mockReturnValue({ note: createTestNote({ id: 'note_1' }), gameChanged: false });
       component._saveCurrentNote();
-      expect(mockNotesService.updateNoteWithChangeDetection).toHaveBeenCalledWith('note_1', {
+      expect(mockNotesService.updateNote).toHaveBeenCalledWith('note_1', {
         title: 'Updated Title',
         content: 'Updated Content',
         gameName: 'Test Game'
@@ -410,7 +410,7 @@ describe('NotesPanelComponent', () => {
     });
     it('should log warning if save fails', () => {
       component.currentNoteId = 'note_1';
-      mockNotesService.updateNoteWithChangeDetection.mockReturnValue(null);
+      mockNotesService.updateNote.mockReturnValue(null);
       component._saveCurrentNote();
       expect(mockLogger.warn).toHaveBeenCalledWith('Failed to save note - may have been deleted');
     });
@@ -424,7 +424,7 @@ describe('NotesPanelComponent', () => {
       mockElements.notesContentArea.value = 'Updated Content';
       mockNotesService.getUniqueGames.mockReturnValue(['New Game']);
       mockNotesService.searchNotes.mockImplementation((_query, gameFilter) => (gameFilter ? [] : [createTestNote({ id: 'note_1' })]));
-      mockNotesService.updateNoteWithChangeDetection.mockReturnValue({
+      mockNotesService.updateNote.mockReturnValue({
         note: createTestNote({ id: 'note_1', gameName: 'New Game' }),
         gameChanged: true
       });
@@ -556,7 +556,7 @@ describe('NotesPanelComponent', () => {
       mockElements.notesGameInput.dispatchEvent(new Event('input'));
       mockElements.notesTitleInput.dispatchEvent(new Event('input'));
       mockElements.notesContentArea.dispatchEvent(new Event('input'));
-      mockNotesService.updateNoteWithChangeDetection.mockReturnValue({ note: createTestNote({ id: 'old_note' }), gameChanged: false });
+      mockNotesService.updateNote.mockReturnValue({ note: createTestNote({ id: 'old_note' }), gameChanged: false });
       const newNote = createTestNote({ id: 'new_note', title: 'New', content: '', gameName: '' });
       mockNotesService.getNote.mockReturnValueOnce(newNote);
       mockElements.notesList.innerHTML = `
@@ -566,7 +566,7 @@ describe('NotesPanelComponent', () => {
       `;
       const nextListItem = mockElements.notesList.querySelector('.note-list-item');
       nextListItem?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      expect(mockNotesService.updateNoteWithChangeDetection).toHaveBeenCalledWith('old_note', {
+      expect(mockNotesService.updateNote).toHaveBeenCalledWith('old_note', {
         title: 'Old Title',
         content: 'Old Content',
         gameName: ''
@@ -689,7 +689,7 @@ describe('NotesPanelComponent', () => {
       component.currentNoteId = 'note_1';
       mockElements.notesGameInput.value = 'Game Alpha';
       mockElements.notesGameTagRow.classList.add('editing');
-      mockNotesService.updateNoteWithChangeDetection.mockReturnValue({ note: createTestNote({ id: 'note_1' }), gameChanged: false });
+      mockNotesService.updateNote.mockReturnValue({ note: createTestNote({ id: 'note_1' }), gameChanged: false });
       const event = new KeyboardEvent('keydown', { key: 'Enter' });
       mockElements.notesGameInput.dispatchEvent(event);
       expect(mockElements.notesGameTagRow.classList.contains('editing')).toBe(false);
@@ -749,13 +749,13 @@ describe('NotesPanelComponent', () => {
     });
     it('should schedule save on Enter key without highlighted item', () => {
       component.currentNoteId = 'note_1';
-      mockNotesService.updateNoteWithChangeDetection.mockReturnValue({ note: createTestNote({ id: 'note_1' }), gameChanged: false });
+      mockNotesService.updateNote.mockReturnValue({ note: createTestNote({ id: 'note_1' }), gameChanged: false });
       mockElements.notesGameInput.value = 'Custom Game';
       mockElements.notesGameInput.dispatchEvent(new Event('input'));
       mockElements.notesGameInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
       expect(mockElements.notesGameTagRow.classList.contains('editing')).toBe(false);
       vi.advanceTimersByTime(500);
-      expect(mockNotesService.updateNoteWithChangeDetection).toHaveBeenCalledWith('note_1', expect.objectContaining({
+      expect(mockNotesService.updateNote).toHaveBeenCalledWith('note_1', expect.objectContaining({
         gameName: 'Custom Game'
       }));
     });
@@ -774,7 +774,7 @@ describe('NotesPanelComponent', () => {
       mockElements.notesGameInput.value = 'New Game';
       mockElements.notesTitleInput.value = 'Title';
       mockElements.notesContentArea.value = 'Content';
-      mockNotesService.updateNoteWithChangeDetection.mockReturnValue({ note: createTestNote({ id: 'note_1', gameName: 'New Game' }), gameChanged: true });
+      mockNotesService.updateNote.mockReturnValue({ note: createTestNote({ id: 'note_1', gameName: 'New Game' }), gameChanged: true });
       mockNotesService.searchNotes.mockReturnValue([]);
       component._saveCurrentNote();
       expect(mockNotesService.searchNotes).toHaveBeenCalled();
@@ -786,7 +786,7 @@ describe('NotesPanelComponent', () => {
       mockElements.notesGameInput.value = '';
       mockElements.notesTitleInput.value = 'New Title';
       mockElements.notesContentArea.value = 'Content';
-      mockNotesService.updateNoteWithChangeDetection.mockReturnValue({ note: savedNote, gameChanged: false });
+      mockNotesService.updateNote.mockReturnValue({ note: savedNote, gameChanged: false });
       mockNotesService.searchNotes.mockReturnValue([savedNote]);
       mockElements.notesList.innerHTML = `
         <div class="note-list-item" data-note-id="note_1">

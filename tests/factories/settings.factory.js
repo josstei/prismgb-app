@@ -54,7 +54,7 @@ export function createSettingsServiceMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@platform/notes').NotesService} NotesService
+ * @typedef {import('@renderer/infrastructure/services/notes/notes.service').NotesService} NotesService
  */
 
 /**
@@ -69,11 +69,9 @@ export function createNotesServiceMock(overrides = {}) {
     getNote: vi.fn(() => null),
     createNote: vi.fn(() => null),
     updateNote: vi.fn(() => null),
-    updateNoteWithChangeDetection: vi.fn(() => null),
     deleteNote: vi.fn(() => false),
     searchNotes: vi.fn(() => []),
     getUniqueGames: vi.fn(() => []),
-    getNotesGroupedByGame: vi.fn(() => ({})),
     ...overrides
   });
 }

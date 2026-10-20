@@ -1,1 +1,1 @@
-import './primitives/lifecycle';
+import './disposable-bag';

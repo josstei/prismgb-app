@@ -1,16 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import {
-  NotesStorageKeys,
-  PROTECTED_STORAGE_KEYS
-} from '@renderer/lib/storage-keys.config';
+import { NOTES_STORAGE_KEY, PROTECTED_STORAGE_KEYS } from '@renderer/lib/storage-keys.config';
 import { SettingsDefinitions } from '@renderer/lib/settings.definitions';
 
 const expectedSettingsKeys = SettingsDefinitions.definitions.map((definition) => definition.storageKey);
-const expectedProtectedKeys = [NotesStorageKeys.USER_NOTES, ...expectedSettingsKeys];
+const expectedProtectedKeys = [NOTES_STORAGE_KEY, ...expectedSettingsKeys];
 
 describe('storage-keys.config', () => {
   it('exposes the notes storage key', () => {
-    expect(NotesStorageKeys.USER_NOTES).toBe('userNotes');
+    expect(NOTES_STORAGE_KEY).toBe('userNotes');
   });
 
   describe('PROTECTED_STORAGE_KEYS proxy', () => {
