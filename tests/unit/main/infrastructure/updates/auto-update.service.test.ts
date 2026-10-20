@@ -102,7 +102,7 @@ describe('AutoUpdateService', () => {
       vi.mocked(autoUpdater.on).mockClear();
       service.initialize();
 
-      expect(mockLogger.warn).toHaveBeenCalledWith('UpdateService already initialized');
+      expect(mockLogger.warn).toHaveBeenCalledWith('AutoUpdateService already initialized');
       expect(autoUpdater.on).not.toHaveBeenCalled();
     });
 

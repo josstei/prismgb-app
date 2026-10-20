@@ -49,7 +49,7 @@ export class AutoUpdateService extends BaseService {
 
   initialize(): void {
     if (this.initialized) {
-      this.logger.warn('UpdateService already initialized');
+      this.logger.warn('AutoUpdateService already initialized');
       return;
     }
 
@@ -156,7 +156,7 @@ export class AutoUpdateService extends BaseService {
   override async dispose(): Promise<void> {
     await super.dispose();
     this.initialized = false;
-    this.logger.info('UpdateService disposed');
+    this.logger.info('AutoUpdateService disposed');
   }
 
   private listenToAutoUpdater(): void {
