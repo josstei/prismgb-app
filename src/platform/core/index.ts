@@ -10,4 +10,3 @@ export { safeDispose, safeDisposeAll } from './safe-dispose.utils';
 export { throttle, debounce, abortableDelay, raceWithTimeout } from './async.utils';
 export type { TimedRaceOutcome } from './async.utils';
 export { isPromiseLike, getErrorMessage } from './guards.utils';
-export { getElectronApp } from './electron-app.utils';
