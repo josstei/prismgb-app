@@ -5,7 +5,7 @@ import { WindowService } from '@main/infrastructure/window/window.service';
 import { AutoUpdateService } from '@main/infrastructure/updates/auto-update.service';
 import { TranscodeService } from '@main/infrastructure/transcode/transcode.service';
 import { TrayService } from '@main/infrastructure/tray/tray.service';
-import { LoginItemService } from '@main/infrastructure/window/login-item.service';
+import { LoginItemService } from '@main/infrastructure/system/login-item.service';
 import { createNodeUsbMonitor } from '@main/infrastructure/devices/usb.monitor';
 import { DeviceConnectionService } from '@main/infrastructure/devices/device-connection.service';
 import { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service';

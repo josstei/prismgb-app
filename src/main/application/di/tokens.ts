@@ -10,7 +10,7 @@ import type { MainProcessTestControl } from '@main/ipc/test-control.port';
 import type { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service';
 import type { AutoUpdateService } from '@main/infrastructure/updates/auto-update.service';
 import type { TranscodeService } from '@main/infrastructure/transcode/transcode.service';
-import type { LoginItemService } from '@main/infrastructure/window/login-item.service';
+import type { LoginItemService } from '@main/infrastructure/system/login-item.service';
 import type { AppOrchestrator } from '../app.orchestrator';
 
 /**

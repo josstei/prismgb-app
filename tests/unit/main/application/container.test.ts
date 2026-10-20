@@ -24,7 +24,7 @@ vi.mock('electron', () => {
     BrowserWindow: MockBrowserWindow,
     Tray: MockTray,
     Menu: { buildFromTemplate: vi.fn(() => ({})), setApplicationMenu: vi.fn() },
-    ipcMain: { handle: vi.fn(), removeHandler: vi.fn(), on: vi.fn(), removeAllListeners: vi.fn() },
+    ipcMain: { on: vi.fn(), removeAllListeners: vi.fn() },
     shell: { openExternal: vi.fn() },
     dialog: { showErrorBox: vi.fn() },
     nativeImage: { createFromPath: vi.fn(() => ({ isEmpty: () => true })) }

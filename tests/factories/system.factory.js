@@ -58,7 +58,7 @@ export function createPreventDefaultEventMock(overrides = {}) {
 }
 
 /**
- * @typedef {import('@main/infrastructure/login-item.service').LoginItemService} LoginItemService
+ * @typedef {import('@main/infrastructure/system/login-item.service').LoginItemService} LoginItemService
  */
 
 /**

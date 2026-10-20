@@ -17,7 +17,7 @@ import type { TrayService } from '@main/infrastructure/tray/tray.service';
 import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry';
 import type { AutoUpdateService } from '@main/infrastructure/updates/auto-update.service';
 import type { TranscodeService } from '@main/infrastructure/transcode/transcode.service';
-import type { LoginItemService } from '@main/infrastructure/window/login-item.service';
+import type { LoginItemService } from '@main/infrastructure/system/login-item.service';
 
 function resolveDevDockIconPath(appPath: string): string | null {
   const candidates = [

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { app as mockApp } from 'electron';
 import { installProcessEnvMock, installProcessRuntimeMock } from '../../../../support/mocks/runtime-property.installers.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createInjectableHarness } from '../../../../support/di/injectable.harness';
 
 type ProcessEnvOverrides = Record<string, string | number | boolean | undefined>;
 type ProcessEnvMock = ReturnType<typeof installProcessEnvMock> & {
@@ -42,7 +42,7 @@ vi.mock('electron', () => ({
   }
 }));
 
-import { LoginItemService } from '@main/infrastructure/window/login-item.service.js';
+import { LoginItemService } from '@main/infrastructure/system/login-item.service';
 
 type LoginItemSettings = ReturnType<typeof mockApp.getLoginItemSettings>;
 
