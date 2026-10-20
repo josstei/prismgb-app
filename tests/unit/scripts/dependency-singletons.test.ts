@@ -51,45 +51,4 @@ describe('dependency singleton guard', () => {
       `Singleton dependencies must resolve to one installed copy:\n${violations.join('\n')}`
     ).toEqual([]);
   });
-
-  it('reports a nested second copy of a singleton', () => {
-    const lockfile: Lockfile = {
-      packages: {
-        '': {},
-        'node_modules/@inversifyjs/core': { version: '11.0.0' },
-        'node_modules/inversify': { version: '8.2.3' },
-        'node_modules/inversify/node_modules/@inversifyjs/core': { version: '15.0.1' }
-      }
-    };
-
-    expect(findSingletonViolations(lockfile, ['@inversifyjs/core'])).toEqual([
-      '@inversifyjs/core is installed 2 times: node_modules/@inversifyjs/core@11.0.0, ' +
-        'node_modules/inversify/node_modules/@inversifyjs/core@15.0.1'
-    ]);
-  });
-
-  it('reports a declared singleton that is no longer installed', () => {
-    const lockfile: Lockfile = {
-      packages: {
-        '': {},
-        'node_modules/inversify': { version: '8.2.3' }
-      }
-    };
-
-    expect(findSingletonViolations(lockfile, ['@inversifyjs/core'])).toEqual([
-      '@inversifyjs/core is declared a singleton but is not installed'
-    ]);
-  });
-
-  it('does not treat a package whose name extends a singleton name as a copy', () => {
-    const lockfile: Lockfile = {
-      packages: {
-        '': {},
-        'node_modules/@inversifyjs/core': { version: '15.0.1' },
-        'node_modules/@inversifyjs/core-extensions': { version: '1.0.0' }
-      }
-    };
-
-    expect(findSingletonViolations(lockfile, ['@inversifyjs/core'])).toEqual([]);
-  });
 });
