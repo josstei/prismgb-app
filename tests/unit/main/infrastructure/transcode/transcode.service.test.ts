@@ -64,10 +64,11 @@ vi.mock('@main/infrastructure/transcode/transcode-process', async () => {
 });
 
 import { TranscodeService } from '@main/infrastructure/transcode/transcode.service';
+import { IpcPushBridge } from '@main/ipc/ipc-push.bridge';
 
 describe('TranscodeService (main)', () => {
   let sandbox: string;
-  let windowService: { send: ReturnType<typeof vi.fn> };
+  let ipcPushBridge: IpcPushBridge;
   let loggerFactory: ReturnType<typeof createLoggerFactory>;
   let service: TranscodeService;
 
@@ -87,9 +88,10 @@ describe('TranscodeService (main)', () => {
     appPaths.downloads = path.join(sandbox, 'downloads');
     fs.mkdirSync(appPaths.downloads, { recursive: true });
     createdProcesses.length = 0;
-    windowService = { send: vi.fn() };
     loggerFactory = createLoggerFactory();
-    service = new TranscodeService(windowService as never, loggerFactory);
+    ipcPushBridge = new IpcPushBridge(loggerFactory);
+    vi.spyOn(ipcPushBridge, 'emit');
+    service = new TranscodeService(ipcPushBridge, loggerFactory);
   });
 
   afterEach(() => {
@@ -194,7 +196,7 @@ describe('TranscodeService (main)', () => {
 
       lastProcess().emit('progress', { percent: 42.5, timeUs: 1000, elapsedMs: 50 });
 
-      expect(windowService.send).toHaveBeenCalledWith('transcode:progress', { jobId, percent: 42.5, timeUs: 1000, elapsedMs: 50 });
+      expect(ipcPushBridge.emit).toHaveBeenCalledWith('transcode:progress', { jobId, percent: 42.5, timeUs: 1000, elapsedMs: 50 });
     });
 
     it('publishes completion with the output path and keeps the output file', async () => {
@@ -204,7 +206,7 @@ describe('TranscodeService (main)', () => {
 
       lastProcess().emit('completed');
 
-      expect(windowService.send).toHaveBeenCalledWith('transcode:completed', { jobId, filePath: outputPath });
+      expect(ipcPushBridge.emit).toHaveBeenCalledWith('transcode:completed', { jobId, filePath: outputPath });
       expect(fs.existsSync(path.join(tempRoot(), jobId))).toBe(false);
       expect(fs.existsSync(outputPath)).toBe(true);
     });
@@ -216,7 +218,7 @@ describe('TranscodeService (main)', () => {
 
       lastProcess().emit('error', new Error('Invalid data found when processing input'));
 
-      expect(windowService.send).toHaveBeenCalledWith('transcode:error', {
+      expect(ipcPushBridge.emit).toHaveBeenCalledWith('transcode:error', {
         jobId,
         error: 'Invalid data found when processing input'
       });
@@ -225,13 +227,16 @@ describe('TranscodeService (main)', () => {
     });
 
     it('keeps working when the renderer push fails', async () => {
-      windowService.send.mockImplementation(() => {
+      ipcPushBridge.on('transcode:progress', () => {
         throw new Error('window gone');
       });
       await service.transcode(request());
 
       expect(() => lastProcess().emit('progress', { percent: 1, timeUs: 1 })).not.toThrow();
-      expect(logger().warn).toHaveBeenCalledWith('Failed to notify renderer', { channel: 'transcode:progress', error: 'window gone' });
+      expect(loggerFactory._getLogger('IpcPushBridge').warn).toHaveBeenCalledWith(
+        'Failed to deliver push',
+        { channel: 'transcode:progress', error: 'window gone' }
+      );
     });
   });
 
@@ -245,7 +250,7 @@ describe('TranscodeService (main)', () => {
       await service.dispose();
 
       expect(lastProcess().cancel).toHaveBeenCalledTimes(1);
-      expect(windowService.send).toHaveBeenCalledWith('transcode:cancelled', { jobId });
+      expect(ipcPushBridge.emit).toHaveBeenCalledWith('transcode:cancelled', { jobId });
       expect(fs.existsSync(outputPath)).toBe(false);
       expect(fs.existsSync(tempRoot())).toBe(false);
     });

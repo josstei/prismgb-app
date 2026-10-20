@@ -6,7 +6,7 @@ import { injectable, inject } from 'inversify';
 import { BaseService, getErrorMessage, type LoggerFactory } from '@platform/core';
 import { IPC_CHANNELS, type TranscodeFormat } from '@platform/ipc';
 import { TOKENS } from '@main/application/di/tokens';
-import type { WindowService } from '@main/infrastructure/window/window.service';
+import type { IpcPushBridge } from '@main/ipc/ipc-push.bridge';
 import { getFfmpegPath, getOptionalFfprobePath } from './ffmpeg-path.utils';
 import { TranscodeProcess, probeDuration, type TranscodeProgressData } from './transcode-process';
 
@@ -60,7 +60,7 @@ export class TranscodeService extends BaseService {
   private readonly jobs = new Map<string, { process: TranscodeProcess; sessionDir: string; outputPath: string }>();
 
   constructor(
-    @inject(TOKENS.windowService) private readonly windowService: WindowService,
+    @inject(TOKENS.ipcPushBridge) private readonly ipcPushBridge: IpcPushBridge,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
     super(loggerFactory, 'TranscodeService');
@@ -119,23 +119,23 @@ export class TranscodeService extends BaseService {
       this.jobs.set(jobId, { process: transcodeProcess, sessionDir, outputPath });
 
       transcodeProcess.on('progress', (progressData: TranscodeProgressData) => {
-        this.notifyRenderer(IPC_CHANNELS.TRANSCODE.PROGRESS, { jobId, ...progressData });
+        this.ipcPushBridge.emit(IPC_CHANNELS.TRANSCODE.PROGRESS, { jobId, ...progressData });
       });
 
       transcodeProcess.on('completed', () => {
-        this.notifyRenderer(IPC_CHANNELS.TRANSCODE.COMPLETED, { jobId, filePath: outputPath });
+        this.ipcPushBridge.emit(IPC_CHANNELS.TRANSCODE.COMPLETED, { jobId, filePath: outputPath });
         this.logger.info('Transcode completed', { sessionId: jobId, outputPath });
         this.releaseJob(jobId, false);
       });
 
       transcodeProcess.on('cancelled', () => {
-        this.notifyRenderer(IPC_CHANNELS.TRANSCODE.CANCELLED, { jobId });
+        this.ipcPushBridge.emit(IPC_CHANNELS.TRANSCODE.CANCELLED, { jobId });
         this.logger.info('Transcode cancelled', { sessionId: jobId });
         this.releaseJob(jobId, true);
       });
 
       transcodeProcess.on('error', (error: Error) => {
-        this.notifyRenderer(IPC_CHANNELS.TRANSCODE.ERROR, { jobId, error: error.message });
+        this.ipcPushBridge.emit(IPC_CHANNELS.TRANSCODE.ERROR, { jobId, error: error.message });
         this.logger.error('Transcode failed', { sessionId: jobId, error: error.message });
         this.releaseJob(jobId, true);
       });
@@ -230,14 +230,6 @@ export class TranscodeService extends BaseService {
       }
     } catch {
       // Best effort: a locked or vanished temp root is left for the next run.
-    }
-  }
-
-  private notifyRenderer(channel: string, data: unknown): void {
-    try {
-      this.windowService.send(channel, data);
-    } catch (error) {
-      this.logger.warn('Failed to notify renderer', { channel, error: getErrorMessage(error) });
     }
   }
 }

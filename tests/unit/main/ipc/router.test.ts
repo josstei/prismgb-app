@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { appRouter } from '@main/ipc/router.js';
 import { IpcPushBridge } from '@main/ipc/ipc-push.bridge.js';
 import type { IpcContext } from '@main/ipc/trpc.js';
+import { createLoggerFactory } from '../../../factories/index.js';
 import {
   createChromaticDeviceInfoPayload,
   createChromaticDeviceStatusPayload
@@ -43,7 +44,7 @@ function createContext(overrides: Partial<Record<string, unknown>> = {}) {
     app: { getAppMetrics: vi.fn(() => []) },
     shell: { openExternal: vi.fn(async () => undefined) },
     logger,
-    ipcPushBridge: new IpcPushBridge(),
+    ipcPushBridge: new IpcPushBridge(createLoggerFactory()),
     ...overrides
   };
   return context as unknown as IpcContext;
@@ -390,7 +391,7 @@ describe('appRouter — subscriptions', () => {
   let context: IpcContext;
 
   beforeEach(() => {
-    bridge = new IpcPushBridge();
+    bridge = new IpcPushBridge(createLoggerFactory());
     context = createContext({ ipcPushBridge: bridge });
   });
 
