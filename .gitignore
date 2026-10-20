@@ -1,9 +1,11 @@
 # Dependencies
-node_modules/
+node_modules
 yarn.lock
 
 # Build output
 dist/
+# Stub written to the repo root by vite-plugin-electron during npm run dev
+/index.html
 release/
 build/
 out/
