@@ -4,6 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CaptureOrchestrator } from '@renderer/application/orchestrators/capture.orchestrator';
+import { downloadFile } from '@renderer/lib/file-download.utils';
 import {
   createAppState,
   createBitmapMock,
@@ -13,6 +14,10 @@ import {
   createTranscodeServiceMock
 } from '../../../../factories/index.js';
 import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+
+vi.mock('@renderer/lib/file-download.utils', () => ({
+  downloadFile: vi.fn(async () => {})
+}));
 
 describe('CaptureOrchestrator', () => {
   let orchestrator;
@@ -27,6 +32,7 @@ describe('CaptureOrchestrator', () => {
   let mockLogger;
 
   beforeEach(() => {
+    vi.mocked(downloadFile).mockImplementation(async () => {});
     const appState = createAppState();
     appState.currentStream = null;
     appState.currentCapabilities = null;
@@ -86,7 +92,9 @@ describe('CaptureOrchestrator', () => {
     it('should wire capture error events and UI command events', async () => {
       await orchestrator.initialize();
 
-      expect(mockEventBus.subscribe).toHaveBeenCalledTimes(5);
+      expect(mockEventBus.subscribe).toHaveBeenCalledTimes(7);
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith('capture:recording-started', expect.any(Function));
+      expect(mockEventBus.subscribe).toHaveBeenCalledWith('capture:recording-degraded', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('capture:recording-error', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('capture:recording-ready', expect.any(Function));
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:stopped', expect.any(Function));
@@ -97,7 +105,7 @@ describe('CaptureOrchestrator', () => {
     it('should store subscription unsubscribe functions', async () => {
       await orchestrator.initialize();
 
-      expect(orchestrator.disposables.size).toBe(5);
+      expect(orchestrator.disposables.size).toBe(7);
     });
   });
 
@@ -123,12 +131,53 @@ describe('CaptureOrchestrator', () => {
       expect(mockCaptureService.takeScreenshot).toHaveBeenCalledWith(mockBitmap);
     });
 
-    it('should trigger visual feedback when streaming', async () => {
+    it('should publish screenshot-triggered before capturing', async () => {
       mockAppState.setStreaming(true);
+      mockCaptureService.takeScreenshot.mockImplementation(async () => {
+        expect(mockEventBus.publish).toHaveBeenCalledWith('capture:screenshot-triggered');
+        return { blob: new Blob(['png']), filename: 'shot.png' };
+      });
 
       await orchestrator.takeScreenshot();
 
-      expect(mockEventBus.publish).toHaveBeenCalledWith('capture:screenshot-triggered');
+      expect(mockCaptureService.takeScreenshot).toHaveBeenCalledTimes(1);
+      expect(mockEventBus.publish).not.toHaveBeenCalledWith('ui:shutter-flash');
+    });
+
+    it('should download the captured screenshot and then publish the saved status', async () => {
+      mockAppState.setStreaming(true);
+      const blob = new Blob(['png'], { type: 'image/png' });
+      const filename = 'prismgb-screenshot-20240101-120000-000.png';
+      mockCaptureService.takeScreenshot.mockResolvedValue({ blob, filename });
+      vi.mocked(downloadFile).mockImplementation(async () => {
+        expect(mockEventBus.publish).not.toHaveBeenCalledWith('ui:status-message', { message: 'Screenshot saved!' });
+      });
+
+      await orchestrator.takeScreenshot();
+
+      expect(downloadFile).toHaveBeenCalledWith(blob, filename);
+      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', { message: 'Screenshot saved!' });
+    });
+
+    it('should not download when capturing fails', async () => {
+      mockAppState.setStreaming(true);
+      mockCaptureService.takeScreenshot.mockRejectedValue(new Error('Invalid video element'));
+
+      await orchestrator.takeScreenshot();
+
+      expect(downloadFile).not.toHaveBeenCalled();
+      expect(mockEventBus.publish).not.toHaveBeenCalledWith('ui:status-message', { message: 'Screenshot saved!' });
+      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', { message: 'Error taking screenshot', type: 'error' });
+    });
+
+    it('should report an error when the download fails', async () => {
+      mockAppState.setStreaming(true);
+      vi.mocked(downloadFile).mockRejectedValueOnce(new Error('Invalid blob provided'));
+
+      await orchestrator.takeScreenshot();
+
+      expect(mockLogger.error).toHaveBeenCalledWith('Failed to take screenshot:', 'Invalid blob provided');
+      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', { message: 'Error taking screenshot', type: 'error' });
     });
 
     it('should warn when not streaming', async () => {
@@ -251,14 +300,51 @@ describe('CaptureOrchestrator', () => {
       await orchestrator.initialize();
     });
 
-    it('should cleanup GPU recording on recording error', () => {
-      const errorHandler = mockEventBus.subscribe.mock.calls.find(
-        call => call[0] === 'capture:recording-error'
-      )[1];
+    const handlerFor = (channel) => mockEventBus.subscribe.mock.calls.find(call => call[0] === channel)[1];
 
-      errorHandler({ error: 'Test error' });
+    it('should cleanup GPU recording on recording error', () => {
+      handlerFor('capture:recording-error')({ error: 'Test error' });
 
       expect(mockCaptureGpuRecordingService.stop).toHaveBeenCalled();
+    });
+
+    it('should log and publish the recording failed status before stopping GPU recording', async () => {
+      mockCaptureGpuRecordingService.stop.mockImplementation(async () => {
+        expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', {
+          message: 'Recording failed: Encoder crashed',
+          type: 'error'
+        });
+      });
+
+      await handlerFor('capture:recording-error')({ error: 'Encoder crashed', name: 'RecordingError' });
+
+      expect(mockLogger.error).toHaveBeenCalledWith('Recording error:', 'Encoder crashed');
+      expect(mockCaptureGpuRecordingService.stop).toHaveBeenCalledTimes(1);
+    });
+
+    it('should publish the recording started status', () => {
+      handlerFor('capture:recording-started')();
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', { message: 'Recording started' });
+    });
+
+    it('should warn with the dropped frame count when recording degrades', () => {
+      handlerFor('capture:recording-degraded')({ droppedFrames: 12 });
+
+      expect(mockLogger.warn).toHaveBeenCalledWith('Recording degraded:', 'Recording quality degraded: 12 frames dropped');
+      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', {
+        message: 'Recording quality degraded: 12 frames dropped',
+        type: 'warning'
+      });
+    });
+
+    it('should report zero dropped frames when the degraded payload has no count', () => {
+      handlerFor('capture:recording-degraded')({ reason: 'slow encoder' });
+
+      expect(mockEventBus.publish).toHaveBeenCalledWith('ui:status-message', {
+        message: 'Recording quality degraded: 0 frames dropped',
+        type: 'warning'
+      });
     });
 
     it('should stop recording when stream stops', async () => {

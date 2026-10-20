@@ -55,7 +55,7 @@ describe('UiComponentHost', () => {
     expect(resolve).toHaveBeenCalledTimes(1);
   });
 
-  it('touchCore resolves exactly the core ids', () => {
+  it('resolveCore resolves exactly the core ids', () => {
     const resolve = vi.fn((token) => ({ token }));
     const host = createHost({
       resolve,
@@ -63,7 +63,7 @@ describe('UiComponentHost', () => {
       allTokens: { a: 'tokenA', b: 'tokenB', c: 'tokenC' }
     });
 
-    host.touchCore();
+    host.resolveCore();
 
     expect(resolve).toHaveBeenCalledTimes(2);
     expect(resolve).toHaveBeenCalledWith('tokenA');

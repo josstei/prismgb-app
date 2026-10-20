@@ -15,10 +15,8 @@ export interface PresentationModeStoreDependencies {
 }
 
 /**
- * Owns the reactive inputs for the presentation-mode body classes and exposes the gated
- * composites, reproducing PresentationModeService's predicates without imperative DOM writes:
+ * Reactive inputs for the presentation-mode body classes and their gated composites:
  * cinematic = cinematicEnabled && streaming; minimalist = minimalist && fullscreen && streaming.
- * Each input is fed from the same bus channel / signal the imperative service consumed.
  */
 export class PresentationModeStore extends ReactiveStore {
   private readonly _streamingActive = signal(false);

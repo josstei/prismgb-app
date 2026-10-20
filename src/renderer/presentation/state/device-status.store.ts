@@ -3,16 +3,8 @@ import { EventChannels } from '@renderer/lib/events/event-channels';
 import type { EventBus } from '@renderer/lib/events/event-bus';
 import { ReactiveStore } from './reactive-store.base';
 
-export interface DeviceStatusPayloadLike {
-  connected: boolean;
-  device?: {
-    name?: string | null;
-  } | null;
-}
-
 export interface DeviceStatusStoreDependencies {
   eventBus: EventBus;
-  deviceConnectedSignal: ReadonlySignal<boolean>;
 }
 
 export class DeviceStatusStore extends ReactiveStore {
@@ -23,27 +15,13 @@ export class DeviceStatusStore extends ReactiveStore {
   private readonly _overlayReady = signal(false);
   private readonly _overlayWaiting = signal(true);
 
-  constructor(private readonly dependencies: DeviceStatusStoreDependencies) {
+  constructor({ eventBus: bus }: DeviceStatusStoreDependencies) {
     super();
 
-    // Initial values
-    this._connected.value = this.dependencies.deviceConnectedSignal.value;
-
-    const bus = this.dependencies.eventBus;
-
     this.track(
-      bus.subscribe(EventChannels.UI.DEVICE_STATUS, (payload: unknown) => {
-        const data = typeof payload === 'object' && payload !== null ? (payload as { status?: unknown }).status : null;
-        if (data && typeof data === 'object' && 'connected' in data) {
-          const status = data as DeviceStatusPayloadLike;
-          this._connected.value = status.connected;
-          this._deviceName.value = status.connected
-            ? (status.device?.name || 'Device')
-            : '—';
-        } else {
-          this._connected.value = false;
-          this._deviceName.value = '—';
-        }
+      bus.subscribe(EventChannels.DEVICE.STATUS_CHANGED, (status) => {
+        this._connected.value = status.connected;
+        this._deviceName.value = status.connected ? (status.device?.name || 'Device') : '—';
       })
     );
 
@@ -78,7 +56,6 @@ export class DeviceStatusStore extends ReactiveStore {
 
   get connected(): ReadonlySignal<boolean> { return this._connected; }
   get deviceName(): ReadonlySignal<string> { return this._deviceName; }
-  get overlayVisible(): ReadonlySignal<boolean> { return this._overlayVisible; }
   get overlayMessage(): ReadonlySignal<string> { return this._overlayMessage; }
   get overlayReady(): ReadonlySignal<boolean> { return this._overlayReady; }
   get overlayWaiting(): ReadonlySignal<boolean> { return this._overlayWaiting; }

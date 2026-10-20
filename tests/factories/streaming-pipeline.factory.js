@@ -7,38 +7,7 @@
  */
 
 import { vi } from 'vitest';
-import { createMockCanvas, createMockVideo } from './stream.factory.js';
 import { createMockElement } from './ui.factory.js';
-
-/**
- * Creates a mock StreamingViewController.
- *
- * @param {Object} [overrides={}] - Mock overrides.
- * @returns {Object} Mock StreamingViewController.
- */
-export function createStreamingViewControllerMock(overrides = {}) {
-  const {
-    streamVideo,
-    streamCanvas,
-    elements,
-    setStreamCanvas,
-    ...componentOverrides
-  } = overrides;
-
-  const mergedElements = {
-    streamVideo: streamVideo ?? createMockVideo(),
-    streamCanvas: streamCanvas ?? createMockCanvas(),
-    ...elements,
-  };
-
-  return {
-    elements: mergedElements,
-    setStreamCanvas: setStreamCanvas ?? vi.fn((canvas) => {
-      mergedElements.streamCanvas = canvas;
-    }),
-    ...componentOverrides
-  };
-}
 
 /**
  * @typedef {import('@renderer/infrastructure/services/streaming/audio-pipeline.service').StreamingAudioPipelineService} StreamingAudioPipelineService

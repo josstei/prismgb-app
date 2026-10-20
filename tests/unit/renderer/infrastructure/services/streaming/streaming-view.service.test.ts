@@ -7,13 +7,13 @@ import { StreamingViewService } from '@renderer/infrastructure/services/streamin
 import {
   createCaptureStreamMock,
   createMockVideo,
-  createStreamingViewControllerMock,
 } from '../../../../../factories/index.js';
 import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
 
 describe('StreamingViewService', () => {
   let service;
-  let mockUIController;
+  let harness;
+  let dom;
   let mockVideoElement;
   let mockLogger;
 
@@ -33,26 +33,16 @@ describe('StreamingViewService', () => {
     mockContainerElement.appendChild(mockCanvasElement);
     mockSectionElement.appendChild(mockContainerElement);
 
-    const h = createInjectableHarness(StreamingViewService, {
-      overrides: {
-        uiController: createStreamingViewControllerMock({
-          streamVideo: mockVideoElement,
-          streamCanvas: mockCanvasElement
-        })
-      }
-    });
-    service = h.subject;
-    mockLogger = h.logger;
-    ({ uiController: mockUIController } = h.deps);
+    dom = { streaming: { streamVideo: mockVideoElement, streamCanvas: mockCanvasElement } };
+    harness = createInjectableHarness(StreamingViewService, { overrides: { domBindings: dom } });
+    service = harness.subject;
+    mockLogger = harness.logger;
   });
 
-  describe('Constructor', () => {
-    it('should initialize with required dependencies', () => {
-      expect(service.uiController).toBe(mockUIController);
-      expect(service.logger).toBeDefined();
-    });
-
-  });
+  const withCanvas = (canvas) => {
+    dom.streaming.streamCanvas = canvas;
+    service = harness.recreate();
+  };
 
   describe('attachMutedStream', () => {
     it('should attach stream to video element', () => {
@@ -81,7 +71,7 @@ describe('StreamingViewService', () => {
     });
 
     it('should warn if video element not found', () => {
-      mockUIController.elements.streamVideo = null;
+      dom.streaming.streamVideo = null;
       const mockStream = createCaptureStreamMock({ id: 'test-stream' });
 
       service.attachMutedStream(mockStream);
@@ -90,14 +80,14 @@ describe('StreamingViewService', () => {
     });
 
     it('should not throw if video element is null', () => {
-      mockUIController.elements.streamVideo = null;
+      dom.streaming.streamVideo = null;
       const mockStream = createCaptureStreamMock({ id: 'test-stream' });
 
       expect(() => service.attachMutedStream(mockStream)).not.toThrow();
     });
 
     it('should not throw if video element is undefined', () => {
-      mockUIController.elements.streamVideo = undefined;
+      dom.streaming.streamVideo = undefined;
       const mockStream = createCaptureStreamMock({ id: 'test-stream' });
 
       expect(() => service.attachMutedStream(mockStream)).not.toThrow();
@@ -148,7 +138,7 @@ describe('StreamingViewService', () => {
     });
 
     it('should warn if video element not found', () => {
-      mockUIController.elements.streamVideo = null;
+      dom.streaming.streamVideo = null;
 
       service.clearStream();
 
@@ -156,7 +146,7 @@ describe('StreamingViewService', () => {
     });
 
     it('should not throw if video element is null', () => {
-      mockUIController.elements.streamVideo = null;
+      dom.streaming.streamVideo = null;
 
       expect(() => service.clearStream()).not.toThrow();
     });
@@ -213,7 +203,7 @@ describe('StreamingViewService', () => {
     });
 
     it('should warn if video element not found', () => {
-      mockUIController.elements.streamVideo = null;
+      dom.streaming.streamVideo = null;
 
       service.setMuted(true);
 
@@ -221,7 +211,7 @@ describe('StreamingViewService', () => {
     });
 
     it('should not throw if video element is null', () => {
-      mockUIController.elements.streamVideo = null;
+      dom.streaming.streamVideo = null;
 
       expect(() => service.setMuted(true)).not.toThrow();
     });
@@ -273,7 +263,7 @@ describe('StreamingViewService', () => {
     });
 
     it('should return null and warn when video element not found', () => {
-      mockUIController.elements.streamVideo = null;
+      dom.streaming.streamVideo = null;
 
       const result = service.getVideo();
 
@@ -282,7 +272,7 @@ describe('StreamingViewService', () => {
     });
 
     it('should return null when video element is undefined', () => {
-      mockUIController.elements.streamVideo = undefined;
+      dom.streaming.streamVideo = undefined;
 
       const result = service.getVideo();
 
@@ -297,7 +287,7 @@ describe('StreamingViewService', () => {
     });
 
     it('should return null and warn when canvas element not found', () => {
-      mockUIController.elements.streamCanvas = null;
+      withCanvas(null);
 
       const result = service.getCanvas();
 
@@ -306,7 +296,7 @@ describe('StreamingViewService', () => {
     });
 
     it('should return null when canvas element is undefined', () => {
-      mockUIController.elements.streamCanvas = undefined;
+      withCanvas(undefined);
 
       const result = service.getCanvas();
 
@@ -321,7 +311,7 @@ describe('StreamingViewService', () => {
     });
 
     it('should return null when canvas element not found', () => {
-      mockUIController.elements.streamCanvas = null;
+      withCanvas(null);
 
       const result = service.getCanvasContainer();
 
@@ -331,7 +321,7 @@ describe('StreamingViewService', () => {
     it('should return null and warn when canvas has no parent', () => {
       // Create orphan canvas
       const orphanCanvas = document.createElement('canvas');
-      mockUIController.elements.streamCanvas = orphanCanvas;
+      withCanvas(orphanCanvas);
 
       const result = service.getCanvasContainer();
 
@@ -347,7 +337,7 @@ describe('StreamingViewService', () => {
     });
 
     it('should return null when canvas element not found', () => {
-      mockUIController.elements.streamCanvas = null;
+      withCanvas(null);
 
       const result = service.getCanvasSection();
 
@@ -359,7 +349,7 @@ describe('StreamingViewService', () => {
       const container = document.createElement('div');
       const canvas = document.createElement('canvas');
       container.appendChild(canvas);
-      mockUIController.elements.streamCanvas = canvas;
+      withCanvas(canvas);
 
       const result = service.getCanvasSection();
 
@@ -374,35 +364,39 @@ describe('StreamingViewService', () => {
 
       service.setCanvas(newCanvas);
 
-      expect(mockUIController.elements.streamCanvas).toBe(newCanvas);
+      expect(service.getCanvas()).toBe(newCanvas);
+      expect(dom.streaming.streamCanvas).toBe(newCanvas);
       expect(mockLogger.info).toHaveBeenCalledWith('Canvas element reference updated');
     });
 
     it('should warn and not update when null provided', () => {
-      const originalCanvas = mockUIController.elements.streamCanvas;
+      const originalCanvas = dom.streaming.streamCanvas;
 
       service.setCanvas(null);
 
-      expect(mockUIController.elements.streamCanvas).toBe(originalCanvas);
+      expect(dom.streaming.streamCanvas).toBe(originalCanvas);
+      expect(service.getCanvas()).toBe(originalCanvas);
       expect(mockLogger.warn).toHaveBeenCalledWith('Invalid canvas element provided to setCanvas');
     });
 
     it('should warn and not update when undefined provided', () => {
-      const originalCanvas = mockUIController.elements.streamCanvas;
+      const originalCanvas = dom.streaming.streamCanvas;
 
       service.setCanvas(undefined);
 
-      expect(mockUIController.elements.streamCanvas).toBe(originalCanvas);
+      expect(dom.streaming.streamCanvas).toBe(originalCanvas);
+      expect(service.getCanvas()).toBe(originalCanvas);
       expect(mockLogger.warn).toHaveBeenCalledWith('Invalid canvas element provided to setCanvas');
     });
 
     it('should warn and not update when non-canvas element provided', () => {
-      const originalCanvas = mockUIController.elements.streamCanvas;
+      const originalCanvas = dom.streaming.streamCanvas;
       const divElement = document.createElement('div');
 
       service.setCanvas(divElement);
 
-      expect(mockUIController.elements.streamCanvas).toBe(originalCanvas);
+      expect(dom.streaming.streamCanvas).toBe(originalCanvas);
+      expect(service.getCanvas()).toBe(originalCanvas);
       expect(mockLogger.warn).toHaveBeenCalledWith('Invalid canvas element provided to setCanvas');
     });
   });

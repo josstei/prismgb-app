@@ -1,25 +1,14 @@
-/**
- * Cinematic Mode Service
- *
- * Owns cinematic mode state and settings-level event emission.
- */
-
 import { injectable, inject } from 'inversify';
-import { BaseService } from '@platform/core';
+import { BaseService, type LoggerFactory } from '@platform/core';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import { OnEvent, type EventBus } from '@renderer/lib/events/event-bus';
-import type { LoggerFactory } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens';
-
-type CinematicModeAppStateLike = {
-  readonly isCinematicModeEnabled: boolean;
-  setCinematicMode(enabled: boolean): void;
-};
+import type { AppState } from '@renderer/application/state/app-state';
 
 @injectable()
 class SettingsCinematicModeService extends BaseService {
   constructor(
-    @inject(TOKENS.appState) private readonly appState: CinematicModeAppStateLike,
+    @inject(TOKENS.appState) private readonly appState: Pick<AppState, 'isCinematicModeEnabled' | 'setCinematicMode'>,
     @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
@@ -35,6 +24,9 @@ class SettingsCinematicModeService extends BaseService {
     const newMode = !this.appState.isCinematicModeEnabled;
     this.appState.setCinematicMode(newMode);
     this.eventBus.publish(EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED, { enabled: newMode });
+    this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
+      message: `Cinematic mode ${newMode ? 'enabled' : 'disabled'}`
+    });
   }
 }
 

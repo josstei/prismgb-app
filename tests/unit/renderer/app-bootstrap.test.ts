@@ -4,18 +4,6 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 
-const { MockUIController } = vi.hoisted(() => ({
-  MockUIController: vi.fn(function() {
-    this.elements = {};
-    this.dispose = vi.fn();
-    this.initializeComponents = vi.fn();
-  })
-}));
-
-vi.mock('@renderer/presentation/controller/ui.controller.js', () => ({
-  UIController: MockUIController
-}));
-
 vi.mock('@renderer/application/container.ts', async () => {
   const { createRendererAppContainerMock } = await import('../../factories/index.js');
 
@@ -29,6 +17,7 @@ vi.mock('@renderer/presentation/shell/app-shell.renderer.js', () => ({
 }));
 
 const { RendererBootstrap } = await import('@renderer/app-bootstrap');
+const { TOKENS } = await import('@renderer/application/di/tokens');
 
 describe('RendererBootstrap', () => {
   let app;
@@ -64,11 +53,20 @@ describe('RendererBootstrap', () => {
       expect(app.container).toBeDefined();
     });
 
-    it('should initialize UI', async () => {
+    it('should resolve the body-class effect, core components, event bridge and transcode service in order', async () => {
       await app.initialize();
 
-      expect(MockUIController).toHaveBeenCalled();
-      expect(app._uiController).toBeDefined();
+      const { container } = app;
+      const resolved = container.get.mock.calls.map(([token]) => token.description);
+      expect(resolved.slice(0, 4)).toEqual(['bodyClassEffect', 'uiComponentHost', 'uiEventBridge', 'transcodeService']);
+
+      const host = container.get(TOKENS.uiComponentHost);
+      const bridge = container.get(TOKENS.uiEventBridge);
+      const transcodeService = container.get(TOKENS.transcodeService);
+      const orchestrator = container.get(TOKENS.appOrchestrator);
+      const order = [host.resolveCore, bridge.initialize, transcodeService.initialize, orchestrator.initialize]
+        .map((fn) => fn.mock.invocationCallOrder[0]);
+      expect(order).toEqual([...order].sort((a, b) => a - b));
     });
 
     it('should resolve orchestrator', async () => {
@@ -120,12 +118,35 @@ describe('RendererBootstrap', () => {
       expect(orchestrator.cleanup).toHaveBeenCalled();
     });
 
-    it('should dispose the UI controller', async () => {
+    it('should dispose the effects before the component host after the orchestrator', async () => {
       await app.initialize();
-      const uiController = app._uiController;
+      const { container } = app;
+      const disposers = [
+        container.get(TOKENS.appOrchestrator).cleanup,
+        container.get(TOKENS.autoHideEffect).dispose,
+        container.get(TOKENS.feedbackEffect).dispose,
+        container.get(TOKENS.bodyClassEffect).dispose,
+        container.get(TOKENS.uiComponentHost).dispose
+      ];
+
       await app.cleanup();
 
-      expect(uiController.dispose).toHaveBeenCalled();
+      const order = disposers.map((fn) => fn.mock.invocationCallOrder[0]);
+      expect(order.every((call) => call !== undefined)).toBe(true);
+      expect(order).toEqual([...order].sort((a, b) => a - b));
+    });
+
+    it('should keep disposing when one UI disposer throws', async () => {
+      await app.initialize();
+      const { container } = app;
+      container.get(TOKENS.autoHideEffect).dispose.mockImplementation(() => {
+        throw new Error('boom');
+      });
+
+      await app.cleanup();
+
+      expect(container.get(TOKENS.uiComponentHost).dispose).toHaveBeenCalled();
+      expect(console.error).toHaveBeenCalledWith('[RendererBootstrap]', 'Error disposing autoHideEffect:', 'boom');
     });
 
     it('should set isInitialized to false', async () => {

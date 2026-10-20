@@ -1,72 +1,35 @@
 import { injectable, inject } from 'inversify';
-import { BaseOrchestrator } from '@platform/core';
+import { BaseOrchestrator, getErrorMessage, type LoggerFactory } from '@platform/core';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 import { OnEvent, type EventBus } from '@renderer/lib/events/event-bus';
-import type { RecordingErrorPayload, RecordingReadyPayload } from '@renderer/lib/events/event-payloads';
-import type { LoggerFactory } from '@platform/core';
-import { getErrorMessage } from '@platform/core';
+import type {
+  RecordingDegradedPayload,
+  RecordingErrorPayload,
+  RecordingReadyPayload
+} from '@renderer/lib/events/event-payloads';
+import { downloadFile } from '@renderer/lib/file-download.utils';
 import { TOKENS } from '@renderer/application/di/tokens';
 import { isStreamingCapabilities } from '@renderer/infrastructure/services/streaming/streaming.contract';
-import type {
-  GpuRecordingStartOptions
-} from '@renderer/infrastructure/services/streaming/streaming.contract';
 import type { AppState } from '@renderer/application/state/app-state';
-
-
-type CaptureSource = HTMLCanvasElement | HTMLVideoElement | ImageBitmap;
-
-type CaptureServiceLike = {
-  isRecording: boolean;
-  getRecordingState(): boolean;
-  takeScreenshot(source: CaptureSource): Promise<unknown>;
-  startRecording(stream: MediaStream): Promise<void>;
-  stopRecording(): Promise<void>;
-};
-
-type AppStateLike = Pick<AppState, 'isStreaming' | 'currentStream' | 'currentCapabilities'>;
-
-type StreamViewServiceLike = {
-  getCanvas(): HTMLCanvasElement | null;
-  getVideo(): HTMLVideoElement | null;
-};
-
-type GpuRecordingServiceLike = {
-  start(options: GpuRecordingStartOptions): Promise<MediaStream>;
-  stop(): Promise<void>;
-};
-
-
-
-type TranscodeServiceLike = {
-  isTranscoding(): boolean;
-};
-
-type SaveRecordingResult = {
-  success?: boolean;
-  transcoded?: boolean;
-  [key: string]: unknown;
-};
-
-type CaptureSaveServiceLike = {
-  saveRecording(
-    blob: Blob,
-    filename: string,
-    options: { interrupted: boolean }
-  ): Promise<SaveRecordingResult>;
-};
+import type { CaptureService } from '@renderer/infrastructure/services/capture/capture.service';
+import type { CaptureSaveService } from '@renderer/infrastructure/services/capture/capture-save.service';
+import type { CaptureGpuRecordingService } from '@renderer/infrastructure/services/gpu/gpu-recording.service';
+import type { StreamingRenderService } from '@renderer/infrastructure/services/streaming/streaming-render.service';
+import type { StreamingViewService } from '@renderer/infrastructure/services/streaming/streaming-view.service';
+import type { TranscodeService } from '@renderer/infrastructure/services/transcode/transcode.service';
 
 @injectable()
 export class CaptureOrchestrator extends BaseOrchestrator {
   private _recordingInterrupted: boolean;
 
   constructor(
-    @inject(TOKENS.captureService) private readonly captureService: CaptureServiceLike,
-    @inject(TOKENS.appState) private readonly appState: AppStateLike,
-    @inject(TOKENS.streamViewService) private readonly streamViewService: StreamViewServiceLike,
-    @inject(TOKENS.streamingRenderService) private readonly streamingRenderService: any,
-    @inject(TOKENS.gpuRecordingService) private readonly gpuRecordingService: GpuRecordingServiceLike,
-    @inject(TOKENS.transcodeService) private readonly transcodeService: TranscodeServiceLike,
-    @inject(TOKENS.captureSaveService) private readonly captureSaveService: CaptureSaveServiceLike,
+    @inject(TOKENS.captureService) private readonly captureService: CaptureService,
+    @inject(TOKENS.appState) private readonly appState: Pick<AppState, 'isStreaming' | 'currentStream' | 'currentCapabilities'>,
+    @inject(TOKENS.streamViewService) private readonly streamViewService: Pick<StreamingViewService, 'getVideo'>,
+    @inject(TOKENS.streamingRenderService) private readonly streamingRenderService: Pick<StreamingRenderService, 'isActive' | 'captureFrame'>,
+    @inject(TOKENS.gpuRecordingService) private readonly gpuRecordingService: Pick<CaptureGpuRecordingService, 'start' | 'stop'>,
+    @inject(TOKENS.transcodeService) private readonly transcodeService: Pick<TranscodeService, 'isTranscoding'>,
+    @inject(TOKENS.captureSaveService) private readonly captureSaveService: Pick<CaptureSaveService, 'saveRecording'>,
     @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
@@ -82,28 +45,21 @@ export class CaptureOrchestrator extends BaseOrchestrator {
       return;
     }
 
-    // Trigger immediate visual feedback via events
-    this.eventBus.publish(EventChannels.UI.SHUTTER_FLASH);
     this.eventBus.publish(EventChannels.CAPTURE.SCREENSHOT_TRIGGERED);
 
     try {
       const source = await this._getCaptureSource();
-      await this.captureService.takeScreenshot(source);
+      const { blob, filename } = await this.captureService.takeScreenshot(source);
+      await downloadFile(blob, filename);
+      this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Screenshot saved!' });
     } catch (error) {
       this.logger.error('Failed to take screenshot:', getErrorMessage(error, 'Screenshot failed'));
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Error taking screenshot', type: 'error' });
     }
   }
 
-  /**
-   * Determine capture source based on active rendering mode
-   * - GPU rendering: captures from GPU worker (includes shader effects)
-   * - Canvas2D rendering: captures from streamCanvas (includes effects)
-   * - No rendering pipeline: captures from streamVideo (raw)
-   * @returns {Promise<HTMLCanvasElement|HTMLVideoElement|ImageBitmap>}
-   * @private
-   */
-  async _getCaptureSource(): Promise<CaptureSource> {
+  // An active renderer session (WebGPU or Canvas2D) captures the shaded frame; otherwise capture the raw video.
+  async _getCaptureSource(): Promise<HTMLVideoElement | ImageBitmap> {
     if (this.streamingRenderService.isActive()) {
       this.logger.debug('Capturing screenshot from renderer session');
       return this.streamingRenderService.captureFrame();
@@ -117,12 +73,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     return video;
   }
 
-  /**
-   * Toggle recording (start/stop)
-   * When GPU renderer active, captures rendered frames with shader effects.
-   * Otherwise falls back to raw device stream.
-   * Blocks new recording if transcoding is in progress.
-   */
+  // An active renderer records its shaded frames; otherwise the raw device stream is recorded.
   @OnEvent(EventChannels.UI.RECORDING_TOGGLE_REQUESTED)
   async toggleRecording(): Promise<void> {
     if (this._isRecordingActive()) {
@@ -130,7 +81,6 @@ export class CaptureOrchestrator extends BaseOrchestrator {
       return;
     }
 
-    // Block recording if transcoding is in progress
     if (this.transcodeService.isTranscoding()) {
       this.logger.warn('Cannot start recording - transcoding in progress');
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
@@ -164,10 +114,6 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     return this.captureService.isRecording || Boolean(this.captureService.getRecordingState());
   }
 
-  /**
-   * Start recording from GPU-rendered canvas with shader effects
-   * @private
-   */
   async _startGpuRecording(stream: MediaStream): Promise<void> {
     const capabilities = this.appState.currentCapabilities;
     const frameRate = isStreamingCapabilities(capabilities) && typeof capabilities.frameRate === 'number'
@@ -181,10 +127,6 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     await this.captureService.startRecording(recordingStream);
   }
 
-  /**
-   * Stop recording and clean up GPU recording resources
-   * @private
-   */
   async _stopRecording(): Promise<void> {
     await this.gpuRecordingService.stop();
 
@@ -195,11 +137,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     }
   }
 
-  /**
-   * Handle stream stopped - stop any active recording
-   * Prevents orphaned GPU recording loop when stream stops
-   * @private
-   */
+  // Stopping here prevents an orphaned GPU recording loop once the stream is gone.
   @OnEvent(EventChannels.STREAM.STOPPED)
   async _handleStreamStopped(): Promise<void> {
     if (this._isRecordingActive()) {
@@ -209,24 +147,31 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     }
   }
 
-  /**
-   * Handle recording error event
-   * @private
-   */
+  @OnEvent(EventChannels.CAPTURE.RECORDING_STARTED)
+  _handleRecordingStarted(): void {
+    this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Recording started' });
+  }
+
+  @OnEvent(EventChannels.CAPTURE.RECORDING_DEGRADED)
+  _handleRecordingDegraded(data: RecordingDegradedPayload): void {
+    const message = `Recording quality degraded: ${data.droppedFrames ?? 0} frames dropped`;
+    this.logger.warn('Recording degraded:', message);
+    this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message, type: 'warning' });
+  }
+
   @OnEvent(EventChannels.CAPTURE.RECORDING_ERROR)
   async _handleRecordingError(data: RecordingErrorPayload): Promise<void> {
     const message = getErrorMessage(data.error ?? data.message, 'Recording failed');
     this.logger.error('Recording error:', message);
+    this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
+      message: `Recording failed: ${data.error}`,
+      type: 'error'
+    });
 
     await this.gpuRecordingService.stop();
     this._recordingInterrupted = false;
   }
 
-  /**
-   * Handle recording ready - save the recording via captureSaveService
-   * @param {Object} data - Recording data { blob, filename }
-   * @private
-   */
   @OnEvent(EventChannels.CAPTURE.RECORDING_READY)
   async _handleRecordingReady(data: RecordingReadyPayload): Promise<void> {
     const { blob, filename } = data;
@@ -245,8 +190,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
         return;
       }
 
-      // Only show status message for direct saves (webm)
-      // Transcoded saves show their own status messages
+      // Transcoded saves publish their own status messages.
       if (!result.transcoded) {
         this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Recording saved!' });
       }
@@ -259,9 +203,6 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     }
   }
 
-  /**
-   * Cleanup resources
-   */
   async onCleanup(): Promise<void> {
     if (this._isRecordingActive()) {
       try {

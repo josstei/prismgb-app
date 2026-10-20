@@ -11,7 +11,7 @@ import { createInjectableHarness } from '../../../../support/di/injectable.harne
 describe('PerformanceAnimationOrchestrator', () => {
   let orchestrator;
   let mockPerformanceAnimationService;
-  let mockBodyClassManager;
+  let mockBodyClassEffect;
   let handlers;
 
   beforeEach(() => {
@@ -28,7 +28,7 @@ describe('PerformanceAnimationOrchestrator', () => {
     orchestrator = h.subject;
     ({
       animationPerformanceService: mockPerformanceAnimationService,
-      bodyClassManager: mockBodyClassManager
+      bodyClassEffect: mockBodyClassEffect
     } = h.deps);
   });
 
@@ -52,9 +52,9 @@ describe('PerformanceAnimationOrchestrator', () => {
     handlers[EventChannels.PERFORMANCE.STATE_CHANGED](performanceState);
 
     expect(mockPerformanceAnimationService.setPerformanceState).toHaveBeenCalledWith(performanceState);
-    expect(mockBodyClassManager.setIdle).toHaveBeenCalledWith(false);
-    expect(mockBodyClassManager.setHidden).toHaveBeenCalledWith(false);
-    expect(mockBodyClassManager.setAnimationsOff).toHaveBeenCalledWith(true);
+    expect(mockBodyClassEffect.setIdle).toHaveBeenCalledWith(false);
+    expect(mockBodyClassEffect.setHidden).toHaveBeenCalledWith(false);
+    expect(mockBodyClassEffect.setAnimationsOff).toHaveBeenCalledWith(true);
   });
 
   it('should not duplicate canonical streaming-mode state', async () => {
@@ -81,6 +81,6 @@ describe('PerformanceAnimationOrchestrator', () => {
       idle: false
     });
 
-    expect(mockBodyClassManager.setAnimationsOff).toHaveBeenCalledWith(true);
+    expect(mockBodyClassEffect.setAnimationsOff).toHaveBeenCalledWith(true);
   });
 });

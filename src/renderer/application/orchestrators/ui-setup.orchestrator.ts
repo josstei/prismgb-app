@@ -19,11 +19,12 @@ import {
 import { TOKENS } from '@renderer/application/di/tokens';
 import type { LoggerFactory } from '@platform/core';
 import type { EventBus } from '@renderer/lib/events/event-bus';
-import type { UIController } from '@renderer/presentation/controller/ui.controller';
+import type {
+  RendererUiComponentInstanceMap,
+  UiComponentHost
+} from '@renderer/presentation/controller/ui-component.host';
 import { RendererTemplateDeferredComponentIds } from '@renderer/presentation/primitives/template-dom.contract';
 import type { AppState } from '@renderer/application/state/app-state';
-
-type AppStateLike = Pick<AppState, 'isStreaming'>;
 
 const UI_ACTION_LISTENERS_LIFECYCLE = Symbol('uiSetupActionListenersLifecycle');
 
@@ -32,8 +33,8 @@ export class UISetupOrchestrator extends BaseOrchestrator {
   private _uiActionsBound: boolean;
 
   constructor(
-    @inject(TOKENS.appState) private readonly appState: AppStateLike,
-    @inject(TOKENS.uiController) private readonly uiController: UIController,
+    @inject(TOKENS.appState) private readonly appState: Pick<AppState, 'isStreaming'>,
+    @inject(TOKENS.uiComponentHost) private readonly components: UiComponentHost<RendererUiComponentInstanceMap>,
     @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
@@ -44,7 +45,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
 
   initializeDeferredComponents(): void {
     RendererTemplateDeferredComponentIds.forEach((componentId) => {
-      this.uiController.initializeDeferredComponent(componentId);
+      this.components.get(componentId);
     });
   }
 
@@ -152,13 +153,13 @@ export class UISetupOrchestrator extends BaseOrchestrator {
   private _executeUiControllerAction(method: UIActionControllerCommand): void {
     switch (method) {
       case 'toggleSettingsMenu':
-        this.uiController.toggleSettingsMenu();
+        this.components.get('settingsMenuComponent').toggle();
         break;
       case 'toggleShaderSelector':
-        this.uiController.toggleShaderSelector();
+        this.components.get('shaderSelectorComponent').toggle();
         break;
       case 'toggleNotesPanel':
-        this.uiController.toggleNotesPanel();
+        this.components.get('notesPanelComponent').toggle();
         break;
     }
   }

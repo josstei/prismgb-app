@@ -1,9 +1,8 @@
 import { ContainerModule } from 'inversify';
-import { BodyClassManager } from '../../presentation/effects/body-class.effect';
-import { CaptureUIBridge } from '../../presentation/bridges/capture-ui.bridge';
-import { TranscodeUIBridge } from '../../presentation/bridges/transcode-ui.bridge';
-import { UIEventBridge } from '../../presentation/bridges/ui-event.bridge';
-import { UIEffects } from '../../presentation/effects/ui-effects.host';
+import { BodyClassEffect } from '../../presentation/effects/body-class.effect';
+import { AutoHideEffect } from '../../presentation/effects/auto-hide.effect';
+import { FeedbackEffect } from '../../presentation/effects/feedback.effect';
+import { UiEventBridge } from '../../presentation/bridges/ui-event.bridge';
 import { PresentationModeStore } from '../../presentation/state/presentation-mode.store';
 import { createDomBindings } from '../../presentation/primitives/dom-bindings.utils';
 import { createTemplateComponentElements } from '../../presentation/primitives/template-dom.contract';
@@ -22,23 +21,17 @@ import { NotesPanelComponent } from '../../presentation/features/notes/notes-pan
 import { TOKENS } from './tokens';
 
 /**
- * Components, stores, effects and bridges. The UI components share the lazily
- * resolved `domBindings`; `uiComponentHost` binds in container.ts.
+ * Components, stores, effects and the event bridge. The UI components share the
+ * lazily resolved `domBindings`; `uiComponentHost` binds in container.ts.
  */
 export const presentationModule = new ContainerModule(({ bind }) => {
-  bind(TOKENS.bodyClassManager).to(BodyClassManager);
-  bind(TOKENS.captureUiBridge).to(CaptureUIBridge);
-  bind(TOKENS.transcodeUiBridge).to(TranscodeUIBridge);
-  bind(TOKENS.uiEventBridge).to(UIEventBridge);
-
-  bind(TOKENS.uiEffects).toDynamicValue((ctx) => new UIEffects({
-    bodyClassManager: ctx.get(TOKENS.bodyClassManager)
-  }));
-
-  bind(TOKENS.presentationModeStore).toDynamicValue((ctx) => new PresentationModeStore({
+  bind(TOKENS.uiEventBridge).to(UiEventBridge);
+  bind(TOKENS.autoHideEffect).to(AutoHideEffect);
+  bind(TOKENS.feedbackEffect).toDynamicValue((ctx) => new FeedbackEffect(ctx.get(TOKENS.domBindings).streaming));
+  bind(TOKENS.bodyClassEffect).toDynamicValue((ctx) => new BodyClassEffect(new PresentationModeStore({
     eventBus: ctx.get(TOKENS.eventBus),
     cinematicEnabled: ctx.get(TOKENS.appState).cinematicModeSignal
-  }));
+  })));
 
   bind(TOKENS.domBindings).toDynamicValue(() => createDomBindings(document));
 
@@ -51,15 +44,12 @@ export const presentationModule = new ContainerModule(({ bind }) => {
 
   bind(TOKENS.deviceStatusComponent).toDynamicValue((ctx) => new DeviceStatusComponent({
     elements: createTemplateComponentElements('deviceStatusComponent', ctx.get(TOKENS.domBindings)),
-    store: new DeviceStatusStore({
-      eventBus: ctx.get(TOKENS.eventBus),
-      deviceConnectedSignal: ctx.get(TOKENS.appState).deviceConnectedSignal
-    })
+    store: new DeviceStatusStore({ eventBus: ctx.get(TOKENS.eventBus) })
   }));
 
   bind(TOKENS.streamControlsComponent).toDynamicValue((ctx) => new StreamingControlsComponent({
     elements: createTemplateComponentElements('streamControlsComponent', ctx.get(TOKENS.domBindings)),
-    bodyClassManager: ctx.get(TOKENS.bodyClassManager),
+    bodyClassEffect: ctx.get(TOKENS.bodyClassEffect),
     store: new StreamInfoStore({ eventBus: ctx.get(TOKENS.eventBus) })
   }));
 

@@ -5,25 +5,25 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StreamingControlsComponent } from '@renderer/presentation/features/streaming/streaming-controls.component';
 import { StreamInfoStore } from '@renderer/presentation/state/stream-info.store';
-import { createStreamingControlsElementsMock, createUIBodyClassManagerMock, createEventBus } from '../../../../../factories/index.js';
+import { createStreamingControlsElementsMock, createBodyClassEffectMock, createEventBus } from '../../../../../factories/index.js';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 
 describe('StreamingControlsComponent', () => {
   let component;
   let mockElements;
-  let mockBodyClassManager;
+  let mockBodyClassEffect;
   let mockEventBus;
   let store;
 
   beforeEach(() => {
-    mockBodyClassManager = createUIBodyClassManagerMock({ areAnimationsOff: vi.fn(() => false) });
+    mockBodyClassEffect = createBodyClassEffectMock();
     mockElements = createStreamingControlsElementsMock();
     mockEventBus = createEventBus();
     store = new StreamInfoStore({ eventBus: mockEventBus });
 
     component = new StreamingControlsComponent({
       elements: mockElements,
-      bodyClassManager: mockBodyClassManager,
+      bodyClassEffect: mockBodyClassEffect,
       store
     });
   });
@@ -42,7 +42,7 @@ describe('StreamingControlsComponent', () => {
 
       // Immediate: transitioning class added AND streaming-mode for cross-fade
       expect(mockElements.streamOverlay.classList.add).toHaveBeenCalledWith('transitioning-to-stream');
-      expect(mockBodyClassManager.setStreamingMode).toHaveBeenCalledWith(true);
+      expect(mockBodyClassEffect.setStreamingMode).toHaveBeenCalledWith(true);
       // Controls still disabled during animation
       expect(mockElements.screenshotBtn.disabled).toBe(true);
       expect(mockElements.recordBtn.disabled).toBe(true);
@@ -148,7 +148,7 @@ describe('StreamingControlsComponent', () => {
       vi.advanceTimersByTime(150);
 
       expect(mockElements.streamOverlay.classList.remove).toHaveBeenCalledWith('hidden', 'transitioning-to-stream');
-      expect(mockBodyClassManager.setStreamingMode).toHaveBeenCalledWith(false);
+      expect(mockBodyClassEffect.setStreamingMode).toHaveBeenCalledWith(false);
       expect(mockElements.screenshotBtn.disabled).toBe(true);
       expect(mockElements.recordBtn.disabled).toBe(true);
       expect(mockElements.currentResolution.textContent).toBe('—');
@@ -194,14 +194,14 @@ describe('StreamingControlsComponent', () => {
 
   describe('Performance mode (animations off)', () => {
     beforeEach(() => {
-      mockBodyClassManager.areAnimationsOff.mockReturnValue(true);
+      mockBodyClassEffect.areAnimationsOff.mockReturnValue(true);
     });
 
     it('should enable streaming immediately without animation delay', () => {
       component.setStreamingMode(true);
 
       // Should show stream immediately, no timeout needed
-      expect(mockBodyClassManager.setStreamingMode).toHaveBeenCalledWith(true);
+      expect(mockBodyClassEffect.setStreamingMode).toHaveBeenCalledWith(true);
       expect(mockElements.screenshotBtn.disabled).toBe(false);
       expect(mockElements.recordBtn.disabled).toBe(false);
       expect(mockElements.streamOverlay.classList.add).toHaveBeenCalledWith('hidden');
@@ -222,7 +222,7 @@ describe('StreamingControlsComponent', () => {
 
       // Should hide stream immediately, no timeout needed
       expect(mockElements.streamOverlay.classList.remove).toHaveBeenCalledWith('hidden');
-      expect(mockBodyClassManager.setStreamingMode).toHaveBeenCalledWith(false);
+      expect(mockBodyClassEffect.setStreamingMode).toHaveBeenCalledWith(false);
       expect(mockElements.screenshotBtn.disabled).toBe(true);
       expect(mockElements.recordBtn.disabled).toBe(true);
       expect(mockElements.currentResolution.textContent).toBe('—');

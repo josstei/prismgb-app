@@ -116,12 +116,61 @@ describe('CaptureService', () => {
       expect(mockCtx.drawImage).toHaveBeenCalledWith(mockVideo, 0, 0);
     });
 
-    it('should emit capture:screenshot-ready event', async () => {
-      await service.takeScreenshot(mockVideo);
+    it('should return the png blob and filename without publishing an event', async () => {
+      const result = await service.takeScreenshot(mockVideo);
 
-      expect(mockEventBus.publish).toHaveBeenCalledWith('capture:screenshot-ready', expect.objectContaining({
-        filename: 'screenshot_2024-01-01_12-00-00.png'
-      }));
+      expect(result).toEqual({ blob: expect.any(Blob), filename: 'screenshot_2024-01-01_12-00-00.png' });
+      expect(mockCanvas.toBlob).toHaveBeenCalledWith(expect.any(Function), 'image/png');
+      expect(mockEventBus.publish).not.toHaveBeenCalled();
+    });
+
+    describe('with an ImageBitmap source', () => {
+      class FakeImageBitmap {
+        width: number;
+        height: number;
+        close = vi.fn();
+
+        constructor(width: number, height: number) {
+          this.width = width;
+          this.height = height;
+        }
+      }
+
+      beforeEach(() => {
+        vi.stubGlobal('ImageBitmap', FakeImageBitmap);
+      });
+
+      afterEach(() => {
+        vi.unstubAllGlobals();
+      });
+
+      it('should draw the bitmap at its size and close it after capture', async () => {
+        const bitmap = new FakeImageBitmap(320, 288);
+
+        const result = await service.takeScreenshot(bitmap);
+
+        expect(mockCanvas.width).toBe(320);
+        expect(mockCanvas.height).toBe(288);
+        expect(mockCtx.drawImage).toHaveBeenCalledWith(bitmap, 0, 0);
+        expect(result.filename).toBe('screenshot_2024-01-01_12-00-00.png');
+        expect(bitmap.close).toHaveBeenCalledTimes(1);
+      });
+
+      it('should close an invalid bitmap when validation throws', async () => {
+        const bitmap = new FakeImageBitmap(0, 0);
+
+        await expect(service.takeScreenshot(bitmap)).rejects.toThrow('Invalid ImageBitmap');
+        expect(mockLogger.warn).toHaveBeenCalledWith('Cannot take screenshot - invalid ImageBitmap');
+        expect(bitmap.close).toHaveBeenCalledTimes(1);
+      });
+
+      it('should close the bitmap when blob creation fails', async () => {
+        const bitmap = new FakeImageBitmap(160, 144);
+        mockCanvas.toBlob = vi.fn((callback) => callback(null));
+
+        await expect(service.takeScreenshot(bitmap)).rejects.toThrow('Failed to create screenshot blob');
+        expect(bitmap.close).toHaveBeenCalledTimes(1);
+      });
     });
 
     it('should throw for null source', async () => {

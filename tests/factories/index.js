@@ -18,21 +18,17 @@ export {
   createSettingsMenuElementsMock,
   createTranscodeToastElementsMock,
   createMockElement,
-  createUIController,
-  createUISetupControllerMock,
-  createPresentationModeControllerMock,
-  createUIEventBridgeControllerMock,
   createStatusNotificationComponentMock,
   createStreamControlsComponentMock,
+  createTranscodeToastComponentMock,
   createSettingsMenuComponentMock,
   createShaderSelectorComponentMock,
+  createNotesPanelComponentMock,
   createUiComponentHostMock,
-  createUIEffectsMock,
-  createUIBodyClassManagerMock,
-
-  createUIEffectsElementsMock,
+  createAutoHideEffectMock,
+  createFeedbackEffectMock,
+  createBodyClassEffectMock,
   createStreamingControlsElementsMock,
-  createUIControllerElementsMock,
 } from './ui.factory.js';
 
 // Logger factories
@@ -95,7 +91,6 @@ export {
   createNotesServiceMock,
   createSettingsFullscreenServiceMock,
   createSettingsCinematicModeServiceMock,
-  createPresentationModeServiceMock,
 } from './settings.factory.js';
 
 // Update factories
@@ -119,7 +114,6 @@ export {
   createPerformanceStateServiceMock,
   createPerformanceMetricsServiceMock,
   createPerformanceAnimationServiceMock,
-  createBodyClassManagerMock,
   createProcessMetricsMock,
 } from './performance.factory.js';
 
@@ -129,7 +123,6 @@ export {
   createMediaBlobEventMock,
   createMediaRecorderMock,
   createMediaRecorderErrorEventMock,
-  createCaptureUIControllerMock,
   createTranscodeServiceMock,
   createCaptureServiceMock,
   createCaptureGpuRecordingServiceMock,
@@ -138,7 +131,6 @@ export {
 
 // Streaming pipeline factories
 export {
-  createStreamingViewControllerMock,
   createStreamingAudioPipelineServiceMock,
   createStreamingViewServiceMock,
   createStreamingViewElementsMock,

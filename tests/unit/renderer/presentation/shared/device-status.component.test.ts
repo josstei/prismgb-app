@@ -5,26 +5,20 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { DeviceStatusComponent } from '@renderer/presentation/shared/device-status.component';
 import { DeviceStatusStore } from '@renderer/presentation/state/device-status.store';
-import { signal } from '@preact/signals-core';
 import { createDeviceStatusElementsMock, createEventBus } from '../../../../factories/index.js';
 import { EventChannels } from '@renderer/lib/events/event-channels';
 
 describe('DeviceStatusComponent', () => {
   let mockElements;
   let mockEventBus;
-  let deviceConnectedSignal;
   let store;
   let component;
 
   beforeEach(() => {
     mockElements = createDeviceStatusElementsMock();
     mockEventBus = createEventBus();
-    deviceConnectedSignal = signal(false);
 
-    store = new DeviceStatusStore({
-      eventBus: mockEventBus,
-      deviceConnectedSignal
-    });
+    store = new DeviceStatusStore({ eventBus: mockEventBus });
 
     component = new DeviceStatusComponent({
       elements: mockElements,
@@ -33,10 +27,18 @@ describe('DeviceStatusComponent', () => {
   });
 
   describe('Constructor / Bindings', () => {
+    it('should start disconnected', () => {
+      expect(mockElements.statusText.textContent).toBe('No Device');
+      expect(mockElements.deviceStatusText.textContent).toBe('Disconnected');
+      expect(mockElements.deviceName.textContent).toBe('—');
+    });
+
     it('should bind connection status updates', () => {
-      // Simulate connection
-      mockEventBus.publish(EventChannels.UI.DEVICE_STATUS, {
-        status: { connected: true, device: { name: 'Mod Retro Chromatic' } }
+      mockEventBus.publish(EventChannels.DEVICE.STATUS_CHANGED, {
+        state: 'connected',
+        connected: true,
+        device: { name: 'Mod Retro Chromatic' },
+        updatedAt: 1
       });
 
       expect(mockElements.statusIndicator.classList.toggle).toHaveBeenCalledWith('connected', true);
@@ -47,16 +49,28 @@ describe('DeviceStatusComponent', () => {
     });
 
     it('should use default device name when not provided', () => {
-      mockEventBus.publish(EventChannels.UI.DEVICE_STATUS, {
-        status: { connected: true, device: {} }
+      mockEventBus.publish(EventChannels.DEVICE.STATUS_CHANGED, {
+        state: 'connected',
+        connected: true,
+        device: {},
+        updatedAt: 1
       });
 
       expect(mockElements.deviceName.textContent).toBe('Device');
     });
 
     it('should update UI for disconnected state', () => {
-      mockEventBus.publish(EventChannels.UI.DEVICE_STATUS, {
-        status: { connected: false }
+      mockEventBus.publish(EventChannels.DEVICE.STATUS_CHANGED, {
+        state: 'connected',
+        connected: true,
+        device: { name: 'Mod Retro Chromatic' },
+        updatedAt: 1
+      });
+      mockEventBus.publish(EventChannels.DEVICE.STATUS_CHANGED, {
+        state: 'disconnected',
+        connected: false,
+        device: null,
+        updatedAt: 2
       });
 
       expect(mockElements.statusIndicator.classList.toggle).toHaveBeenCalledWith('connected', false);

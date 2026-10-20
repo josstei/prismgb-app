@@ -33,7 +33,6 @@ import { PerformanceStateService } from '../../infrastructure/services/performan
 import { BrowserMediaAdapter } from '../../infrastructure/adapters/browser-media.adapter';
 import { StreamingHealthService } from '../../infrastructure/services/platform/health.service';
 import { StreamingViewportService } from '../../infrastructure/services/platform/viewport.service';
-import { PresentationModeService } from '../../infrastructure/services/settings/settings-presentation-mode.service';
 import { AppState } from '../state/app-state';
 import { StreamingOrchestrator } from '../orchestrators/streaming.orchestrator';
 import { StreamingAudioOrchestrator } from '../orchestrators/streaming-audio.orchestrator';
@@ -100,7 +99,6 @@ export const servicesModule = new ContainerModule(({ bind }) => {
   bind(TOKENS.browserMediaService).to(BrowserMediaAdapter);
   bind(TOKENS.streamHealthService).to(StreamingHealthService);
   bind(TOKENS.viewportService).to(StreamingViewportService);
-  bind(TOKENS.presentationModeService).to(PresentationModeService);
 
   bind(TOKENS.appState).toDynamicValue((ctx) => new AppState({
     streamingService: ctx.get(TOKENS.streamingService),

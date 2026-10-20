@@ -60,7 +60,7 @@ export class UiComponentHost<TComponentMap extends object> {
     return this._resolved.get(id) as TComponentMap[TId];
   }
 
-  touchCore(): void {
+  resolveCore(): void {
     (Object.keys(this._coreTokens) as (keyof TComponentMap)[]).forEach((id) => this.get(id));
   }
 

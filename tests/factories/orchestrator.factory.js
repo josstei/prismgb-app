@@ -6,9 +6,12 @@
  */
 
 import { vi } from 'vitest';
-import { createLoggerFactory } from './logger.factory.js';
-import { createUIEffectsMock } from './ui.factory.js';
-import { createEventBus } from './event-bus.factory.js';
+import {
+  createAutoHideEffectMock,
+  createBodyClassEffectMock,
+  createFeedbackEffectMock,
+  createUiComponentHostMock
+} from './ui.factory.js';
 
 /**
  * @typedef {import('@renderer/application/orchestrators/app.orchestrator').AppOrchestrator} AppOrchestrator
@@ -65,28 +68,8 @@ export function createRendererAppContainerMock(overrides = {}) {
       start: vi.fn().mockResolvedValue(undefined),
       cleanup: vi.fn().mockResolvedValue(undefined)
     }),
-    uiComponentHost = {
-      get: vi.fn(),
-      touchCore: vi.fn(),
-      resolvedIds: vi.fn(() => []),
-      dispose: vi.fn()
-    },
-    domBindings = {},
-    uiEffects = {
-      elements: null,
-      triggerShutterFlash: vi.fn(),
-      triggerButtonFeedback: vi.fn(),
-      ...createUIEffectsMock(),
-    },
+    uiComponentHost = createUiComponentHostMock(),
     uiEventBridge = {
-      initialize: vi.fn(),
-      dispose: vi.fn()
-    },
-    captureUiBridge = {
-      initialize: vi.fn(),
-      dispose: vi.fn()
-    },
-    transcodeUiBridge = {
       initialize: vi.fn(),
       dispose: vi.fn()
     },
@@ -94,17 +77,9 @@ export function createRendererAppContainerMock(overrides = {}) {
       initialize: vi.fn(),
       dispose: vi.fn()
     },
-    eventBus = createEventBus(),
-    appState = {
-      cinematicModeSignal: { value: true },
-      isCinematicModeEnabled: true,
-      isStreaming: false
-    },
-    bodyClassManager = {
-      bindPresentationMode: vi.fn(),
-      dispose: vi.fn()
-    },
-    loggerFactory = createLoggerFactory(),
+    autoHideEffect = createAutoHideEffectMock(),
+    feedbackEffect = createFeedbackEffectMock(),
+    bodyClassEffect = createBodyClassEffectMock(),
     services = {},
     register = vi.fn(),
     dispose = vi.fn(),
@@ -115,16 +90,11 @@ export function createRendererAppContainerMock(overrides = {}) {
   const dependencyMap = {
     appOrchestrator,
     uiComponentHost,
-    domBindings,
-    uiEffects,
     uiEventBridge,
-    captureUiBridge,
-    transcodeUiBridge,
     transcodeService,
-    eventBus,
-    appState,
-    bodyClassManager,
-    loggerFactory,
+    autoHideEffect,
+    feedbackEffect,
+    bodyClassEffect,
     ...services,
   };
 

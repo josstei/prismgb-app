@@ -1,48 +1,51 @@
-/**
- * UISetupOrchestrator Unit Tests
- */
-
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { UISetupOrchestrator } from '@renderer/application/orchestrators/ui-setup.orchestrator';
-import { createUISetupControllerMock } from '../../../../factories/index.js';
 import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 
 describe('UISetupOrchestrator', () => {
   let orchestrator;
-  let mockUiController;
-  let mockEventBus;
+  let components;
   let mockLogger;
 
+  const click = (element: HTMLElement) => element.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
   beforeEach(() => {
-    const h = createInjectableHarness(UISetupOrchestrator, {
-      overrides: {
-        uiController: createUISetupControllerMock({
-          initializeDeferredComponent: vi.fn(),
-          toggleSettingsMenu: vi.fn(),
-          toggleShaderSelector: vi.fn(),
-          toggleNotesPanel: vi.fn()
-        })
-      }
-    });
+    document.body.innerHTML = `
+      <button data-ref="settingsBtn" data-action="settings.toggle"></button>
+      <button data-ref="shaderBtn" data-action="shader.toggle"></button>
+      <button data-ref="notesBtn" data-action="notes.toggle"></button>
+    `;
+    const h = createInjectableHarness(UISetupOrchestrator);
     orchestrator = h.subject;
     mockLogger = h.logger;
-    ({ uiController: mockUiController, eventBus: mockEventBus } = h.deps);
-  });
-
-  describe('constructor', () => {
-    it('should create orchestrator with dependencies', () => {
-      expect(orchestrator.eventBus).toBe(mockEventBus);
-      expect(orchestrator.uiController).toBe(mockUiController);
-    });
+    ({ uiComponentHost: components } = h.deps);
   });
 
   describe('initializeDeferredComponents', () => {
-    it('should initialize all deferred components', () => {
+    it('resolves every deferred component through the host', () => {
       orchestrator.initializeDeferredComponents();
 
-      expect(mockUiController.initializeDeferredComponent).toHaveBeenCalledWith('settingsMenuComponent');
-      expect(mockUiController.initializeDeferredComponent).toHaveBeenCalledWith('shaderSelectorComponent');
-      expect(mockUiController.initializeDeferredComponent).toHaveBeenCalledWith('notesPanelComponent');
+      expect(components.get.mock.calls.map(([id]) => id)).toEqual([
+        'settingsMenuComponent',
+        'shaderSelectorComponent',
+        'notesPanelComponent'
+      ]);
+    });
+  });
+
+  describe('component toggles', () => {
+    beforeEach(() => {
+      orchestrator.setupUIEventListeners();
+    });
+
+    it.each([
+      ['settingsBtn', 'settingsMenuComponent'],
+      ['shaderBtn', 'shaderSelectorComponent'],
+      ['notesBtn', 'notesPanelComponent']
+    ])('toggles the component behind %s', (ref, componentId) => {
+      click(document.querySelector(`[data-ref="${ref}"]`) as HTMLElement);
+
+      expect(components.get(componentId).toggle).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -51,6 +54,9 @@ describe('UISetupOrchestrator', () => {
       orchestrator.setupUIEventListeners();
       await orchestrator.cleanup();
       expect(mockLogger.info).toHaveBeenCalledWith('Cleaning up UISetupOrchestrator...');
+
+      click(document.querySelector('[data-ref="notesBtn"]') as HTMLElement);
+      expect(components.get('notesPanelComponent').toggle).not.toHaveBeenCalled();
     });
   });
 });
