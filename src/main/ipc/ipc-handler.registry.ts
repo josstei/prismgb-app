@@ -15,7 +15,7 @@ import type {
 import type { IpcPushBridge } from './ipc-push.bridge';
 import { TEST_CONTROL_CHANNELS } from './test-control.port';
 import type { MainProcessTestControlPort } from './test-control.port';
-import type { DeviceStatusPayload } from '@platform/ipc';
+import type { DeviceStatusPayload } from '@platform/devices';
 import { TOKENS } from '@main/application/di/tokens';
 
 const ELECTRON_TRPC_CHANNEL = 'electron-trpc';
@@ -23,8 +23,8 @@ const ELECTRON_TRPC_CHANNEL = 'electron-trpc';
 /**
  * Owns the renderer↔main tRPC transport. `registerHandlers` installs the electron-trpc IPC handler
  * for {@link appRouter}; {@link attachWindow} binds the main window so per-frame subscriptions are
- * torn down on navigation/destroy. The per-request {@link IpcContext} supplies the same dependency
- * set the retired manifest registry injected, plus the {@link IpcPushBridge}.
+ * torn down on navigation/destroy. The per-request {@link IpcContext} supplies the services the
+ * router procedures call, plus the {@link IpcPushBridge}.
  */
 @injectable()
 class IpcHandlerRegistry extends BaseService {

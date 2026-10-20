@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { TRANSCODE_CONFIG } from '@platform/transcode';
+import { TRANSCODE_FORMATS } from '@platform/ipc';
 import { updateErrorSchema } from './update.schemas.js';
 
 /**
@@ -11,7 +11,7 @@ import { updateErrorSchema } from './update.schemas.js';
  * `isValidTranscodeCancelled` for the `.output(z)` subscription guards.
  */
 
-const supportedTranscodeFormats = new Set(Object.keys(TRANSCODE_CONFIG.formats));
+const supportedTranscodeFormats = new Set<string>(TRANSCODE_FORMATS);
 
 const ffmpegInputArgsSchema = z.array(z.string().min(1));
 

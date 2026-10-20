@@ -1,9 +1,8 @@
 import { z } from 'zod';
 import { observable } from '@trpc/server/observable';
 import { IPC_CHANNELS } from '@platform/ipc';
-import { toDeviceStatusPayload } from '@platform/devices';
+import { toDeviceStatusPayload, type DeviceInfoPayload } from '@platform/devices';
 import type {
-  DeviceInfoPayload,
   ProcessMetricsPayload,
   UpdateCheckPayload,
   UpdateStatusPayload,

@@ -1,10 +1,3 @@
-import type {
-  DeviceInfoPayload,
-  DeviceStatusPayload
-} from '@platform/devices';
-
-export type { DeviceInfoPayload, DeviceStatusPayload };
-
 export const UpdateState = {
   IDLE: 'idle',
   CHECKING: 'checking',
@@ -50,12 +43,9 @@ export interface UpdateCheckPayload {
   reason?: string;
 }
 
-export type TranscodeFormat = 'webm' | 'mp4' | 'mov';
+export const TRANSCODE_FORMATS = ['webm', 'mp4', 'mov'] as const;
 
-export interface TranscodeStartOptions {
-  inputArgs?: string[];
-  interrupted?: boolean;
-}
+export type TranscodeFormat = (typeof TRANSCODE_FORMATS)[number];
 
 export interface TranscodeProgressPayload {
   jobId?: string;

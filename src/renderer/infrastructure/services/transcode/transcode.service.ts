@@ -13,9 +13,13 @@ import type {
   TranscodeErrorPayload,
   TranscodeFormat,
   TranscodeProgressPayload,
-  TranscodeStartOptions,
   TranscodeStartPayload
 } from '@platform/ipc';
+
+type TranscodeStartOptions = {
+  inputArgs?: string[];
+  interrupted?: boolean;
+};
 
 const TRANSCODE_SUBSCRIPTION_LIFECYCLE = Symbol('transcodeSubscriptionLifecycle');
 

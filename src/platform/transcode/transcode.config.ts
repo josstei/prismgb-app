@@ -53,14 +53,14 @@ export const TranscodeState = Object.freeze({
   ERROR: 'error'
 } as const);
 
-const TRANSCODE_FORMATS: Readonly<Record<TranscodeFormat, TranscodeFormatConfig>> = Object.freeze({
+const FORMAT_CONFIGS: Readonly<Record<TranscodeFormat, TranscodeFormatConfig>> = Object.freeze({
   webm: FORMAT_WEBM,
   mp4: FORMAT_MP4,
   mov: FORMAT_MOV
 });
 
 export const TRANSCODE_CONFIG = Object.freeze({
-  formats: TRANSCODE_FORMATS,
+  formats: FORMAT_CONFIGS,
 
   defaultFormat: 'mp4',
   tempPrefix: 'prismgb-transcode-',

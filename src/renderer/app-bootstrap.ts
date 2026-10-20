@@ -5,7 +5,7 @@ import type { RendererServiceContainer } from '@renderer/application/container';
 import { TOKENS } from '@renderer/application/di/tokens';
 import { initializeContainer } from './application/container';
 import { registerAllowedValuesSource, registerDefaultValueSource } from '@renderer/lib/settings.definitions';
-import { TRANSCODE_CONFIG } from '@platform/transcode';
+import { TRANSCODE_FORMATS } from '@platform/ipc';
 import { PRESET_POLICY } from '@platform/gpu';
 import { renderAppShell } from './presentation/shell/app-shell.renderer';
 
@@ -38,7 +38,7 @@ class RendererBootstrap {
 
     try {
       // Register settings options dynamically before resolving definitions
-      registerAllowedValuesSource('TRANSCODE_CONFIG.formats', () => Object.keys(TRANSCODE_CONFIG.formats));
+      registerAllowedValuesSource('TRANSCODE_CONFIG.formats', () => [...TRANSCODE_FORMATS]);
       registerDefaultValueSource('PRESET_POLICY.rendererDefaultId', () => PRESET_POLICY.rendererDefaultId);
 
       // Render templates into app container

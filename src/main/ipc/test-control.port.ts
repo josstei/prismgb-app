@@ -1,4 +1,4 @@
-import type { DeviceStatusPayload } from '@platform/ipc';
+import type { DeviceStatusPayload } from '@platform/devices';
 import type { IpcPushBridge } from './ipc-push.bridge.js';
 
 export const TEST_CONTROL_CHANNELS = Object.freeze({

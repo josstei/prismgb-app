@@ -1,8 +1,6 @@
 export { IPC_CHANNELS } from './ipc-channels';
-export { UpdateState } from './ipc-payloads.contract';
+export { UpdateState, TRANSCODE_FORMATS } from './ipc-payloads.contract';
 export type {
-  DeviceInfoPayload,
-  DeviceStatusPayload,
   UpdateInfoPayload,
   UpdateProgressPayload,
   UpdateErrorPayload,
@@ -10,7 +8,6 @@ export type {
   UpdateCheckPayload,
   UpdateStateValue,
   TranscodeFormat,
-  TranscodeStartOptions,
   TranscodeJobPayload,
   TranscodeProgressPayload,
   TranscodeCompletedPayload,
