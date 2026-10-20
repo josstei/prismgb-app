@@ -1,7 +1,3 @@
-/**
- * MainLogger Unit Tests
- */
-
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Logger } from '@platform/core';
 import { installProcessEnvMock } from '../../../../support/mocks/runtime-property.installers.js';
@@ -25,9 +21,9 @@ vi.mock('electron-log/main', () => ({
 }));
 
 import log from 'electron-log/main';
-import { MainLogger } from '@main/infrastructure/logging/logger.factory';
+import { MainLoggerFactory } from '@main/infrastructure/logging/logger.factory';
 
-describe('MainLogger', () => {
+describe('MainLoggerFactory', () => {
   let envMock: ProcessEnvMock;
 
   beforeEach(() => {
@@ -48,7 +44,7 @@ describe('MainLogger', () => {
 
   describe('transport configuration', () => {
     it('uses debug console level and disables file logging in development', () => {
-      new MainLogger();
+      new MainLoggerFactory();
 
       expect(log.transports.console.level).toBe('debug');
       expect(log.transports.file.level).toBe(false);
@@ -57,7 +53,7 @@ describe('MainLogger', () => {
     it('uses info level and enables file logging in production', () => {
       envMock.setEnv({ NODE_ENV: 'production' });
 
-      new MainLogger();
+      new MainLoggerFactory();
 
       expect(log.transports.console.level).toBe('info');
       expect(log.transports.file.level).toBe('info');
@@ -66,7 +62,7 @@ describe('MainLogger', () => {
     it('respects the LOG_LEVEL env var', () => {
       envMock.setEnv({ LOG_LEVEL: 'warn' });
 
-      new MainLogger();
+      new MainLoggerFactory();
 
       expect(log.transports.console.level).toBe('warn');
     });
@@ -74,7 +70,7 @@ describe('MainLogger', () => {
     it('enables file logging in development when LOG_FILE is set', () => {
       envMock.setEnv({ LOG_FILE: 'true' });
 
-      new MainLogger();
+      new MainLoggerFactory();
 
       expect(log.transports.file.level).toBe('debug');
     });
@@ -82,7 +78,7 @@ describe('MainLogger', () => {
     it('routes the log file into LOG_DIR when provided', () => {
       envMock.setEnv({ NODE_ENV: 'production', LOG_DIR: '/custom/log/dir' });
 
-      new MainLogger();
+      new MainLoggerFactory();
 
       expect(typeof log.transports.file.resolvePathFn).toBe('function');
       const resolvePath = log.transports.file.resolvePathFn as () => string;
@@ -90,27 +86,22 @@ describe('MainLogger', () => {
     });
 
     it('leaves the default log path when LOG_DIR is not set', () => {
-      new MainLogger();
+      new MainLoggerFactory();
 
       expect(log.transports.file.resolvePathFn).toBeUndefined();
     });
   });
 
   describe('create', () => {
-    it('creates a scoped logger per context', () => {
-      const logger = new MainLogger();
-
-      const contextLogger = logger.create('TestContext');
+    it('returns the electron-log scope for the context', () => {
+      const contextLogger = new MainLoggerFactory().create('TestContext');
 
       expect(log.scope).toHaveBeenCalledWith('TestContext');
-      expect(typeof contextLogger.debug).toBe('function');
-      expect(typeof contextLogger.info).toBe('function');
-      expect(typeof contextLogger.warn).toBe('function');
-      expect(typeof contextLogger.error).toBe('function');
+      expect(contextLogger).toBe(scopedLogger);
     });
 
     it('delegates each level with the given arguments', () => {
-      const contextLogger = new MainLogger().create('TestContext');
+      const contextLogger = new MainLoggerFactory().create('TestContext');
 
       contextLogger.debug('debug message', { key: 'value' });
       contextLogger.info('info message', { data: 123 });
@@ -122,7 +113,7 @@ describe('MainLogger', () => {
     });
 
     it('passes Error objects through to electron-log intact', () => {
-      const contextLogger = new MainLogger().create('TestContext');
+      const contextLogger = new MainLoggerFactory().create('TestContext');
       const error = new Error('test error');
 
       contextLogger.error('error occurred', error);
@@ -131,7 +122,7 @@ describe('MainLogger', () => {
     });
 
     it('passes plain metadata objects through on error', () => {
-      const contextLogger = new MainLogger().create('TestContext');
+      const contextLogger = new MainLoggerFactory().create('TestContext');
 
       contextLogger.error('error occurred', { code: 500 });
 

@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, Menu, type MenuItemConstructorOptions } from 'electron';
 import type { Container } from 'inversify';
-import { getGpuPolicy, applyChromiumFlags, GPU_ENV_VARS } from './infrastructure/gpu/gpu-policy';
-import { MainLogger } from './infrastructure/logging/logger.factory';
+import { configureChromium } from './infrastructure/gpu/gpu-policy';
+import { MainLoggerFactory } from './infrastructure/logging/logger.factory';
 import { createMainContainer } from './application/container';
 import type { AppOrchestrator } from './application/app.orchestrator';
 import { TOKENS } from './application/di/tokens';
@@ -78,24 +78,7 @@ if (process.argv.includes('--smoke-test')) {
     // Don't quit on window close in smoke test mode
   });
 } else {
-  // Hardware acceleration is enabled by default for better performance.
-  // Users with GPU driver issues can disable it via environment variable:
-  //   PRISMGB_DISABLE_GPU=1 prismgb
-  if (process.env[GPU_ENV_VARS.DISABLE_GPU] === '1') {
-    app.disableHardwareAcceleration();
-  }
-
-  // Apply platform-aware GPU flags (must be before app.whenReady)
-  // Addresses ARM64 Linux Vulkan driver issues by disabling WebGPU probing
-  const gpuPolicy = getGpuPolicy();
-  applyChromiumFlags(app, gpuPolicy);
-  if (gpuPolicy.reason) {
-    console.log(`[GPU Policy] WebGPU disabled: ${gpuPolicy.reason}`);
-  }
-
-  // Limit main process V8 heap size for memory efficiency
-  // Main process doesn't need large heap - most work happens in renderer
-  app.commandLine.appendSwitch('js-flags', '--max-old-space-size=128');
+  configureChromium(app);
 
   // Prevent multiple instances of the app from running simultaneously
   const gotTheLock = app.requestSingleInstanceLock();
@@ -129,7 +112,7 @@ if (process.argv.includes('--smoke-test')) {
       }
 
       try {
-        container = createMainContainer(new MainLogger());
+        container = createMainContainer(new MainLoggerFactory());
         orchestrator = container.get(TOKENS.appOrchestrator);
         await orchestrator.initialize();
       } catch (error) {
