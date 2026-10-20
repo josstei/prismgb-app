@@ -68,20 +68,10 @@ describe('SettingsCinematicModeService', () => {
         expect(mockAppState.setCinematicMode).toHaveBeenCalledWith(true);
       });
 
-      it('should publish cinematic mode event with enabled true', () => {
-        service.toggleCinematicMode();
-
-        expect(mockEventBus.publish).toHaveBeenCalledWith(
-          EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED,
-          { enabled: true }
-        );
-      });
-
-      it('should publish the enabled status message right after the domain event', () => {
+      it('should publish only the enabled status message', () => {
         service.toggleCinematicMode();
 
         expect(mockEventBus.publish.mock.calls).toEqual([
-          [EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED, { enabled: true }],
           [EventChannels.UI.STATUS_MESSAGE, { message: 'Cinematic mode enabled' }]
         ]);
       });
@@ -98,27 +88,17 @@ describe('SettingsCinematicModeService', () => {
         expect(mockAppState.setCinematicMode).toHaveBeenCalledWith(false);
       });
 
-      it('should publish cinematic mode event with enabled false', () => {
-        service.toggleCinematicMode();
-
-        expect(mockEventBus.publish).toHaveBeenCalledWith(
-          EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED,
-          { enabled: false }
-        );
-      });
-
-      it('should publish the disabled status message right after the domain event', () => {
+      it('should publish only the disabled status message', () => {
         service.toggleCinematicMode();
 
         expect(mockEventBus.publish.mock.calls).toEqual([
-          [EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED, { enabled: false }],
           [EventChannels.UI.STATUS_MESSAGE, { message: 'Cinematic mode disabled' }]
         ]);
       });
     });
 
     describe('state updates', () => {
-      it('should update state before publishing events', () => {
+      it('should update state before publishing the status message', () => {
         mockAppState._forceSet('isCinematicModeEnabled', false);
         let stateUpdated = false;
 
@@ -151,25 +131,22 @@ describe('SettingsCinematicModeService', () => {
         expect(mockAppState.setCinematicMode).toHaveBeenCalledWith(false);
       });
 
-      it('should publish correct domain events on each toggle', () => {
+      it('should publish the matching status message on each toggle', () => {
         mockAppState._forceSet('isCinematicModeEnabled', false);
 
-        // Enable
         service.toggleCinematicMode();
         expect(mockEventBus.publish).toHaveBeenCalledWith(
-          EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED,
-          { enabled: true }
+          EventChannels.UI.STATUS_MESSAGE,
+          { message: 'Cinematic mode enabled' }
         );
 
-        // Simulate state change and clear mocks
         mockAppState._forceSet('isCinematicModeEnabled', true);
         mockEventBus.publish.mockClear();
 
-        // Disable
         service.toggleCinematicMode();
         expect(mockEventBus.publish).toHaveBeenCalledWith(
-          EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED,
-          { enabled: false }
+          EventChannels.UI.STATUS_MESSAGE,
+          { message: 'Cinematic mode disabled' }
         );
       });
     });

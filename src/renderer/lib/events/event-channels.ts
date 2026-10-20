@@ -53,7 +53,6 @@ export const EventChannels = {
     RENDER_PRESET_CHANGED: 'settings:render-preset-changed',
     BRIGHTNESS_CHANGED: 'settings:brightness-changed',
     PERFORMANCE_MODE_CHANGED: 'settings:performance-mode-changed',
-    CINEMATIC_MODE_CHANGED: 'settings:cinematic-mode-changed',
     MINIMALIST_FULLSCREEN_CHANGED: 'settings:minimalist-fullscreen-changed',
     PREFERENCES_LOADED: 'settings:preferences-loaded'
   },
@@ -118,7 +117,6 @@ export interface EventPayloadMap {
   'settings:render-preset-changed': string;
   'settings:brightness-changed': number;
   'settings:performance-mode-changed': boolean;
-  'settings:cinematic-mode-changed': { enabled: boolean };
   'settings:minimalist-fullscreen-changed': boolean;
   'settings:preferences-loaded': Record<string, unknown>;
   'performance:state-changed': PerformanceStatePayload;
