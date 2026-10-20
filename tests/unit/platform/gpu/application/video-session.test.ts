@@ -1,7 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createGpuVideoRendererSession } from '../../../../../src/platform/gpu/application/video-session';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  createGpuVideoRendererSession,
+  type GpuVideoRendererSessionOptions
+} from '../../../../../src/platform/gpu/application/video-session';
 import { createMockCanvas, createRenderCapabilitiesFixture } from '@platform/gpu/testkit';
-import { WorkerResponseType, createWorkerResponse } from '../../../../../src/platform/gpu/worker/protocol';
+import type { RenderWorkerResponse } from '../../../../../src/platform/gpu/worker/render-worker.contract';
 
 function createCanvas2DRenderFixture() {
   const canvas2dContext = {
@@ -23,15 +26,33 @@ function createWorkerMock(): Worker {
   } as unknown as Worker;
 }
 
-describe('GpuVideoRendererSession', () => {
-  beforeEach(() => {
-    vi.stubGlobal('performance', {
-      now: vi.fn(() => 0)
-    });
+async function createWebGpuSession(options: Partial<GpuVideoRendererSessionOptions> = {}) {
+  const worker = createWorkerMock();
+  const respond = (response: RenderWorkerResponse) => {
+    worker.onmessage?.({ data: response } as MessageEvent);
+  };
+  const sessionPromise = createGpuVideoRendererSession({
+    canvas: Object.assign(createMockCanvas(), { clientWidth: 480, clientHeight: 432 }) as unknown as HTMLCanvasElement,
+    nativeResolution: { width: 160, height: 144 },
+    preferredBackend: 'webgpu',
+    createWorker: () => worker,
+    capabilities: createRenderCapabilitiesFixture({
+      webgpu: true,
+      offscreenCanvas: true,
+      transferControlToOffscreen: true,
+      preferredBackend: 'webgpu'
+    }),
+    ...options
   });
 
+  respond({ type: 'ready' });
+
+  return { session: await sessionPromise, worker, respond };
+}
+
+describe('GpuVideoRendererSession', () => {
   afterEach(() => {
-    vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it('creates Canvas2D session when preferredBackend is canvas2d', async () => {
@@ -61,105 +82,102 @@ describe('GpuVideoRendererSession', () => {
     expect(session.isActive).toBe(false);
   });
 
-  it('creates WebGPU session when webgpu is available', async () => {
-    const canvas = createMockCanvas() as unknown as HTMLCanvasElement;
-    const worker = createWorkerMock();
+  it('creates a WebGPU session whose init request carries the resolved preset and brightness', async () => {
+    const onReady = vi.fn();
+    const { session, worker } = await createWebGpuSession({ presetId: 'unknown', brightness: 1.4, onReady });
 
-    const sessionPromise = createGpuVideoRendererSession({
-      canvas,
-      nativeResolution: { width: 160, height: 144 },
-      preferredBackend: 'webgpu',
-      createWorker: () => worker,
-      capabilities: createRenderCapabilitiesFixture({
-        webgpu: true,
-        offscreenCanvas: true,
-        transferControlToOffscreen: true,
-        preferredBackend: 'webgpu'
-      })
-    });
-
-    setTimeout(() => {
-      worker.onmessage?.({
-        data: createWorkerResponse(WorkerResponseType.READY, { backend: 'webgpu' })
-      } as MessageEvent);
-    }, 10);
-
-    const session = await sessionPromise;
     expect(session.backend).toBe('webgpu');
     expect(session.isCanvasTransferred).toBe(true);
-
-    session.setBrightness(1.2);
-    expect(worker.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'setBrightness',
-        payload: { brightness: 1.2 }
-      })
-    );
+    expect(worker.postMessage).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(worker.postMessage).mock.calls[0][0]).toEqual(expect.objectContaining({
+      type: 'init',
+      config: {
+        nativeWidth: 160,
+        nativeHeight: 144,
+        targetWidth: 480,
+        targetHeight: 432,
+        presetId: 'vibrant',
+        brightness: 1.4
+      }
+    }));
+    expect(onReady).toHaveBeenCalledWith({ backend: 'webgpu' });
 
     session.terminate();
   });
 
+  it('forwards brightness and resolved preset ids to the worker', async () => {
+    const { session, worker } = await createWebGpuSession();
+
+    session.setBrightness(1.2);
+    session.setPreset('missing-preset');
+    session.setPreset('pixel');
+
+    expect(vi.mocked(worker.postMessage).mock.calls.slice(1).map(([request]) => request)).toEqual([
+      { type: 'setBrightness', brightness: 1.2 },
+      { type: 'setPreset', presetId: 'vibrant' },
+      { type: 'setPreset', presetId: 'pixel' }
+    ]);
+
+    session.terminate();
+  });
+
+  it('resolves a capture with the bitmap the worker sends back', async () => {
+    const { session, worker, respond } = await createWebGpuSession();
+    const captured = { close: vi.fn() } as unknown as ImageBitmap;
+
+    const capturePromise = session.captureFrame();
+    await expect(session.captureFrame()).rejects.toThrow('Capture already in progress');
+    expect(vi.mocked(worker.postMessage).mock.calls.at(-1)?.[0]).toEqual({ type: 'capture' });
+
+    respond({ type: 'captured', bitmap: captured });
+
+    await expect(capturePromise).resolves.toBe(captured);
+    session.terminate();
+  });
+
+  it('rejects a capture the worker does not answer within one second', async () => {
+    const { session } = await createWebGpuSession();
+    vi.useFakeTimers();
+
+    const capturePromise = session.captureFrame();
+    const expectation = expect(capturePromise).rejects.toThrow('Capture request timed out');
+    await vi.advanceTimersByTimeAsync(1000);
+
+    await expectation;
+    session.terminate();
+  });
+
+  it('rejects a pending capture and reports the message when the worker fails', async () => {
+    const onError = vi.fn();
+    const { session, respond } = await createWebGpuSession({ onError });
+
+    const capturePromise = session.captureFrame();
+    respond({ type: 'error', message: 'render failed' });
+
+    await expect(capturePromise).rejects.toThrow('render failed');
+    expect(onError).toHaveBeenCalledWith({ message: 'render failed' });
+    session.terminate();
+  });
+
   it('invokes onCanvasExpired only when terminate requests it', async () => {
-    const canvas = createMockCanvas() as unknown as HTMLCanvasElement;
-    const worker = createWorkerMock();
     const onCanvasExpired = vi.fn();
-
-    const sessionPromise = createGpuVideoRendererSession({
-      canvas,
-      nativeResolution: { width: 160, height: 144 },
-      preferredBackend: 'webgpu',
-      createWorker: () => worker,
-      onCanvasExpired,
-      capabilities: createRenderCapabilitiesFixture({
-        webgpu: true,
-        offscreenCanvas: true,
-        transferControlToOffscreen: true,
-        preferredBackend: 'webgpu'
-      })
-    });
-
-    setTimeout(() => {
-      worker.onmessage?.({
-        data: createWorkerResponse(WorkerResponseType.READY, { backend: 'webgpu' })
-      } as MessageEvent);
-    }, 10);
-
-    const session = await sessionPromise;
+    const { session, worker } = await createWebGpuSession({ onCanvasExpired });
 
     session.terminate();
     expect(onCanvasExpired).not.toHaveBeenCalled();
+    expect(worker.terminate).toHaveBeenCalledTimes(1);
 
     session.terminate({ emitCanvasExpired: true });
     expect(onCanvasExpired).toHaveBeenCalledTimes(1);
   });
 
-  it('reports scaled target dimensions (not a hardcoded native width)', async () => {
-    const canvas = createMockCanvas() as unknown as HTMLCanvasElement;
-    const worker = createWorkerMock();
+  it('reports scaled target dimensions and resizes the worker to them', async () => {
+    const { session, worker } = await createWebGpuSession();
 
-    const sessionPromise = createGpuVideoRendererSession({
-      canvas,
-      nativeResolution: { width: 160, height: 144 },
-      preferredBackend: 'webgpu',
-      createWorker: () => worker,
-      capabilities: createRenderCapabilitiesFixture({
-        webgpu: true,
-        offscreenCanvas: true,
-        transferControlToOffscreen: true,
-        preferredBackend: 'webgpu'
-      })
-    });
+    session.resize(700, 600);
 
-    setTimeout(() => {
-      worker.onmessage?.({
-        data: createWorkerResponse(WorkerResponseType.READY, { backend: 'webgpu' })
-      } as MessageEvent);
-    }, 10);
-
-    const session = await sessionPromise;
-
-    session.resize(640, 576);
     expect(session.getTargetDimensions()).toEqual({ width: 640, height: 576 });
+    expect(vi.mocked(worker.postMessage).mock.calls.at(-1)?.[0]).toEqual({ type: 'resize', width: 640, height: 576 });
 
     session.terminate();
   });

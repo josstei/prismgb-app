@@ -19,7 +19,6 @@ export type GpuVideoRendererSession = {
   setBrightness(value: number): void;
   getTargetDimensions(): { width: number; height: number };
   captureFrame(): Promise<ImageBitmap>;
-  release(): void;
   terminate(options?: { emitCanvasExpired?: boolean }): void;
   dispose(): void | Promise<void>;
 };
@@ -51,7 +50,6 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
   private nativeHeight: number;
   private targetWidth: number;
   private targetHeight: number;
-  private scaleFactor = 1;
   private brightness = 1.0;
   private presetId: string;
   private currentPreset: RenderPreset;
@@ -65,7 +63,6 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
 
   private pendingCaptureResolve: ((result: ImageBitmap) => void) | null = null;
   private pendingCaptureReject: ((error: Error) => void) | null = null;
-  private isWaitingForCapturedFrame = false;
   private captureTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   private messageUnsubscribers: Array<() => void> = [];
@@ -135,29 +132,19 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
         logger: this.logger
       });
 
-      this.scaleFactor = this.calculateScale(canvas.clientWidth, canvas.clientHeight);
-      this.targetWidth = this.nativeWidth * this.scaleFactor;
-      this.targetHeight = this.nativeHeight * this.scaleFactor;
-
-      const config = {
-        nativeWidth: this.nativeWidth,
-        nativeHeight: this.nativeHeight,
-        targetWidth: this.targetWidth,
-        targetHeight: this.targetHeight,
-        scaleFactor: this.scaleFactor,
-        backend: this.backend as 'webgpu',
-        presetId: this.presetId
-      };
+      this.updateTargetDimensions(canvas.clientWidth, canvas.clientHeight);
 
       this.registerMessageHandlers();
 
       try {
-        const initialized = await this.workerClient.initialize(canvas, config, 5000);
-        if (!initialized) {
-          throw new Error('Worker renderer client initialization returned false');
-        }
-
-        this.workerClient.setBrightness(this.brightness);
+        await this.workerClient.initialize(canvas, {
+          nativeWidth: this.nativeWidth,
+          nativeHeight: this.nativeHeight,
+          targetWidth: this.targetWidth,
+          targetHeight: this.targetHeight,
+          presetId: this.presetId,
+          brightness: this.brightness
+        }, 5000);
       } catch (err: unknown) {
         this.logger.error('Failed to initialize worker renderer:', err);
         this.unregisterMessageHandlers();
@@ -171,6 +158,12 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
     }
   }
 
+  private updateTargetDimensions(clientWidth: number, clientHeight: number): void {
+    const scaleFactor = this.calculateScale(clientWidth, clientHeight);
+    this.targetWidth = this.nativeWidth * scaleFactor;
+    this.targetHeight = this.nativeHeight * scaleFactor;
+  }
+
   private calculateScale(clientWidth: number, clientHeight: number): number {
     if (clientWidth <= 0 || clientHeight <= 0) return 1;
     const scaleX = clientWidth / this.nativeWidth;
@@ -182,35 +175,24 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
     if (!this.workerClient) return;
 
     this.messageUnsubscribers = [
-      this.workerClient.onReady((payload) => {
-        this.logger.info(`Render worker ready (backend: ${payload.backend})`);
-        this.onReadyCb?.({ backend: payload.backend });
+      this.workerClient.onMessage('ready', () => {
+        this.logger.info(`Render worker ready (backend: ${this.backend})`);
+        this.onReadyCb?.({ backend: this.backend });
       }),
 
-      this.workerClient.onFrameRendered(() => {
+      this.workerClient.onMessage('frameRendered', () => {
         this.pendingFrames = Math.max(0, this.pendingFrames - 1);
-        if (this.isWaitingForCapturedFrame) {
-          this.isWaitingForCapturedFrame = false;
-          this.workerClient?.requestCapturedFrame();
-        }
       }),
 
-      this.workerClient.onError((payload) => {
-        if (payload.code === 'DEVICE_LOST' && payload.message?.includes('destroyed')) {
-          return;
-        }
-        this.logger.error('Render worker error:', payload.message);
+      this.workerClient.onMessage('error', ({ message }) => {
+        this.logger.error('Render worker error:', message);
         this.pendingFrames = 0;
-        this.onErrorCb?.({
-          message: payload.message,
-          code: payload.code,
-          stack: payload.stack
-        });
-        this.resolvePendingCapture(null, new Error(payload.message));
+        this.onErrorCb?.({ message });
+        this.resolvePendingCapture(null, new Error(message));
       }),
 
-      this.workerClient.onCaptureReady((payload) => {
-        this.resolvePendingCapture(payload.bitmap, null);
+      this.workerClient.onMessage('captured', ({ bitmap }) => {
+        this.resolvePendingCapture(bitmap, null);
       })
     ];
   }
@@ -267,12 +249,10 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
         this.localPipeline.resize(backingWidth, backingHeight);
       }
     } else {
-      this.scaleFactor = this.calculateScale(width, height);
-      this.targetWidth = this.nativeWidth * this.scaleFactor;
-      this.targetHeight = this.nativeHeight * this.scaleFactor;
+      this.updateTargetDimensions(width, height);
 
       if (this.workerClient && this.workerClient.isReady()) {
-        this.workerClient.resize(this.targetWidth, this.targetHeight, this.scaleFactor);
+        this.workerClient.resize(this.targetWidth, this.targetHeight);
       }
     }
   }
@@ -286,7 +266,7 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
       this.localPipeline?.setPreset(preset);
     } else {
       if (this.workerClient && this.workerClient.isReady()) {
-        this.workerClient.setPreset(presetId, preset);
+        this.workerClient.setPreset(preset.id);
       }
     }
   }
@@ -333,10 +313,7 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
           return;
         }
 
-        this.isWaitingForCapturedFrame = true;
-
         this.captureTimeoutId = setTimeout(() => {
-          this.isWaitingForCapturedFrame = false;
           this.resolvePendingCapture(null, new Error('Capture request timed out'));
         }, 1000);
       });
@@ -357,15 +334,6 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
 
     this.pendingCaptureResolve = null;
     this.pendingCaptureReject = null;
-  }
-
-  release(): void {
-    this.pendingFrames = 0;
-    if (this.backend === 'canvas2d') {
-      this.localPipeline?.releaseResources();
-    } else {
-      this.workerClient?.releaseResources();
-    }
   }
 
   terminate(options?: { emitCanvasExpired?: boolean }): void {

@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  createPipelineUniformsFixture,
-  createRenderCapabilitiesFixture,
-  createWorkerRendererClientMock
-} from '@platform/gpu/testkit';
-import type { FramePayload } from '../../../../../src/platform/gpu/worker/protocol';
+import { createPipelineUniformsFixture, createRenderCapabilitiesFixture } from '@platform/gpu/testkit';
 
 describe('platform/gpu/testkit/fixtures', () => {
   it('creates overridable domain fixtures from final GPU types', () => {
@@ -19,33 +14,5 @@ describe('platform/gpu/testkit/fixtures', () => {
       outputSize: [640, 576],
       scaleFactor: 2
     });
-  });
-
-  it('creates an event-capable worker renderer client fixture', () => {
-    const client = createWorkerRendererClientMock();
-    const readyEvents: unknown[] = [];
-    const unsubscribe = client.onReady((payload) => {
-      readyEvents.push(payload);
-    });
-
-    expect(client.sendCommand('frame', {
-      imageBitmap: {} as ImageBitmap,
-      uniforms: createPipelineUniformsFixture()
-    } as FramePayload)).toBe(true);
-    expect(client.renderFrame({} as ImageBitmap)).toBe(true);
-
-    client.emit('ready', { backend: 'webgpu' });
-    unsubscribe();
-    client.emit('ready', { backend: 'webgpu' });
-
-    expect(readyEvents).toEqual([{ backend: 'webgpu' }]);
-  });
-
-  it('allows worker renderer client method overrides', () => {
-    const client = createWorkerRendererClientMock({
-      sendCommand: () => false
-    });
-
-    expect(client.sendCommand('release')).toBe(false);
   });
 });

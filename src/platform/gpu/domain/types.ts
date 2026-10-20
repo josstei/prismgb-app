@@ -63,7 +63,6 @@ export interface RenderCapabilities {
 export interface GpuVideoRendererError {
   message: string;
   code?: string;
-  stack?: string;
 }
 
 export interface RenderPipeline {

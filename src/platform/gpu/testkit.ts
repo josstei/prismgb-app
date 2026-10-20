@@ -2,11 +2,9 @@ export {
   createRenderCapabilitiesFixture,
   createPipelineUniformsFixture,
   createMockOffscreenCanvas,
-  createMockCanvas,
-  createWorkerRendererClientMock
-} from './testkit/fixtures.js';
+  createMockCanvas
+} from './testkit/fixtures';
 export type {
   MockCanvasContextMap,
-  MockRenderCanvas,
-  WorkerRendererClientMock
-} from './testkit/fixtures.js';
+  MockRenderCanvas
+} from './testkit/fixtures';

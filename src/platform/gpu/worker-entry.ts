@@ -1,3 +1,3 @@
-import { startWorkerRendererService, type WorkerRendererServiceScope } from './worker/service';
+import { startRenderWorkerHost, type RenderWorkerScope } from './worker/render-worker.host';
 
-startWorkerRendererService(self as unknown as WorkerRendererServiceScope);
+startRenderWorkerHost(self as unknown as RenderWorkerScope);
