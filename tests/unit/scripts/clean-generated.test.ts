@@ -26,13 +26,16 @@ describe('clean-generated script', () => {
     fs.rmSync(workspace, { recursive: true, force: true });
   });
 
-  it('removes generated outputs and leaves build outputs alone, and vice versa', () => {
+  it('removes generated outputs and leaves build outputs alone', () => {
     expect(clean(GENERATED, { root: workspace })).toEqual({ removed: GENERATED, failed: [] });
     GENERATED.forEach((relativePath) => expect(exists(workspace, relativePath)).toBe(false));
     BUILD.forEach((relativePath) => expect(exists(workspace, relativePath)).toBe(true));
+  });
 
+  it('removes build outputs and leaves generated outputs alone', () => {
     expect(clean(BUILD, { root: workspace })).toEqual({ removed: BUILD, failed: [] });
     BUILD.forEach((relativePath) => expect(exists(workspace, relativePath)).toBe(false));
+    GENERATED.forEach((relativePath) => expect(exists(workspace, relativePath)).toBe(true));
   });
 
   it('reports matches without deleting anything in dry-run mode', () => {

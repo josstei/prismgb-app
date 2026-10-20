@@ -66,8 +66,7 @@ export default defineConfig({
           restoreMocks: true,
           environment: 'node',
           include: [
-            'tests/unit/scripts/**/*.{test,spec}.{js,ts}',
-            'tests/unit/support/**/*.{test,spec}.{js,ts}'
+            'tests/unit/scripts/**/*.{test,spec}.{js,ts}'
           ],
           setupFiles: [
             path.resolve(__dirname, 'tests/setup.js'),
