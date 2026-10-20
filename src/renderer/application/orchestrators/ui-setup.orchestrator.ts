@@ -35,7 +35,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
     @inject(TOKENS.appState) private readonly appState: AppStateLike,
     @inject(TOKENS.uiController) private readonly uiController: UIController,
     @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
-    @inject(TOKENS.loggerFactory) private readonly loggerFactory: LoggerFactory
+    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
     super(loggerFactory, 'UISetupOrchestrator', eventBus);
 

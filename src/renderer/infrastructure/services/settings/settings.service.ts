@@ -1,6 +1,6 @@
 import { injectable, inject } from 'inversify';
 import { BaseService, isPromiseLike } from '@platform/core';
-import { EventChannels } from '@renderer/lib/events/event-channels';
+import { EventChannels, type EventChannel } from '@renderer/lib/events/event-channels';
 import type { EventBus } from '@renderer/lib/events/event-bus';
 import { SettingsDefinitions, getStartupPreferenceEventDefinitions } from '@renderer/lib/settings.definitions';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
@@ -223,7 +223,7 @@ class SettingsService extends BaseService {
       return false;
     }
     if (definition.event) {
-      this.eventBus.publish(definition.event, normalized.value);
+      this.eventBus.publish(definition.event as EventChannel, normalized.value);
     }
     this.logger.debug(`Setting ${definition.name} set to ${normalized.value}`);
     return true;
