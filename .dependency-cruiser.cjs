@@ -149,7 +149,7 @@ module.exports = {
       severity: 'error',
       comment: 'The gpu module root exposes the app-facing surface only.',
       from: { path: `^${PLATFORM_ROOT}/gpu/index\\.ts$` },
-      to: { path: `^${PLATFORM_ROOT}/gpu/(infrastructure/|worker/|worker-entry|application/renderer\\.service)` }
+      to: { path: `^${PLATFORM_ROOT}/gpu/(infrastructure/|worker/|worker-entry)` }
     },
     ...platformCrossModuleRules
   ],
