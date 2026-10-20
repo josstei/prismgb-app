@@ -1,9 +1,9 @@
 import { injectable, inject } from 'inversify';
 import { BaseService, getErrorMessage } from '@platform/core';
-import { EventChannels } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import type { EventBus } from '@renderer/lib/events/event-bus';
 import { downloadFile } from '@renderer/lib/file-download.utils';
 import type { LoggerFactory } from '@platform/core';
-import type { EventBusLike } from '@platform/events';
 import type { CallIpcResult } from '@renderer/infrastructure/ipc/call-ipc';
 import type { TranscodeStartPayload } from '@platform/ipc';
 import { TOKENS } from '@renderer/application/di/tokens';
@@ -35,7 +35,7 @@ type CaptureTranscodeServiceLike = {
 @injectable()
 class CaptureSaveService extends BaseService {
   constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
     @inject(TOKENS.settingsService) private readonly settingsService: CaptureSettingsServiceLike,
     @inject(TOKENS.transcodeService) private readonly transcodeService: CaptureTranscodeServiceLike,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory

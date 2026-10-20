@@ -7,7 +7,7 @@
  * (the manifest is frozen by design; tests must not mutate it or export private internals):
  *  - resolveSettingDefinition: the "Unknown settings allowedValuesSource" and "missing a default" throws.
  *  - shouldLoadAtStartup: the "Startup preference must be synchronously readable" throw.
- *  - assertSettingEventMatchesManifest: the missing-event and payload-mismatch throws.
+ *  - assertSettingEventIsKnown: the unknown-event throw.
  *  - getSettingsUiDefinitions: the `?? 0` sort fallback (every UI definition declares an order).
  *  - registerAllowedValuesSource / registerDefaultValueSource: the production "registered after resolve"
  *    throw, reachable only by faking NODE_ENV and deleting globalThis.vi (defeats a production-only guard).
@@ -59,6 +59,28 @@ describe('SettingsDefinitions manifest', () => {
     for (const definition of eventDefinitions) {
       expect(typeof definition.event).toBe('string');
       expect(definition.event.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('settings event payload contract', () => {
+  const PAYLOAD_TYPE_BY_DEFINITION_TYPE: Record<string, string> = { boolean: 'boolean', enum: 'string', number: 'number', string: 'string' };
+  const PAYLOAD_TYPE_BY_EVENT: Record<string, string> = {
+    'settings:volume-changed': 'number',
+    'settings:render-preset-changed': 'string',
+    'settings:brightness-changed': 'number',
+    'settings:performance-mode-changed': 'boolean',
+    'settings:minimalist-fullscreen-changed': 'boolean'
+  };
+
+  it('publishes each definition event with the payload type its channel carries', () => {
+    const eventDefinitions = SettingsDefinitions.definitions.filter(
+      (definition) => 'event' in definition && typeof definition.event === 'string' && definition.event.length > 0
+    );
+
+    expect(eventDefinitions.map((definition) => definition.event).sort()).toEqual(Object.keys(PAYLOAD_TYPE_BY_EVENT).sort());
+    for (const definition of eventDefinitions) {
+      expect(PAYLOAD_TYPE_BY_DEFINITION_TYPE[definition.type]).toBe(PAYLOAD_TYPE_BY_EVENT[definition.event]);
     }
   });
 });

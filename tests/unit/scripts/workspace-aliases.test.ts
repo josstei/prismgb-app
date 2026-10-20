@@ -23,7 +23,6 @@ const MODULE_NAMES: string[] = [
   'config',
   'core',
   'devices',
-  'events',
   'gpu',
   'ipc',
   'notes',
@@ -33,7 +32,7 @@ const MODULE_NAMES: string[] = [
 ];
 
 describe('workspace-aliases registry', () => {
-  it('declares exactly the ten platform modules', () => {
+  it('declares exactly the nine platform modules', () => {
     expect(PLATFORM_MODULES.map((module) => module.name).sort()).toEqual(MODULE_NAMES);
   });
 
@@ -45,7 +44,6 @@ describe('workspace-aliases registry', () => {
       config: ['.'],
       core: ['.'],
       devices: ['.', './runtime', './testkit'],
-      events: ['.'],
       gpu: ['.', './runtime', './testkit'],
       ipc: ['.'],
       notes: ['.'],

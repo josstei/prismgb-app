@@ -2,8 +2,8 @@ import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresentationComponent, bindText, bindClass, computed } from '@platform/ui-base';
 import { signal } from '@platform/ui-base/reactive';
 import { sliderToBrightness, brightnessToSlider } from '@renderer/presentation/features/toolbar/brightness.utils';
-import { EventChannels } from '@platform/events';
-import type { TypedEventBusLike } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import type { EventBus } from '@renderer/lib/events/event-bus';
 import type { Logger } from '@platform/core';
 
 export interface ShaderSliderSettingsService {
@@ -14,7 +14,7 @@ export interface ShaderSliderSettingsService {
 
 export interface ShaderSliderControlsComponentOptions {
   settingsService: ShaderSliderSettingsService;
-  eventBus: TypedEventBusLike;
+  eventBus: EventBus;
   logger?: Logger | null;
 }
 
@@ -29,7 +29,7 @@ export interface ShaderSliderControlsElements {
 
 class ShaderSliderControlsComponent extends PresentationComponent {
   declare settingsService: ShaderSliderSettingsService;
-  declare eventBus: TypedEventBusLike;
+  declare eventBus: EventBus;
   declare logger: Logger | null | undefined;
   declare brightnessSlider: HTMLInputElement | null | undefined;
   declare brightnessPercentage: HTMLElement | null | undefined;

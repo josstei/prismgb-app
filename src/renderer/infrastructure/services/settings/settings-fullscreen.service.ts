@@ -1,10 +1,10 @@
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import { EventChannels, OnEvent } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import { OnEvent, type EventBus } from '@renderer/lib/events/event-bus';
 import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import type { LoggerFactory } from '@platform/core';
-import type { EventBusLike } from '@platform/events';
 import { TOKENS } from '@renderer/application/di/tokens';
 
 const FULLSCREEN_DOCUMENT_LIFECYCLE = Symbol('settingsFullscreenDocumentLifecycle');
@@ -16,7 +16,7 @@ class SettingsFullscreenService extends BaseService {
   private _isFullscreenActive: boolean;
 
   constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
     super(loggerFactory, 'SettingsFullscreenService');

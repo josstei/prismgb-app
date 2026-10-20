@@ -21,7 +21,7 @@ import {
   createScreenshotBlob,
   createRecordingBlob,
 } from '../fixtures/capture.fixture.js';
-import { EventChannels } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
 
 type EventBus = ReturnType<typeof createEventBus>;
 type BaseAppState = ReturnType<typeof createAppState>;

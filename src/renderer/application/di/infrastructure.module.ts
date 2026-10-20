@@ -1,6 +1,6 @@
 import { ContainerModule } from 'inversify';
 import { ConsoleLoggerFactory } from '@platform/core';
-import { EventBus } from '../../infrastructure/events/event-bus';
+import { EventBus } from '../../lib/events/event-bus';
 import { RendererDeviceRuntime } from '../../infrastructure/services/devices/device-runtime.service';
 import { DeviceMediaAcquirer } from '../../infrastructure/services/streaming/device-media-acquirer.service';
 import { StreamingService } from '../../infrastructure/services/streaming/streaming.service';
@@ -27,18 +27,18 @@ import { BrowserMediaAdapter } from '../../infrastructure/adapters/browser-media
 import { StreamingHealthService } from '../../infrastructure/services/platform/health.service';
 import { StreamingViewportService } from '../../infrastructure/services/platform/viewport.service';
 import { PresentationModeService } from '../../infrastructure/services/settings/settings-presentation-mode.service';
-import { TOKENS } from './tokens.js';
+import { TOKENS } from './tokens';
 
 /**
  * Binding module for every renderer infrastructure-layer token: decorated
- * services/adapters bind straight to their class, and the two tokens that
- * cannot use plain `.to(Class)` (the platform-owned logger factory and the
- * device runtime's non-token trailing parameter) bind through a factory.
+ * services/adapters bind straight to their class, and the tokens that cannot
+ * use plain `.to(Class)` (the inversify-free event bus and logger factory, and
+ * the device runtime's non-token trailing parameter) bind through a factory.
  * `canvasLifecycleService` is deliberately absent — its circular dependency
  * on `streamingRenderService` is broken in `container.ts`.
  */
 export const infrastructureModule = new ContainerModule(({ bind }) => {
-  bind(TOKENS.eventBus).to(EventBus).inSingletonScope();
+  bind(TOKENS.eventBus).toDynamicValue((ctx) => new EventBus(ctx.get(TOKENS.loggerFactory).create('EventBus')));
 
   bind(TOKENS.loggerFactory).toDynamicValue(() => new ConsoleLoggerFactory()).inSingletonScope();
 

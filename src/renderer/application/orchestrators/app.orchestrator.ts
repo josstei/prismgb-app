@@ -1,9 +1,10 @@
 import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
-import { EventChannels, OnEvent } from '@platform/events';
-import type { DeviceEnumerationFailedPayload, DeviceStatus } from '@platform/events';
+import type { DeviceStatus } from '@platform/devices';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import { OnEvent, type EventBus } from '@renderer/lib/events/event-bus';
+import type { DeviceEnumerationFailedPayload } from '@renderer/lib/events/event-payloads';
 import type { LoggerFactory } from '@platform/core';
-import type { EventBusLike } from '@platform/events';
 import { TOKENS } from '@renderer/application/di/tokens';
 
 type LifecycleOrchestrator = {
@@ -43,7 +44,7 @@ export class AppOrchestrator extends BaseOrchestrator {
     @inject(TOKENS.animationPerformanceOrchestrator) private readonly animationPerformanceOrchestrator: LifecycleOrchestrator,
     @inject(TOKENS.performanceMetricsOrchestrator) private readonly performanceMetricsOrchestrator: LifecycleOrchestrator,
     @inject(TOKENS.performanceStateOrchestrator) private readonly performanceStateOrchestrator: LifecycleOrchestrator,
-    @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
     super(loggerFactory, 'AppOrchestrator', eventBus);

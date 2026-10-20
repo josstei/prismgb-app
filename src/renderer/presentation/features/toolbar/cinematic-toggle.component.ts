@@ -1,7 +1,7 @@
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresentationComponent, bindClass, bindText, bindAttr, computed } from '@platform/ui-base';
-import { EventChannels } from '@platform/events';
-import type { TypedEventBusLike } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import type { EventBus } from '@renderer/lib/events/event-bus';
 import type { ReadonlySignal } from '@platform/ui-base/reactive';
 import type { Logger } from '@platform/core';
 
@@ -10,7 +10,7 @@ export interface CinematicToggleAppState {
 }
 
 export interface CinematicToggleComponentOptions {
-  eventBus: TypedEventBusLike;
+  eventBus: EventBus;
   appState?: CinematicToggleAppState | null;
   logger?: Logger | null;
 }
@@ -22,7 +22,7 @@ export interface CinematicToggleElements {
 
 /** Binds the cinematic pill (active class / aria-pressed / label) to the cinematic-mode signal. */
 class CinematicToggleComponent extends PresentationComponent {
-  declare eventBus: TypedEventBusLike;
+  declare eventBus: EventBus;
   declare appState: CinematicToggleAppState | null | undefined;
   declare logger: Logger | null | undefined;
   declare toggleElement: HTMLElement | null | undefined;

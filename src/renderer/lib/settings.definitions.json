@@ -72,7 +72,6 @@
       "type": "enum",
       "default": "webm",
       "allowedValuesSource": "TRANSCODE_CONFIG.formats",
-      "event": "settings:recording-format-changed",
       "ui": { "order": 70, "controlName": "recordingFormat", "controlId": "settingRecordingFormat", "controlType": "listbox", "label": "recording format", "title": "Recording format", "hintId": "recordingFormatHint", "hint": "Output format for video recordings.", "labelId": "recordingFormatLabel", "menuId": "recordingFormatMenu", "optionLabelFormat": "mediaFormat", "e2eToggle": false }
     },
     {

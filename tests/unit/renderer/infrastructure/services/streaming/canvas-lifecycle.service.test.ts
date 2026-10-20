@@ -1,12 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { StreamingCanvasLifecycleService } from '@renderer/infrastructure/services/streaming/canvas-lifecycle.service';
-import { EventChannels } from '@platform/events';
 import {
   createMockCanvas,
   createMockElement,
   createStreamingViewServiceMock,
   createViewportServiceMock,
-  createEventBus,
   createLoggerFactory,
 } from '../../../../../factories/index.js';
 import {
@@ -19,7 +17,6 @@ describe('StreamingCanvasLifecycleService', () => {
   let mockStreamViewService: any;
   let mockViewportService: any;
   let mockStreamingRenderService: any;
-  let mockEventBus: any;
   let mockLogger: any;
   let mockLoggerFactory: any;
   let mockCanvas: any;
@@ -66,7 +63,6 @@ describe('StreamingCanvasLifecycleService', () => {
       resetCanvasState: vi.fn().mockResolvedValue(undefined)
     };
 
-    mockEventBus = createEventBus();
     mockLoggerFactory = createLoggerFactory();
     mockLogger = mockLoggerFactory._getLogger('StreamingCanvasLifecycleService');
 
@@ -91,7 +87,6 @@ describe('StreamingCanvasLifecycleService', () => {
         streamViewService: mockStreamViewService,
         viewportService: mockViewportService,
         streamingRenderService: mockStreamingRenderService,
-        eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
       });
 
@@ -105,7 +100,6 @@ describe('StreamingCanvasLifecycleService', () => {
         streamViewService: mockStreamViewService,
         viewportService: mockViewportService,
         streamingRenderService: mockStreamingRenderService,
-        eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
       });
 
@@ -120,7 +114,6 @@ describe('StreamingCanvasLifecycleService', () => {
         streamViewService: mockStreamViewService,
         viewportService: mockViewportService,
         streamingRenderService: mockStreamingRenderService,
-        eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
       });
     });
@@ -138,7 +131,6 @@ describe('StreamingCanvasLifecycleService', () => {
         streamViewService: mockStreamViewService,
         viewportService: mockViewportService,
         streamingRenderService: mockStreamingRenderService,
-        eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
       });
     });
@@ -169,7 +161,6 @@ describe('StreamingCanvasLifecycleService', () => {
         streamViewService: mockStreamViewService,
         viewportService: mockViewportService,
         streamingRenderService: mockStreamingRenderService,
-        eventBus: mockEventBus,
         loggerFactory: mockLoggerFactory
       });
     });

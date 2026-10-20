@@ -40,9 +40,6 @@
       "@platform/devices": [
         "./src/platform/devices/index"
       ],
-      "@platform/events": [
-        "./src/platform/events/index"
-      ],
       "@platform/gpu/runtime": [
         "./src/platform/gpu/runtime"
       ],

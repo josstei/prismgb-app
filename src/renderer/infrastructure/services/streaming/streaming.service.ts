@@ -14,11 +14,9 @@
 
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import { EventChannels } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import type { EventBus } from '@renderer/lib/events/event-bus';
 import { getErrorMessage } from '@platform/core';
-import type {
-  TypedEventBusLike
-} from '@platform/events';
 import type {
   LoggerFactory
 } from '@platform/core';
@@ -85,7 +83,7 @@ export class StreamingService extends BaseService {
   constructor(
     @inject(TOKENS.rendererDeviceRuntime) private readonly rendererDeviceRuntime: RendererDeviceRuntimeLike,
     @inject(TOKENS.deviceMediaAcquirer) private readonly deviceMediaAcquirer: DeviceMediaAcquirer,
-    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
     super(loggerFactory, 'StreamingService');

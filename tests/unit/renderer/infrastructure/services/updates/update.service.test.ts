@@ -4,7 +4,7 @@ vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
 }));
 import { UpdateService } from '@renderer/infrastructure/services/updates/update.service';
 import { UpdateState } from '@platform/config';
-import { EventChannels } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { emitTrpcData, getTrpcUnsubscribe } from '../../../../../support/mocks/trpc-client.mock';
 import { createInjectableHarness } from '../../../../../support/di/injectable.harness';

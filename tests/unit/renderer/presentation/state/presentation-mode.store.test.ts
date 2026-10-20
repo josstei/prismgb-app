@@ -1,15 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { PresentationModeStore } from '../../../../../src/renderer/presentation/state/presentation-mode.store.js';
 import { signal, type Signal } from '@platform/ui-base/reactive';
-import { PlatformEventBus, EventChannels } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import { EventBus } from '@renderer/lib/events/event-bus';
 
 describe('PresentationModeStore', () => {
-  let bus: PlatformEventBus;
+  let bus: EventBus;
   let cinematicEnabled: Signal<boolean>;
   let store: PresentationModeStore;
 
   beforeEach(() => {
-    bus = new PlatformEventBus();
+    bus = new EventBus();
     cinematicEnabled = signal(false);
     store = new PresentationModeStore({ eventBus: bus, cinematicEnabled });
   });
@@ -50,9 +51,9 @@ describe('PresentationModeStore', () => {
   });
 
   it('ignores malformed payloads', () => {
-    bus.publish(EventChannels.UI.STREAMING_MODE, { enabled: 'yes' });
-    bus.publish(EventChannels.UI.FULLSCREEN_STATE, {});
-    bus.publish(EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED, 'true');
+    bus.publish(EventChannels.UI.STREAMING_MODE, { enabled: 'yes' } as never);
+    bus.publish(EventChannels.UI.FULLSCREEN_STATE, {} as never);
+    bus.publish(EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED, 'true' as never);
     expect(store.fullscreenActive.value).toBe(false);
     cinematicEnabled.value = true;
     expect(store.cinematicActive.value).toBe(false);

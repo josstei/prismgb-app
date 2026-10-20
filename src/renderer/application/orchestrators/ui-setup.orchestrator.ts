@@ -18,7 +18,7 @@ import {
 } from '@renderer/presentation/primitives/template-ref.utils';
 import { TOKENS } from '@renderer/application/di/tokens';
 import type { LoggerFactory } from '@platform/core';
-import type { TypedEventBusLike } from '@platform/events';
+import type { EventBus } from '@renderer/lib/events/event-bus';
 import type { UIController } from '@renderer/presentation/controller/ui.controller';
 import { RendererTemplateDeferredComponentIds } from '@renderer/presentation/primitives/template-dom.contract';
 import type { AppState } from '@renderer/application/state/app-state';
@@ -34,7 +34,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
   constructor(
     @inject(TOKENS.appState) private readonly appState: AppStateLike,
     @inject(TOKENS.uiController) private readonly uiController: UIController,
-    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
     @inject(TOKENS.loggerFactory) private readonly loggerFactory: LoggerFactory
   ) {
     super(loggerFactory, 'UISetupOrchestrator', eventBus);

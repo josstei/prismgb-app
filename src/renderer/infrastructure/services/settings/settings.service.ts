@@ -1,10 +1,10 @@
 import { injectable, inject } from 'inversify';
 import { BaseService, isPromiseLike } from '@platform/core';
-import { EventChannels } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import type { EventBus } from '@renderer/lib/events/event-bus';
 import { SettingsDefinitions, getStartupPreferenceEventDefinitions } from '@renderer/lib/settings.definitions';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import type { LoggerFactory, Logger, KeyValueStore } from '@platform/core';
-import type { EventPublisherLike } from '@platform/events';
 import { TOKENS } from '@renderer/application/di/tokens';
 
 type SettingDefinition = (typeof SettingsDefinitions.definitions)[number];
@@ -120,7 +120,7 @@ class SettingsService extends BaseService {
   private readonly settingDefinitionMap: Map<string, SettingDefinition>;
 
   constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: EventPublisherLike,
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory,
     @inject(TOKENS.storageService) private readonly storageService: KeyValueStore
   ) {

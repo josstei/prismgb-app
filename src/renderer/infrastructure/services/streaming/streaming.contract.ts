@@ -1,15 +1,4 @@
-import type {
-  Dimensions,
-  StreamingCapabilities
-} from '@platform/events';
-
-export type {
-  Dimensions,
-  PerformanceStatePayload,
-  StreamStartedPayload,
-  StreamingCapabilities,
-  SupportedDeviceAvailablePayload
-} from '@platform/events';
+import type { Dimensions, StreamingCapabilities } from '@renderer/lib/events/event-payloads';
 
 export type GpuRendererServiceLike = {
   isActive(): boolean;

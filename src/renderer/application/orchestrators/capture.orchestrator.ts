@@ -1,8 +1,9 @@
 import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
-import { EventChannels, OnEvent } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import { OnEvent, type EventBus } from '@renderer/lib/events/event-bus';
+import type { RecordingErrorPayload, RecordingReadyPayload } from '@renderer/lib/events/event-payloads';
 import type { LoggerFactory } from '@platform/core';
-import type { RecordingErrorPayload, RecordingReadyPayload, TypedEventBusLike } from '@platform/events';
 import { getErrorMessage } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens';
 import { isStreamingCapabilities } from '@renderer/infrastructure/services/streaming/streaming.contract';
@@ -66,7 +67,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
     @inject(TOKENS.gpuRecordingService) private readonly gpuRecordingService: GpuRecordingServiceLike,
     @inject(TOKENS.transcodeService) private readonly transcodeService: TranscodeServiceLike,
     @inject(TOKENS.captureSaveService) private readonly captureSaveService: CaptureSaveServiceLike,
-    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
     super(loggerFactory, 'CaptureOrchestrator', eventBus);

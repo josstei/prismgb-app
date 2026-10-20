@@ -1,11 +1,8 @@
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import { EventChannels, OnEvent } from '@platform/events';
-import type {
-  TypedEventBusLike,
-  UiButtonFeedbackPayload,
-  UiStreamingModePayload
-} from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import { OnEvent, type EventBus } from '@renderer/lib/events/event-bus';
+import type { UiButtonFeedbackPayload, UiStreamingModePayload } from '@renderer/lib/events/event-payloads';
 import type { LoggerFactory } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens';
 
@@ -42,7 +39,7 @@ function getBooleanPayloadValue(data: unknown, key: string): boolean | null {
 @injectable()
 export class UIEventBridge extends BaseService {
   constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
     @inject(TOKENS.uiController) private readonly uiController: UiControllerLike,
     @inject(TOKENS.presentationModeService) private readonly presentationModeService: PresentationModeServiceLike,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory

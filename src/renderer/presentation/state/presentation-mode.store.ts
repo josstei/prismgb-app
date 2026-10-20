@@ -1,6 +1,6 @@
 import { signal, computed, type ReadonlySignal } from '@platform/ui-base/reactive';
-import { EventChannels } from '@platform/events';
-import type { EventBusLike } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import type { EventBus } from '@renderer/lib/events/event-bus';
 import { ReactiveStore } from './reactive-store.base';
 
 function readBooleanField(payload: unknown, key: string): boolean | null {
@@ -10,7 +10,7 @@ function readBooleanField(payload: unknown, key: string): boolean | null {
 }
 
 export interface PresentationModeStoreDependencies {
-  eventBus: EventBusLike;
+  eventBus: EventBus;
   cinematicEnabled: ReadonlySignal<boolean>;
 }
 

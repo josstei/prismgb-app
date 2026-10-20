@@ -7,10 +7,10 @@
 
 import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
-import { EventChannels, OnEvent } from '@platform/events';
-import type { PerformanceStatePayload } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import { OnEvent, type EventBus } from '@renderer/lib/events/event-bus';
+import type { PerformanceStatePayload } from '@renderer/lib/events/event-payloads';
 import type { LoggerFactory } from '@platform/core';
-import type { EventBusLike } from '@platform/events';
 import type {
   AnimationPerformanceState,
   PerformanceAnimationService
@@ -21,7 +21,7 @@ import { TOKENS } from '@renderer/application/di/tokens';
 @injectable()
 export class PerformanceAnimationOrchestrator extends BaseOrchestrator {
   constructor(
-    @inject(TOKENS.eventBus) eventBus: EventBusLike,
+    @inject(TOKENS.eventBus) eventBus: EventBus,
     @inject(TOKENS.animationPerformanceService) private readonly animationPerformanceService: PerformanceAnimationService,
     @inject(TOKENS.bodyClassManager) private readonly bodyClassManager: BodyClassManager,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory

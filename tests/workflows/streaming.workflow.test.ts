@@ -14,7 +14,7 @@ import {
 } from '../factories/index.js';
 import { createManifestMediaEnvironment } from '../devices/media.testkit.ts';
 import type { ManifestMediaEnvironment } from '../devices/media.testkit.ts';
-import { EventChannels } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
 
 type EventBus = ReturnType<typeof createEventBus>;
 type AppState = ReturnType<typeof createAppState>;

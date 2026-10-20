@@ -1,16 +1,17 @@
 import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
-import { EventChannels, OnEvent } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import { OnEvent, type EventBus } from '@renderer/lib/events/event-bus';
 import type { LoggerFactory } from '@platform/core';
-import type { StreamErrorPayload, TypedEventBusLike } from '@platform/events';
 import { getErrorMessage } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens';
 import type {
   PerformanceStatePayload,
+  StreamErrorPayload,
   StreamStartedPayload,
   StreamingCapabilities,
   SupportedDeviceAvailablePayload
-} from '@renderer/infrastructure/services/streaming/streaming.contract';
+} from '@renderer/lib/events/event-payloads';
 import type { AppState } from '@renderer/application/state/app-state';
 
 
@@ -72,7 +73,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     @inject(TOKENS.streamingRenderService) private readonly streamingRenderService: StreamingRenderServiceLike,
     @inject(TOKENS.gpuRecordingService) private readonly gpuRecordingService: GpuRecordingServiceLike,
     @inject(TOKENS.settingsService) private readonly settingsService: SettingsServiceLike,
-    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
     super(loggerFactory, 'StreamingOrchestrator', eventBus);

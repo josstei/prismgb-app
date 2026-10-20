@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PerformanceAnimationOrchestrator } from '@renderer/application/orchestrators/performance/performance-animation.orchestrator';
-import { EventChannels } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
 import { createEventBus } from '../../../../factories/index.js';
 import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
 

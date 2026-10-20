@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { SettingsDisplayModeOrchestrator } from '@renderer/application/orchestrators/display-mode.orchestrator';
-import { EventChannels } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
 import { createSettingsServiceMock } from '../../../../factories/index.js';
 import { createInjectableHarness } from '../../../../support/di/injectable.harness';
 import { installDocumentPropertyMock } from '../../../../support/mocks/browser-api.installers.js';

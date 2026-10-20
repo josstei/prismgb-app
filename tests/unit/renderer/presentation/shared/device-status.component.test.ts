@@ -7,7 +7,7 @@ import { DeviceStatusComponent } from '@renderer/presentation/shared/device-stat
 import { DeviceStatusStore } from '@renderer/presentation/state/device-status.store.js';
 import { signal } from '@platform/ui-base/reactive';
 import { createDeviceStatusElementsMock, createEventBus } from '../../../../factories/index.js';
-import { EventChannels } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
 
 describe('DeviceStatusComponent', () => {
   let mockElements;

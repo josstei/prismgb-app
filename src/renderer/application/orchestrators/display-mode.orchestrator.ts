@@ -1,8 +1,8 @@
 import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
-import { EventChannels, OnEvent } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import { OnEvent, type EventBus } from '@renderer/lib/events/event-bus';
 import type { LoggerFactory } from '@platform/core';
-import type { EventBusLike } from '@platform/events';
 import { TOKENS } from '@renderer/application/di/tokens';
 
 type FullscreenServiceLike = {
@@ -28,7 +28,7 @@ export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
     @inject(TOKENS.fullscreenService) private readonly fullscreenService: FullscreenServiceLike,
     @inject(TOKENS.cinematicModeService) private readonly cinematicModeService: CinematicModeServiceLike,
     @inject(TOKENS.settingsService) private readonly settingsService: SettingsServiceLike,
-    @inject(TOKENS.eventBus) eventBus: EventBusLike,
+    @inject(TOKENS.eventBus) eventBus: EventBus,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
     super(loggerFactory, 'SettingsDisplayModeOrchestrator', eventBus);

@@ -40,7 +40,6 @@ export function createRendererContainer(): RendererServiceContainer {
   container.bind(TOKENS.canvasLifecycleService).toDynamicValue(() => new StreamingCanvasLifecycleService({
     streamViewService: container.get(TOKENS.streamViewService),
     viewportService: container.get(TOKENS.viewportService),
-    eventBus: container.get(TOKENS.eventBus),
     loggerFactory: container.get(TOKENS.loggerFactory),
     get streamingRenderService() {
       return container.get(TOKENS.streamingRenderService);

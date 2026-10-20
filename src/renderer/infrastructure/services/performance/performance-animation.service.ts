@@ -7,7 +7,7 @@
 
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import type { PerformanceStatePayload } from '@platform/events';
+import type { PerformanceStatePayload } from '@renderer/lib/events/event-payloads';
 import type { LoggerFactory } from '@platform/core';
 import { TOKENS } from '@renderer/application/di/tokens';
 

@@ -10,9 +10,9 @@
 
 import { injectable, inject } from 'inversify';
 import { BaseService, abortableDelay } from '@platform/core';
-import { EventChannels } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
+import type { EventBus } from '@renderer/lib/events/event-bus';
 import { getErrorMessage } from '@platform/core';
-import type { TypedEventBusLike } from '@platform/events';
 import type { LoggerFactory } from '@platform/core';
 import { computeRms, createEaseInCurve } from './audio-gain.utils';
 import { TOKENS } from '@renderer/application/di/tokens';
@@ -61,7 +61,7 @@ export class StreamingAudioPipelineService extends BaseService {
   private _startPromise: Promise<boolean> | null;
 
   constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
+    @inject(TOKENS.eventBus) private readonly eventBus: EventBus,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory,
     @inject(TOKENS.settingsService) private readonly settingsService: SettingsServiceLike
   ) {

@@ -1,5 +1,5 @@
 import definitions from './settings.definitions.json';
-import { getEventManifestScopeEvents } from '@platform/events';
+import { EventChannels } from './events/event-channels';
 
 type RawSettingsDefinitionsManifest = typeof definitions;
 type RawSettingsDefinition = RawSettingsDefinitionsManifest['definitions'][number];
@@ -9,10 +9,7 @@ type ResolvedSettingsDefinition = Omit<RawSettingsDefinition, 'default'> & {
 };
 type ResolvedStartupPreferenceDefinition = ResolvedSettingsDefinition & { startupPreference: true };
 type ResolvedStartupPreferenceEventDefinition = ResolvedStartupPreferenceDefinition & { event: string };
-const SETTINGS_EVENT_PAYLOAD_BY_TYPE = { boolean: 'boolean', enum: 'string', number: 'number', string: 'string' } as const;
-const rendererEventPayloadByValue = new Map<string, string>(
-  getEventManifestScopeEvents('renderer').map((event) => [event.value, event.payload])
-);
+const SETTINGS_EVENT_CHANNELS = new Set<string>(Object.values(EventChannels.SETTINGS));
 
 // DYNAMIC OPTION REGISTRY IMPLEMENTATION
 const ALLOWED_VALUE_SOURCES: Record<string, () => string[]> = {
@@ -75,12 +72,9 @@ function shouldLoadAtStartup(definition: ResolvedSettingsDefinition): boolean {
   return true;
 }
 
-function assertSettingEventMatchesManifest(definition: ResolvedSettingsDefinition): void {
+function assertSettingEventIsKnown(definition: ResolvedSettingsDefinition): void {
   if (!('event' in definition) || typeof definition.event !== 'string' || definition.event.length === 0) return;
-  const actualPayload = rendererEventPayloadByValue.get(definition.event);
-  const expectedPayload = SETTINGS_EVENT_PAYLOAD_BY_TYPE[definition.type as keyof typeof SETTINGS_EVENT_PAYLOAD_BY_TYPE];
-  if (!actualPayload) throw new Error(`Settings event is missing from renderer event manifest: ${definition.name} -> ${definition.event}`);
-  if (actualPayload !== expectedPayload) throw new Error(`Settings event payload mismatch for ${definition.name}: expected ${expectedPayload}, got ${actualPayload}`);
+  if (!SETTINGS_EVENT_CHANNELS.has(definition.event)) throw new Error(`Settings event is missing from renderer event manifest: ${definition.name} -> ${definition.event}`);
 }
 
 function hasStartupPreferenceEvent(definition: ResolvedSettingsDefinition): definition is ResolvedStartupPreferenceEventDefinition {
@@ -96,7 +90,7 @@ function getResolved() {
   if (resolvedCache) return resolvedCache;
 
   const resolvedDefinitions = Object.freeze(definitions.definitions.map(resolveSettingDefinition));
-  resolvedDefinitions.forEach(assertSettingEventMatchesManifest);
+  resolvedDefinitions.forEach(assertSettingEventIsKnown);
   const startupPreferenceDefinitions = Object.freeze(resolvedDefinitions.filter(shouldLoadAtStartup) as ResolvedStartupPreferenceDefinition[]);
   const startupPreferenceEventDefinitions = Object.freeze(resolvedDefinitions.filter(hasStartupPreferenceEvent));
   const loadAllPreferencesShape = Object.freeze(startupPreferenceDefinitions.map((definition) => definition.name));

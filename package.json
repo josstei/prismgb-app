@@ -64,7 +64,6 @@
     "electron-log": "^5.4.4",
     "electron-trpc": "^0.7.1",
     "electron-updater": "^6.8.9",
-    "eventemitter3": "^5.0.4",
     "ffmpeg-static": "^5.2.0",
     "ffprobe-static": "^3.1.0",
     "inversify": "^8.2.3",

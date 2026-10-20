@@ -1,4 +1,4 @@
-import { EventChannels } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
 import { TemplateActionTargets } from '@renderer/presentation/primitives/template-dom.contract.js';
 
 export const UIActionIds = {

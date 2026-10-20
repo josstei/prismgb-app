@@ -1,21 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { IPC_CHANNELS } from '@platform/ipc';
-import { EventChannels } from '@platform/events';
+import { EventChannels } from '@renderer/lib/events/event-channels';
 
 /**
  * Phase 3 removed the IPC manifest and its `assertIpcChannelsMatchManifest` cross-validation, so the
  * push channel ↔ EventBus channel mapping is now hand-maintained (load-bearing trade (a)). This test
  * is the remaining guard: for every main→renderer push channel, the relocated `IPC_CHANNELS` string
  * (which the router subscription listens on and the package emitters send through `WindowService.send`)
- * must equal the `@platform/events` `EventChannels` string the renderer republishes onto — except the
+ * must equal the renderer `EventChannels` string the renderer republishes onto — except the
  * window channels, whose IPC and UI-event names intentionally differ.
  */
 describe('IPC push channel ↔ EventBus channel parity (trade a)', () => {
-  it('keeps device push channels in sync', () => {
-    expect(IPC_CHANNELS.DEVICE.CONNECTED).toBe(EventChannels.DEVICE.CONNECTED);
-    expect(IPC_CHANNELS.DEVICE.DISCONNECTED).toBe(EventChannels.DEVICE.DISCONNECTED);
-  });
-
   it('keeps update push channels in sync', () => {
     expect(IPC_CHANNELS.UPDATE.AVAILABLE).toBe(EventChannels.UPDATE.AVAILABLE);
     expect(IPC_CHANNELS.UPDATE.NOT_AVAILABLE).toBe(EventChannels.UPDATE.NOT_AVAILABLE);

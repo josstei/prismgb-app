@@ -9,7 +9,7 @@ import {
   ShaderSliderControlsComponent,
   type ShaderSliderSettingsService
 } from './shader-slider-controls.component';
-import type { TypedEventBusLike } from '@platform/events';
+import type { EventBus } from '@renderer/lib/events/event-bus';
 import type { Logger } from '@platform/core';
 
 export interface ShaderSelectorElements {
@@ -30,7 +30,7 @@ export interface ShaderSelectorElements {
 export interface ShaderSelectorComponentOptions {
   settingsService: ShaderSelectorSettingsService;
   appState?: CinematicToggleAppState | null;
-  eventBus: TypedEventBusLike;
+  eventBus: EventBus;
   logger?: Logger | null;
 }
 
@@ -41,7 +41,7 @@ export interface ShaderSelectorSettingsService
 class ShaderSelectorComponent extends PresentationComponent {
   declare settingsService: ShaderSelectorSettingsService;
   declare appState: CinematicToggleAppState | null | undefined;
-  declare eventBus: TypedEventBusLike;
+  declare eventBus: EventBus;
   declare logger: Logger | null | undefined;
   declare isVisible: boolean;
   declare _panelDisclosure: DisclosureController | null;

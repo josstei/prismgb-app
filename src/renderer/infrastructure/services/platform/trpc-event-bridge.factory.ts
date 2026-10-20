@@ -2,9 +2,7 @@
  * Groups a set of tRPC push subscriptions into a single disposable. Each starter opens one
  * `trpcClient.<namespace>.<subscription>.subscribe(...)` and returns its handle; {@link
  * TrpcEventBridge.dispose} tears them all down in reverse order, isolating errors so one failing
- * unsubscribe cannot strand the rest. This replaces the retired manifest-driven preload bridge —
- * renderer services now consume typed tRPC subscriptions directly and republish through
- * `@platform/events`, supplying their own ordered set of starters.
+ * unsubscribe cannot strand the rest.
  */
 
 interface TrpcEventBridgeLogger {

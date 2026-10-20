@@ -6,7 +6,7 @@
 
 import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
-import type { MemorySnapshotRequestPayload } from '@platform/events';
+import type { MemorySnapshotRequestPayload } from '@renderer/lib/events/event-payloads';
 import type { LoggerFactory } from '@platform/core';
 import type { ProcessMetricPayload, ProcessMetricsPayload } from '@platform/ipc';
 import type { CallIpcResult } from '@renderer/infrastructure/ipc/call-ipc';
