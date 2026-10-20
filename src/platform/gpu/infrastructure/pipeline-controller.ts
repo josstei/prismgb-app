@@ -18,7 +18,6 @@ export interface PipelineState {
   readonly nativeHeight: number;
   readonly outputWidth: number;
   readonly outputHeight: number;
-  readonly preset: RenderPreset;
   readonly uniforms: PipelineUniforms;
   readonly isActive: boolean;
   deactivate(): void;
@@ -52,8 +51,8 @@ export class PipelineController implements RenderPipeline, PipelineState {
   readonly nativeHeight: number;
   outputWidth: number;
   outputHeight: number;
-  preset: RenderPreset;
   uniforms: PipelineUniforms;
+  private preset: RenderPreset;
 
   private brightness = 1.0;
   private _isInitialized = false;
