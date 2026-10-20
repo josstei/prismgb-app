@@ -10,7 +10,6 @@ import fs from 'node:fs';
 import os from 'node:os';
 import nodeModule from 'node:module';
 import { BaseService, type LoggerFactory, getElectronApp } from '@platform/core';
-import type { EventBusLike } from '@platform/events';
 import { IPC_CHANNELS } from '@platform/ipc';
 import { TRANSCODE_CONFIG, TranscodeState } from './transcode.config';
 import { validateFfmpegBinaries } from './ffmpeg-path.utils';
@@ -80,7 +79,6 @@ interface TranscodeServiceDependencies {
   windowService: {
     send: (channel: string, data: unknown) => void;
   };
-  eventBus: EventBusLike;
   loggerFactory: LoggerFactory;
 }
 

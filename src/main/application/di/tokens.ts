@@ -1,17 +1,16 @@
 import type { ServiceIdentifier } from 'inversify';
-import type { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
-import type { PlatformEventBus } from '@platform/events';
-import type { WindowService } from '@main/infrastructure/window/window.service.js';
+import type { MainLogger } from '@main/infrastructure/logging/logger.factory';
+import type { WindowService } from '@main/infrastructure/window/window.service';
 import type { DeviceConnectionService } from '@platform/devices/runtime';
-import type { TrayService } from '@main/infrastructure/tray/tray.service.js';
-import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
-import type { IpcPushBridge } from '@main/ipc/ipc-push.bridge.js';
-import type { MainProcessTestControl } from '@main/ipc/test-control.port.js';
-import type { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
+import type { TrayService } from '@main/infrastructure/tray/tray.service';
+import type { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry';
+import type { IpcPushBridge } from '@main/ipc/ipc-push.bridge';
+import type { MainProcessTestControl } from '@main/ipc/test-control.port';
+import type { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service';
 import type { UpdateService } from '@platform/updates';
 import type { TranscodeService } from '@platform/transcode/service';
-import type { LoginItemService } from '@main/infrastructure/window/login-item.service.js';
-import type { AppOrchestrator } from '../app.orchestrator.js';
+import type { LoginItemService } from '@main/infrastructure/window/login-item.service';
+import type { AppOrchestrator } from '../app.orchestrator';
 
 /**
  * Shape of the pre-seeded application config value registered as the `config` token.
@@ -29,7 +28,6 @@ function token<T>(name: string): ServiceIdentifier<T> {
 export const TOKENS = {
   config: token<MainAppConfig>('config'),
   loggerFactory: token<MainLogger>('loggerFactory'),
-  eventBus: token<PlatformEventBus>('eventBus'),
   windowService: token<WindowService>('windowService'),
   deviceConnectionService: token<DeviceConnectionService>('deviceConnectionService'),
   trayService: token<TrayService>('trayService'),

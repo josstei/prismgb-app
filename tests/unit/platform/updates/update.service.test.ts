@@ -7,7 +7,7 @@ import { UpdateService } from '@platform/updates';
 import { UpdateState } from '@platform/config';
 import type { Logger } from '@platform/core';
 import type { ProgressInfo, UpdateInfo } from 'electron-updater';
-import { createEventBus, createLoggerFactory, createUpdateConfigMock, createWindowServiceMock } from '../../../factories/index.js';
+import { createLoggerFactory, createUpdateConfigMock, createWindowServiceMock } from '../../../factories/index.js';
 
 vi.mock('electron', () => ({
   app: {
@@ -71,7 +71,6 @@ function createAutoUpdaterCheckResult(version: string): NonNullable<AutoUpdaterC
 describe('UpdateService', () => {
   let service: TestableUpdateService;
   let mockWindowService: MockWindowService;
-  let mockEventBus: ReturnType<typeof createEventBus>;
   let mockLogger: Logger;
   let mockLoggerFactory: MockLoggerFactory;
   let mockConfig: UpdateConfigMock;
@@ -82,8 +81,6 @@ describe('UpdateService', () => {
 
     mockWindowService = createWindowServiceMock({ send: vi.fn() });
 
-    mockEventBus = createEventBus();
-
     mockConfig = createUpdateConfigMock();
 
     service = createService();
@@ -93,7 +90,6 @@ describe('UpdateService', () => {
   function createService(): TestableUpdateService {
     return new UpdateService({
       windowService: mockWindowService,
-      eventBus: mockEventBus,
       loggerFactory: mockLoggerFactory,
       config: mockConfig
     }) as unknown as TestableUpdateService;
@@ -549,20 +545,6 @@ describe('UpdateService', () => {
       await service.dispose();
 
       expect(() => service.installUpdate()).toThrow('UpdateService not initialized');
-    });
-  });
-
-  describe('_setState', () => {
-    it('should publish state-changed event via EventBus', () => {
-      service._setState(UpdateState.CHECKING);
-
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        'update:state-changed',
-        {
-          oldState: UpdateState.IDLE,
-          newState: UpdateState.CHECKING
-        }
-      );
     });
   });
 

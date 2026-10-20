@@ -21,11 +21,6 @@ export type DeviceConnectionReason =
   | 'tray-refresh'
   | 'manual-refresh';
 
-export interface DeviceConnectionCheckError {
-  reason: DeviceConnectionReason;
-  error: string;
-}
-
 export interface DeviceConnectionDependencies {
   loggerFactory: LoggerFactory;
   usbMonitor?: UsbMonitor;
@@ -33,7 +28,6 @@ export interface DeviceConnectionDependencies {
 }
 
 export type DeviceStatusListener = (status: DeviceStatus, reason: DeviceConnectionReason) => void;
-export type DeviceCheckErrorListener = (error: DeviceConnectionCheckError) => void;
 export type DeviceConnectionUnsubscribe = () => void;
 
 function createInitialStatus(now: () => number): DeviceStatus {
@@ -91,7 +85,6 @@ export class DeviceConnectionService extends BaseService {
   private initializationLock: Promise<void> | null = null;
   private reconcileLock: Promise<DeviceStatus> | null = null;
   private readonly statusListeners = new Set<DeviceStatusListener>();
-  private readonly checkErrorListeners = new Set<DeviceCheckErrorListener>();
 
   constructor(dependencies: DeviceConnectionDependencies) {
     super(dependencies.loggerFactory, 'DeviceConnectionService');
@@ -156,18 +149,10 @@ export class DeviceConnectionService extends BaseService {
     };
   }
 
-  onCheckError(listener: DeviceCheckErrorListener): DeviceConnectionUnsubscribe {
-    this.checkErrorListeners.add(listener);
-    return () => {
-      this.checkErrorListeners.delete(listener);
-    };
-  }
-
   override async dispose(): Promise<void> {
     this.usbMonitor.unregisterLifecycleListeners();
     this.usbMonitor.stopMonitoring();
     this.statusListeners.clear();
-    this.checkErrorListeners.clear();
     await super.dispose();
   }
 
@@ -189,7 +174,6 @@ export class DeviceConnectionService extends BaseService {
         updatedAt: this.now()
       };
       this.commitStatus(nextStatus, reason);
-      this.emitCheckError({ reason, error: message });
       return this.status;
     }
 
@@ -239,16 +223,6 @@ export class DeviceConnectionService extends BaseService {
         listener(status, reason);
       } catch (error) {
         this.logger.error('Device status listener failed', error);
-      }
-    }
-  }
-
-  private emitCheckError(error: DeviceConnectionCheckError): void {
-    for (const listener of this.checkErrorListeners) {
-      try {
-        listener(error);
-      } catch (listenerError) {
-        this.logger.error('Device check-error listener failed', listenerError);
       }
     }
   }

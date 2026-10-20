@@ -2,14 +2,12 @@ import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import { appConfig } from '@platform/config';
 import { IPC_CHANNELS } from '@platform/ipc';
-import { MainEventChannels } from '@platform/events';
 import { DeviceCatalog, toDeviceInfoPayload, type DeviceStatus } from '@platform/devices';
 import type {
   DeviceConnectionReason,
   DeviceConnectionService
 } from '@platform/devices/runtime';
 import type { LoggerFactory } from '@platform/core';
-import type { PlatformEventBus } from '@platform/events';
 import type { TrayService } from '@main/infrastructure/tray/tray.service';
 import type { WindowService } from '@main/infrastructure/window/window.service';
 import { TOKENS } from '@main/application/di/tokens';
@@ -19,13 +17,11 @@ const WINDOW_LAUNCH_LIFECYCLE = Symbol('deviceIntegrationWindowLaunch');
 @injectable()
 export class DeviceIntegrationService extends BaseService {
   private unsubscribeStatus: (() => void) | null = null;
-  private unsubscribeCheckError: (() => void) | null = null;
 
   constructor(
     @inject(TOKENS.deviceConnectionService) private readonly deviceConnectionService: DeviceConnectionService,
     @inject(TOKENS.trayService) private readonly trayService: TrayService,
     @inject(TOKENS.windowService) private readonly windowService: WindowService,
-    @inject(TOKENS.eventBus) private readonly eventBus: PlatformEventBus,
     @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactory
   ) {
     super(loggerFactory, 'DeviceIntegrationService');
@@ -39,21 +35,15 @@ export class DeviceIntegrationService extends BaseService {
     this.unsubscribeStatus = this.deviceConnectionService.onStatusChanged(
       (status, reason) => this.handleStatusChanged(status, reason)
     );
-    this.unsubscribeCheckError = this.deviceConnectionService.onCheckError((error) => {
-      this.eventBus.publish(MainEventChannels.DEVICE.CHECK_ERROR, error);
-    });
   }
 
   override async dispose(): Promise<void> {
     this.unsubscribeStatus?.();
     this.unsubscribeStatus = null;
-    this.unsubscribeCheckError?.();
-    this.unsubscribeCheckError = null;
     await super.dispose();
   }
 
   private handleStatusChanged(status: DeviceStatus, reason: DeviceConnectionReason): void {
-    this.eventBus.publish(MainEventChannels.DEVICE.CONNECTION_CHANGED, status);
     this.trayService.updateTrayMenu();
 
     if (status.connected && status.device) {
