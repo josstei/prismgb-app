@@ -63,17 +63,19 @@ export interface NotesPanelComponentOptions {
 }
 
 class NotesPanelComponent extends PresentationComponent {
-  declare notesService: NotesServiceLike | null;
-  declare eventBus: NotesEventBusLike | null;
-  declare logger: LoggerLike | null | undefined;
-  declare isVisible: boolean;
-  declare currentNoteId: string | null;
-  declare elements: NotesPanelElements | null;
+  notesService: NotesServiceLike | null;
+  eventBus: NotesEventBusLike | null;
+  logger: LoggerLike | null | undefined;
+  isVisible: boolean;
+  currentNoteId: string | null;
+  elements: NotesPanelElements | null;
   children: NotesPanelChildren | null = null;
 
   constructor(options: NotesPanelComponentOptions) {
     super();
-    this.applyOptions<NotesPanelComponentOptions>({}, options);
+    this.notesService = options.notesService;
+    this.eventBus = options.eventBus;
+    this.logger = options.logger;
     this.isVisible = false;
     this.currentNoteId = null;
     this.elements = null;
@@ -83,12 +85,12 @@ class NotesPanelComponent extends PresentationComponent {
     void this.cancelManaged(NOTES_PANEL_SUBCOMPONENT_LIFECYCLE);
     const children: NotesPanelChildren = {
       listView: new NotesListViewComponent({ notesService: this.notesService!, logger: this.logger }),
-      editorView: new NotesEditorViewComponent({ logger: this.logger }),
+      editorView: new NotesEditorViewComponent(),
       searchComponent: new NotesSearchComponent({ logger: this.logger }),
       gameFilter: new GameFilterComponent({ notesService: this.notesService!, logger: this.logger }),
       gameAutocomplete: new GameAutocompleteComponent({ notesService: this.notesService!, logger: this.logger }),
       resizeHandler: new NotesResizeHandlerComponent({ logger: this.logger }),
-      layout: new NotesPanelLayoutComponent({ logger: this.logger })
+      layout: new NotesPanelLayoutComponent()
     };
     this.children = children;
     this.replaceManaged(NOTES_PANEL_SUBCOMPONENT_LIFECYCLE, async () => {
@@ -275,8 +277,6 @@ class NotesPanelComponent extends PresentationComponent {
 
   _showGameInput(): void {
     this.children!.editorView.showGameInput();
-    this.children!.gameAutocomplete.focus();
-    this.children!.gameAutocomplete.select();
   }
 
   _handleAutocompleteSelect(_value: string): void {

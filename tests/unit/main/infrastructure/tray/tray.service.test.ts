@@ -55,9 +55,7 @@ type MockTrayInstance = {
   on: MockFn;
   destroy: MockFn;
 };
-type MockWindowService = ReturnType<typeof createWindowServiceMock> & {
-  showWindow: MockFn;
-};
+type MockWindowService = ReturnType<typeof createWindowServiceMock>;
 type MockDeviceConnectionService = {
   isConnected: MockFn;
   reconcileDeviceStatus: MockFn;
@@ -99,11 +97,7 @@ describe('TrayService', () => {
       windowService: mockWindowService,
       deviceConnectionService: mockDeviceConnectionService,
       loggerFactory: mockLoggerFactory
-    } = h.deps as {
-      windowService: MockWindowService;
-      deviceConnectionService: MockDeviceConnectionService;
-      loggerFactory: MockLoggerFactory;
-    });
+    } = h.deps);
   });
 
   afterEach(() => { vi.unstubAllEnvs(); Object.defineProperty(app, 'isPackaged', { value: false, configurable: true }); });

@@ -107,3 +107,46 @@ Shader body/layout tests pass; Canvas rendering and visibility behavior passed t
 Electron pixel checks. Retained compatibility includes the preload adapter,
 electron-trpc patch/boxed booleans, ARM AppImage library handling, macOS naming patch,
 FFmpeg location fallbacks and Canvas2D fallback.
+
+## Follow-up cleanup audit, 2026-10-25
+
+A second pass traced production consumers, test-only APIs, fixture machinery and
+packaging inputs against the prior PR head, `c10ab70`. It removed ten unconsumed
+events, the entire development memory-metrics request/timer chain, unused GPU frame
+telemetry, the renderer event-bus forwarding subclass, and test-only inspection APIs.
+Error logging, async event settlement, frame backpressure and capture drain remain.
+
+The remaining dynamic `applyOptions` helper and 26 calls were replaced with typed
+constructor/DOM assignments. Other removals include the unused `window.__app` global,
+WebKit AudioContext and old test-environment observer fallbacks, duplicate Vite asset
+declarations, notes cache validity duplication, impossible missing-storage handling,
+and mock histories already provided by Vitest. Fixed application defaults no longer
+pass through a duplicated runtime schema. Stored settings and tolerant notes loading
+retain their existing codecs and behavior.
+
+Tooling now uses Electron Builder's architecture enum, omits retired coverage options
+and obsolete installer exclusions under `dist`, and uses a smaller generated-output
+cleanup command that reports deletion failures. No tracked build/report artifacts
+were found. Generated reports, fixtures and validation build outputs were cleared
+after verification. Current preload/tRPC, FFmpeg, ARM AppImage, macOS naming, native
+USB loading and Canvas fallback compatibility remain in place.
+
+| Measurement | Prior PR head | After cleanup |
+| --- | ---: | ---: |
+| Production source lines, same extensions as above | 29,083 | 27,911 |
+| Test-support and factory lines | 4,631 | 3,940 |
+| Renderer entry JavaScript | 396,512 bytes | 389,690 bytes |
+| Main JavaScript | 227,348 bytes | 220,407 bytes |
+| Defined renderer events | 73 | 63 |
+
+The complete unit/integration suite passes **1,928 tests across 158 files**. The
+smaller test count reflects removed APIs and tests of mock/assignment machinery;
+behavioral coverage remains, including notes write rollback and shutdown, event
+cleanup/drain, media fallback, and widget keyboard/focus behavior. All **92 Electron
+E2E tests** pass with fullscreen enabled and no retries. Application/test types,
+architecture lint, generated-path freshness, full/production Knip, production build,
+real development startup, native USB loading/enumeration and Linux packaged startup
+with renderer readiness/disposal also pass. The package again used the installed
+Electron distribution with `npmRebuild=false`; normal packaging settings still
+rebuild native dependencies. Hardware and other-platform limitations above still
+apply. Bundle sizes are measured; no additional runtime-speed claim is made.

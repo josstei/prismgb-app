@@ -21,7 +21,7 @@ export interface FfmpegEnvironment {
 /**
  * Binary paths for FFmpeg components
  */
-export interface FfmpegBinaryPaths {
+interface FfmpegBinaryPaths {
   ffmpegPath: string;
   ffprobePath: string | null;
 }

@@ -20,7 +20,6 @@ describe('AppOrchestrator', () => {
   let mockUpdateService;
   let mockUpdateUiService;
   let mockUISetupOrchestrator;
-  let mockPerformanceMetricsOrchestrator;
   let mockPerformanceStateOrchestrator;
   let mockEventBus;
   let mockLogger;
@@ -32,7 +31,6 @@ describe('AppOrchestrator', () => {
       streamingAudioOrchestrator: serviceMocks.createOrchestratorMock(),
       captureOrchestrator: serviceMocks.createOrchestratorMock(),
       displayModeOrchestrator: serviceMocks.createOrchestratorMock(),
-      performanceMetricsOrchestrator: serviceMocks.createOrchestratorMock(),
       performanceStateOrchestrator: serviceMocks.createOrchestratorMock(),
       eventBus: serviceMocks.createEventBus(),
       loggerFactory: serviceMocks.createLoggerFactory(),
@@ -53,7 +51,6 @@ describe('AppOrchestrator', () => {
       updateService: mockUpdateService,
       updateUiService: mockUpdateUiService,
       uiSetupOrchestrator: mockUISetupOrchestrator,
-      performanceMetricsOrchestrator: mockPerformanceMetricsOrchestrator,
       performanceStateOrchestrator: mockPerformanceStateOrchestrator,
       eventBus: mockEventBus
     } = h.deps);
@@ -98,7 +95,6 @@ describe('AppOrchestrator', () => {
       expect(mockUpdateService.initialize).toHaveBeenCalled();
       expect(mockUpdateUiService.initialize).toHaveBeenCalled();
       expect(mockPerformanceStateOrchestrator.initialize).toHaveBeenCalled();
-      expect(mockPerformanceMetricsOrchestrator.initialize).toHaveBeenCalled();
       expect(mockUISetupOrchestrator.initialize).toHaveBeenCalled();
     });
   });
@@ -158,7 +154,6 @@ describe('AppOrchestrator', () => {
       await orchestrator.onCleanup();
 
       expect(mockUISetupOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockPerformanceMetricsOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockPerformanceStateOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockSettingsDisplayModeOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockStreamingAudioOrchestrator.cleanup).toHaveBeenCalled();

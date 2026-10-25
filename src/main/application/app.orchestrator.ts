@@ -7,10 +7,9 @@ import { app } from 'electron';
 import fs from 'fs';
 import path from 'path';
 
-import { BaseOrchestrator } from '@platform/core';
+import { BaseOrchestrator, type LoggerFactoryLike } from '@platform/core';
 import { disposeInOrder } from '@platform/core';
 
-import type { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
 import type { WindowService } from '@main/infrastructure/window/window.service.js';
 import type { DeviceConnectionService } from '@platform/devices/runtime';
 import type { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
@@ -38,7 +37,7 @@ type AppOrchestratorDependencies = {
   updateService: UpdateService;
   transcodeService: TranscodeService;
   loginItemService: LoginItemService;
-  loggerFactory: MainLogger;
+  loggerFactory: LoggerFactoryLike;
 };
 
 export class AppOrchestrator extends BaseOrchestrator {

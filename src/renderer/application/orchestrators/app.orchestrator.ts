@@ -36,7 +36,6 @@ type AppOrchestratorDependencies = {
   updateService: UpdateServiceLike;
   updateUiService: UpdateUiServiceLike;
   uiSetupOrchestrator: UISetupOrchestratorLike;
-  performanceMetricsOrchestrator: LifecycleOrchestrator;
   performanceStateOrchestrator: LifecycleOrchestrator;
   eventBus: EventBusLike;
   loggerFactory: LoggerFactoryLike;
@@ -53,10 +52,9 @@ export class AppOrchestrator extends BaseOrchestrator {
   private readonly updateService: UpdateServiceLike;
   private readonly updateUiService: UpdateUiServiceLike;
   private readonly uiSetupOrchestrator: UISetupOrchestratorLike;
-  private readonly performanceMetricsOrchestrator: LifecycleOrchestrator;
   private readonly performanceStateOrchestrator: LifecycleOrchestrator;
 
-  constructor({ rendererDeviceRuntime, streamingOrchestrator, streamingAudioOrchestrator, captureOrchestrator, displayModeOrchestrator, settingsService, updateService, updateUiService, uiSetupOrchestrator, performanceMetricsOrchestrator, performanceStateOrchestrator, eventBus, loggerFactory }: AppOrchestratorDependencies) {
+  constructor({ rendererDeviceRuntime, streamingOrchestrator, streamingAudioOrchestrator, captureOrchestrator, displayModeOrchestrator, settingsService, updateService, updateUiService, uiSetupOrchestrator, performanceStateOrchestrator, eventBus, loggerFactory }: AppOrchestratorDependencies) {
     super({ loggerFactory, eventBus }, 'AppOrchestrator');
     this.eventBus = eventBus;
     this.rendererDeviceRuntime = rendererDeviceRuntime;
@@ -68,7 +66,6 @@ export class AppOrchestrator extends BaseOrchestrator {
     this.updateService = updateService;
     this.updateUiService = updateUiService;
     this.uiSetupOrchestrator = uiSetupOrchestrator;
-    this.performanceMetricsOrchestrator = performanceMetricsOrchestrator;
     this.performanceStateOrchestrator = performanceStateOrchestrator;
   }
 
@@ -81,7 +78,6 @@ export class AppOrchestrator extends BaseOrchestrator {
 
     // Initialize application orchestrators
     await this.performanceStateOrchestrator.initialize();
-    await this.performanceMetricsOrchestrator.initialize();
     await this.displayModeOrchestrator.initialize();
     await this.settingsService.initialize();
     await this.updateService.initialize();
@@ -121,9 +117,6 @@ export class AppOrchestrator extends BaseOrchestrator {
 
     this.logger.info('Device ' + (connected ? 'CONNECTED' : 'DISCONNECTED'));
 
-    // AppState derives device connection from RendererDeviceRuntime.
-    // No need to manually update appState.setDeviceConnected() anymore
-
     // Update UI via events
     if (connected) {
       this.eventBus.publish(EventChannels.UI.DEVICE_STATUS, { status });
@@ -143,7 +136,6 @@ export class AppOrchestrator extends BaseOrchestrator {
     // Cleanup all sub-orchestrators (continue even if one fails)
     const orchestrators: Array<[string, LifecycleOrchestrator]> = [
       ['uiSetupOrchestrator', this.uiSetupOrchestrator],
-      ['performanceMetricsOrchestrator', this.performanceMetricsOrchestrator],
       ['performanceStateOrchestrator', this.performanceStateOrchestrator],
       ['displayModeOrchestrator', this.displayModeOrchestrator],
       ['captureOrchestrator', this.captureOrchestrator],

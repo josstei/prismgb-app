@@ -20,14 +20,12 @@ export type DeviceConnectionReason =
   | 'tray-refresh'
   | 'manual-refresh';
 
-export interface DeviceConnectionDependencies {
+interface DeviceConnectionDependencies {
   loggerFactory: LoggerFactoryLike;
   usbMonitor?: UsbMonitor;
   now?: () => number;
 }
-
-export type DeviceStatusListener = (status: DeviceStatus, reason: DeviceConnectionReason) => void;
-export type DeviceConnectionUnsubscribe = () => void;
+type DeviceStatusListener = (status: DeviceStatus, reason: DeviceConnectionReason) => void;
 
 function createInitialStatus(now: () => number): DeviceStatus {
   return {
@@ -141,7 +139,7 @@ export class DeviceConnectionService extends BaseService {
     return this.status.connected;
   }
 
-  onStatusChanged(listener: DeviceStatusListener): DeviceConnectionUnsubscribe {
+  onStatusChanged(listener: DeviceStatusListener): () => void {
     this.statusListeners.add(listener);
     return () => {
       this.statusListeners.delete(listener);
@@ -225,7 +223,4 @@ export class DeviceConnectionService extends BaseService {
       }
     }
   }
-
 }
-
-export type { DeviceStatus };

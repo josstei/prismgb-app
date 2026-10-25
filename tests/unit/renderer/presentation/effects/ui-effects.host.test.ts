@@ -35,7 +35,6 @@ vi.mock('@renderer/presentation/effects/toolbar-auto-hide.effect.ts', () => ({
     this.disable = vi.fn();
     this.show = vi.fn();
     this.hide = vi.fn();
-    this.invalidatePanelCache = vi.fn();
     this.dispose = vi.fn();
     this.isEnabled = false;
     this.isHovering = false;
@@ -143,12 +142,6 @@ describe('UIEffects', () => {
 
     expect(controlsInstance.enable).toHaveBeenCalledWith(controls);
     expect(controlsInstance.disable).toHaveBeenCalled();
-  });
-
-  it('invalidates toolbar panel cache', () => {
-    effects.invalidateToolbarPanelCache();
-
-    expect(toolbarInstance.invalidatePanelCache).toHaveBeenCalled();
   });
 
   it('enables unified timer controller on construction', () => {

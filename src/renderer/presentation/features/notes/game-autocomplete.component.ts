@@ -27,20 +27,21 @@ export interface GameAutocompleteInitializeOptions {
 }
 
 class GameAutocompleteComponent extends PresentationComponent {
-  declare notesService: NotesGameServiceLike | null;
-  declare logger: LoggerLike | null | undefined;
-  declare gameInput: HTMLInputElement | null | undefined;
-  declare autocompleteDropdown: HTMLElement | null | undefined;
-  declare comboboxController: ComboboxListboxController<string> | null;
-  declare onInput: AutocompleteCallback | null | undefined;
-  declare onSelect: AutocompleteSelectCallback | null | undefined;
-  declare onEnter: AutocompleteCallback | null | undefined;
-  declare onEscape: AutocompleteCallback | null | undefined;
-  declare onBlur: AutocompleteCallback | null | undefined;
+  notesService: NotesGameServiceLike | null;
+  logger: LoggerLike | null | undefined;
+  gameInput: HTMLInputElement | null | undefined;
+  autocompleteDropdown: HTMLElement | null | undefined;
+  comboboxController: ComboboxListboxController<string> | null;
+  onInput: AutocompleteCallback | null | undefined;
+  onSelect: AutocompleteSelectCallback | null | undefined;
+  onEnter: AutocompleteCallback | null | undefined;
+  onEscape: AutocompleteCallback | null | undefined;
+  onBlur: AutocompleteCallback | null | undefined;
 
   constructor(options: GameAutocompleteComponentOptions) {
     super();
-    this.applyOptions<GameAutocompleteComponentOptions>({}, options);
+    this.notesService = options.notesService;
+    this.logger = options.logger;
     this.gameInput = null;
     this.autocompleteDropdown = null;
     this.comboboxController = null;
@@ -49,7 +50,13 @@ class GameAutocompleteComponent extends PresentationComponent {
   initialize(options: GameAutocompleteInitializeOptions): void {
     void this.comboboxController?.dispose();
     this.comboboxController = null;
-    this.applyOptions<GameAutocompleteInitializeOptions>({}, options);
+    this.gameInput = options.gameInput;
+    this.autocompleteDropdown = options.autocompleteDropdown;
+    this.onInput = options.onInput;
+    this.onSelect = options.onSelect;
+    this.onEnter = options.onEnter;
+    this.onEscape = options.onEscape;
+    this.onBlur = options.onBlur;
 
     if (!this.gameInput || !this.autocompleteDropdown) {
       this.logger?.warn('Game autocomplete elements not found');
@@ -77,53 +84,6 @@ class GameAutocompleteComponent extends PresentationComponent {
       inputElement: this.gameInput,
       listboxElement: this.autocompleteDropdown
     });
-  }
-
-  getValue(): string {
-    return this.comboboxController?.getValue() || this.gameInput?.value || '';
-  }
-
-  setValue(value: string | null | undefined): void {
-    if (this.comboboxController) {
-      this.comboboxController.setValue(value);
-      return;
-    }
-
-    if (this.gameInput) {
-      this.gameInput.value = value ?? '';
-    }
-  }
-
-  show(): void {
-    this.comboboxController?.show();
-  }
-
-  hide(): void {
-    this.comboboxController?.hide();
-  }
-
-  isVisible(): boolean {
-    return this.comboboxController?.isVisible() || false;
-  }
-
-  getHighlightedIndex(): number {
-    return this.comboboxController?.getHighlightedIndex() ?? -1;
-  }
-
-  focus(): void {
-    if (this.comboboxController) {
-      this.comboboxController.focus();
-      return;
-    }
-    this.gameInput?.focus();
-  }
-
-  select(): void {
-    if (this.comboboxController) {
-      this.comboboxController.select();
-      return;
-    }
-    this.gameInput?.select();
   }
 
   _getMatchingGames(query: string): string[] {

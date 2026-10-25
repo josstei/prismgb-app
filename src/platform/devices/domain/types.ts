@@ -144,13 +144,3 @@ export interface DeviceMatch {
 
 export type DeviceInfo = DeviceInfoPayload;
 export type DeviceStatus = DeviceStatusPayload & { updatedAt: number };
-
-export interface DeviceCatalogApi {
-  all(): readonly DeviceDescriptor[];
-  enabled(): readonly DeviceDescriptor[];
-  get(id: DeviceId): DeviceDescriptor | null;
-  default(): DeviceDescriptor;
-  nativeResolution(id?: DeviceId): DeviceNativeResolution;
-  streamProfile(id?: DeviceId): DeviceStreamProfile;
-  acquisitionProfile(id?: DeviceId): DeviceAcquisitionProfile;
-}

@@ -75,12 +75,11 @@ describe('PerformanceStateOrchestrator', () => {
     expect(mockPerformanceStateService.setStreaming).toHaveBeenCalledWith(false);
   });
 
-  it('should publish state and UI mode changes when state updates', async () => {
+  it('should publish state changes when state updates', async () => {
     await coordinator.initialize();
 
     const state = {
       performanceModeEnabled: true,
-      weakGpuDetected: false,
       hidden: false,
       idle: false,
       reducedMotion: false
@@ -89,10 +88,6 @@ describe('PerformanceStateOrchestrator', () => {
     onStateChange(state);
 
     expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.PERFORMANCE.STATE_CHANGED, state);
-    expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.PERFORMANCE.UI_MODE_CHANGED, {
-      enabled: true,
-      weakGpuDetected: false
-    });
   });
 
   it('should dispose performance state service on cleanup', async () => {

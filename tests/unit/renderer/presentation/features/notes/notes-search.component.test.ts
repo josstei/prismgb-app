@@ -24,7 +24,6 @@ describe('NotesSearchComponent', () => {
 
   describe('constructor', () => {
     it('should create component with default state', () => {
-      expect(component.currentQuery).toBe('');
       expect(component.searchInput).toBeNull();
     });
   });
@@ -82,28 +81,6 @@ describe('NotesSearchComponent', () => {
     });
   });
 
-  describe('clear', () => {
-    it('should clear input value and current query', () => {
-      const searchInput = document.createElement('input');
-      searchInput.value = 'test';
-      component.initialize({ searchInput, onSearch: vi.fn() });
-      component.currentQuery = 'test';
-
-      component.clear();
-
-      expect(searchInput.value).toBe('');
-      expect(component.currentQuery).toBe('');
-    });
-
-    it('should clear current query when search input is null', () => {
-      component.currentQuery = 'test';
-
-      component.clear();
-
-      expect(component.currentQuery).toBe('');
-    });
-  });
-
   describe('search debouncing', () => {
     it('should call onSearch after debounce delay', () => {
       const searchInput = document.createElement('input');
@@ -142,18 +119,6 @@ describe('NotesSearchComponent', () => {
 
       expect(onSearch).toHaveBeenCalledTimes(1);
       expect(onSearch).toHaveBeenCalledWith('hel');
-    });
-
-    it('should update currentQuery on search', () => {
-      const searchInput = document.createElement('input');
-      const onSearch = vi.fn();
-      component.initialize({ searchInput, onSearch });
-
-      searchInput.value = 'test';
-      searchInput.dispatchEvent(new Event('input'));
-      vi.advanceTimersByTime(200);
-
-      expect(component.currentQuery).toBe('test');
     });
 
     it('should handle missing onSearch callback', () => {
@@ -198,7 +163,6 @@ describe('NotesSearchComponent', () => {
       expect(component.searchInput).toBeNull();
       expect(component.onSearch).toBeNull();
       expect(component.logger).toBeNull();
-      expect(component.currentQuery).toBe('');
     });
   });
 });

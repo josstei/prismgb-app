@@ -1,58 +1,43 @@
-import type { RenderCapabilities, WebGPULimits } from '../domain/types';
+import type { RenderCapabilities } from '../domain/types';
 
-async function detectWebGPU(): Promise<{ supported: boolean; limits?: WebGPULimits }> {
+async function detectWebGPU(): Promise<boolean> {
   if (typeof navigator === 'undefined' || !navigator.gpu) {
-    return { supported: false };
+    return false;
   }
 
   try {
     const adapter = await navigator.gpu.requestAdapter();
     if (!adapter) {
-      return { supported: false };
+      return false;
     }
 
     const device = await adapter.requestDevice();
-    const limits: WebGPULimits = {
-      maxTextureDimension2D: device.limits.maxTextureDimension2D,
-      maxBindGroups: device.limits.maxBindGroups
-    };
-
     device.destroy();
-    return { supported: true, limits };
+    return true;
   } catch {
-    return { supported: false };
+    return false;
   }
 }
 
-function detectOffscreenCanvas(): { supported: boolean; transferSupported: boolean } {
-  const supported = typeof OffscreenCanvas !== 'undefined';
-  let transferSupported = false;
-
-  if (supported && typeof document !== 'undefined') {
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.transferControlToOffscreen();
-      transferSupported = true;
-    } catch {
-      transferSupported = false;
-    }
+function canTransferCanvas(): boolean {
+  if (typeof OffscreenCanvas === 'undefined' || typeof document === 'undefined') return false;
+  try {
+    document.createElement('canvas').transferControlToOffscreen();
+    return true;
+  } catch {
+    return false;
   }
-
-  return { supported, transferSupported };
 }
 
 export async function detectBrowserGpuCapabilities(): Promise<RenderCapabilities> {
-  const [webgpuResult, offscreenResult] = await Promise.all([
+  const [webgpu, transferControlToOffscreen] = await Promise.all([
     detectWebGPU(),
-    Promise.resolve(detectOffscreenCanvas())
+    Promise.resolve(canTransferCanvas())
   ]);
 
   return {
-    webgpu: webgpuResult.supported,
-    offscreenCanvas: offscreenResult.supported,
-    transferControlToOffscreen: offscreenResult.transferSupported,
-    preferredBackend: webgpuResult.supported ? 'webgpu' : 'canvas2d',
-    maxTextureSize: webgpuResult.limits?.maxTextureDimension2D ?? 4096,
-    webgpuLimits: webgpuResult.limits
+    webgpu,
+    transferControlToOffscreen,
+    preferredBackend: webgpu ? 'webgpu' : 'canvas2d'
   };
 }

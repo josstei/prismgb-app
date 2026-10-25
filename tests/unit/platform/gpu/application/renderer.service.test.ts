@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createGpuRenderer } from '../../../../../src/platform/gpu/application/renderer.service';
 import { createMockCanvas, createRenderCapabilitiesFixture } from '@platform/gpu/testkit';
 
@@ -15,12 +15,6 @@ function createCanvas2DRenderFixture() {
 }
 
 describe('renderer service', () => {
-  beforeEach(() => {
-    vi.stubGlobal('performance', {
-      now: vi.fn(() => 0)
-    });
-  });
-
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -34,7 +28,6 @@ describe('renderer service', () => {
       preferredBackend: 'canvas2d',
       capabilities: createRenderCapabilitiesFixture({
         webgpu: false,
-        offscreenCanvas: false,
         transferControlToOffscreen: false,
         preferredBackend: 'canvas2d'
       })
@@ -44,7 +37,7 @@ describe('renderer service', () => {
       alpha: false,
       desynchronized: true
     });
-    expect(renderer.isInitialized).toBe(true);
+    expect(renderer.isActive).toBe(true);
 
     await renderer.dispose();
   });
@@ -57,14 +50,12 @@ describe('renderer service', () => {
       nativeHeight: 144,
       capabilities: createRenderCapabilitiesFixture({
         webgpu: false,
-        offscreenCanvas: false,
         transferControlToOffscreen: false,
         preferredBackend: 'canvas2d'
       })
     });
 
-    expect(renderer.isInitialized).toBe(true);
-    expect(renderer.backend).toBe('canvas2d');
+    expect(renderer.isActive).toBe(true);
     expect(canvas.getContext).toHaveBeenCalledWith('2d', {
       alpha: false,
       desynchronized: true
@@ -83,7 +74,6 @@ describe('renderer service', () => {
       allowCanvas2D: false,
       capabilities: createRenderCapabilitiesFixture({
         webgpu: false,
-        offscreenCanvas: false,
         transferControlToOffscreen: false,
         preferredBackend: 'webgpu'
       })
@@ -119,7 +109,7 @@ describe('renderer service', () => {
       alpha: false,
       desynchronized: true
     });
-    expect(renderer.isInitialized).toBe(true);
+    expect(renderer.isActive).toBe(true);
 
     await renderer.dispose();
   });

@@ -88,8 +88,8 @@ describe('Capture Workflow Integration', () => {
       const screenshotEvent = eventBus._getLastEventOfType(
         EventChannels.CAPTURE.SCREENSHOT_READY
       );
-      expect(screenshotEvent.data.filename).toMatch(/^prismgb-screenshot/);
-      expect(screenshotEvent.data.blob).toBeInstanceOf(Blob);
+      expect(screenshotEvent?.data.filename).toMatch(/^prismgb-screenshot/);
+      expect(screenshotEvent?.data.blob).toBeInstanceOf(Blob);
     });
 
     it('should not trigger screenshot when not streaming', () => {

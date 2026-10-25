@@ -30,11 +30,12 @@ describe('Renderer runtime ownership', () => {
 
   it('preserves core/deferred startup, releases subscriptions, and creates a fresh graph', async () => {
     const first = runtime(); live.push(first.runtime);
-    expect(first.runtime.uiComponentHost.resolvedIds()).toEqual([]);
+    const resolve = vi.spyOn(first.runtime.uiComponentHost, 'get');
+    expect(resolve).not.toHaveBeenCalled();
     await Promise.all([first.runtime.initialize(), first.runtime.initialize()]);
-    expect(first.runtime.uiComponentHost.resolvedIds()).toEqual(RendererTemplateCoreComponentIds);
+    expect(resolve.mock.calls.map(([id]) => id)).toEqual(RendererTemplateCoreComponentIds);
     await first.runtime.start();
-    expect(first.runtime.uiComponentHost.resolvedIds()).toEqual(expect.arrayContaining([...RendererTemplateDeferredComponentIds]));
+    expect(resolve.mock.calls.map(([id]) => id)).toEqual(expect.arrayContaining([...RendererTemplateDeferredComponentIds]));
     await Promise.all([first.runtime.dispose(), first.runtime.dispose()]);
     expect(first.unsubscribe).toHaveBeenCalledTimes(2);
     expect(first.runtime.eventBus.emitter.eventNames()).toEqual([]);
@@ -50,7 +51,7 @@ describe('Renderer runtime ownership', () => {
     vi.spyOn(UIEventBridge.prototype, 'initialize').mockImplementationOnce(() => { throw failure; });
     const value = runtime().runtime; live.push(value);
     await expect(value.initialize()).rejects.toBe(failure);
-    expect(value.uiComponentHost.resolvedIds()).toEqual([]);
+    expect(() => value.uiComponentHost.get('deviceStatusComponent')).toThrow('UI component host has been disposed');
     expect(value.eventBus.emitter.eventNames()).toEqual([]);
     await value.dispose();
   });
@@ -63,7 +64,7 @@ describe('Renderer runtime ownership', () => {
     const value = runtime().runtime; live.push(value);
     await value.initialize();
     await expect(value.start()).rejects.toThrow('notes mount failed');
-    expect(value.uiComponentHost.resolvedIds()).toEqual([]);
+    expect(() => value.uiComponentHost.get('notesPanelComponent')).toThrow('UI component host has been disposed');
     expect(value.eventBus.emitter.eventNames()).toEqual([]);
     await value.dispose();
   });

@@ -42,14 +42,16 @@ export interface StreamingControlsComponentOptions {
 }
 
 class StreamingControlsComponent extends PresentationComponent {
-  declare elements: StreamingControlsElements | null;
-  declare bodyClassManager: StreamingControlsBodyClassManager | null;
-  declare store: StreamInfoStore;
-  declare _targetStreamingMode: boolean | null;
+  elements: StreamingControlsElements | null;
+  bodyClassManager: StreamingControlsBodyClassManager | null;
+  store: StreamInfoStore;
+  _targetStreamingMode: boolean | null;
 
   constructor(options: StreamingControlsComponentOptions) {
     super();
-    this.applyOptions<StreamingControlsComponentOptions>({ bodyClassManager: null }, options);
+    this.elements = options.elements;
+    this.bodyClassManager = options.bodyClassManager ?? null;
+    this.store = options.store;
     this._targetStreamingMode = null;
 
     this.track(this.store);

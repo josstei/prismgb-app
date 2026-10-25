@@ -1,19 +1,10 @@
 /**
  * Performance Factory
  *
- * Creates mock performance adapters, states, and metrics services for testing.
- * Extracted from tests/factories/index.js as part of the factory-split refactor.
+ * Creates mock performance state adapters and services for testing.
  */
 
 import { vi } from 'vitest';
-
-export function createPerformanceMetricsAdapterMock(overrides = {}) {
-  return {
-    isAvailable: vi.fn(() => false),
-    getProcessMetrics: vi.fn(),
-    ...overrides
-  };
-}
 
 export function createVisibilityAdapterMock(overrides = {}) {
   let callbackRef = null;
@@ -82,45 +73,4 @@ export function createPerformanceStateServiceMock(overrides = {}) {
     dispose: vi.fn(),
     ...overrides
   });
-}
-
-/**
- * @typedef {import('@renderer/infrastructure/services/performance/performance-metrics.service').PerformanceMetricsService} PerformanceMetricsService
- */
-
-/**
- * Creates a mock PerformanceMetricsService.
- *
- * @param {Partial<import('vitest').Mocked<PerformanceMetricsService>>} [overrides={}] - Mock overrides.
- * @returns {import('vitest').Mocked<PerformanceMetricsService>} A strongly-typed mock PerformanceMetricsService.
- */
-export function createPerformanceMetricsServiceMock(overrides = {}) {
-  return /** @type {any} */ ({
-    requestSnapshot: vi.fn(),
-    startPeriodicSnapshots: vi.fn(),
-    stopPeriodicSnapshots: vi.fn(),
-    clearPendingRequests: vi.fn(),
-    ...overrides
-  });
-}
-
-export function createProcessMetricsMock(overrides = {}) {
-  return {
-    timestamp: 0,
-    totalKB: 0,
-    totalMB: '0.0',
-    processCount: 1,
-    processes: [
-      {
-        type: 'Renderer',
-        pid: 0,
-        memoryKB: 0,
-        memoryMB: '0.0',
-        peakMemoryKB: 0,
-        peakMemoryMB: '0.0',
-        cpuPercent: 0
-      }
-    ],
-    ...overrides
-  };
 }

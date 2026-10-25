@@ -100,11 +100,6 @@ if (document.readyState === 'loading') {
 // Cleanup on window unload (once: true since it only fires once per page)
 window.addEventListener('beforeunload', cleanup, { once: true });
 
-// Expose app for debugging in development only
-if (import.meta.env.DEV) {
-  window.__app = () => app;
-}
-
 // Dev-only: Handle Vite connection loss/recovery during sleep/wake
 if (import.meta.hot) {
   let connectionLost = false;

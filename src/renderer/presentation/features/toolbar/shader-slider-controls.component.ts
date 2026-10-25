@@ -25,17 +25,17 @@ export interface ShaderSliderControlsElements {
 }
 
 class ShaderSliderControlsComponent extends PresentationComponent {
-  declare settingsService: ShaderSliderSettingsService;
-  declare eventBus: TypedEventBusLike;
-  declare logger: LoggerLike | null | undefined;
-  declare brightnessSlider: HTMLInputElement | null | undefined;
-  declare brightnessPercentage: HTMLElement | null | undefined;
-  declare brightnessControl: HTMLElement | null | undefined;
-  declare volumeSlider: HTMLInputElement | null | undefined;
-  declare volumePercentage: HTMLElement | null | undefined;
-  declare streamVideo: HTMLVideoElement | null | undefined;
-  declare currentBrightness: number;
-  declare currentVolume: number;
+  settingsService: ShaderSliderSettingsService;
+  eventBus: TypedEventBusLike;
+  logger: LoggerLike | null | undefined;
+  brightnessSlider: HTMLInputElement | null | undefined;
+  brightnessPercentage: HTMLElement | null | undefined;
+  brightnessControl: HTMLElement | null | undefined;
+  volumeSlider: HTMLInputElement | null | undefined;
+  volumePercentage: HTMLElement | null | undefined;
+  streamVideo: HTMLVideoElement | null | undefined;
+  currentBrightness: number;
+  currentVolume: number;
 
   private readonly _brightnessPercent = signal(50);
   private readonly _volumePercent = signal(70);
@@ -44,7 +44,9 @@ class ShaderSliderControlsComponent extends PresentationComponent {
   constructor(options: ShaderSliderControlsComponentOptions) {
     super();
 
-    this.applyOptions<ShaderSliderControlsComponentOptions>({}, options);
+    this.settingsService = options.settingsService;
+    this.eventBus = options.eventBus;
+    this.logger = options.logger;
 
     this.brightnessSlider = null;
     this.brightnessPercentage = null;
@@ -59,7 +61,12 @@ class ShaderSliderControlsComponent extends PresentationComponent {
 
   initialize(options: ShaderSliderControlsElements): void {
     void this.dispose();
-    this.applyOptions<ShaderSliderControlsElements>({}, options);
+    this.brightnessSlider = options.brightnessSlider;
+    this.brightnessPercentage = options.brightnessPercentage;
+    this.brightnessControl = options.brightnessControl;
+    this.volumeSlider = options.volumeSlider;
+    this.volumePercentage = options.volumePercentage;
+    this.streamVideo = options.streamVideo;
 
     if (!this.brightnessSlider && !this.volumeSlider) {
       this.logger?.warn('Shader slider elements not found');

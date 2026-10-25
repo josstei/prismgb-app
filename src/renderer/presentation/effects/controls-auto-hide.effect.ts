@@ -121,10 +121,6 @@ export class ControlsAutoHide extends PresentationComponent {
     this._activityController.startTimer();
   }
 
-  _clearHideTimer() {
-    this._activityController.clearTimer();
-  }
-
   _hide() {
     if (this._element) {
       this._element.classList.add(CSSClasses.FULLSCREEN_HEADER_HIDDEN);

@@ -733,7 +733,6 @@ export function createUiComponentHostMock(overrides = {}) {
   const host = {
     get: getWithDefaults,
     touchCore,
-    resolvedIds: vi.fn(() => Object.keys(componentMap)),
     dispose,
     _components: componentMap,
     _setComponent: (id, component) => {

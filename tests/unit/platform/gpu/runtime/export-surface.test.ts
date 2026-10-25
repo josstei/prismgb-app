@@ -3,10 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('../../../../../src/platform/gpu/infrastructure/capabilities.browser', () => ({
   detectBrowserGpuCapabilities: vi.fn(async () => ({
     webgpu: true,
-    offscreenCanvas: true,
     transferControlToOffscreen: true,
-    preferredBackend: 'webgpu',
-    maxTextureSize: 4096
+    preferredBackend: 'webgpu'
   }))
 }));
 

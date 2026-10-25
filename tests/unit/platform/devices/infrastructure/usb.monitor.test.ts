@@ -1,12 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import {
-  createNodeUsbMonitor,
-  toUsbDevice
-} from '../../../../../src/platform/devices/infrastructure/usb.monitor.js';
-import type {
-  UsbModule,
-  UsbModuleLoader
-} from '../../../../../src/platform/devices/infrastructure/usb.monitor.js';
+import { createNodeUsbMonitor } from '../../../../../src/platform/devices/infrastructure/usb.monitor.js';
+import type { UsbModule } from '../../../../../src/platform/devices/infrastructure/usb.monitor.js';
 import { CHROMATIC_DESCRIPTOR } from '../../../../devices/media.testkit';
 
 const chromaticUsb = CHROMATIC_DESCRIPTOR.usb;
@@ -53,7 +47,10 @@ function createUsbModule() {
 
 describe('usb.monitor', () => {
   it('maps node-usb descriptors to app USB device info', () => {
-    expect(toUsbDevice(makeNodeUsbDevice() as never)).toEqual({
+    const usb = createUsbModule();
+    usb.getDeviceList.mockReturnValue([makeNodeUsbDevice()]);
+    const monitor = createNodeUsbMonitor({ loadUsbModule: () => usb as unknown as UsbModule });
+    expect(monitor.find()).toEqual([{
       locationId: 4,
       vendorId: chromaticUsb.vendorId,
       productId: chromaticUsb.productId,
@@ -61,7 +58,7 @@ describe('usb.monitor', () => {
       deviceAddress: 12,
       deviceClass: chromaticUsb.deviceClass,
       busNumber: 4
-    });
+    }]);
   });
 
   it('enumerates devices through the injected node-usb implementation', () => {
@@ -85,8 +82,7 @@ describe('usb.monitor', () => {
     const onRemove = vi.fn();
 
     monitor.startMonitoring();
-    monitor.on('add', onAdd);
-    monitor.on('remove', onRemove);
+    monitor.registerLifecycleListeners(onAdd, onRemove);
 
     usb.emit('attach', makeNodeUsbDevice());
     usb.emit('detach', makeNodeUsbDevice({ deviceAddress: 13 }));
@@ -101,7 +97,7 @@ describe('usb.monitor', () => {
     const monitor = createNodeUsbMonitor({ loadUsbModule: () => usb as unknown as UsbModule });
     const onAdd = vi.fn();
 
-    monitor.on('add', onAdd);
+    monitor.registerLifecycleListeners(onAdd, vi.fn());
     monitor.stopMonitoring();
     usb.emit('attach', makeNodeUsbDevice());
 
@@ -114,7 +110,7 @@ describe('usb.monitor', () => {
     const onAdd = vi.fn();
 
     monitor.startMonitoring();
-    monitor.on('add', onAdd);
+    monitor.registerLifecycleListeners(onAdd, vi.fn());
 
     expect(monitor.find()).toEqual([]);
     expect(onAdd).not.toHaveBeenCalled();
@@ -122,11 +118,34 @@ describe('usb.monitor', () => {
   });
 
   it('returns a no-op monitor when the loader throws', () => {
-    const loader: UsbModuleLoader = () => {
+    const loader = () => {
       throw new Error('native load failed');
     };
     const monitor = createNodeUsbMonitor({ loadUsbModule: loader });
 
     expect(monitor.find()).toEqual([]);
+  });
+
+  it('replaces lifecycle listeners without duplicating hotplug events', () => {
+    const usb = createUsbModule();
+    const monitor = createNodeUsbMonitor({ loadUsbModule: () => usb as unknown as UsbModule });
+    const oldAdd = vi.fn();
+    const oldRemove = vi.fn();
+    const onAdd = vi.fn();
+    const onRemove = vi.fn();
+    monitor.registerLifecycleListeners(oldAdd, oldRemove);
+    monitor.registerLifecycleListeners(onAdd, onRemove);
+    usb.emit('attach');
+    usb.emit('detach');
+    expect(oldAdd).not.toHaveBeenCalled();
+    expect(oldRemove).not.toHaveBeenCalled();
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(onRemove).toHaveBeenCalledTimes(1);
+    monitor.unregisterLifecycleListeners();
+    monitor.unregisterLifecycleListeners();
+    usb.emit('attach');
+    usb.emit('detach');
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(onRemove).toHaveBeenCalledTimes(1);
   });
 });

@@ -4,9 +4,9 @@ import type { SettingsAccess } from '@renderer/lib/settings.definitions';
 import { createEventBus, createLoggerFactory } from '../../../../../factories/index.js';
 const { createSession, detect } = vi.hoisted(() => ({ createSession: vi.fn(), detect: vi.fn() }));
 vi.mock('@platform/gpu/runtime', () => ({ createGpuVideoRendererSession: createSession, detectBrowserGpuCapabilities: detect }));
-const capabilities = { webgpu: true, offscreenCanvas: true, transferControlToOffscreen: true, preferredBackend: 'webgpu', maxTextureSize: 4096 };
+const capabilities = { webgpu: true, transferControlToOffscreen: true, preferredBackend: 'webgpu' };
 function session(backend = 'webgpu') {
-  return { backend, isActive: true, isCanvasTransferred: backend === 'webgpu', renderFrame: vi.fn(async () => {}), resize: vi.fn(), setPreset: vi.fn(), setBrightness: vi.fn(), captureFrame: vi.fn(), getTargetDimensions: vi.fn(() => ({ width: 640, height: 576 })), terminate: vi.fn(), dispose: vi.fn() };
+  return { backend, isActive: true, isCanvasTransferred: backend === 'webgpu', renderFrame: vi.fn(async () => {}), resize: vi.fn(), setPreset: vi.fn(), setBrightness: vi.fn(), captureFrame: vi.fn(), getTargetDimensions: vi.fn(() => ({ width: 640, height: 576 })), terminate: vi.fn() };
 }
 function fixture() {
   const appState = { isStreaming: true };
@@ -41,23 +41,25 @@ describe('renderer session ownership', () => {
   });
   it('uses Canvas2D when GPU unavailable and recreates canvas before restarting', async () => {
     detect.mockResolvedValueOnce({ ...capabilities, webgpu: false });
-    const { service, begin, lifecycle, eventBus } = fixture();
+    const { service, begin, lifecycle } = fixture();
     await begin();
-    expect(eventBus.publish).toHaveBeenCalledWith('render:pipeline-ready', { backend: 'canvas2d' });
+    expect(createSession).toHaveBeenCalledWith(expect.objectContaining({ preferredBackend: 'canvas2d' }));
+    expect(service.isActive()).toBe(true);
     await service.stopPipeline();
     expect(lifecycle.recreateCanvas).toHaveBeenCalledTimes(1);
     expect(service.isActive()).toBe(false);
   });
   it('retries failed transferred-canvas initialization with a fresh Canvas2D canvas', async () => {
     createSession.mockRejectedValueOnce(new Error('worker init failed'));
-    const { service, begin, lifecycle, canvas, eventBus } = fixture();
+    const { service, begin, lifecycle, canvas, video } = fixture();
     const original = canvas();
     await begin();
     expect(lifecycle.recreateCanvas).toHaveBeenCalledTimes(1);
     expect(createSession.mock.calls[0][0].canvas).toBe(original);
     expect(createSession.mock.calls[1][0].canvas).not.toBe(original);
     expect(createSession.mock.calls[1][0].preferredBackend).toBe('canvas2d');
-    expect(eventBus.publish).toHaveBeenCalledWith('render:pipeline-ready', { backend: 'canvas2d' });
+    expect(service.isActive()).toBe(true);
+    expect(video.requestVideoFrameCallback).toHaveBeenCalledTimes(1);
     await service.cleanup();
   });
   it('preserves desired preset and brightness across performance transitions', async () => {

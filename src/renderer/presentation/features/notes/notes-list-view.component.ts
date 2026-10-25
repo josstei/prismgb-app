@@ -19,17 +19,18 @@ export interface NotesListViewInitializeOptions {
 }
 
 class NotesListViewComponent extends PresentationComponent {
-  declare notesService: NotesListServiceLike | null;
-  declare logger: LoggerLike | null | undefined;
-  declare currentNoteId: string | null;
-  declare currentGameFilter: string;
-  declare collapsedGameGroups: Set<string>;
-  declare listElement: HTMLElement | null | undefined;
-  declare onNoteSelect: ((noteId: string) => void) | null | undefined;
+  notesService: NotesListServiceLike | null;
+  logger: LoggerLike | null | undefined;
+  currentNoteId: string | null;
+  currentGameFilter: string;
+  collapsedGameGroups: Set<string>;
+  listElement: HTMLElement | null | undefined;
+  onNoteSelect: ((noteId: string) => void) | null | undefined;
 
   constructor(options: NotesListViewComponentOptions) {
     super();
-    this.applyOptions<NotesListViewComponentOptions>({}, options);
+    this.notesService = options.notesService;
+    this.logger = options.logger;
     this.currentNoteId = null;
     this.currentGameFilter = '';
     this.collapsedGameGroups = new Set();
@@ -38,7 +39,8 @@ class NotesListViewComponent extends PresentationComponent {
 
   initialize(options: NotesListViewInitializeOptions): void {
     this.cancelManaged(LIST_SETUP_LIFECYCLE);
-    this.applyOptions<NotesListViewInitializeOptions>({}, options);
+    this.listElement = options.listElement;
+    this.onNoteSelect = options.onNoteSelect;
 
     if (!this.listElement) {
       this.logger?.warn('List element not found');

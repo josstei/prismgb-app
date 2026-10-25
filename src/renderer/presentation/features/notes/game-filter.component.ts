@@ -20,19 +20,20 @@ export interface GameFilterInitializeOptions {
 }
 
 class GameFilterComponent extends PresentationComponent {
-  declare notesService: NotesGameServiceLike | null;
-  declare logger: LoggerLike | null | undefined;
-  declare currentGameFilter: string;
-  declare isGameFilterOpen: boolean;
-  declare _filterDropdown: ListboxDropdownController | null;
-  declare filterButton: HTMLElement | null | undefined;
-  declare filterLabel: HTMLElement | null | undefined;
-  declare filterMenu: HTMLElement | null | undefined;
-  declare onFilterChange: ((value: string, label: string) => void) | null | undefined;
+  notesService: NotesGameServiceLike | null;
+  logger: LoggerLike | null | undefined;
+  currentGameFilter: string;
+  isGameFilterOpen: boolean;
+  _filterDropdown: ListboxDropdownController | null;
+  filterButton: HTMLElement | null | undefined;
+  filterLabel: HTMLElement | null | undefined;
+  filterMenu: HTMLElement | null | undefined;
+  onFilterChange: ((value: string, label: string) => void) | null | undefined;
 
   constructor(options: GameFilterComponentOptions) {
     super();
-    this.applyOptions<GameFilterComponentOptions>({}, options);
+    this.notesService = options.notesService;
+    this.logger = options.logger;
     this.currentGameFilter = '';
     this.isGameFilterOpen = false;
     this._filterDropdown = null;
@@ -44,7 +45,10 @@ class GameFilterComponent extends PresentationComponent {
   initialize(options: GameFilterInitializeOptions): void {
     this.cancelManaged(FILTER_SETUP_LIFECYCLE);
     this.isGameFilterOpen = false;
-    this.applyOptions<GameFilterInitializeOptions>({}, options);
+    this.filterButton = options.filterButton;
+    this.filterLabel = options.filterLabel;
+    this.filterMenu = options.filterMenu;
+    this.onFilterChange = options.onFilterChange;
 
     if (!this.filterButton || !this.filterMenu) {
       this.logger?.warn('Game filter elements not found');
@@ -153,14 +157,6 @@ class GameFilterComponent extends PresentationComponent {
     this._updateGameFilterLabel(label);
     this._updateGameFilterActiveState();
     this.onFilterChange?.(nextValue, label);
-  }
-
-  _toggleGameFilterMenu(): void {
-    this._filterDropdown?.toggle();
-  }
-
-  _showGameFilterMenu(): void {
-    this._filterDropdown?.show();
   }
 
   _hideGameFilterMenu(): void {

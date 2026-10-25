@@ -44,7 +44,6 @@ function createContext(overrides: Partial<Record<string, unknown>> = {}) {
       cancel: vi.fn(),
     },
     loginItemService: { isEnabled: vi.fn(() => true), setEnabled: vi.fn() },
-    app: { getAppMetrics: vi.fn(() => []) },
     shell: { openExternal: vi.fn(async () => undefined) },
     logger,
     ipcPushBridge: new IpcPushBridge(),
@@ -269,39 +268,6 @@ describe('appRouter — queries / mutations', () => {
     await expect(caller(context).window.isFullScreen()).rejects.toMatchObject({
       code: 'INTERNAL_SERVER_ERROR',
       message: 'query exploded'
-    });
-  });
-
-  it('performance.getProcessMetrics returns the payload-only metrics snapshot', async () => {
-    const context = createContext({
-      app: {
-        getAppMetrics: vi.fn(() => [
-          { type: 'Renderer', pid: 1, memory: { workingSetSize: 2048, peakWorkingSetSize: 4096 }, cpu: { percentCPUUsage: 5 } }
-        ])
-      }
-    });
-
-    const result = await caller(context).performance.getProcessMetrics();
-    expect(result).toMatchObject({
-      totalKB: 2048,
-      processCount: 1,
-      processes: [{ type: 'Renderer', pid: 1, memoryKB: 2048 }]
-    });
-    expect(result).not.toHaveProperty('success');
-  });
-
-  it('performance.getProcessMetrics rethrows a thrown handler error', async () => {
-    const context = createContext({
-      app: {
-        getAppMetrics: vi.fn(() => {
-          throw new Error('metrics exploded');
-        })
-      }
-    });
-
-    await expect(caller(context).performance.getProcessMetrics()).rejects.toMatchObject({
-      code: 'INTERNAL_SERVER_ERROR',
-      message: 'metrics exploded'
     });
   });
 

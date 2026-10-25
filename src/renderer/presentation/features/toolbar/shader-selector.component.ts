@@ -34,27 +34,24 @@ export interface ShaderSelectorComponentOptions {
   logger?: LoggerLike | null;
 }
 
-export interface ShaderSelectorSettingsService
+interface ShaderSelectorSettingsService
   extends ShaderPresetSettingsService,
     ShaderSliderSettingsService {}
 
 class ShaderSelectorComponent extends PresentationComponent {
-  declare settingsService: ShaderSelectorSettingsService;
-  declare appState: CinematicToggleAppState | null | undefined;
-  declare eventBus: TypedEventBusLike;
-  declare logger: LoggerLike | null | undefined;
-  declare isVisible: boolean;
-  declare _panelDisclosure: DisclosureController | null;
-  declare _presetList: ShaderPresetListComponent;
-  declare _sliderControls: ShaderSliderControlsComponent;
-  declare _cinematicToggle: CinematicToggleComponent;
-  declare button: HTMLElement | null | undefined;
-  declare dropdown: HTMLElement | null | undefined;
+  logger: LoggerLike | null | undefined;
+  isVisible: boolean;
+  _panelDisclosure: DisclosureController | null;
+  _presetList: ShaderPresetListComponent;
+  _sliderControls: ShaderSliderControlsComponent;
+  _cinematicToggle: CinematicToggleComponent;
+  button: HTMLElement | null | undefined;
+  dropdown: HTMLElement | null | undefined;
 
   constructor(options: ShaderSelectorComponentOptions) {
     super();
 
-    this.applyOptions<ShaderSelectorComponentOptions>({}, options);
+    this.logger = options.logger;
     this.isVisible = false;
 
     const { settingsService, appState, eventBus, logger } = options;

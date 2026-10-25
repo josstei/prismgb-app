@@ -124,20 +124,7 @@
       "releaseType": "draft"
     },
     "files": [
-      "dist/**/*",
-      "!dist/*-unpacked/**/*",
-      "!dist/*.AppImage",
-      "!dist/*.deb",
-      "!dist/*.tar.gz",
-      "!dist/*.dmg",
-      "!dist/*.exe",
-      "!dist/*.msi",
-      "!dist/*.pkg",
-      "!dist/*.zip",
-      "!dist/*.snap",
-      "!dist/*.blockmap",
-      "!dist/latest-*.yml",
-      "!dist/builder-debug.yml"
+      "dist/**/*"
     ],
     "asarUnpack": [
       "node_modules/ffmpeg-static/**/*",

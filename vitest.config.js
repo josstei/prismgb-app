@@ -22,24 +22,10 @@ const baseCoverageConfig = {
   provider: 'v8',
   reporter: ['text', 'json', 'json-summary', 'html'],
   reportsDirectory: './artifacts/coverage',
-  all: true,
   include: ['src/**/*.{js,ts}'],
   exclude: [
-    'node_modules/**',
-    'dist/**',
-    '**/*.test.{js,ts}',
-    '**/*.spec.{js,ts}',
     '**/index.{js,ts}',
-    // Auto-update feature requires Electron autoUpdater API
-    'src/renderer/infrastructure/services/updates/**',
-    // UI templates use Vite ?raw imports for SVGs not available in vitest
-    'src/renderer/presentation/shell/*.{js,ts}',
-    'src/renderer/presentation/icons/*.{js,ts}',
-    'src/renderer/presentation/features/**/*.template.{js,ts}',
-    // Type declaration files
-    'src/**/*.d.ts',
-    // JSON configuration files
-    '**/*.json'
+    'src/**/*.d.ts'
   ]
 };
 

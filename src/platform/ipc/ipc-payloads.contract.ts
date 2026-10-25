@@ -33,21 +33,3 @@ export interface TranscodeStartOptions {
 export interface TranscodeStartPayload {
   jobId: string;
 }
-
-export interface ProcessMetricPayload {
-  type: string;
-  pid: number;
-  memoryKB: number;
-  memoryMB: string;
-  peakMemoryKB: number;
-  peakMemoryMB: string;
-  cpuPercent: number;
-}
-
-export interface ProcessMetricsPayload {
-  timestamp: number;
-  totalKB: number;
-  totalMB: string;
-  processCount: number;
-  processes: ProcessMetricPayload[];
-}

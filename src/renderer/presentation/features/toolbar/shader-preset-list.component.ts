@@ -24,19 +24,21 @@ export interface ShaderPresetListElements {
 }
 
 class ShaderPresetListComponent extends PresentationComponent {
-  declare settingsService: ShaderPresetSettingsService;
-  declare eventBus: TypedEventBusLike;
-  declare logger: LoggerLike | null | undefined;
-  declare optionsContainer: HTMLElement | null | undefined;
-  declare unavailableMessage: HTMLElement | null | undefined;
-  declare currentPresetId: string | null;
+  settingsService: ShaderPresetSettingsService;
+  eventBus: TypedEventBusLike;
+  logger: LoggerLike | null | undefined;
+  optionsContainer: HTMLElement | null | undefined;
+  unavailableMessage: HTMLElement | null | undefined;
+  currentPresetId: string | null;
 
   private readonly _performanceModeEnabled = signal(false);
 
   constructor(options: ShaderPresetListComponentOptions) {
     super();
 
-    this.applyOptions<ShaderPresetListComponentOptions>({}, options);
+    this.settingsService = options.settingsService;
+    this.eventBus = options.eventBus;
+    this.logger = options.logger;
 
     this.optionsContainer = null;
     this.unavailableMessage = null;
@@ -46,7 +48,8 @@ class ShaderPresetListComponent extends PresentationComponent {
 
   initialize(options: ShaderPresetListElements): void {
     void this.dispose();
-    this.applyOptions<ShaderPresetListElements>({}, options);
+    this.optionsContainer = options.optionsContainer;
+    this.unavailableMessage = options.unavailableMessage;
 
     if (!this.optionsContainer || !this.unavailableMessage) {
       this.logger?.warn('Shader preset list elements not found');

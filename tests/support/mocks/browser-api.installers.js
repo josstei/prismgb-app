@@ -27,7 +27,6 @@ export {
   installDocumentPropertyMock,
   installDocumentCreateElementMock,
   installFullscreenDocumentMock,
-  installMissingMutationObserverMock,
   installResizeObserverMock,
   installDevicePixelRatioMock,
 } from './installers/dom-window.installer.js';

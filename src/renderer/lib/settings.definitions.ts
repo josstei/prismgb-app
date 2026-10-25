@@ -154,7 +154,6 @@ const definitions = [
     storageKey: 'recordingFormat',
     type: 'enum',
     default: 'webm',
-    event: EventChannels.SETTINGS.RECORDING_FORMAT_CHANGED,
     ui: {
       order: 70,
       controlName: 'recordingFormat',

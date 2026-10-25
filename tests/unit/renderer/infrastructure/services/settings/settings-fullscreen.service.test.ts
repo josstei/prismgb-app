@@ -210,24 +210,6 @@ describe('SettingsFullscreenService', () => {
     });
   });
 
-  describe('exitFullscreen', () => {
-    it('should do nothing if not in fullscreen', () => {
-      service._isFullscreenActive = false;
-
-      service.exitFullscreen();
-
-      expect(trpcClient.window.setFullScreen.mutate).not.toHaveBeenCalled();
-    });
-
-    it('should release fullscreen when currently fullscreen', () => {
-      service._isFullscreenActive = true;
-
-      service.exitFullscreen();
-
-      expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith({ enabled: false });
-    });
-  });
-
   describe('_forceEnterFullscreen', () => {
     it('should request fullscreen via tRPC mutate', () => {
       service._forceEnterFullscreen();

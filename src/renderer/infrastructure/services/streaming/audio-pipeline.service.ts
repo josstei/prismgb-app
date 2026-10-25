@@ -55,7 +55,6 @@ export class StreamingAudioPipelineService extends BaseService {
   private _gainNode: GainNode | null;
   private _analyserNode: AnalyserNode | null;
   private _stream: MediaStream | null;
-  private _audioTrack: MediaStreamTrack | null;
   private _isReady: boolean;
   private _warmupToken: number;
   private _volume: number;
@@ -76,7 +75,6 @@ export class StreamingAudioPipelineService extends BaseService {
     this._analyserNode = null;
 
     this._stream = null;
-    this._audioTrack = null;
     this._isReady = false;
     this._warmupToken = 0;
 
@@ -136,7 +134,6 @@ export class StreamingAudioPipelineService extends BaseService {
     }
 
     this._stream = stream;
-    this._audioTrack = audioTrack;
     this._isReady = false;
     this._warmupToken += 1;
     const token = this._warmupToken;
@@ -265,7 +262,6 @@ export class StreamingAudioPipelineService extends BaseService {
     }
 
     this._stream = null;
-    this._audioTrack = null;
   }
 
   cleanup(): void | Promise<void> {
@@ -294,7 +290,7 @@ export class StreamingAudioPipelineService extends BaseService {
   }
 
   private _createAudioContext(trackSampleRate: number | null): AudioContext | null {
-    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+    const AudioContextCtor = window.AudioContext;
     if (!AudioContextCtor) {
       return null;
     }

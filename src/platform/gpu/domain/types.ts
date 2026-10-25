@@ -61,44 +61,13 @@ export interface RenderPipelineConfig {
   allowCanvas2D?: boolean;
 }
 
-export interface WebGPULimits {
-  maxTextureDimension2D: number;
-  maxBindGroups: number;
-}
-
 export interface RenderCapabilities {
   webgpu: boolean;
-  offscreenCanvas: boolean;
   transferControlToOffscreen: boolean;
   preferredBackend: RenderBackend;
-  maxTextureSize: number;
-  webgpuLimits?: WebGPULimits;
-}
-
-export interface RenderStats {
-  fps: number;
-  frameTime: number;
-  gpuTime?: number;
-  framesRendered: number;
-  framesDropped: number;
-}
-
-export interface GpuVideoRendererStats {
-  fps: number;
-  frameTime: number;
-  gpuTime?: number;
-  uploadTime?: number;
-}
-
-export interface GpuVideoRendererError {
-  message: string;
-  code?: string;
-  stack?: string;
 }
 
 export interface RenderPipeline {
-  readonly backend: RenderBackend;
-  readonly isInitialized: boolean;
   readonly isActive: boolean;
 
   initialize(): Promise<void>;
@@ -110,8 +79,6 @@ export interface RenderPipeline {
   setBrightness(value: number): void;
 
   captureFrame(): Promise<ImageBitmap>;
-
-  getStats(): RenderStats;
 
   dispose(): Promise<void>;
 }

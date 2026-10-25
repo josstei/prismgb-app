@@ -175,26 +175,6 @@ export function installFullscreenDocumentMock(options = {}) {
 }
 
 /**
- * Canonical installer for tests that need MutationObserver absent.
- */
-export function installMissingMutationObserverMock() {
-  const stack = createCleanupStack();
-  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'MutationObserver');
-
-  Reflect.deleteProperty(globalThis, 'MutationObserver');
-
-  stack.add(() => {
-    if (descriptor) {
-      Object.defineProperty(globalThis, 'MutationObserver', descriptor);
-    } else {
-      Reflect.deleteProperty(globalThis, 'MutationObserver');
-    }
-  });
-
-  return stack;
-}
-
-/**
  * Canonical ResizeObserver installer.
  */
 export function installResizeObserverMock() {

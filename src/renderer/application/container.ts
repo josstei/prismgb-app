@@ -1,5 +1,5 @@
 import { ConsoleLoggerFactory } from '@platform/core';
-import { EventBus } from '../infrastructure/events/event-bus';
+import { PlatformEventBus } from '@platform/events';
 import { RendererDeviceRuntime } from '../infrastructure/services/devices/device-runtime.service';
 import { DeviceMediaAcquirer } from '../infrastructure/services/streaming/device-media-acquirer.service';
 import { StreamingService } from '../infrastructure/services/streaming/streaming.service';
@@ -15,8 +15,6 @@ import { SettingsFullscreenService } from '../infrastructure/services/settings/s
 import { SettingsCinematicModeService } from '../infrastructure/services/settings/settings-cinematic-mode.service';
 import { UpdateService } from '../infrastructure/services/updates/update.service';
 import { UpdateUiService } from '../infrastructure/services/updates/update-ui.service';
-import { MetricsAdapter } from '../infrastructure/adapters/platform-metrics.adapter';
-import { PerformanceMetricsService } from '../infrastructure/services/performance/performance-metrics.service';
 import { VisibilityAdapter } from '../infrastructure/adapters/visibility.adapter';
 import { UserActivityAdapter } from '../infrastructure/adapters/user-activity.adapter';
 import { ReducedMotionAdapter } from '../infrastructure/adapters/reduced-motion.adapter';
@@ -29,7 +27,6 @@ import { StreamingAudioOrchestrator } from './orchestrators/streaming-audio.orch
 import { CaptureOrchestrator } from './orchestrators/capture.orchestrator';
 import { SettingsDisplayModeOrchestrator } from './orchestrators/display-mode.orchestrator';
 import { UISetupOrchestrator } from './orchestrators/ui-setup.orchestrator';
-import { PerformanceMetricsOrchestrator } from './orchestrators/performance/performance-metrics.orchestrator';
 import { PerformanceStateOrchestrator } from './orchestrators/performance/performance-state.orchestrator';
 import { AppOrchestrator } from './orchestrators/app.orchestrator';
 import { NotesService } from '@platform/notes';
@@ -82,7 +79,7 @@ export function createRendererRuntime(options: RendererRuntimeOptions = {}) {
     cancel: (url) => trpcClient.window.cancelDownload.mutate({ url })
   });
   const loggerFactory = options.loggerFactory ?? new ConsoleLoggerFactory();
-  const eventBus = new EventBus({ loggerFactory });
+  const eventBus = new PlatformEventBus({ loggerFactory });
   const storageService = options.storageService ?? new BrowserStorageAdapter({ protectedKeys: PROTECTED_STORAGE_KEYS });
   const browserMediaService = new BrowserMediaAdapter();
   const deviceStatusPort = options.deviceStatusPort ?? new TrpcDeviceStatusPort(trpcClient, loggerFactory.create('TrpcDeviceStatusPort'));
@@ -150,20 +147,17 @@ export function createRendererRuntime(options: RendererRuntimeOptions = {}) {
   const captureSaveService = new CaptureSaveService({ downloadFile, eventBus, settingsService, transcodeService, loggerFactory });
   const fullscreenService = new SettingsFullscreenService({ eventBus, loggerFactory });
   const cinematicModeService = new SettingsCinematicModeService({ appState, eventBus, loggerFactory });
-  const metricsAdapter = new MetricsAdapter({ loggerFactory });
-  const performanceMetricsService = new PerformanceMetricsService({ loggerFactory, metricsAdapter });
   const performanceStateService = new PerformanceStateService({ loggerFactory, visibilityAdapter: new VisibilityAdapter(), userActivityAdapter: new UserActivityAdapter(), reducedMotionAdapter: new ReducedMotionAdapter() });
   const streamingOrchestrator = new StreamingOrchestrator({ streamingService, appState, streamViewService, streamingRenderService, gpuRecordingService, settingsService, eventBus, loggerFactory });
   const streamingAudioOrchestrator = new StreamingAudioOrchestrator({ streamingAudioPipelineService, streamViewService, appState, eventBus, loggerFactory });
   const captureOrchestrator = new CaptureOrchestrator({ captureService, appState, streamViewService, streamingRenderService, gpuRecordingService, transcodeService, captureSaveService, eventBus, loggerFactory });
   const displayModeOrchestrator = new SettingsDisplayModeOrchestrator({ fullscreenService, cinematicModeService, settingsService, eventBus, loggerFactory });
   const uiSetupOrchestrator = new UISetupOrchestrator({ appState, uiController, eventBus, loggerFactory });
-  const performanceMetricsOrchestrator = new PerformanceMetricsOrchestrator({ eventBus, loggerFactory, performanceMetricsService });
   const performanceStateOrchestrator = new PerformanceStateOrchestrator({ eventBus, performanceStateService, loggerFactory });
   const uiEventBridge = new UIEventBridge({ eventBus, uiController, loggerFactory });
   const captureUiBridge = new CaptureUIBridge({ eventBus, uiController, loggerFactory });
   const transcodeUiBridge = new TranscodeUIBridge({ eventBus, loggerFactory });
-  const appOrchestrator = new AppOrchestrator({ rendererDeviceRuntime, streamingOrchestrator, streamingAudioOrchestrator, captureOrchestrator, displayModeOrchestrator, settingsService, updateService, updateUiService, uiSetupOrchestrator, performanceMetricsOrchestrator, performanceStateOrchestrator, eventBus, loggerFactory });
+  const appOrchestrator = new AppOrchestrator({ rendererDeviceRuntime, streamingOrchestrator, streamingAudioOrchestrator, captureOrchestrator, displayModeOrchestrator, settingsService, updateService, updateUiService, uiSetupOrchestrator, performanceStateOrchestrator, eventBus, loggerFactory });
 
   const lifecycle = createApplicationLifecycle(async () => {
     bodyClassManager.bindPresentationMode(presentationModeStore);
@@ -186,7 +180,6 @@ export function createRendererRuntime(options: RendererRuntimeOptions = {}) {
     () => updateService.dispose(),
     () => updateUiService.dispose(),
     () => settingsService.dispose(),
-    () => performanceMetricsService.dispose(),
     () => uiEventBridge.dispose(),
     () => captureUiBridge.dispose(),
     () => transcodeUiBridge.dispose(),

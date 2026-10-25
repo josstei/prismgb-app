@@ -8,14 +8,14 @@ import { getFfmpegPath, getOptionalFfprobePath, validateFfmpegBinaries, type Ffm
 import { createTempSession, writeTempFile, cleanupSession, cleanupAllSessions } from './transcode-temp.utils.js';
 import { TranscodeProcess, probeDuration, type TranscodeProgressData } from './transcode-process.js';
 
-export interface TranscodeOptions {
+interface TranscodeOptions {
   inputBuffer: Buffer;
   format: TranscodeFormat;
   outputFilename: string;
   inputArgs?: string[];
 }
 
-export interface TranscodeEnvironment extends FfmpegEnvironment {
+interface TranscodeEnvironment extends FfmpegEnvironment {
   downloadsDir: string;
   tempDir: string;
 }

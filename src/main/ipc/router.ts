@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { observable } from '@trpc/server/observable';
-import { IPC_CHANNELS, rendererShutdownRequestSchema, type IpcPushPayloadMap, type ProcessMetricsPayload } from '@platform/ipc';
+import { IPC_CHANNELS, rendererShutdownRequestSchema, type IpcPushPayloadMap } from '@platform/ipc';
 import { toDeviceStatusPayload } from '@platform/devices';
 
 import { router, publicProcedure, rethrowAsTrpcError, type IpcContext } from './trpc.js';
@@ -23,10 +23,6 @@ import {
   loginItemGetResponseSchema,
   deviceStatusPayloadSchema
 } from './schemas/index.js';
-
-function toBuffer(inputBuffer: ArrayBuffer): Buffer {
-  return Buffer.from(inputBuffer);
-}
 
 /** Validate emitted values without tearing down a subscription after a malformed push. */
 function pushSubscription<TChannel extends keyof IpcPushPayloadMap, TSchema extends z.ZodType<IpcPushPayloadMap[TChannel]>>(ctx: IpcContext, channel: TChannel, schema: TSchema, label: string) {
@@ -148,30 +144,6 @@ const updateRouter = router({
   )
 });
 
-const performanceRouter = router({
-  getProcessMetrics: publicProcedure.query(({ ctx }) =>
-    rethrowAsTrpcError('Failed to get process metrics', ctx.logger, (): ProcessMetricsPayload => {
-      const metrics = ctx.app.getAppMetrics();
-      const totalKB = metrics.reduce((sum, proc) => sum + proc.memory.workingSetSize, 0);
-      return {
-        timestamp: Date.now(),
-        totalKB,
-        totalMB: (totalKB / 1024).toFixed(1),
-        processCount: metrics.length,
-        processes: metrics.map((proc) => ({
-          type: proc.type,
-          pid: proc.pid,
-          memoryKB: proc.memory.workingSetSize,
-          memoryMB: (proc.memory.workingSetSize / 1024).toFixed(1),
-          peakMemoryKB: proc.memory.peakWorkingSetSize,
-          peakMemoryMB: (proc.memory.peakWorkingSetSize / 1024).toFixed(1),
-          cpuPercent: proc.cpu.percentCPUUsage
-        }))
-      };
-    })
-  )
-});
-
 const loginItemRouter = router({
   get: publicProcedure.output(loginItemGetResponseSchema).query(({ ctx }) => {
     return { enabled: ctx.loginItemService.isEnabled() };
@@ -188,7 +160,7 @@ const transcodeRouter = router({
   start: publicProcedure.input(transcodeStartSchema).mutation(({ ctx, input }) =>
     rethrowAsTrpcError('Failed to start transcode', ctx.logger, () =>
       ctx.transcodeService.transcode({
-        inputBuffer: toBuffer(input.inputBuffer),
+        inputBuffer: Buffer.from(input.inputBuffer),
         format: input.format,
         outputFilename: input.outputFilename ?? '',
         ...(input.inputArgs ? { inputArgs: input.inputArgs } : {})
@@ -226,7 +198,6 @@ export const appRouter = router({
   shell: shellRouter,
   window: windowRouter,
   update: updateRouter,
-  performance: performanceRouter,
   loginItem: loginItemRouter,
   transcode: transcodeRouter
 });

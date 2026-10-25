@@ -5,7 +5,6 @@ import type {
   DeviceAcquisitionProfile,
   DeviceBehaviorPolicy,
   DeviceCanvasResolution,
-  DeviceCatalogApi,
   DeviceConstraintMap,
   DeviceDescriptor,
   DeviceFixtureDescriptor,
@@ -322,11 +321,7 @@ export function getDeviceAcquisitionProfile(idOrDescriptor?: DeviceId | DeviceDe
   });
 }
 
-export const DeviceCatalog: DeviceCatalogApi = Object.freeze<DeviceCatalogApi>({
-  all() {
-    return DEVICE_DESCRIPTORS;
-  },
-
+export const DeviceCatalog = Object.freeze({
   enabled() {
     return ENABLED_DEVICE_DESCRIPTORS;
   },
@@ -345,13 +340,5 @@ export const DeviceCatalog: DeviceCatalogApi = Object.freeze<DeviceCatalogApi>({
       width: descriptor.display.nativeWidth,
       height: descriptor.display.nativeHeight
     };
-  },
-
-  streamProfile(id?: DeviceId) {
-    return getDeviceStreamProfile(id);
-  },
-
-  acquisitionProfile(id?: DeviceId) {
-    return getDeviceAcquisitionProfile(id);
   }
 });

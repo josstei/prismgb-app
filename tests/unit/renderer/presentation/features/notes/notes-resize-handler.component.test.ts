@@ -91,49 +91,6 @@ describe('NotesResizeHandlerComponent', () => {
     });
   });
 
-  describe('isVisible', () => {
-    it('should return true by default', () => {
-      expect(component.isVisible()).toBe(true);
-    });
-
-    it('should reflect toggled state', () => {
-      component.isListVisible = false;
-      expect(component.isVisible()).toBe(false);
-    });
-  });
-
-  describe('setListWidth', () => {
-    it('should set width via CSS custom property', () => {
-      const contentElement = document.createElement('div');
-      component._contentElement = contentElement;
-
-      component.setListWidth(150);
-
-      expect(contentElement.style.getPropertyValue('--notes-list-width')).toBe('150px');
-      expect(component._customListWidth).toBe(150);
-    });
-
-    it('should not throw when content element is null', () => {
-      component._contentElement = null;
-      expect(() => component.setListWidth(150)).not.toThrow();
-    });
-  });
-
-  describe('getListWidth', () => {
-    it('should return default width when list wrapper is null', () => {
-      component._listWrapperElement = null;
-      expect(component.getListWidth()).toBe(130);
-    });
-
-    it('should return offsetWidth when list wrapper exists', () => {
-      const wrapper = document.createElement('div');
-      Object.defineProperty(wrapper, 'offsetWidth', { value: 180 });
-      component._listWrapperElement = wrapper;
-
-      expect(component.getListWidth()).toBe(180);
-    });
-  });
-
   describe('click-to-toggle (no drag)', () => {
     let listToggle: HTMLButtonElement;
     let panelContent: HTMLDivElement;

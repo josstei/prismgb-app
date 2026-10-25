@@ -9,20 +9,19 @@ export const WorkerMessageType = {
   SET_BRIGHTNESS: 'setBrightness', CAPTURE: 'capture'
 } as const;
 export const WorkerResponseType = {
-  READY: 'ready', FRAME_RENDERED: 'frameRendered', ERROR: 'error', STATS: 'stats', CAPTURE_READY: 'captureReady'
+  READY: 'ready', FRAME_RENDERED: 'frameRendered', ERROR: 'error', CAPTURE_READY: 'captureReady'
 } as const;
-export type WorkerRenderBackend = 'webgpu';
+type WorkerRenderBackend = 'webgpu';
 export type WorkerRendererConfig = {
   nativeWidth: number; nativeHeight: number; targetWidth: number; targetHeight: number;
   backend: WorkerRenderBackend; presetId: string;
 };
-export type InitPayload = { canvas: OffscreenCanvas; config: WorkerRendererConfig };
-export type FramePayload = { imageBitmap: ImageBitmap };
-export type ResizePayload = { width: number; height: number };
+type InitPayload = { canvas: OffscreenCanvas; config: WorkerRendererConfig };
+type FramePayload = { imageBitmap: ImageBitmap };
+type ResizePayload = { width: number; height: number };
 export type PresetPayload = { preset: RenderPreset };
-export type WorkerStatsPayload = { fps: number; frameTime: number; gpuTime?: number; uploadTime?: number };
 export type WorkerErrorPayload = { message: string; stack?: string; code?: string; requestId?: number };
-export type WorkerCaptureReadyPayload = { bitmap: ImageBitmap; requestId: number };
+type WorkerCaptureReadyPayload = { bitmap: ImageBitmap; requestId: number };
 
 type Guard<T> = (value: unknown) => value is T;
 function payload<T>(guard: (value: unknown) => boolean): Guard<T> { return guard as Guard<T>; }
@@ -39,13 +38,12 @@ const responsePayloads = {
   ready: payload<{ backend: WorkerRenderBackend }>((value) => isRecord(value) && value.backend === 'webgpu'),
   frameRendered: empty,
   error: payload<WorkerErrorPayload>((value) => isRecord(value) && typeof value.message === 'string' && (value.requestId === undefined || isNumber(value.requestId))),
-  stats: payload<WorkerStatsPayload>((value) => isRecord(value) && isNumber(value.fps) && isNumber(value.frameTime)),
   captureReady: payload<WorkerCaptureReadyPayload>((value) => isRecord(value) && isBitmap(value.bitmap) && isNumber(value.requestId))
 };
 type Payloads<T> = { [K in keyof T]: T[K] extends Guard<infer P> ? P : never };
-export type WorkerMessagePayloadMap = Payloads<typeof messagePayloads>;
+type WorkerMessagePayloadMap = Payloads<typeof messagePayloads>;
 export type WorkerResponsePayloadMap = Payloads<typeof responsePayloads>;
-export type WorkerMessageTypeValue = keyof WorkerMessagePayloadMap;
+type WorkerMessageTypeValue = keyof WorkerMessagePayloadMap;
 export type WorkerResponseTypeValue = keyof WorkerResponsePayloadMap;
 type Envelope<M, K extends keyof M = keyof M> = { [P in K]: M[P] extends undefined ? { type: P; payload?: M[P] } : { type: P; payload: M[P] } }[K];
 export type WorkerMessage<K extends WorkerMessageTypeValue = WorkerMessageTypeValue> = Envelope<WorkerMessagePayloadMap, K>;
@@ -56,7 +54,7 @@ export function createWorkerMessage<K extends WorkerMessageTypeValue>(type: K, .
 export function createWorkerResponse<K extends WorkerResponseTypeValue>(type: K, ...args: WorkerResponsePayloadMap[K] extends undefined ? [payload?: WorkerResponsePayloadMap[K]] : [payload: WorkerResponsePayloadMap[K]]): WorkerResponse<K> {
   return { type, payload: args[0] } as WorkerResponse<K>;
 }
-export function isWorkerRendererConfig(value: unknown): value is WorkerRendererConfig {
+function isWorkerRendererConfig(value: unknown): value is WorkerRendererConfig {
   return isRecord(value) && ['nativeWidth', 'nativeHeight', 'targetWidth', 'targetHeight'].every((key) => isNumber(value[key]) && (value[key] as number) > 0) && value.backend === 'webgpu' && typeof value.presetId === 'string';
 }
 function isRenderPreset(value: unknown): value is RenderPreset {

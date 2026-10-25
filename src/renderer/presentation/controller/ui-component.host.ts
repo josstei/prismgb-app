@@ -63,10 +63,6 @@ export class UiComponentHost<TComponentMap extends { [TId in keyof TComponentMap
     this.coreIds.forEach((id) => this.get(id));
   }
 
-  resolvedIds(): readonly string[] {
-    return this._resolutionOrder.map(String);
-  }
-
   dispose(): Promise<void> {
     return this.disposal ??= this.disposeComponents();
   }

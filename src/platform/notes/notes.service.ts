@@ -14,7 +14,6 @@ class NotesService extends BaseService {
   private readonly eventBus: Pick<TypedEventBusLike, 'publish'>;
   private readonly storageService: StorageServiceLike;
   _notesCache: UserNote[] | null;
-  _cacheValid: boolean;
 
   constructor(dependencies: NotesServiceDependencies) {
     super({ loggerFactory: dependencies.loggerFactory }, 'NotesService');
@@ -22,23 +21,20 @@ class NotesService extends BaseService {
     this.eventBus = dependencies.eventBus;
     this.storageService = dependencies.storageService;
     this._notesCache = null;
-    this._cacheValid = false;
   }
 
   _invalidateCache() {
     this._notesCache = null;
-    this._cacheValid = false;
   }
 
   getAllNotes(): UserNote[] {
-    if (this._cacheValid && this._notesCache !== null) {
+    if (this._notesCache !== null) {
       return this._notesCache;
     }
 
     const raw = this.storageService.getItem(NotesStorageKeys.USER_NOTES);
     if (!raw) {
       this._notesCache = [];
-      this._cacheValid = true;
       return this._notesCache;
     }
 
@@ -47,12 +43,10 @@ class NotesService extends BaseService {
       this._notesCache = Array.isArray(notes)
         ? notes.map(readStoredNote).filter((note): note is UserNote => note !== null).sort((a, b) => b.updatedAt - a.updatedAt)
         : [];
-      this._cacheValid = true;
       return this._notesCache;
     } catch (error) {
       this.logger.error('Failed to parse notes from storage - data may be corrupted', error);
       this._notesCache = [];
-      this._cacheValid = true;
       return this._notesCache;
     }
   }
@@ -198,11 +192,6 @@ class NotesService extends BaseService {
   }
 
   _saveNotes(notes: UserNote[]): boolean {
-    if (!this.storageService) {
-      this._notesCache = [...notes].sort((a, b) => b.updatedAt - a.updatedAt);
-      this._cacheValid = true;
-      return true;
-    }
     try {
       if (!this.storageService.setItem(NotesStorageKeys.USER_NOTES, JSON.stringify(notes))) {
         this.logger.error('Storage rejected notes save');
@@ -210,7 +199,6 @@ class NotesService extends BaseService {
         return false;
       }
       this._notesCache = [...notes].sort((a, b) => b.updatedAt - a.updatedAt);
-      this._cacheValid = true;
       return true;
     } catch (error) {
       this.logger.error('Failed to save notes to storage', error);

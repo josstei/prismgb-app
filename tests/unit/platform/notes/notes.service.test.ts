@@ -43,7 +43,6 @@ describe('NotesService', () => {
   describe('Constructor', () => {
     it('should create service with empty cache', () => {
       expect(service._notesCache).toBeNull();
-      expect(service._cacheValid).toBe(false);
     });
   });
 
@@ -480,12 +479,10 @@ describe('NotesService', () => {
   describe('_invalidateCache', () => {
     it('should clear cache', () => {
       service._notesCache = [{ id: 'note_1' }];
-      service._cacheValid = true;
 
       service._invalidateCache();
 
       expect(service._notesCache).toBeNull();
-      expect(service._cacheValid).toBe(false);
     });
   });
 
@@ -496,7 +493,6 @@ describe('NotesService', () => {
       const result = service._saveNotes(notes);
 
       expect(result).toBe(true);
-      expect(service._cacheValid).toBe(true);
       expect(service._notesCache).toEqual(notes);
     });
 
@@ -518,20 +514,13 @@ describe('NotesService', () => {
       const result = service._saveNotes([{ id: 'note_1' }]);
 
       expect(result).toBe(false);
-      expect(service._cacheValid).toBe(false);
+      expect(service._notesCache).toBeNull();
       expect(mockLogger.error).toHaveBeenCalledWith(
         'Failed to save notes to storage',
         expect.any(Error)
       );
     });
 
-    it('should handle null storageService', () => {
-      service.storageService = null;
-
-      const result = service._saveNotes([{ id: 'note_1' }]);
-
-      expect(result).toBe(true);
-    });
   });
 
   describe('getUniqueGames', () => {

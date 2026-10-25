@@ -5,7 +5,7 @@ import { createMockCanvas, createRenderPresetFixture } from '@platform/gpu/testk
 const { create } = vi.hoisted(() => ({ create: vi.fn() }));
 vi.mock('../../../../../src/platform/gpu/application/renderer.service', () => ({ createGpuRenderer: create }));
 const bitmap = () => ({ close: vi.fn() } as unknown as ImageBitmap);
-const renderer = { backend: 'webgpu', renderFrame: vi.fn(), captureFrame: vi.fn(), resize: vi.fn(), getStats: vi.fn(() => ({})), setPreset: vi.fn(), setBrightness: vi.fn() };
+const renderer = { renderFrame: vi.fn(), captureFrame: vi.fn(), resize: vi.fn(), setPreset: vi.fn(), setBrightness: vi.fn() };
 function fixture() {
   const scope: WorkerRendererServiceScope = { onmessage: null, postMessage: vi.fn() };
   startWorkerRendererService(scope);

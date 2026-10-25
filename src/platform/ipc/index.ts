@@ -6,9 +6,7 @@ export type {
   UpdateCheckPayload,
   TranscodeFormat,
   TranscodeStartOptions,
-  TranscodeStartPayload,
-  ProcessMetricPayload,
-  ProcessMetricsPayload
+  TranscodeStartPayload
 } from './ipc-payloads.contract.js';
 
 export { rendererShutdownRequestSchema, updateInfoSchema, updateProgressSchema, updateErrorSchema, transcodeProgressSchema, transcodeCompletedSchema, transcodeErrorSchema, transcodeCancelledSchema } from './push-payloads.schemas.js';

@@ -1,4 +1,4 @@
-import { app, ipcMain, shell } from 'electron';
+import { ipcMain, shell } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { randomUUID } from 'node:crypto';
 
@@ -189,7 +189,6 @@ class IpcHandlerRegistry extends BaseService {
       windowService: this.windowService,
       transcodeService: this.transcodeService,
       loginItemService: this.loginItemService,
-      app,
       shell,
       logger: this.logger,
       ipcPushBridge: this.ipcPushBridge,

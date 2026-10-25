@@ -25,7 +25,7 @@ describe('BodyClassManager', () => {
   it('projects performance state directly and unsubscribes on disposal', async () => {
     const bus = new PlatformEventBus();
     manager.bindPerformanceState(bus);
-    bus.publish(EventChannels.PERFORMANCE.STATE_CHANGED, { idle: true, hidden: true, weakGpuDetected: true });
+    bus.publish(EventChannels.PERFORMANCE.STATE_CHANGED, { idle: true, hidden: true });
     expect(document.body.classList.contains('app-idle')).toBe(true);
     expect(document.body.classList.contains('app-hidden')).toBe(true);
     expect(manager.areAnimationsOff()).toBe(false);

@@ -257,7 +257,7 @@ export async function installChromaticMediaEnvironment(page, options = {}) {
       }
 
       function createSyntheticAudioStream() {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)({
+        const audioCtx = new window.AudioContext({
           sampleRate: audioSettings.sampleRate,
         });
 

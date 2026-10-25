@@ -30,18 +30,18 @@ export interface NotesResizeHandlerInitializeOptions {
 }
 
 class NotesResizeHandlerComponent extends PresentationComponent {
-  declare logger: LoggerLike | null | undefined;
-  declare isListVisible: boolean;
-  declare _isDragging: boolean;
-  declare _dragStartX: number;
-  declare _dragStartWidth: number;
-  declare _customListWidth: number;
-  declare _dragFramePending: boolean;
-  declare _dragBodyStyleSnapshot: BodyStyleSnapshot | null;
-  declare listToggle: HTMLElement | null | undefined;
-  declare panelElement: HTMLElement | null | undefined;
-  declare _contentElement: HTMLElement | null;
-  declare _listWrapperElement: HTMLElement | null;
+  logger: LoggerLike | null | undefined;
+  isListVisible: boolean;
+  _isDragging: boolean;
+  _dragStartX: number;
+  _dragStartWidth: number;
+  _customListWidth: number;
+  _dragFramePending: boolean;
+  _dragBodyStyleSnapshot: BodyStyleSnapshot | null;
+  listToggle: HTMLElement | null | undefined;
+  panelElement: HTMLElement | null | undefined;
+  _contentElement: HTMLElement | null;
+  _listWrapperElement: HTMLElement | null;
 
   constructor({ logger }: NotesResizeHandlerComponentOptions) {
     super();
@@ -76,19 +76,6 @@ class NotesResizeHandlerComponent extends PresentationComponent {
     }
 
     this._setupListToggle();
-  }
-
-  isVisible(): boolean {
-    return this.isListVisible;
-  }
-
-  setListWidth(width: number): void {
-    this._customListWidth = width;
-    this._setListWidth(width);
-  }
-
-  getListWidth(): number {
-    return this._getListWidth();
   }
 
   _setupListToggle(): void {

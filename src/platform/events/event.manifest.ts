@@ -11,7 +11,6 @@ function event<TPayload>() {
 
 /** Every event declares its name and payload together; no fallback to unknown. */
 export const EventDefinitions = [
-  event<Payloads.HandlerErrorPayload>()('system', 'handler-error'),
   event<DeviceStatus>()('device', 'status-changed'),
   event<DeviceInfoPayload>()('device', 'connected'),
   event<DeviceInfoPayload | null | undefined>()('device', 'disconnected'),
@@ -21,8 +20,6 @@ export const EventDefinitions = [
   event<Payloads.StreamStartedPayload>()('stream', 'started'),
   event<void>()('stream', 'stopped'),
   event<Payloads.StreamErrorPayload>()('stream', 'error'),
-  event<Payloads.StreamHealthOkPayload>()('stream', 'health-ok'),
-  event<Payloads.StreamHealthTimeoutPayload>()('stream', 'health-timeout'),
   event<void>()('capture', 'screenshot-triggered'),
   event<Payloads.ScreenshotReadyPayload>()('capture', 'screenshot-ready'),
   event<void>()('capture', 'recording-started'),
@@ -37,15 +34,8 @@ export const EventDefinitions = [
   event<{ enabled: boolean }>()('settings', 'cinematic-mode-changed'),
   event<boolean>()('settings', 'minimalist-fullscreen-changed'),
   event<Record<string, unknown>>()('settings', 'preferences-loaded'),
-  event<string>()('settings', 'recording-format-changed'),
   event<Payloads.PerformanceStatePayload>()('performance', 'state-changed'),
-  event<Payloads.PerformanceUiModePayload>()('performance', 'ui-mode-changed'),
   event<boolean>()('performance', 'render-mode-changed'),
-  event<Payloads.MemorySnapshotRequestPayload>()('performance', 'memory-snapshot-requested'),
-  event<Payloads.RenderPipelineReadyPayload>()('render', 'pipeline-ready'),
-  event<Payloads.RenderPipelineErrorPayload>()('render', 'pipeline-error'),
-  event<Payloads.RenderStatsPayload>()('render', 'stats-update'),
-  event<Payloads.CanvasRecreatedPayload>()('render', 'canvas-recreated'),
   event<Payloads.UiStatusMessagePayload>()('ui', 'status-message'),
   event<Payloads.UiDeviceStatusPayload>()('ui', 'device-status'),
   event<Payloads.UiOverlayMessagePayload>()('ui', 'overlay-message'),

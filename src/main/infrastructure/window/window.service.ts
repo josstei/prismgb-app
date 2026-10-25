@@ -137,7 +137,7 @@ class WindowService extends BaseService {
       }
       const completed = expected ?? Promise.withResolvers<void>();
       this.pendingDownloads.add(completed.promise);
-      item.once('done', (event: Event, state: string) => {
+      item.once('done', (_event: Event, state: string) => {
         this.pendingDownloads.delete(completed.promise);
         completed.resolve();
         if (state === 'completed') {
@@ -163,7 +163,7 @@ class WindowService extends BaseService {
 
     if (isDev) {
       const consoleMessageListener: ConsoleMessageListener = (
-        event: Event,
+        _event: Event,
         level: number,
         message: string,
         _line: number,

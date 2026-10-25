@@ -13,9 +13,6 @@ export function startWorkerRendererService(scope: WorkerRendererServiceScope): v
   let renderer: RenderPipeline | null = null;
   let queue = Promise.resolve();
   let captureRequest: number | null = null;
-  let frameCount = 0;
-  let totalFrameTime = 0;
-  let lastStatsTime = performance.now();
   const postError = (error: unknown, code: string, requestId?: number) => {
     const payload: WorkerErrorPayload = { message: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined, code, requestId };
     scope.postMessage(createWorkerResponse(WorkerResponseType.ERROR, payload));
@@ -28,7 +25,7 @@ export function startWorkerRendererService(scope: WorkerRendererServiceScope): v
         const { canvas, config } = message.payload;
         canvas.width = config.targetWidth;
         canvas.height = config.targetHeight;
-        renderer = await createGpuRenderer({ canvas, nativeWidth: config.nativeWidth, nativeHeight: config.nativeHeight, preferredBackend: 'webgpu', capabilities: detectWorkerGpuCapabilities(canvas, 'webgpu'), allowCanvas2D: false, preset: resolvePreset(config.presetId) });
+        renderer = await createGpuRenderer({ canvas, nativeWidth: config.nativeWidth, nativeHeight: config.nativeHeight, preferredBackend: 'webgpu', capabilities: detectWorkerGpuCapabilities(), allowCanvas2D: false, preset: resolvePreset(config.presetId) });
         scope.postMessage(createWorkerResponse(WorkerResponseType.READY, { backend: 'webgpu' }));
         return;
       }
@@ -36,7 +33,6 @@ export function startWorkerRendererService(scope: WorkerRendererServiceScope): v
         const bitmap = message.payload.imageBitmap;
         try {
           if (!renderer) throw new Error('Renderer not initialized');
-          const started = performance.now();
           renderer.renderFrame(bitmap);
           if (captureRequest !== null) {
             const requestId = captureRequest;
@@ -50,16 +46,6 @@ export function startWorkerRendererService(scope: WorkerRendererServiceScope): v
               captured?.close();
               postError(error, 'CAPTURE_FAILED', requestId);
             }
-          }
-          frameCount++;
-          totalFrameTime += performance.now() - started;
-          const now = performance.now();
-          if (now - lastStatsTime >= 1000) {
-            const stats = renderer.getStats();
-            scope.postMessage(createWorkerResponse(WorkerResponseType.STATS, { fps: frameCount, frameTime: Number((totalFrameTime / frameCount).toFixed(2)), gpuTime: stats.gpuTime }));
-            frameCount = 0;
-            totalFrameTime = 0;
-            lastStatsTime = now;
           }
         } finally {
           bitmap.close();

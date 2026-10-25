@@ -76,7 +76,6 @@ describe('PerformanceStateService', () => {
     expect(states[0]).toEqual(
       expect.objectContaining({
         performanceModeEnabled: false,
-        weakGpuDetected: false,
         hidden: false,
         idle: false,
         reducedMotion: false
@@ -240,19 +239,4 @@ describe('PerformanceStateService', () => {
     expect(() => service.dispose()).not.toThrow();
   });
 
-  it('should return current state via getState', () => {
-    service.initialize({ onStateChange: (state) => states.push(state) });
-
-    const state = service.getState();
-
-    expect(state).toEqual(
-      expect.objectContaining({
-        performanceModeEnabled: false,
-        weakGpuDetected: false,
-        hidden: false,
-        idle: false,
-        reducedMotion: false
-      })
-    );
-  });
 });

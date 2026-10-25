@@ -66,7 +66,6 @@ export class DeviceStatusStore extends ReactiveStore {
 
   get connected(): ReadonlySignal<boolean> { return this._connected; }
   get deviceName(): ReadonlySignal<string> { return this._deviceName; }
-  get overlayVisible(): ReadonlySignal<boolean> { return this._overlayVisible; }
   get overlayMessage(): ReadonlySignal<string> { return this._overlayMessage; }
   get overlayReady(): ReadonlySignal<boolean> { return this._overlayReady; }
   get overlayWaiting(): ReadonlySignal<boolean> { return this._overlayWaiting; }

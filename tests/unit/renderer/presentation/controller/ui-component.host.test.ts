@@ -27,6 +27,6 @@ describe('UiComponentHost', () => {
     expect(host.dispose()).toBe(disposal);
     await expect(disposal).rejects.toThrow('UI component disposal failed');
     expect(order).toEqual(['second', 'first']);
-    expect(host.resolvedIds()).toEqual([]);
+    expect(() => host.get('first')).toThrow('UI component host has been disposed');
   });
 });

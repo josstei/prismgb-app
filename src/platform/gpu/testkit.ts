@@ -1,8 +1,6 @@
 export {
-  createRenderStatsFixture,
   createRenderCapabilitiesFixture,
   createRenderPresetFixture,
   createPipelineUniformsFixture,
-  createMockCanvas,
-  createWorkerRendererClientMock
+  createMockCanvas
 } from './testkit/fixtures.js';

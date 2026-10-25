@@ -1,5 +1,5 @@
 import type { PipelineUniforms } from '../domain/uniforms';
-import type { RenderBackend, RenderCanvas, RenderPipeline, RenderPreset, RenderStats } from '../domain/types';
+import type { RenderCanvas, RenderPipeline, RenderPreset } from '../domain/types';
 import { buildUniforms } from '../application/uniform-builder';
 
 export interface PipelineControllerConfig {
@@ -22,7 +22,6 @@ export interface PipelineState {
   readonly preset: RenderPreset;
   readonly uniforms: PipelineUniforms;
   readonly isActive: boolean;
-  recordFrame(frameTime: number): void;
   deactivate(): void;
 }
 
@@ -31,7 +30,6 @@ export interface PipelineState {
  * lifecycle state lives on the {@link PipelineController}.
  */
 export interface RenderDriver {
-  readonly backend: RenderBackend;
   initialize(state: PipelineState): Promise<void>;
   renderFrame(source: TexImageSource, state: PipelineState): void;
   resize(state: PipelineState): void;
@@ -42,7 +40,7 @@ export interface RenderDriver {
 
 /**
  * Owns pipeline lifecycle and shared state (preset, brightness, uniforms,
- * dimensions, stats, active/initialized flags) and delegates backend-native
+ * dimensions, active/initialized flags) and delegates backend-native
  * work to an injected {@link RenderDriver}.
  */
 export class PipelineController implements RenderPipeline, PipelineState {
@@ -59,10 +57,6 @@ export class PipelineController implements RenderPipeline, PipelineState {
   private brightness = 1.0;
   private _isInitialized = false;
   private _isActive = false;
-  private _framesRendered = 0;
-  private _framesDropped = 0;
-  private _lastFrameTime = 0;
-  private _fps = 0;
 
   constructor(config: PipelineControllerConfig, driver: RenderDriver) {
     this.driver = driver;
@@ -73,14 +67,6 @@ export class PipelineController implements RenderPipeline, PipelineState {
     this.outputHeight = config.canvas.height;
     this.preset = config.preset;
     this.uniforms = this.rebuildUniforms();
-  }
-
-  get backend(): RenderBackend {
-    return this.driver.backend;
-  }
-
-  get isInitialized(): boolean {
-    return this._isInitialized;
   }
 
   get isActive(): boolean {
@@ -129,21 +115,6 @@ export class PipelineController implements RenderPipeline, PipelineState {
     this.canvas.height = height;
     this.uniforms = this.rebuildUniforms();
     this.driver.resize(this);
-  }
-
-  getStats(): RenderStats {
-    return {
-      fps: this._fps,
-      frameTime: this._lastFrameTime,
-      framesRendered: this._framesRendered,
-      framesDropped: this._framesDropped
-    };
-  }
-
-  recordFrame(frameTime: number): void {
-    this._lastFrameTime = frameTime;
-    this._framesRendered++;
-    this._fps = frameTime > 0 ? 1000 / frameTime : 0;
   }
 
   deactivate(): void {

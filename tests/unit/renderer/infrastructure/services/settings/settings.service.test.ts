@@ -93,7 +93,7 @@ describe('SettingsService', () => {
     it('validates enum settings', () => {
       expect(service.setSetting('recordingFormat', 'mp4')).toBe(true);
       expect(localStorageMock.setItem).toHaveBeenCalledWith('recordingFormat', 'mp4');
-      expect(mockEventBus.publish).toHaveBeenCalledWith('settings:recording-format-changed', 'mp4');
+      expect(service.getSetting('recordingFormat')).toBe('mp4');
       expect(service.setSetting('recordingFormat', 'avi')).toBe(false);
       expect(mockLogger.warn).toHaveBeenCalledWith('Invalid recordingFormat: avi. Valid values: webm, mp4, mov');
     });

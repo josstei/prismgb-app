@@ -50,7 +50,6 @@ type TestableUpdateService = Omit<UpdateService, 'config'> & {
   _initialized: boolean;
   _autoCheckRunning: boolean;
   config: UpdateServiceConfig;
-  pushPublisher: MockPushPublisher | null;
 };
 type UpdateEventHandlers = Record<string, (...args: unknown[]) => void>;
 type AutoUpdaterCheckResult = Awaited<ReturnType<typeof autoUpdater.checkForUpdates>>;
@@ -291,15 +290,6 @@ describe('UpdateService', () => {
       expect(autoUpdater.checkForUpdates).not.toHaveBeenCalled();
     });
 
-    it('should force check even if downloaded', async () => {
-      service.state = UpdateState.DOWNLOADED;
-      vi.mocked(autoUpdater.checkForUpdates).mockResolvedValue(createAutoUpdaterCheckResult('2.0.0'));
-
-      await service.checkForUpdates({ force: true });
-
-      expect(autoUpdater.checkForUpdates).toHaveBeenCalled();
-    });
-
     it('should call autoUpdater.checkForUpdates', async () => {
       vi.mocked(autoUpdater.checkForUpdates).mockResolvedValue(createAutoUpdaterCheckResult('2.0.0'));
 
@@ -461,7 +451,7 @@ describe('UpdateService', () => {
     });
   });
 
-  describe('stopAutoCheck', () => {
+  describe('auto-check disposal', () => {
     beforeEach(() => {
       vi.useFakeTimers();
       service.initialize();
@@ -477,7 +467,7 @@ describe('UpdateService', () => {
       service.startAutoCheck(60000);
       await vi.advanceTimersByTimeAsync(10000);
 
-      service.stopAutoCheck();
+      await service.dispose();
       await vi.advanceTimersByTimeAsync(120000);
 
       expect(autoUpdater.checkForUpdates).toHaveBeenCalledTimes(1);
@@ -545,52 +535,21 @@ describe('UpdateService', () => {
     });
   });
 
-  describe('_isPlatformNotFoundMessage', () => {
-    it('should return true for latest-linux-arm64.yml message', () => {
-      expect(service._isPlatformNotFoundMessage('Cannot find latest-linux-arm64.yml in the latest release artifacts')).toBe(true);
-    });
-
-    it('should return true for latest-mac.yml message', () => {
-      expect(service._isPlatformNotFoundMessage('Cannot find latest-mac.yml in the release')).toBe(true);
-    });
-
-    it('should return true for latest.yml message', () => {
-      expect(service._isPlatformNotFoundMessage('Cannot find latest.yml in the release')).toBe(true);
-    });
-
-    it('should return false for other error messages', () => {
-      expect(service._isPlatformNotFoundMessage('Network connection failed')).toBe(false);
-    });
-
-    it('should handle null/undefined message', () => {
-      expect(service._isPlatformNotFoundMessage(null)).toBe(false);
-      expect(service._isPlatformNotFoundMessage(undefined)).toBe(false);
-    });
-  });
-
-  describe('_notifyRenderer', () => {
-    it('should call pushPublisher.emit', () => {
-      service._notifyRenderer('update:available', { version: 'test' });
-
-      expect(mockPushPublisher.emit).toHaveBeenCalledWith('update:available', { version: 'test' });
-    });
-
-    it('should handle missing pushPublisher gracefully', () => {
-      service.pushPublisher = null;
-
-      expect(() => service._notifyRenderer('update:available', {})).not.toThrow();
-    });
-
-    it('should log warning on error', () => {
+  describe('push delivery failure', () => {
+    it('should log warning on error', async () => {
       mockPushPublisher.emit.mockImplementation(() => {
         throw new Error('Send failed');
       });
 
-      service._notifyRenderer('update:available', {});
+      service.initialize();
+      service.state = UpdateState.DOWNLOADED;
+      service.updateInfo = createUpdateInfo('2.0.0');
+
+      await expect(service.downloadUpdate()).resolves.toBeUndefined();
 
       expect(mockLogger.warn).toHaveBeenCalledWith(
         'Failed to notify renderer',
-        expect.objectContaining({ channel: 'update:available' })
+        expect.objectContaining({ channel: 'update:downloaded' })
       );
     });
   });

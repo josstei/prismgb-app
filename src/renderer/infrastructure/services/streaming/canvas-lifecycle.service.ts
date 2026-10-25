@@ -1,5 +1,5 @@
 import { BaseService, type LoggerFactoryLike } from '@platform/core';
-import { EventChannels, type TypedEventBusLike } from '@platform/events';
+import type { TypedEventBusLike } from '@platform/events';
 import { DeviceCatalog } from '@platform/devices';
 import type { Dimensions } from './streaming.contract';
 
@@ -74,7 +74,6 @@ export class StreamingCanvasLifecycleService extends BaseService {
     this.deps.streamViewService.setCanvas(newCanvas);
     this.transferred = false;
     this.deps.viewportService.resetDimensions();
-    this.deps.eventBus.publish(EventChannels.RENDER.CANVAS_RECREATED, { oldCanvas, newCanvas });
   }
   cleanup(): void {
     this.onResize = undefined;

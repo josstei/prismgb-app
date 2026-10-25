@@ -246,7 +246,6 @@ describe('WebGpuDriver', () => {
 
     expect(runtime.device.destroy).toHaveBeenCalledTimes(1);
     expect(runtime.device.queue.submit).not.toHaveBeenCalled();
-    expect(renderer.isInitialized).toBe(false);
     expect(renderer.isActive).toBe(false);
   });
 });

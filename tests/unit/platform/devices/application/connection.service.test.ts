@@ -13,8 +13,6 @@ describe('DeviceConnectionService', () => {
     registerLifecycleListeners: ReturnType<typeof vi.fn>;
     unregisterLifecycleListeners: ReturnType<typeof vi.fn>;
     find: ReturnType<typeof vi.fn>;
-    on: ReturnType<typeof vi.fn>;
-    off: ReturnType<typeof vi.fn>;
   };
   let lifecycleListeners: {
     onAdd?: (device: unknown) => void;
@@ -31,9 +29,7 @@ describe('DeviceConnectionService', () => {
         lifecycleListeners.onRemove = onRemove;
       }),
       unregisterLifecycleListeners: vi.fn(),
-      find: vi.fn(() => []),
-      on: vi.fn(),
-      off: vi.fn()
+      find: vi.fn(() => [])
     };
   }
 

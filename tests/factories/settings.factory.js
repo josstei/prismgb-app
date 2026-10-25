@@ -84,7 +84,6 @@ export function createSettingsFullscreenServiceMock(overrides = {}) {
     dispose: vi.fn(),
     toggleFullscreen: vi.fn(),
     enterFullscreen: vi.fn(),
-    exitFullscreen: vi.fn(),
     ...overrides
   });
 }

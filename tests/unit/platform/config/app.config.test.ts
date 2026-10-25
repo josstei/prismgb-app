@@ -1,20 +1,15 @@
 /**
- * ConfigLoader Unit Tests
+ * Fixed application defaults
  */
 
 import { describe, it, expect } from 'vitest';
 import { appConfig, uiConfig } from '@platform/config';
 
-describe('ConfigLoader', () => {
+describe('Application defaults', () => {
   describe('appConfig', () => {
     it('should export DEVICE_LAUNCH_DELAY as a number', () => {
       expect(typeof appConfig.DEVICE_LAUNCH_DELAY).toBe('number');
       expect(appConfig.DEVICE_LAUNCH_DELAY).toBeGreaterThanOrEqual(0);
-    });
-
-    it('should export USB_SCAN_DELAY as a number', () => {
-      expect(typeof appConfig.USB_SCAN_DELAY).toBe('number');
-      expect(appConfig.USB_SCAN_DELAY).toBeGreaterThanOrEqual(0);
     });
 
     it('should be frozen', () => {
@@ -46,7 +41,7 @@ describe('ConfigLoader', () => {
 
       expect(Object.isFrozen(appConfig)).toBe(true);
       expect(() => {
-        frozenConfig.DEVICE_LAUNCH_DELAY = 9999;
+        Object.assign(frozenConfig, { DEVICE_LAUNCH_DELAY: 9999 });
       }).toThrow();
     });
 

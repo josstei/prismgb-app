@@ -1,6 +1,6 @@
 import { app } from 'electron';
 import pkg from '../../../package.json' assert { type: 'json' };
-import { createApplicationLifecycle, disposeInOrder } from '@platform/core';
+import { createApplicationLifecycle, disposeInOrder, type LoggerFactoryLike } from '@platform/core';
 import { DeviceConnectionService } from '@platform/devices/runtime';
 import { UpdateService } from '@platform/updates';
 import { TranscodeService } from '@platform/transcode/service';
@@ -12,14 +12,13 @@ import { MainProcessTestControl } from '@main/ipc/test-control.port.js';
 import { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
 import { LoginItemService } from '@main/infrastructure/window/login-item.service.js';
 import { AppOrchestrator } from './app.orchestrator.js';
-import type { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
 
 export interface MainRuntimeOptions {
   onRendererReady?: () => void;
 }
 
 /** Explicit process composition. Construction never starts hardware monitoring. */
-export function createMainRuntime(loggerFactory: MainLogger, options: MainRuntimeOptions = {}) {
+export function createMainRuntime(loggerFactory: LoggerFactoryLike, options: MainRuntimeOptions = {}) {
   const ipcPushBridge = new IpcPushBridge();
   const windowService = new WindowService({ ipcPushBridge, loggerFactory });
   const deviceConnectionService = new DeviceConnectionService({ loggerFactory });

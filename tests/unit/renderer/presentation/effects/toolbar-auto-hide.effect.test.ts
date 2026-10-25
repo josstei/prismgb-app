@@ -4,7 +4,6 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ToolbarAutoHide } from '@renderer/presentation/effects/toolbar-auto-hide.effect';
-import { installMissingMutationObserverMock } from '../../../../support/mocks/browser-api.installers.js';
 import { createCallbackMap } from '../../../../factories/index.js';
 
 describe('ToolbarAutoHide', () => {
@@ -182,7 +181,6 @@ describe('ToolbarAutoHide', () => {
       const shaderPanel = document.createElement('div');
       shaderPanel.className = 'shader-panel visible';
       toolbarElement.appendChild(shaderPanel);
-      autoHide.invalidatePanelCache();
 
       autoHide.hide();
 
@@ -218,7 +216,6 @@ describe('ToolbarAutoHide', () => {
       const shaderPanel = document.createElement('div');
       shaderPanel.className = 'shader-panel visible';
       toolbarElement.appendChild(shaderPanel);
-      autoHide.invalidatePanelCache();
 
       expect(autoHide.isPanelOpen()).toBe(true);
     });
@@ -227,7 +224,6 @@ describe('ToolbarAutoHide', () => {
       const button = document.createElement('button');
       button.className = 'panel-open';
       toolbarElement.appendChild(button);
-      autoHide.invalidatePanelCache();
 
       expect(autoHide.isPanelOpen()).toBe(true);
     });
@@ -246,18 +242,6 @@ describe('ToolbarAutoHide', () => {
       toolbarElement.appendChild(shaderPanel);
 
       expect(autoHide.isPanelOpen()).toBe(false); // Still returns cached value
-    });
-  });
-
-  describe('invalidatePanelCache', () => {
-    it('should mark cache as dirty', () => {
-      autoHide = new ToolbarAutoHide(callbacks);
-      autoHide.enable(toolbarElement);
-
-      autoHide.isPanelOpen(); // Populate cache
-      autoHide.invalidatePanelCache();
-
-      expect(autoHide._panelCacheDirty).toBe(true);
     });
   });
 
@@ -353,18 +337,6 @@ describe('ToolbarAutoHide', () => {
       expect(autoHide._panelObserver).not.toBe(firstObserver);
     });
 
-    it('should handle MutationObserver not available', () => {
-      const mutationObserverMock = installMissingMutationObserverMock();
-
-      try {
-        autoHide.enable(toolbarElement);
-
-        expect(autoHide._panelObserver).toBeNull();
-      } finally {
-        mutationObserverMock.cleanup();
-      }
-    });
-
     it('should handle null element gracefully', () => {
       autoHide._element = null;
 
@@ -378,7 +350,6 @@ describe('ToolbarAutoHide', () => {
       const shaderPanel = document.createElement('div');
       shaderPanel.className = 'shader-panel visible';
       toolbarElement.appendChild(shaderPanel);
-      autoHide.invalidatePanelCache();
 
       toolbarElement.dispatchEvent(new MouseEvent('mouseenter'));
       toolbarElement.dispatchEvent(new MouseEvent('mouseleave'));

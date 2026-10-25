@@ -11,15 +11,6 @@ export type NativeResolution = Dimensions;
 
 export type RenderBackend = 'webgpu' | 'canvas2d';
 
-export type HandlerErrorPayload = {
-  eventName: string;
-  error: {
-    name?: string;
-    message: string;
-    stack?: string;
-  };
-};
-
 export type StreamingCapabilities = {
   nativeResolution?: NativeResolution;
   frameRate?: number;
@@ -52,37 +43,11 @@ export type StreamErrorPayload = {
   message: string;
 };
 
-export type StreamHealthOkPayload = {
-  frameCount?: number;
-  elapsedMs?: number;
-  [key: string]: unknown;
-};
-
-export type StreamHealthTimeoutPayload = {
-  reason: string;
-  elapsedMs?: number;
-  [key: string]: unknown;
-};
-
 export type PerformanceStatePayload = {
   hidden?: boolean;
   idle?: boolean;
   performanceModeEnabled?: boolean;
   reducedMotion?: boolean;
-  weakGpuDetected?: boolean;
-  streaming?: boolean;
-  [key: string]: unknown;
-};
-
-export type PerformanceUiModePayload = {
-  enabled: boolean;
-  weakGpuDetected: boolean;
-};
-
-export type MemorySnapshotRequestPayload = {
-  reason?: string;
-  label?: string;
-  delayMs?: number;
   [key: string]: unknown;
 };
 
@@ -93,27 +58,6 @@ export type SupportedDeviceAvailablePayload = {
 };
 
 export type DeviceEnumerationFailedPayload = { reason?: string; error?: string };
-
-export type RenderStatsPayload = {
-  fps?: number;
-  frameTime?: number | string;
-  gpuTime?: number;
-  uploadTime?: number;
-};
-
-export type RenderPipelineReadyPayload = {
-  backend: RenderBackend | string;
-  [key: string]: unknown;
-};
-
-export type RenderPipelineErrorPayload = {
-  message: string;
-  stack?: string;
-  code?: string;
-  adapterInfo?: object | null;
-};
-
-export type CanvasRecreatedPayload = { oldCanvas: HTMLCanvasElement; newCanvas: HTMLCanvasElement };
 
 export type RecordingReadyPayload = { blob: Blob; filename: string };
 

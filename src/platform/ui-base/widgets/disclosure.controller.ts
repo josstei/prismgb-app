@@ -73,16 +73,6 @@ const DEFAULT_ANCHORED_LAYOUT_SIZES: Readonly<AnchoredLayoutSizeDefaults> = Obje
 });
 const DISCLOSURE_LISTENER_LIFECYCLE = Symbol('disclosureListenerLifecycle');
 
-const DISCLOSURE_DEFAULTS: Partial<DisclosureControllerOptions> = {
-  visibleClass: 'visible',
-  toggleOpenClass: null,
-  closeOnEscape: true,
-  closeOnClickOutside: true,
-  outsideEvent: 'click',
-  ignoreOutsideElements: [],
-  ignoreOutsideSelectors: []
-};
-
 function toFiniteNumber(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
@@ -182,24 +172,34 @@ function calculateAnchoredDisclosureLayout({
 }
 
 class DisclosureController extends PresentationComponent {
-  declare toggleElement: HTMLElement | null;
-  declare panelElement: HTMLElement | null;
-  declare visibleClass: string;
-  declare toggleOpenClass: string | null;
-  declare ariaExpandedElement: HTMLElement | null;
-  declare closeOnEscape: boolean;
-  declare closeOnClickOutside: boolean;
-  declare outsideEvent: string;
-  declare ignoreOutsideElements: readonly (Element | null | undefined)[];
-  declare ignoreOutsideSelectors: readonly string[];
-  declare onShow: DisclosureCallback | null | undefined;
-  declare onHide: DisclosureCallback | null | undefined;
-  declare private _isOpen: boolean;
+  toggleElement: HTMLElement | null;
+  panelElement: HTMLElement | null;
+  visibleClass: string;
+  toggleOpenClass: string | null;
+  ariaExpandedElement: HTMLElement | null;
+  closeOnEscape: boolean;
+  closeOnClickOutside: boolean;
+  outsideEvent: string;
+  ignoreOutsideElements: readonly (Element | null | undefined)[];
+  ignoreOutsideSelectors: readonly string[];
+  onShow: DisclosureCallback | null | undefined;
+  onHide: DisclosureCallback | null | undefined;
+  private _isOpen: boolean;
 
   constructor(options: DisclosureControllerOptions) {
     super();
 
-    this.applyOptions<DisclosureControllerOptions>(DISCLOSURE_DEFAULTS, options);
+    this.toggleElement = options.toggleElement;
+    this.panelElement = options.panelElement;
+    this.visibleClass = options.visibleClass ?? 'visible';
+    this.toggleOpenClass = options.toggleOpenClass ?? null;
+    this.closeOnEscape = options.closeOnEscape ?? true;
+    this.closeOnClickOutside = options.closeOnClickOutside ?? true;
+    this.outsideEvent = options.outsideEvent ?? 'click';
+    this.ignoreOutsideElements = options.ignoreOutsideElements ?? [];
+    this.ignoreOutsideSelectors = options.ignoreOutsideSelectors ?? [];
+    this.onShow = options.onShow;
+    this.onHide = options.onHide;
     this.ariaExpandedElement = options.ariaExpandedElement || this.toggleElement;
 
     this._isOpen = false;

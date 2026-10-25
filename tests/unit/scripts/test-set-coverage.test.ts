@@ -42,7 +42,7 @@ const includeGlobs = (vitestConfig.test?.projects ?? []).flatMap((project) =>
 );
 const isCollected = picomatch(includeGlobs);
 
-describe('vitest executed-test-set coverage guard (B4)', () => {
+describe('Vitest test discovery', () => {
   it('declares at least one include glob per project', () => {
     expect(includeGlobs.length).toBeGreaterThan(0);
   });

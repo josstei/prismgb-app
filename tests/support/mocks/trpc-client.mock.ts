@@ -78,9 +78,6 @@ export function createTrpcClientMock() {
       onDownloaded: subscription(),
       onError: subscription()
     },
-    performance: {
-      getProcessMetrics: query()
-    },
     loginItem: {
       get: query(),
       set: mutation()

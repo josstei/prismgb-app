@@ -141,10 +141,6 @@ export class ToolbarAutoHide extends PresentationComponent {
   isPanelOpen() {
     if (!this._element) return false;
 
-    if (!this._panelObserver) {
-      return this._readPanelOpenState();
-    }
-
     if (!this._panelCacheDirty) {
       return this._panelOpenCache;
     }
@@ -155,16 +151,8 @@ export class ToolbarAutoHide extends PresentationComponent {
     return this._panelOpenCache;
   }
 
-  /**
-   * Invalidate the panel open state cache
-   * Call this when panel visibility changes
-   */
-  invalidatePanelCache() {
-    this._panelCacheDirty = true;
-  }
-
   _bindPanelObserver() {
-    if (!this._element || typeof globalThis.MutationObserver === 'undefined') return;
+    if (!this._element) return;
 
     this.cancelManaged(TOOLBAR_PANEL_OBSERVER_LIFECYCLE);
 
@@ -193,29 +181,18 @@ export class ToolbarAutoHide extends PresentationComponent {
     });
     this._panelObserver = observer;
     this.replaceManaged(TOOLBAR_PANEL_OBSERVER_LIFECYCLE, () => {
-      try {
-        observer.disconnect();
-      } catch {
-        // MutationObserver may not be fully supported in test environments
-      }
+      observer.disconnect();
       if (this._panelObserver === observer) {
         this._panelObserver = null;
       }
     });
 
-    try {
-      observer.observe(this._element, {
-        attributes: true,
-        attributeFilter: ['class'],
-        attributeOldValue: true,
-        subtree: true
-      });
-    } catch {
-      // MutationObserver may not be fully supported in test environments (Happy-DOM)
-      // Fall back to always checking panel state on hide timer
-      this.cancelManaged(TOOLBAR_PANEL_OBSERVER_LIFECYCLE);
-      this._panelCacheDirty = true;
-    }
+    observer.observe(this._element, {
+      attributes: true,
+      attributeFilter: ['class'],
+      attributeOldValue: true,
+      subtree: true
+    });
   }
 
   _readPanelOpenState() {

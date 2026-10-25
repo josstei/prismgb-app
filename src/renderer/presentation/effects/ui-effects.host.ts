@@ -112,10 +112,6 @@ export class UIEffects extends PresentationComponent {
     }
   }
 
-  invalidateToolbarPanelCache() {
-    this._toolbar.invalidatePanelCache();
-  }
-
   enableControlsAutoHide(controlsElement: HTMLElement) {
     this._controls.enable(controlsElement);
   }

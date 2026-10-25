@@ -10,7 +10,7 @@ import type {
   StreamingCapabilities
 } from '@renderer/infrastructure/services/streaming/streaming.contract.js';
 import { createGpuVideoRendererSession, detectBrowserGpuCapabilities } from '@platform/gpu/runtime';
-import type { GpuVideoRendererSession, GpuVideoRendererStats } from '@platform/gpu/runtime';
+import type { GpuVideoRendererSession } from '@platform/gpu/runtime';
 import { PRESET_POLICY, type RenderCapabilities } from '@platform/gpu';
 import type { SettingsAccess } from '@renderer/lib/settings.definitions';
 
@@ -136,8 +136,6 @@ export class StreamingRenderService extends BaseService {
           preferredBackend: backend,
           presetId: this.performanceMode ? PRESET_POLICY.performancePresetId : this.userPreset,
           brightness: this.brightness, capabilities: this.gpuCapabilities!, signal: abort.signal,
-          onStats: (stats) => this.publishRenderStats(stats),
-          onError: (error) => { if (!abort.signal.aborted) this.deps.eventBus.publish(EventChannels.RENDER.PIPELINE_ERROR, error); },
           logger: this.logger
         });
       };
@@ -158,7 +156,6 @@ export class StreamingRenderService extends BaseService {
       session.setPreset(this.performanceMode ? PRESET_POLICY.performancePresetId : this.userPreset);
       session.setBrightness(this.brightness);
       lifecycle.setupCanvasSize(native, session.isCanvasTransferred);
-      this.deps.eventBus.publish(EventChannels.RENDER.PIPELINE_READY, { backend: session.backend });
       if (!this.hidden && this.deps.appState.isStreaming) this.startRenderLoop();
     }).catch((error) => {
       if (!abort.signal.aborted) throw error;
@@ -172,13 +169,11 @@ export class StreamingRenderService extends BaseService {
     return new Promise((resolve, reject) => {
       const abort = () => { this.deps.streamHealthService.cleanup(); reject(signal.reason); };
       signal.addEventListener('abort', abort, { once: true });
-      this.deps.streamHealthService.checkStreamHealth(video, (data) => {
+      this.deps.streamHealthService.checkStreamHealth(video, () => {
         signal.removeEventListener('abort', abort);
-        this.deps.eventBus.publish(EventChannels.STREAM.HEALTH_OK, data);
         resolve();
       }, (data) => {
         signal.removeEventListener('abort', abort);
-        this.deps.eventBus.publish(EventChannels.STREAM.HEALTH_TIMEOUT, data);
         reject(new Error(`No frames received: ${data.reason}`));
       }, 4000);
     });
@@ -189,7 +184,6 @@ export class StreamingRenderService extends BaseService {
     return this.session.captureFrame();
   }
   getTargetDimensions(): Dimensions { return this.session?.getTargetDimensions() ?? DeviceCatalog.nativeResolution(); }
-  private publishRenderStats(stats: GpuVideoRendererStats): void { this.deps.eventBus.publish(EventChannels.RENDER.STATS_UPDATE, { ...stats }); }
   private startRenderLoop(): void {
     this.stopRenderLoop();
     const generation = this.loopGeneration;

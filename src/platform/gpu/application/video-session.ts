@@ -4,8 +4,6 @@ import { WorkerRendererClient } from '../worker/client';
 import type {
   RenderBackend,
   RenderPreset,
-  GpuVideoRendererStats,
-  GpuVideoRendererError,
   RenderPipeline,
   RenderCapabilities
 } from '../domain/types';
@@ -21,7 +19,6 @@ export type GpuVideoRendererSession = {
   getTargetDimensions(): { width: number; height: number };
   captureFrame(): Promise<ImageBitmap>;
   terminate(): void;
-  dispose(): void | Promise<void>;
 };
 
 export type GpuVideoRendererSessionOptions = {
@@ -34,9 +31,6 @@ export type GpuVideoRendererSessionOptions = {
   createWorker?: () => Worker;
   signal?: AbortSignal;
   capabilities?: RenderCapabilities;
-  onReady?: (event: { backend: RenderBackend }) => void;
-  onStats?: (stats: GpuVideoRendererStats) => void;
-  onError?: (error: GpuVideoRendererError) => void;
   logger?: Pick<Console, 'debug' | 'error' | 'info' | 'warn'>;
 };
 
@@ -52,16 +46,11 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
   private nativeHeight: number;
   private targetWidth: number;
   private targetHeight: number;
-  private scaleFactor = 1;
   private brightness = 1.0;
-  private presetId: string;
   private currentPreset: RenderPreset;
 
   private localPipeline: RenderPipeline | null = null;
 
-  private onReadyCb?: (event: { backend: RenderBackend }) => void;
-  private onStatsCb?: (stats: GpuVideoRendererStats) => void;
-  private onErrorCb?: (error: GpuVideoRendererError) => void;
   private logger: Pick<Console, 'debug' | 'error' | 'info' | 'warn'>;
 
   private pendingCaptureResolve: ((result: ImageBitmap) => void) | null = null;
@@ -83,13 +72,9 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
     this.nativeHeight = options.nativeResolution.height;
     this.targetWidth = this.nativeWidth;
     this.targetHeight = this.nativeHeight;
-    this.presetId = options.presetId || getRendererDefaultPreset().id;
-    this.currentPreset = resolvePreset(this.presetId);
+    this.currentPreset = resolvePreset(options.presetId || getRendererDefaultPreset().id);
     this.brightness = options.brightness !== undefined ? options.brightness : 1.0;
 
-    this.onReadyCb = options.onReady;
-    this.onStatsCb = options.onStats;
-    this.onErrorCb = options.onError;
     this.logger = options.logger || console;
 
     this.imageBitmapOptions = {
@@ -117,14 +102,8 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
           capabilities: options.capabilities
         });
         this.localPipeline.setBrightness(this.brightness);
-        this.onReadyCb?.({ backend: 'canvas2d' });
       } catch (err: unknown) {
         this.logger.error('Failed to initialize local Canvas2D pipeline:', err);
-        const errorPayload: GpuVideoRendererError = {
-          message: err instanceof Error ? err.message : String(err),
-          code: 'INIT_FAILED'
-        };
-        this.onErrorCb?.(errorPayload);
         throw err;
       }
     } else {
@@ -137,9 +116,7 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
         logger: this.logger
       });
 
-      this.scaleFactor = this.calculateScale(canvas.clientWidth, canvas.clientHeight);
-      this.targetWidth = this.nativeWidth * this.scaleFactor;
-      this.targetHeight = this.nativeHeight * this.scaleFactor;
+      this.updateTargetDimensions(canvas.clientWidth, canvas.clientHeight);
 
       const config = {
         nativeWidth: this.nativeWidth,
@@ -147,23 +124,18 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
         targetWidth: this.targetWidth,
         targetHeight: this.targetHeight,
         backend: this.backend as 'webgpu',
-        presetId: this.presetId
+        presetId: this.currentPreset.id
       };
 
       this.registerMessageHandlers();
 
       try {
         await this.workerClient.initialize(canvas, config, 5000);
-
+        this.logger.info(`Render worker ready (backend: ${this.backend})`);
         this.workerClient.setBrightness(this.brightness);
       } catch (err: unknown) {
         this.logger.error('Failed to initialize worker renderer:', err);
         this.unregisterMessageHandlers();
-        const errorPayload: GpuVideoRendererError = {
-          message: err instanceof Error ? err.message : String(err),
-          code: 'INIT_FAILED'
-        };
-        this.onErrorCb?.(errorPayload);
         throw err;
       }
     }
@@ -176,26 +148,18 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
     return Math.max(1, Math.floor(Math.min(scaleX, scaleY)));
   }
 
+  private updateTargetDimensions(width: number, height: number): void {
+    const scale = this.calculateScale(width, height);
+    this.targetWidth = this.nativeWidth * scale;
+    this.targetHeight = this.nativeHeight * scale;
+  }
+
   private registerMessageHandlers(): void {
     if (!this.workerClient) return;
 
     this.messageUnsubscribers = [
-      this.workerClient.onReady((payload) => {
-        this.logger.info(`Render worker ready (backend: ${payload.backend})`);
-        this.onReadyCb?.({ backend: payload.backend });
-      }),
-
       this.workerClient.onFrameRendered(() => {
         this.pendingFrames = Math.max(0, this.pendingFrames - 1);
-      }),
-
-      this.workerClient.onStats((payload) => {
-        this.onStatsCb?.({
-          fps: payload.fps,
-          frameTime: payload.frameTime,
-          gpuTime: payload.gpuTime,
-          uploadTime: payload.uploadTime
-        });
       }),
 
       this.workerClient.onError((payload) => {
@@ -205,11 +169,6 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
         }
         this.logger.error('Render worker error:', payload.message);
         this.pendingFrames = 0;
-        this.onErrorCb?.({
-          message: payload.message,
-          code: payload.code,
-          stack: payload.stack
-        });
         this.resolvePendingCapture(null, new Error(payload.message));
       }),
 
@@ -282,9 +241,7 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
         this.localPipeline.resize(backingWidth, backingHeight);
       }
     } else {
-      this.scaleFactor = this.calculateScale(width, height);
-      this.targetWidth = this.nativeWidth * this.scaleFactor;
-      this.targetHeight = this.nativeHeight * this.scaleFactor;
+      this.updateTargetDimensions(width, height);
 
       if (this.workerClient && this.workerClient.isReady()) {
         this.workerClient.resize(this.targetWidth, this.targetHeight);
@@ -294,7 +251,6 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
 
   setPreset(presetId: string): void {
     const preset = resolvePreset(presetId);
-    this.presetId = preset.id;
     this.currentPreset = preset;
 
     if (this.backend === 'canvas2d') {
@@ -394,11 +350,6 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
         this.workerClient = null;
       }
     }
-
-  }
-
-  dispose(): void | Promise<void> {
-    this.terminate();
   }
 }
 

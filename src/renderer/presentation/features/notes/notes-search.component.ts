@@ -15,22 +15,21 @@ export interface NotesSearchInitializeOptions {
 }
 
 class NotesSearchComponent extends PresentationComponent {
-  declare logger: LoggerLike | null | undefined;
-  declare currentQuery: string;
-  declare searchInput: HTMLInputElement | null | undefined;
-  declare onSearch: ((query: string) => void) | null | undefined;
+  logger: LoggerLike | null | undefined;
+  searchInput: HTMLInputElement | null | undefined;
+  onSearch: ((query: string) => void) | null | undefined;
 
   constructor(options: NotesSearchComponentOptions) {
     super();
-    this.applyOptions<NotesSearchComponentOptions>({}, options);
-    this.currentQuery = '';
+    this.logger = options.logger;
     this.searchInput = null;
   }
 
   initialize(options: NotesSearchInitializeOptions): void {
     this.cancelManaged(SEARCH_SETUP_LIFECYCLE);
     this.cancelManaged(SEARCH_DEBOUNCE_TIMEOUT);
-    this.applyOptions<NotesSearchInitializeOptions>({}, options);
+    this.searchInput = options.searchInput;
+    this.onSearch = options.onSearch;
 
     if (!this.searchInput) {
       this.logger?.warn('Search input element not found');
@@ -46,13 +45,6 @@ class NotesSearchComponent extends PresentationComponent {
 
   focus(): void {
     this.searchInput?.focus({ preventScroll: true });
-  }
-
-  clear(): void {
-    if (this.searchInput) {
-      this.searchInput.value = '';
-    }
-    this.currentQuery = '';
   }
 
   _setupSearch(): void {
@@ -74,7 +66,6 @@ class NotesSearchComponent extends PresentationComponent {
 
   _handleSearch(): void {
     const query = this.searchInput?.value || '';
-    this.currentQuery = query;
     this.onSearch?.(query);
   }
 
@@ -83,7 +74,6 @@ class NotesSearchComponent extends PresentationComponent {
     this.searchInput = null;
     this.onSearch = null;
     this.logger = null;
-    this.currentQuery = '';
     return disposed;
   }
 }

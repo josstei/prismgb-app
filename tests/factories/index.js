@@ -109,13 +109,10 @@ export {
 
 // Performance factories
 export {
-  createPerformanceMetricsAdapterMock,
   createVisibilityAdapterMock,
   createUserActivityAdapterMock,
   createReducedMotionAdapterMock,
   createPerformanceStateServiceMock,
-  createPerformanceMetricsServiceMock,
-  createProcessMetricsMock,
 } from './performance.factory.js';
 
 // Capture factories

@@ -15,8 +15,4 @@ describe('worker protocol', () => {
     expect(isValidWorkerResponse({ type: 'captureReady', payload: { bitmap: { close() {} } } })).toBe(false);
     expect(isValidWorkerResponse(createWorkerResponse('captureReady', { requestId: 2, bitmap: { close() {} } as ImageBitmap }))).toBe(true);
   });
-  it('accepts numeric stats only', () => {
-    expect(isValidWorkerResponse(createWorkerResponse('stats', { fps: 60, frameTime: 1.5 }))).toBe(true);
-    expect(isValidWorkerResponse({ type: 'stats', payload: { fps: 60, frameTime: '1.5' } })).toBe(false);
-  });
 });

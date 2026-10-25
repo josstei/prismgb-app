@@ -45,7 +45,7 @@ npm run dev
 | `npm run preview` | Preview the renderer build |
 | `npm run start` | Launch Electron from `dist/` output |
 | `npm run build` | Build and package for current platform |
-| `npm run build:vite` | Build renderer bundle only |
+| `npm run build:vite` | Build main, preload, and renderer bundles without packaging |
 | `npm run build:win` | Build for Windows |
 | `npm run build:mac` | Build for macOS |
 | `npm run build:linux` | Build for Linux |
@@ -64,6 +64,8 @@ npm run dev
 | `npm run test:coverage` | Run tests with coverage report |
 | `npm run test:smoke` | Run smoke test against built app |
 | `npm run generate-icons` | Regenerate app icons |
+| `npm run clean:generated` | Remove test reports, caches, and generated E2E fixtures |
+| `npm run clean:build` | Remove application bundles and packaged output |
 
 ## Building for Distribution
 
@@ -87,6 +89,10 @@ Build artifacts are output to the `release/` directory.
 
 - `dist/` contains the renderer, main, and preload bundles.
 - `release/` contains packaged application artifacts.
+
+Use `npm run clean:generated -- --dry-run` to inspect disposable test output before
+removing it. Build output is cleaned separately with `npm run clean:build`.
+Both commands preserve source files and committed generated configuration.
 
 ## Smoke Test
 

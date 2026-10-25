@@ -252,7 +252,6 @@ describe('ComboboxListboxController', () => {
     expect(listboxElement.getAttribute('aria-hidden')).toBe('false');
     expect(listboxElement.hasAttribute('inert')).toBe(false);
     inputElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
-    expect(controller.getHighlightedIndex()).toBe(0);
     expect(inputElement.getAttribute('aria-activedescendant')).toBe('test-option-0');
     inputElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
     expect(callbacks.onSelect).toHaveBeenCalledWith('Alpha');

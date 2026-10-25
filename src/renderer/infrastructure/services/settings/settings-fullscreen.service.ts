@@ -86,13 +86,6 @@ class SettingsFullscreenService extends BaseService {
     });
   }
 
-  exitFullscreen() {
-    if (!this._isFullscreenActive) {
-      return;
-    }
-    this._forceExitFullscreen();
-  }
-
   _forceExitFullscreen() {
     trpcClient.window.setFullScreen.mutate({ enabled: false }).catch(err => {
       this.logger.error('Error exiting fullscreen:', err);

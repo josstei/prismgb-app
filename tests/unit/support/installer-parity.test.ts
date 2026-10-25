@@ -20,7 +20,6 @@ describe('installer barrel parity', () => {
     'installMatchMediaMock',
     'installMediaRecorderMock',
     'installMediaMocks',
-    'installMissingMutationObserverMock',
     'installMissingWindowMock',
     'installNavigatorMock',
     'installResizeObserverMock',

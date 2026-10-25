@@ -87,9 +87,7 @@ export class WorkerRendererClient {
     this.handlers.set(type, handler as (payload: unknown) => void);
     return () => this.handlers.delete(type);
   }
-  onReady(handler: Handler<'ready'>): () => void { return this.onMessage('ready', handler); }
   onFrameRendered(handler: Handler<'frameRendered'>): () => void { return this.onMessage('frameRendered', handler); }
-  onStats(handler: Handler<'stats'>): () => void { return this.onMessage('stats', handler); }
   onError(handler: Handler<'error'>): () => void { return this.onMessage('error', handler); }
   onCaptureReady(handler: Handler<'captureReady'>): () => void { return this.onMessage('captureReady', handler); }
   terminate(): void {

@@ -40,14 +40,12 @@ export class UISetupOrchestrator extends BaseOrchestrator {
   private readonly appState: AppStateLike;
   private readonly uiController: UISetupController;
   protected readonly eventBus: TypedEventBusLike;
-  private readonly loggerFactory: LoggerFactoryLike;
 
   constructor({ appState, uiController, eventBus, loggerFactory }: UISetupOrchestratorDependencies) {
     super({ loggerFactory, eventBus }, 'UISetupOrchestrator');
     this.appState = appState;
     this.uiController = uiController;
     this.eventBus = eventBus;
-    this.loggerFactory = loggerFactory;
 
     this._uiActionsBound = false;
   }

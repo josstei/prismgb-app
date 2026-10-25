@@ -4,7 +4,6 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { NotesPanelLayoutComponent } from '@renderer/presentation/features/notes/notes-panel-layout.component.js';
-import { createLogger } from '../../../../../factories/index.js';
 import {
   installResizeObserverMock,
   installWindowPropertyMock
@@ -12,7 +11,6 @@ import {
 
 describe('NotesPanelLayoutComponent', () => {
   let component;
-  let mockLogger;
   let panelElement;
   let toolbarElement;
   let streamContainer;
@@ -27,7 +25,6 @@ describe('NotesPanelLayoutComponent', () => {
   };
 
   beforeEach(() => {
-    mockLogger = createLogger({ name: 'NotesPanelLayoutComponent' });
     panelElement = document.createElement('div');
     toolbarElement = document.createElement('div');
     streamContainer = document.createElement('div');
@@ -45,7 +42,7 @@ describe('NotesPanelLayoutComponent', () => {
     };
     toolbarElement.getBoundingClientRect = () => toolbarRect;
 
-    component = new NotesPanelLayoutComponent({ logger: mockLogger });
+    component = new NotesPanelLayoutComponent();
   });
 
   afterEach(() => {

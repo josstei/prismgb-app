@@ -10,7 +10,6 @@ import type { LoggerFactoryLike } from '@platform/core';
 
 export type PerformanceState = {
   performanceModeEnabled: boolean;
-  weakGpuDetected: boolean;
   hidden: boolean;
   idle: boolean;
   reducedMotion: boolean;
@@ -37,7 +36,6 @@ const MOTION_LIFECYCLE = Symbol('performanceStateMotion');
 
 const DEFAULT_STATE: PerformanceState = Object.freeze({
   performanceModeEnabled: false,
-  weakGpuDetected: false,
   hidden: false,
   idle: false,
   reducedMotion: false
@@ -91,10 +89,6 @@ class PerformanceStateService extends BaseService {
   override dispose(): void | Promise<void> {
     this._onStateChange = null;
     return super.dispose();
-  }
-
-  getState(): PerformanceState {
-    return { ...this._state };
   }
 
   setPerformanceModeEnabled(enabled: boolean): boolean {

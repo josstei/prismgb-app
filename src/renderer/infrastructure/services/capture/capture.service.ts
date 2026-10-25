@@ -3,7 +3,7 @@ import { BaseService } from '@platform/core';
 import type { LoggerFactoryLike } from '@platform/core';
 import { FilenameGenerator } from '@renderer/lib/filename-generator.utils.js';
 import { EventChannels } from '@platform/events';
-import type { RecordingReadyPayload, TypedEventBusLike } from '@platform/events';
+import type { TypedEventBusLike } from '@platform/events';
 
 type MediaRecorderErrorEvent = Event & {
   error?: DOMException | Error | { message?: string; name?: string };
@@ -208,7 +208,7 @@ class CaptureService extends BaseService {
 
     this.logger.info('Recording ready to save:', filename);
 
-    await this._publishLifecycleEvent(EventChannels.CAPTURE.RECORDING_READY, { blob, filename });
+    await this.eventBus.publishAsync(EventChannels.CAPTURE.RECORDING_READY, { blob, filename });
 
     this.recordedChunks = [];
   }
@@ -315,13 +315,6 @@ class CaptureService extends BaseService {
       this.mediaRecorder = null;
       this.isRecording = false;
     }
-  }
-
-  private async _publishLifecycleEvent(
-    event: typeof EventChannels.CAPTURE.RECORDING_READY,
-    payload: RecordingReadyPayload
-  ): Promise<void> {
-    await this.eventBus.publishAsync(event, payload);
   }
 
   private async _stopActiveRecorder({ emitStoppedEvent }: { emitStoppedEvent: boolean }): Promise<void> {

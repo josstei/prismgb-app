@@ -93,7 +93,6 @@ export class TranscodeProcess extends EventEmitter {
   private _inputArgs: readonly string[];
   private _process: ChildProcess | null = null;
   private _wasKilled = false;
-  private _hasCompleted = false;
   private _startTime: number | null = null;
   private _lastProgressEmit = 0;
   private readonly _disposables = new DisposableBag();
@@ -172,7 +171,6 @@ export class TranscodeProcess extends EventEmitter {
         }
 
         if (code === 0) {
-          this._hasCompleted = true;
           this.emit('progress', { percent: 100, timeUs: this._durationUs });
           this.emit('completed', { outputPath: this._outputPath });
           resolve();
@@ -291,22 +289,7 @@ export class TranscodeProcess extends EventEmitter {
    * @returns True if process is running
    */
   get isRunning(): boolean {
-    return this._process !== null && !this._wasKilled && !this._hasCompleted;
+    return this._process !== null && !this._wasKilled;
   }
 
-  /**
-   * Check if process was cancelled
-   * @returns True if cancelled
-   */
-  get wasCancelled(): boolean {
-    return this._wasKilled;
-  }
-
-  /**
-   * Check if process completed successfully
-   * @returns True if completed
-   */
-  get hasCompleted(): boolean {
-    return this._hasCompleted;
-  }
 }

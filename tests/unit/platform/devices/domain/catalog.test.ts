@@ -31,7 +31,7 @@ describe('DeviceCatalog', () => {
   });
 
   it('returns immutable descriptors and descriptor collections', () => {
-    const devices = DeviceCatalog.all();
+    const devices = DeviceCatalog.enabled();
     const chromatic = DeviceCatalog.default();
 
     expect(Object.isFrozen(devices)).toBe(true);
@@ -94,7 +94,7 @@ describe('DeviceCatalog', () => {
       supportedResolutions: CHROMATIC_DESCRIPTOR.display.resolutions,
       supportedFrameRates: CHROMATIC_DESCRIPTOR.fixture?.supportedFrameRates
     });
-    expect(DeviceCatalog.streamProfile(CHROMATIC_DESCRIPTOR.id)).toEqual(profile);
+    expect(getDeviceStreamProfile(CHROMATIC_DESCRIPTOR.id)).toEqual(profile);
     expect(Object.isFrozen(profile)).toBe(true);
   });
 
@@ -137,7 +137,7 @@ describe('DeviceCatalog', () => {
       includeAudio: false,
       audioConstraints: null
     });
-    expect(DeviceCatalog.acquisitionProfile(CHROMATIC_DESCRIPTOR.id)).toEqual(profile);
+    expect(getDeviceAcquisitionProfile(CHROMATIC_DESCRIPTOR.id)).toEqual(profile);
   });
 
   it('exposes fixture projection through the package testkit subpath', () => {
