@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { observable } from '@trpc/server/observable';
 import { IPC_CHANNELS, rendererShutdownRequestSchema, type IpcPushPayloadMap } from '@platform/ipc';
-import { toDeviceStatusPayload } from '@platform/devices';
 
 import { router, publicProcedure, rethrowAsTrpcError, type IpcContext } from './trpc.js';
 import { rendererShutdownResultSchema } from './schemas/app.schemas.js';
@@ -48,7 +47,7 @@ const deviceRouter = router({
         ctx.logger.debug('Using test-control device status override');
         return override;
       }
-      return toDeviceStatusPayload(ctx.deviceConnectionService.getStatus());
+      return ctx.deviceConnectionService.getStatus();
     })
   ),
   refreshStatus: publicProcedure.output(deviceStatusPayloadSchema).mutation(({ ctx }) =>
@@ -58,7 +57,7 @@ const deviceRouter = router({
         ctx.logger.debug('Using test-control device refresh status override');
         return override;
       }
-      return toDeviceStatusPayload(await ctx.deviceConnectionService.reconcileDeviceStatus('manual-refresh'));
+      return ctx.deviceConnectionService.reconcileDeviceStatus('manual-refresh');
     })
   ),
   onConnected: publicProcedure.subscription(({ ctx }) =>

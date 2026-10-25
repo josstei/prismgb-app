@@ -143,4 +143,4 @@ export interface DeviceMatch {
 }
 
 export type DeviceInfo = DeviceInfoPayload;
-export type DeviceStatus = DeviceStatusPayload & { updatedAt: number };
+export type DeviceStatus = DeviceStatusPayload;

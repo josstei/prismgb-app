@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  matchByLabel,
-  toDeviceStatusPayload
-} from '@platform/devices';
+import { matchByLabel } from '@platform/devices';
 import { toDeviceInfo } from '../../../../src/platform/devices/domain/payloads';
 import {
   CHROMATIC_DESCRIPTOR,
@@ -65,24 +62,6 @@ describe('device contract mappers', () => {
       connected: false,
       device: null
     });
-  });
-
-  it('drops runtime-only updatedAt from status payloads and preserves errors', () => {
-    const payload = toDeviceStatusPayload({
-      state: 'error',
-      connected: false,
-      device: null,
-      error: 'scan failed',
-      updatedAt: 123
-    });
-
-    expect(payload).toEqual({
-      state: 'error',
-      connected: false,
-      device: null,
-      error: 'scan failed'
-    });
-    expect('updatedAt' in payload).toBe(false);
   });
 
   it('matches fixture media labels through catalog label patterns', () => {

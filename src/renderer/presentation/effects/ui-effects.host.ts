@@ -7,20 +7,14 @@ import { TIMING } from '@platform/config';
 import { PresentationComponent, ActivityAutoHideController } from '@platform/ui-base';
 import type { DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils.js';
 
-type BodyClassManagerLike = {
-  dispose?: () => void | Promise<void>;
-};
-
 type UIElements = DomBindingsFlat;
 
 type UIEffectsDependencies = {
   elements?: UIElements | null;
-  bodyClassManager?: BodyClassManagerLike | null;
 };
 
 export class UIEffects extends PresentationComponent {
   elements: UIElements | null;
-  _bodyClassManager: BodyClassManagerLike | null;
   _buttonFeedback: ButtonFeedback;
   _captureEffects: CaptureEffects;
   _cursor: CursorAutoHide;
@@ -31,9 +25,8 @@ export class UIEffects extends PresentationComponent {
   constructor(dependencies: UIEffectsDependencies = {}) {
     super();
 
-    const { elements, bodyClassManager } = dependencies;
+    const { elements } = dependencies;
     this.elements = elements ?? null;
-    this._bodyClassManager = bodyClassManager || null;
     this._buttonFeedback = new ButtonFeedback({ elements });
     this._captureEffects = new CaptureEffects();
 

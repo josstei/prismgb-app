@@ -32,7 +32,7 @@ describe('TrpcDeviceStatusPort', () => {
         connected: payload.connected,
         device: payload.device
       });
-      expect(typeof status.updatedAt).toBe('number');
+      expect(status).toBe(payload);
     });
 
     it('maps a thrown TRPCError to an error DeviceStatus and logs the failure', async () => {

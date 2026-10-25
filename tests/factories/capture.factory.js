@@ -163,7 +163,6 @@ export function createTranscodeServiceMock(overrides = {}) {
   return /** @type {any} */ ({
     transcode: vi.fn(),
     cancel: vi.fn(),
-    getStatus: vi.fn(),
     ...overrides
   });
 }

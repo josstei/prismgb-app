@@ -150,3 +150,58 @@ with renderer readiness/disposal also pass. The package again used the installed
 Electron distribution with `npmRebuild=false`; normal packaging settings still
 rebuild native dependencies. Hardware and other-platform limitations above still
 apply. Bundle sizes are measured; no additional runtime-speed claim is made.
+
+## Deeper ownership audit, 2026-10-25
+
+This pass compared the previous cleanup head, `db35ad9`, with actual production
+ownership and call paths. It removes the main-process lifecycle forwarding class,
+the performance-state forwarding service, browser media adapter, notes search and
+autocomplete wrappers, duplicated AppState media caches, and redundant device DTO
+conversions. Service, orchestrator and component bases now inherit the shared
+resource owner directly. One UI registry defines component IDs, factories, mounting
+and deferred status; component instance types are inferred from it.
+
+Worker readiness, frame reservations and correlated capture now belong to the worker
+client. Backend choice and fresh-canvas fallback belong only to the streaming render
+service. The low-level renderer initializes its requested backend and rolls back
+failure. Removed worker capability discovery, callback registries, duplicate preset
+catalogs and transport fields have no remaining consumers. Preset values/order,
+Canvas fallback, capture timeouts, late bitmap closure and recording drain remain.
+
+Two correctness fixes accompany the reductions. Concurrent disposal now joins cleanup
+already in progress, including explicitly released resources and overlapping groups;
+freshly registered resources remain owned. Synchronous device reconciliation no longer
+uses an asynchronous lock that could discard an immediate detach after attach. The
+presentation-mode store also has one owner instead of being disposed by both its
+effect and process composition.
+
+Test support uses real Happy DOM nodes instead of a handwritten DOM/selector/event
+implementation. Mock-only streaming and capture workflow suites, unused browser
+installers and parity tests were removed. Four replacement streaming integrations run
+the production acquirer, service, view, AppState and orchestrator through the real
+event bus, covering paired audio, UI requests, recording drain, ended tracks and retry.
+Actual capture service/orchestrator/bridge and Electron coverage remain.
+
+| Measurement | Previous cleanup | Deeper audit |
+| --- | ---: | ---: |
+| Production source lines, same extensions as above | 27,911 | 26,561 |
+| Test-support and factory lines | 3,940 | 2,937 |
+| Renderer entry JavaScript | 389,690 bytes | 374,401 bytes |
+| Main JavaScript | 220,407 bytes | 213,451 bytes |
+
+The final unit/integration suite passes **1,809 tests across 154 files**. The test
+count reduction comes from removed APIs, forwarding layers and fake implementation
+tests. New regressions cover pending disposal, cleanup failures and reuse, immediate
+device detach, direct media ownership and real streaming event paths. Application
+and test types, generated paths, architecture lint, full/production Knip and the
+production build pass. Independent lifecycle/UI and media review found no actionable
+regression. These are size measurements; no new runtime-speed claim is made.
+
+All **92 Electron E2E tests** pass with fullscreen enabled and no retries, including
+notes persistence/quit, focus/keyboard interactions, stream restart, visibility,
+screenshots and recording shutdown. Real Vite development startup, the native ABI
+gate and Linux packaged startup/disposal also pass. Packaging again used the installed
+Electron distribution and USB prebuild with `npmRebuild=false`; no production package
+defaults changed. Physical-device, hardware WebGPU and other-platform limitations
+listed above remain. Generated test reports, fixtures and local builds were removed
+after validation.

@@ -81,8 +81,7 @@ describe('usb.monitor', () => {
     const onAdd = vi.fn();
     const onRemove = vi.fn();
 
-    monitor.startMonitoring();
-    monitor.registerLifecycleListeners(onAdd, onRemove);
+    monitor.startMonitoring(onAdd, onRemove);
 
     usb.emit('attach', makeNodeUsbDevice());
     usb.emit('detach', makeNodeUsbDevice({ deviceAddress: 13 }));
@@ -97,7 +96,7 @@ describe('usb.monitor', () => {
     const monitor = createNodeUsbMonitor({ loadUsbModule: () => usb as unknown as UsbModule });
     const onAdd = vi.fn();
 
-    monitor.registerLifecycleListeners(onAdd, vi.fn());
+    monitor.startMonitoring(onAdd, vi.fn());
     monitor.stopMonitoring();
     usb.emit('attach', makeNodeUsbDevice());
 
@@ -109,8 +108,7 @@ describe('usb.monitor', () => {
     const monitor = createNodeUsbMonitor({ loadUsbModule: () => null });
     const onAdd = vi.fn();
 
-    monitor.startMonitoring();
-    monitor.registerLifecycleListeners(onAdd, vi.fn());
+    monitor.startMonitoring(onAdd, vi.fn());
 
     expect(monitor.find()).toEqual([]);
     expect(onAdd).not.toHaveBeenCalled();
@@ -133,16 +131,16 @@ describe('usb.monitor', () => {
     const oldRemove = vi.fn();
     const onAdd = vi.fn();
     const onRemove = vi.fn();
-    monitor.registerLifecycleListeners(oldAdd, oldRemove);
-    monitor.registerLifecycleListeners(onAdd, onRemove);
+    monitor.startMonitoring(oldAdd, oldRemove);
+    monitor.startMonitoring(onAdd, onRemove);
     usb.emit('attach');
     usb.emit('detach');
     expect(oldAdd).not.toHaveBeenCalled();
     expect(oldRemove).not.toHaveBeenCalled();
     expect(onAdd).toHaveBeenCalledTimes(1);
     expect(onRemove).toHaveBeenCalledTimes(1);
-    monitor.unregisterLifecycleListeners();
-    monitor.unregisterLifecycleListeners();
+    monitor.stopMonitoring();
+    monitor.stopMonitoring();
     usb.emit('attach');
     usb.emit('detach');
     expect(onAdd).toHaveBeenCalledTimes(1);

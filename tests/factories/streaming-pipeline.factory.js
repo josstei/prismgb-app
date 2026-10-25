@@ -99,14 +99,8 @@ export function createStreamingViewElementsMock(overrides = {}) {
   const baseStreamCanvas = createMockElement('canvas');
 
   return {
-    streamVideo: {
-      ...baseStreamVideo,
-      ...streamVideo
-    },
-    streamCanvas: {
-      ...baseStreamCanvas,
-      ...streamCanvas
-    },
+    streamVideo: Object.assign(baseStreamVideo, streamVideo),
+    streamCanvas: Object.assign(baseStreamCanvas, streamCanvas),
     ...rest,
   };
 }

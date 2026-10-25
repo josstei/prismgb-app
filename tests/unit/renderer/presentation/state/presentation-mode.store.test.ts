@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { PresentationModeStore } from '../../../../../src/renderer/presentation/state/presentation-mode.store.js';
-import { signal, type Signal } from '@platform/ui-base/reactive';
+import { signal, type Signal } from '@preact/signals-core';
 import { PlatformEventBus, EventChannels } from '@platform/events';
 
 describe('PresentationModeStore', () => {

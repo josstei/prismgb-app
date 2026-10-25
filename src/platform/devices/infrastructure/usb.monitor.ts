@@ -1,27 +1,11 @@
 import type { Device as NodeUsbDevice } from 'usb';
 import { createRequire } from 'node:module';
-
-interface UsbDevice {
-  locationId?: number;
-  vendorId: number;
-  productId: number;
-  deviceName?: string;
-  manufacturer?: string;
-  serialNumber?: string;
-  deviceAddress?: number;
-  deviceClass?: number;
-  busNumber?: number;
-}
+import type { ObservedUsbDevice as UsbDevice } from '../domain/types.js';
 
 interface UsbMonitor {
-  startMonitoring(): void;
+  startMonitoring(onAdd: (device: UsbDevice) => void, onRemove: (device: UsbDevice) => void): void;
   stopMonitoring(): void;
   find(): UsbDevice[];
-  registerLifecycleListeners(
-    onAdd: (device: UsbDevice) => void,
-    onRemove: (device: UsbDevice) => void
-  ): void;
-  unregisterLifecycleListeners(): void;
 }
 
 interface UsbModule {
@@ -69,23 +53,20 @@ class NodeUsbMonitor implements UsbMonitor {
 
   constructor(private readonly usbModule: UsbModule) {}
 
-  startMonitoring(): void {
-    this.usbModule.usb?.unrefHotplugEvents?.();
-  }
-
   stopMonitoring(): void {
-    this.unregisterLifecycleListeners();
+    this.detachListeners?.();
+    this.detachListeners = null;
   }
 
   find(): UsbDevice[] {
     return this.usbModule.getDeviceList().map(toUsbDevice);
   }
 
-  registerLifecycleListeners(
+  startMonitoring(
     onAdd: (device: UsbDevice) => void,
     onRemove: (device: UsbDevice) => void
   ): void {
-    this.unregisterLifecycleListeners();
+    this.stopMonitoring();
     const usb = this.usbModule.usb;
     if (!usb) return;
     const attached = (device: NodeUsbDevice) => onAdd(toUsbDevice(device));
@@ -99,10 +80,6 @@ class NodeUsbMonitor implements UsbMonitor {
     usb.unrefHotplugEvents?.();
   }
 
-  unregisterLifecycleListeners(): void {
-    this.detachListeners?.();
-    this.detachListeners = null;
-  }
 }
 
 class NoopUsbMonitor implements UsbMonitor {
@@ -114,9 +91,6 @@ class NoopUsbMonitor implements UsbMonitor {
     return [];
   }
 
-  registerLifecycleListeners(): void {}
-
-  unregisterLifecycleListeners(): void {}
 }
 
 function createNodeUsbMonitor(options: { loadUsbModule?: UsbModuleLoader } = {}): UsbMonitor {

@@ -37,18 +37,6 @@ describe('ManagedLifecycleHost', () => {
     });
   });
 
-  describe('interval', () => {
-    it('fires repeatedly and stops on dispose', async () => {
-      const handler = vi.fn();
-      host.interval(handler, 50);
-      vi.advanceTimersByTime(150);
-      expect(handler).toHaveBeenCalledTimes(3);
-      await host.dispose();
-      vi.advanceTimersByTime(100);
-      expect(handler).toHaveBeenCalledTimes(3);
-    });
-  });
-
   describe('schedule', () => {
     it('replaces a pending timer registered under the same key', () => {
       const first = vi.fn();

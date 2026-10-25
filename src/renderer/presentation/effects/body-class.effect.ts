@@ -35,10 +35,9 @@ export class BodyClassManager extends PresentationComponent {
   /**
    * Bind the gated presentation-mode composites to body classes. Cinematic/fullscreen are
    * plain class toggles; minimalist-fullscreen runs through {@link setMinimalistFullscreen}
-   * so its change-guard and transition timing are preserved. The store is tracked for teardown.
+   * so its change-guard and transition timing are preserved.
    */
   bindPresentationMode(store: PresentationModeStore) {
-    this.track(store);
     this.track(bindClass(document.body, CSSClasses.CINEMATIC_ACTIVE, store.cinematicActive));
     this.track(bindClass(document.body, CSSClasses.FULLSCREEN_ACTIVE, store.fullscreenActive));
     this.track(effect(() => this.setMinimalistFullscreen(store.minimalistActive.value)));

@@ -19,32 +19,12 @@ export interface DeviceStatusPort {
   subscribe(onStatus: DeviceStatusListener): () => void;
 }
 
-function now(): number {
-  return Date.now();
-}
-
-function toStatusFromPayload(payload: DeviceStatusPayload, updatedAt = now()): DeviceStatus {
-  const status: DeviceStatus = {
-    state: payload.state,
-    connected: payload.connected,
-    device: payload.device,
-    updatedAt
-  };
-
-  if (payload.error !== undefined) {
-    status.error = payload.error;
-  }
-
-  return status;
-}
-
 function toErrorStatus(error: string): DeviceStatus {
   return {
     state: 'error',
     connected: false,
     device: null,
-    error,
-    updatedAt: now()
+    error
   };
 }
 
@@ -52,8 +32,7 @@ function toConnectionStatus(connected: boolean, device: DeviceInfoPayload | null
   return {
     state: connected ? 'connected' : 'disconnected',
     connected,
-    device: connected ? device ?? null : null,
-    updatedAt: now()
+    device: connected ? device ?? null : null
   };
 }
 
@@ -73,7 +52,7 @@ export class TrpcDeviceStatusPort implements DeviceStatusPort {
       this.logger
     );
     if (result.status === 'ok') {
-      return toStatusFromPayload(result.value);
+      return result.value;
     }
     return toErrorStatus(result.error);
   }
@@ -85,7 +64,7 @@ export class TrpcDeviceStatusPort implements DeviceStatusPort {
       this.logger
     );
     if (result.status === 'ok') {
-      return toStatusFromPayload(result.value);
+      return result.value;
     }
     return toErrorStatus(result.error);
   }

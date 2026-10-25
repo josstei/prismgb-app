@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { NotesPanelComponent } from '@renderer/presentation/features/notes/notes-panel.component.js';
 import { GameFilterComponent } from '@renderer/presentation/features/notes/game-filter.component.js';
-import { GameAutocompleteComponent } from '@renderer/presentation/features/notes/game-autocomplete.component.js';
 import { EventChannels } from '@platform/events';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import {
@@ -173,7 +172,6 @@ describe('NotesPanelComponent', () => {
         gameName: 'New Game'
       });
       expect(component.children!.gameFilter.getCurrentFilter()).toBe('');
-      expect(component.children!.listView.currentGameFilter).toBe('');
       expect(replacementElements.notesGameInput.value).toBe('New Game');
     });
   });
@@ -345,14 +343,12 @@ describe('NotesPanelComponent', () => {
     it('should clear stale list filter when deletion invalidates the active game filter', () => {
       const remainingNote = createTestNote({ id: 'note_2', title: 'Remaining', gameName: 'New Game', content: '' });
       component.children!.gameFilter.setCurrentFilter('Old Game');
-      component.children!.listView.setGameFilter('Old Game');
       mockNotesService.deleteNote.mockReturnValue(true);
       mockNotesService.getUniqueGames.mockReturnValue(['New Game']);
       mockNotesService.searchNotes.mockImplementation((_query, gameFilter) => (gameFilter ? [] : [remainingNote]));
       mockNotesService.getNote.mockReturnValue(remainingNote);
       component._deleteCurrentNote();
       expect(component.children!.gameFilter.getCurrentFilter()).toBe('');
-      expect(component.children!.listView.currentGameFilter).toBe('');
       expect(mockNotesService.searchNotes).toHaveBeenLastCalledWith('', '');
       expect(component.currentNoteId).toBe('note_2');
     });
@@ -448,7 +444,6 @@ describe('NotesPanelComponent', () => {
     it('should clear stale list filter when save changes game and invalidates active filter', () => {
       component.currentNoteId = 'note_1';
       component.children!.gameFilter.setCurrentFilter('Old Game');
-      component.children!.listView.setGameFilter('Old Game');
       mockElements.notesSearchInput.value = 'Renamed';
       mockElements.notesGameInput.value = 'New Game';
       mockElements.notesTitleInput.value = 'Renamed';
@@ -458,7 +453,6 @@ describe('NotesPanelComponent', () => {
       mockNotesService.updateNote.mockReturnValue(createTestNote({ id: 'note_1', gameName: 'New Game' }));
       component._saveCurrentNote();
       expect(component.children!.gameFilter.getCurrentFilter()).toBe('');
-      expect(component.children!.listView.currentGameFilter).toBe('');
       expect(mockNotesService.searchNotes).toHaveBeenLastCalledWith('Renamed', '');
     });
   });
@@ -739,25 +733,15 @@ describe('NotesPanelComponent', () => {
     expect(mockElements.notesGameFilterMenu.classList.contains(CSSClasses.VISIBLE)).toBe(false);
     filterComponent.dispose();
   });
-  it('should clean up game autocomplete lifecycle when reinitialized with missing elements', () => {
-    const autocompleteComponent = new GameAutocompleteComponent({ notesService: mockNotesService, logger: mockLogger });
+  it('cleans up autocomplete when the panel remounts without its input', () => {
     mockNotesService.getUniqueGames.mockReturnValue(['Game Alpha']);
-    autocompleteComponent.initialize({
-      gameInput: mockElements.notesGameInput,
-      autocompleteDropdown: mockElements.notesGameAutocomplete,
-      onInput: vi.fn(),
-      onSelect: vi.fn(),
-      onEnter: vi.fn(),
-      onEscape: vi.fn(),
-      onBlur: vi.fn()
-    });
+    component.initialize(mockElements);
     mockElements.notesGameInput.dispatchEvent(new Event('focus'));
     expect(mockElements.notesGameAutocomplete.classList.contains(CSSClasses.VISIBLE)).toBe(true);
-    autocompleteComponent.initialize({ gameInput: null, autocompleteDropdown: null });
+    component.initialize({ ...mockElements, notesGameInput: null, notesGameAutocomplete: null });
     expect(mockElements.notesGameAutocomplete.classList.contains(CSSClasses.VISIBLE)).toBe(false);
     mockElements.notesGameInput.dispatchEvent(new Event('focus'));
     expect(mockElements.notesGameAutocomplete.classList.contains(CSSClasses.VISIBLE)).toBe(false);
-    autocompleteComponent.dispose();
   });
   describe('Game tag UI', () => {
     beforeEach(() => {
@@ -846,10 +830,42 @@ describe('NotesPanelComponent', () => {
     beforeEach(() => {
       component.initialize(mockElements);
     });
-    it('should render list with search query', () => {
-      const renderSpy = vi.spyOn(component.children!.listView, 'render');
-      component._handleSearch('Alpha');
-      expect(renderSpy).toHaveBeenCalledWith('Alpha');
+    it('debounces search input using the active filter', () => {
+      vi.useFakeTimers();
+      component.children!.gameFilter.setCurrentFilter('Game Alpha');
+      mockNotesService.searchNotes.mockClear();
+      mockElements.notesSearchInput.value = 'A';
+      mockElements.notesSearchInput.dispatchEvent(new Event('input'));
+      vi.advanceTimersByTime(100);
+      mockElements.notesSearchInput.value = 'Alpha';
+      mockElements.notesSearchInput.dispatchEvent(new Event('input'));
+      vi.advanceTimersByTime(199);
+      expect(mockNotesService.searchNotes).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1);
+      expect(mockNotesService.searchNotes).toHaveBeenCalledExactlyOnceWith('Alpha', 'Game Alpha');
+    });
+    it('cancels pending search and detaches the old input when remounted', () => {
+      vi.useFakeTimers();
+      mockElements.notesSearchInput.value = 'stale';
+      mockElements.notesSearchInput.dispatchEvent(new Event('input'));
+      const replacement = createReplacementNotesPanelElements(mockElements);
+      component.initialize(replacement);
+      mockNotesService.searchNotes.mockClear();
+      mockElements.notesSearchInput.dispatchEvent(new Event('input'));
+      vi.advanceTimersByTime(500);
+      expect(mockNotesService.searchNotes).not.toHaveBeenCalled();
+      replacement.notesSearchInput.value = 'fresh';
+      replacement.notesSearchInput.dispatchEvent(new Event('input'));
+      vi.advanceTimersByTime(200);
+      expect(mockNotesService.searchNotes).toHaveBeenCalledExactlyOnceWith('fresh', '');
+    });
+    it('cancels pending search on disposal', async () => {
+      vi.useFakeTimers();
+      mockElements.notesSearchInput.dispatchEvent(new Event('input'));
+      mockNotesService.searchNotes.mockClear();
+      await component.dispose();
+      vi.advanceTimersByTime(500);
+      expect(mockNotesService.searchNotes).not.toHaveBeenCalled();
     });
     it('should re-render list when game name changes', () => {
       component.currentNoteId = 'note_1';
@@ -906,14 +922,12 @@ describe('NotesPanelComponent', () => {
     it('should refresh normalized filter for external note updates', () => {
       component.currentNoteId = 'note_1';
       component.children!.gameFilter.setCurrentFilter('Old Game');
-      component.children!.listView.setGameFilter('Old Game');
       mockElements.notesSearchInput.value = 'query';
       mockNotesService.getUniqueGames.mockReturnValue(['New Game']);
 
       callbackFor(EventChannels.NOTES.NOTE_UPDATED)?.({ id: 'note_1', gameName: 'New Game' });
 
       expect(component.children!.gameFilter.getCurrentFilter()).toBe('');
-      expect(component.children!.listView.currentGameFilter).toBe('');
       expect(mockNotesService.searchNotes).toHaveBeenLastCalledWith('query', '');
     });
 
@@ -922,7 +936,6 @@ describe('NotesPanelComponent', () => {
       const matchingNote = createTestNote({ id: 'note_3', title: 'Match', gameName: 'New Game', content: '' });
       component.currentNoteId = 'note_1';
       component.children!.gameFilter.setCurrentFilter('Old Game');
-      component.children!.listView.setGameFilter('Old Game');
       mockElements.notesSearchInput.value = 'match';
       mockNotesService.getUniqueGames.mockReturnValue(['New Game']);
       mockElements.notesSearchInput.value = 'match';
@@ -935,7 +948,6 @@ describe('NotesPanelComponent', () => {
       callbackFor(EventChannels.NOTES.NOTE_DELETED)?.({ id: 'note_1' });
 
       expect(component.children!.gameFilter.getCurrentFilter()).toBe('');
-      expect(component.children!.listView.currentGameFilter).toBe('');
       expect(mockNotesService.searchNotes).toHaveBeenLastCalledWith('match', '');
       expect(component.currentNoteId).toBe('note_3');
     });

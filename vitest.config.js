@@ -74,7 +74,6 @@ export default defineConfig({
           environment: 'happy-dom',
           include: [
             'tests/integration/**/*.{test,spec}.{js,ts}',
-            'tests/workflows/**/*.{test,spec}.{js,ts}',
             'tests/unit/renderer/**/*.{test,spec}.{js,ts}'
           ],
           setupFiles: [

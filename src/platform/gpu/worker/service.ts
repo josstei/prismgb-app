@@ -1,8 +1,7 @@
 import { resolvePreset } from '../application/catalog';
 import { createGpuRenderer } from '../application/renderer.service';
-import { detectWorkerGpuCapabilities } from '../infrastructure/capabilities.worker';
 import type { RenderPipeline } from '../domain/types';
-import { WorkerResponseType, createWorkerResponse, isValidWorkerMessage, type WorkerMessage, type WorkerErrorPayload } from './protocol';
+import { createWorkerResponse, isValidWorkerMessage, type WorkerMessage, type WorkerErrorPayload } from './protocol';
 
 export type WorkerRendererServiceScope = {
   onmessage: ((event: MessageEvent<unknown>) => void | Promise<void>) | null;
@@ -13,9 +12,9 @@ export function startWorkerRendererService(scope: WorkerRendererServiceScope): v
   let renderer: RenderPipeline | null = null;
   let queue = Promise.resolve();
   let captureRequest: number | null = null;
-  const postError = (error: unknown, code: string, requestId?: number) => {
-    const payload: WorkerErrorPayload = { message: error instanceof Error ? error.message : String(error), stack: error instanceof Error ? error.stack : undefined, code, requestId };
-    scope.postMessage(createWorkerResponse(WorkerResponseType.ERROR, payload));
+  const postError = (error: unknown, requestId?: number) => {
+    const payload: WorkerErrorPayload = { message: error instanceof Error ? error.message : String(error), requestId };
+    scope.postMessage(createWorkerResponse('error', payload));
   };
 
   async function handle(message: WorkerMessage): Promise<void> {
@@ -25,8 +24,8 @@ export function startWorkerRendererService(scope: WorkerRendererServiceScope): v
         const { canvas, config } = message.payload;
         canvas.width = config.targetWidth;
         canvas.height = config.targetHeight;
-        renderer = await createGpuRenderer({ canvas, nativeWidth: config.nativeWidth, nativeHeight: config.nativeHeight, preferredBackend: 'webgpu', capabilities: detectWorkerGpuCapabilities(), allowCanvas2D: false, preset: resolvePreset(config.presetId) });
-        scope.postMessage(createWorkerResponse(WorkerResponseType.READY, { backend: 'webgpu' }));
+        renderer = await createGpuRenderer({ canvas, nativeWidth: config.nativeWidth, nativeHeight: config.nativeHeight, backend: 'webgpu', preset: resolvePreset(config.presetId) });
+        scope.postMessage(createWorkerResponse('ready'));
         return;
       }
       case 'frame': {
@@ -40,33 +39,33 @@ export function startWorkerRendererService(scope: WorkerRendererServiceScope): v
             let captured: ImageBitmap | null = null;
             try {
               captured = await renderer.captureFrame();
-              scope.postMessage(createWorkerResponse(WorkerResponseType.CAPTURE_READY, { bitmap: captured, requestId }), [captured]);
+              scope.postMessage(createWorkerResponse('captureReady', { bitmap: captured, requestId }), [captured]);
               captured = null;
             } catch (error) {
               captured?.close();
-              postError(error, 'CAPTURE_FAILED', requestId);
+              postError(error, requestId);
             }
           }
         } finally {
           bitmap.close();
-          scope.postMessage(createWorkerResponse(WorkerResponseType.FRAME_RENDERED));
+          scope.postMessage(createWorkerResponse('frameRendered'));
         }
         return;
       }
       case 'capture':
-        if (!renderer) { postError(new Error('Renderer not initialized'), 'NO_RENDERER', message.payload.requestId); return; }
+        if (!renderer) { postError(new Error('Renderer not initialized'), message.payload.requestId); return; }
         captureRequest = message.payload.requestId;
         return;
       case 'resize': renderer?.resize(message.payload.width, message.payload.height); return;
-      case 'setPreset': renderer?.setPreset(message.payload.preset); return;
+      case 'setPreset': renderer?.setPreset(resolvePreset(message.payload.presetId)); return;
       case 'setBrightness': renderer?.setBrightness(message.payload.brightness); return;
     }
   }
   scope.onmessage = (event) => {
     const message = event.data;
-    if (!isValidWorkerMessage(message)) { postError(new Error('Invalid message format'), 'INVALID_MESSAGE'); return; }
+    if (!isValidWorkerMessage(message)) { postError(new Error('Invalid message format')); return; }
     // Preserve wire order across async initialization and frame capture.
-    queue = queue.then(() => handle(message)).catch((error) => postError(error, message.type === 'init' ? 'INIT_FAILED' : 'RENDER_FAILED'));
+    queue = queue.then(() => handle(message)).catch((error) => postError(error));
     return queue;
   };
 }

@@ -393,10 +393,7 @@ class WindowService extends BaseService {
 
   override dispose(): void | Promise<void> {
     for (const url of this.expectedDownloads.keys()) this.cancelDownload(url);
-    this._cleanupWindowListeners({
-      includeCloseListener: true,
-      includeClosedListener: true
-    });
+    this.destroyWindow();
     return super.dispose();
   }
 }

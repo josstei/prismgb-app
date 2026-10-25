@@ -88,16 +88,16 @@ describe('StreamingViewportService', () => {
 
     // mainContent is the stable parent used for measurement
     mockMainContent = createMockElement('div');
-    mockMainContent.clientWidth = 800;
-    mockMainContent.clientHeight = 600;
+    Object.defineProperties(mockMainContent, {
+      clientWidth: { value: 800 }, clientHeight: { value: 600 }
+    });
 
     mockSection = createMockElement('section');
-    mockSection.clientWidth = 800;
-    mockSection.clientHeight = 600;
-    mockSection.children = [mockContainer]; // Only the container, no siblings
-    mockSection.parentElement = mockMainContent;
-
-    mockContainer.parentElement = mockSection;
+    Object.defineProperties(mockSection, {
+      clientWidth: { value: 800 }, clientHeight: { value: 600 }
+    });
+    mockMainContent.appendChild(mockSection);
+    mockSection.appendChild(mockContainer);
 
     mockCanvas = createMockCanvas();
     mockCanvas.width = 0;
@@ -213,7 +213,7 @@ describe('StreamingViewportService', () => {
 
     it('should return null if section is missing', () => {
       const nativeResolution = { width: 160, height: 144 };
-      mockContainer.parentElement = null;
+      mockContainer.remove();
 
       const dimensions = service.calculateDimensions(mockCanvas, nativeResolution);
 
@@ -233,8 +233,8 @@ describe('StreamingViewportService', () => {
 
       // Add a sibling element (e.g., controls)
       const mockControls = createMockElement('div');
-      mockControls.offsetHeight = 50;
-      mockSection.children = [mockContainer, mockControls];
+      Object.defineProperty(mockControls, 'offsetHeight', { value: 50 });
+      mockSection.appendChild(mockControls);
 
       getComputedStyleMock.cleanup();
       getComputedStyleMock = installGetComputedStyleMock((element?: unknown): ViewportComputedStyle => {
@@ -368,9 +368,7 @@ describe('StreamingViewportService', () => {
 
   describe('cleanup', () => {
     it('should disconnect ResizeObserver', () => {
-      const mockObserver = createMockElement('div');
-      mockObserver.observe = vi.fn();
-      mockObserver.disconnect = vi.fn();
+      const mockObserver = { observe: vi.fn(), disconnect: vi.fn() };
       serviceState()._resizeObserver = mockObserver as unknown as ResizeObserver;
 
       service.cleanup();
@@ -399,9 +397,7 @@ describe('StreamingViewportService', () => {
     });
 
     it('should log debug message', () => {
-      const mockObserver = createMockElement('div');
-      mockObserver.observe = vi.fn();
-      mockObserver.disconnect = vi.fn();
+      const mockObserver = { observe: vi.fn(), disconnect: vi.fn() };
       serviceState()._resizeObserver = mockObserver as unknown as ResizeObserver;
 
       service.cleanup();

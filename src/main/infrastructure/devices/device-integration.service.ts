@@ -2,7 +2,7 @@
 import { BaseService } from '@platform/core';
 import { appConfig } from '@platform/config';
 import { IPC_CHANNELS } from '@platform/ipc';
-import { DeviceCatalog, toDeviceInfoPayload, type DeviceStatus } from '@platform/devices';
+import { DeviceCatalog, type DeviceStatus } from '@platform/devices';
 import type {
   DeviceConnectionReason,
   DeviceConnectionService
@@ -23,8 +23,6 @@ type DeviceIntegrationServiceDependencies = {
 };
 
 export class DeviceIntegrationService extends BaseService {
-  private unsubscribeStatus: (() => void) | null = null;
-
   private readonly deviceConnectionService: DeviceConnectionService;
   private readonly trayService: TrayService;
   private readonly windowService: WindowService;
@@ -38,27 +36,17 @@ export class DeviceIntegrationService extends BaseService {
     this.pushPublisher = pushPublisher;
   }
 
-  initialize(): void {
-    if (this.unsubscribeStatus) {
-      return;
-    }
-
-    this.unsubscribeStatus = this.deviceConnectionService.onStatusChanged(
+  protected override onInitialize(): void {
+    this.disposables.add(this.deviceConnectionService.onStatusChanged(
       (status, reason) => this.handleStatusChanged(status, reason)
-    );
-  }
-
-  override async dispose(): Promise<void> {
-    this.unsubscribeStatus?.();
-    this.unsubscribeStatus = null;
-    await super.dispose();
+    ));
   }
 
   private handleStatusChanged(status: DeviceStatus, reason: DeviceConnectionReason): void {
     this.trayService.updateTrayMenu();
 
     if (status.connected && status.device) {
-      this.pushPublisher.emit(IPC_CHANNELS.DEVICE.CONNECTED, toDeviceInfoPayload(status.device));
+      this.pushPublisher.emit(IPC_CHANNELS.DEVICE.CONNECTED, status.device);
       this.scheduleWindowLaunch(status);
       this.logger.info(`Device connected via ${reason}`);
       return;
@@ -76,11 +64,6 @@ export class DeviceIntegrationService extends BaseService {
 
     const descriptor = DeviceCatalog.get(status.device.id);
     const delayMs = descriptor?.behavior.showWindowOnConnectDelayMs ?? appConfig.DEVICE_LAUNCH_DELAY;
-    this.disposables.cancel(WINDOW_LAUNCH_LIFECYCLE);
-    const launchTimeout = setTimeout(() => {
-      this.disposables.cancel(WINDOW_LAUNCH_LIFECYCLE);
-      this.windowService.showWindow();
-    }, delayMs);
-    this.disposables.replace(WINDOW_LAUNCH_LIFECYCLE, () => clearTimeout(launchTimeout));
+    this.schedule(WINDOW_LAUNCH_LIFECYCLE, () => this.windowService.showWindow(), delayMs);
   }
 }

@@ -37,7 +37,6 @@ export async function detectBrowserGpuCapabilities(): Promise<RenderCapabilities
 
   return {
     webgpu,
-    transferControlToOffscreen,
-    preferredBackend: webgpu ? 'webgpu' : 'canvas2d'
+    transferControlToOffscreen
   };
 }

@@ -149,29 +149,39 @@ describe('BaseOrchestrator', () => {
       expect(orchestrator.onCleanupCalled).toBe(true);
     });
 
-    it('should run onCleanup only once when onCleanup re-enters cleanup', async () => {
-      class ReentrantOrchestrator extends BaseOrchestrator {
-        onCleanupCount: number;
-
-        constructor(deps: OrchestratorDependencies) {
-          super(deps, 'ReentrantOrchestrator');
-          this.onCleanupCount = 0;
-        }
-
-        override async onCleanup(): Promise<void> {
-          this.onCleanupCount++;
-          if (this.onCleanupCount <= 5) {
-            await this.cleanup();
-          }
-        }
+    it('joins concurrent cleanup and dispose calls until teardown finishes', async () => {
+      let finish!: () => void;
+      const hook = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
+      class DrainingOrchestrator extends BaseOrchestrator {
+        override onCleanup(): Promise<void> { return hook(); }
       }
+      const orchestrator = new DrainingOrchestrator({ loggerFactory: mockLoggerFactory });
+      await orchestrator.initialize();
+      const first = orchestrator.cleanup();
+      expect(orchestrator.cleanup()).toBe(first);
+      expect(orchestrator.dispose()).toBe(first);
+      await Promise.resolve();
+      expect(hook).toHaveBeenCalledOnce();
+      let settled = false;
+      void first.then(() => { settled = true; });
+      await Promise.resolve();
+      expect(settled).toBe(false);
+      finish();
+      await first;
+      expect(orchestrator.isInitialized).toBe(false);
+      expect(orchestrator.cleanup()).toBe(first);
+    });
 
-      const orchestrator = new ReentrantOrchestrator({ loggerFactory: mockLoggerFactory });
+    it('starts a fresh cleanup after an awaited restart', async () => {
+      const orchestrator = new BaseOrchestrator({ loggerFactory: mockLoggerFactory });
+      const cleanup = vi.spyOn(orchestrator, 'onCleanup');
       await orchestrator.initialize();
       await orchestrator.cleanup();
-
-      expect(orchestrator.onCleanupCount).toBe(1);
+      await orchestrator.initialize();
+      await orchestrator.dispose();
+      expect(cleanup).toHaveBeenCalledTimes(2);
     });
+
   });
 
   describe('onInitialize / onCleanup defaults', () => {

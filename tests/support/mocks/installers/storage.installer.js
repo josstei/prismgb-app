@@ -1,6 +1,5 @@
 import { vi } from 'vitest';
 import { createCleanupStack, installTargetProperty } from '../runtime-property.installers.js';
-import { installProperty } from './install-property.helper.js';
 
 /**
  * Canonical localStorage installer with in-memory backing.
@@ -64,7 +63,7 @@ export function installLocalStorageMock(options = {}) {
       return defaults.length();
     },
   };
-  const stack = installProperty(globalThis, 'localStorage', localStorage);
+  const stack = installTargetProperty(globalThis, 'localStorage', localStorage);
 
   return {
     ...stack,

@@ -53,21 +53,40 @@ vi.mock('electron-updater', () => {
 });
 
 import { createMainRuntime } from '@main/application/container.js';
-import { AppOrchestrator } from '@main/application/app.orchestrator.js';
+import { DeviceConnectionService } from '@platform/devices/runtime';
 import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
 import { WindowService } from '@main/infrastructure/window/window.service.js';
 import { TranscodeService } from '@platform/transcode/service';
+import { UpdateService } from '@platform/updates';
+import { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
 import { createLoggerFactory } from '../../../factories/index.js';
 
 describe('Main runtime', () => {
   afterEach(() => vi.restoreAllMocks());
+
+  it('rolls back a partial startup once and rejects further initialization', async () => {
+    const failure = new Error('window creation failed');
+    vi.spyOn(TranscodeService.prototype, 'initialize').mockImplementation(() => {});
+    vi.spyOn(IpcHandlerRegistry.prototype, 'registerHandlers').mockImplementation(() => {});
+    vi.spyOn(WindowService.prototype, 'createWindow').mockImplementation(() => { throw failure; });
+    const integrationDispose = vi.spyOn(DeviceIntegrationService.prototype, 'dispose');
+    const updateDispose = vi.spyOn(UpdateService.prototype, 'dispose');
+    const runtime = createMainRuntime(createLoggerFactory());
+    const initialization = runtime.initialize();
+    expect(runtime.initialize()).toBe(initialization);
+    await expect(initialization).rejects.toBe(failure);
+    await runtime.dispose();
+    expect(integrationDispose).toHaveBeenCalledOnce();
+    expect(updateDispose).toHaveBeenCalledOnce();
+    await expect(runtime.initialize()).rejects.toThrow('disposed');
+  });
 
   it('awaits renderer shutdown before main teardown and releases services after shutdown failure', async () => {
     let rejectShutdown!: (error: Error) => void;
     const shutdown = vi.spyOn(IpcHandlerRegistry.prototype, 'shutdownRenderer')
       .mockImplementation(() => new Promise<void>((_resolve, reject) => { rejectShutdown = reject; }));
     const drain = vi.spyOn(TranscodeService.prototype, 'drain').mockResolvedValue();
-    const cleanup = vi.spyOn(AppOrchestrator.prototype, 'cleanup').mockResolvedValue();
+    const cleanup = vi.spyOn(DeviceConnectionService.prototype, 'dispose').mockResolvedValue();
     const disposeWindow = vi.spyOn(WindowService.prototype, 'dispose').mockResolvedValue();
     const runtime = createMainRuntime(createLoggerFactory());
     const disposal = runtime.dispose();
@@ -93,7 +112,7 @@ describe('Main runtime', () => {
       return new Promise<void>((resolve) => { finishRecording = resolve; });
     });
     vi.spyOn(WindowService.prototype, 'drainDownloads').mockImplementation(async () => { order.push('downloads'); });
-    vi.spyOn(AppOrchestrator.prototype, 'cleanup').mockImplementation(async () => { order.push('main'); });
+    vi.spyOn(DeviceConnectionService.prototype, 'dispose').mockImplementation(async () => { order.push('main'); });
     const runtime = createMainRuntime(createLoggerFactory());
     const disposal = runtime.dispose();
     await vi.waitFor(() => expect(order).toEqual(['renderer', 'recordings']));

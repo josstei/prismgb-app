@@ -3,8 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('../../../../../src/platform/gpu/infrastructure/capabilities.browser', () => ({
   detectBrowserGpuCapabilities: vi.fn(async () => ({
     webgpu: true,
-    transferControlToOffscreen: true,
-    preferredBackend: 'webgpu'
+    transferControlToOffscreen: true
   }))
 }));
 
@@ -15,7 +14,7 @@ describe('@platform/gpu/runtime export surface', () => {
     expect(runtime.createGpuVideoRendererSession).toEqual(expect.any(Function));
     expect(runtime.detectBrowserGpuCapabilities).toEqual(expect.any(Function));
     await expect(runtime.detectBrowserGpuCapabilities()).resolves.toEqual(expect.objectContaining({
-      preferredBackend: 'webgpu'
+      webgpu: true
     }));
   });
 });

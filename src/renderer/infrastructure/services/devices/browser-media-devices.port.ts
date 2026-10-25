@@ -19,12 +19,12 @@ type BrowserMediaServiceLike = MediaDevicesEventSource & {
 };
 
 export class BrowserMediaDevicesPort implements MediaDevicesPort {
-  private readonly browserMediaService: BrowserMediaServiceLike;
+  private readonly browserMediaService?: BrowserMediaServiceLike;
   private readonly debounceMs: number;
   private readonly logger?: LoggerLike;
 
   constructor(
-    browserMediaService: BrowserMediaServiceLike,
+    browserMediaService?: BrowserMediaServiceLike,
     logger?: LoggerLike,
     debounceMs = TIMING.DEVICE_CHANGE_DEBOUNCE_MS
   ) {
@@ -33,23 +33,30 @@ export class BrowserMediaDevicesPort implements MediaDevicesPort {
     this.debounceMs = debounceMs;
   }
 
-  enumerateDevices(): Promise<MediaDeviceInfo[]> {
-    return this.browserMediaService.enumerateDevices();
+  private getMediaDevices(): BrowserMediaServiceLike {
+    const mediaDevices = this.browserMediaService ?? globalThis.navigator?.mediaDevices;
+    if (!mediaDevices) throw new Error('MediaDevices API not available');
+    return mediaDevices;
   }
 
-  getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream> {
-    return this.browserMediaService.getUserMedia(constraints);
+  async enumerateDevices(): Promise<MediaDeviceInfo[]> {
+    return this.getMediaDevices().enumerateDevices();
+  }
+
+  async getUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream> {
+    return this.getMediaDevices().getUserMedia(constraints);
   }
 
   subscribeDeviceChange(onChange: () => void): () => void {
     const handler = debounce(onChange, this.debounceMs);
+    const mediaDevices = this.getMediaDevices();
 
-    this.browserMediaService.addEventListener('devicechange', handler);
+    mediaDevices.addEventListener('devicechange', handler);
     this.logger?.debug(`Device change listener registered (debounce: ${this.debounceMs}ms)`);
 
     return () => {
       handler.cancel();
-      this.browserMediaService.removeEventListener('devicechange', handler);
+      mediaDevices.removeEventListener('devicechange', handler);
     };
   }
 }

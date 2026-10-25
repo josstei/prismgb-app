@@ -13,15 +13,13 @@ import { createDeferred } from '../../../../../support/deferred.testkit.js';
 const connectedStatus: DeviceStatus = {
   state: 'connected',
   connected: true,
-  device: createChromaticDeviceInfoPayload(),
-  updatedAt: 1
+  device: createChromaticDeviceInfoPayload()
 };
 
 const disconnectedStatus: DeviceStatus = {
   state: 'disconnected',
   connected: false,
-  device: null,
-  updatedAt: 2
+  device: null
 };
 
 function createMediaDevice(overrides: Partial<MediaDeviceInfo> = {}): MediaDeviceInfo {

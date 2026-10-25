@@ -1,71 +1,125 @@
-/**
- * Performance State Orchestrator
- *
- * Thin coordinator that delegates state tracking to PerformanceStateService
- * and publishes performance state events.
- */
+import { BaseOrchestrator, type LoggerFactoryLike } from '@platform/core';
+import { EventChannels, OnEvent, type TypedEventBusLike } from '@platform/events';
 
-import { BaseOrchestrator } from '@platform/core';
-import { EventChannels, OnEvent } from '@platform/events';
-import type { TypedEventBusLike } from '@platform/events';
-import type { LoggerFactoryLike } from '@platform/core';
-import type {
-  PerformanceState,
-  PerformanceStateService
-} from '@renderer/infrastructure/services/performance/performance-state.service';
+type PerformanceState = {
+  performanceModeEnabled: boolean;
+  hidden: boolean;
+  idle: boolean;
+  reducedMotion: boolean;
+};
 
 type PerformanceStateOrchestratorDependencies = {
   eventBus: TypedEventBusLike;
-  performanceStateService: PerformanceStateService;
   loggerFactory: LoggerFactoryLike;
+  visibilityAdapter: {
+    isHidden(): boolean;
+    onVisibilityChange(callback: (hidden: boolean) => void): () => void;
+  };
+  userActivityAdapter: {
+    onActivity(callback: () => void): () => void;
+  };
+  reducedMotionAdapter: {
+    prefersReducedMotion(): boolean;
+    onChange(callback: (reducedMotion: boolean) => void): () => void;
+  };
 };
 
+const IDLE_TIMER = Symbol('performanceIdleTimer');
+const IDLE_DELAY_MS = 30000;
+
+/** Owns browser activity subscriptions, performance state and its idle timer. */
 export class PerformanceStateOrchestrator extends BaseOrchestrator {
   protected readonly eventBus: TypedEventBusLike;
-  private readonly performanceStateService: PerformanceStateService;
+  private readonly state: PerformanceState = {
+    performanceModeEnabled: false,
+    hidden: false,
+    idle: false,
+    reducedMotion: false
+  };
+  private isStreaming = false;
+  private lastIdleReset = 0;
 
-  constructor({ eventBus, performanceStateService, loggerFactory }: PerformanceStateOrchestratorDependencies) {
-    super({ loggerFactory, eventBus }, 'PerformanceStateOrchestrator');
-    this.eventBus = eventBus;
-    this.performanceStateService = performanceStateService;
-
+  constructor(private readonly dependencies: PerformanceStateOrchestratorDependencies) {
+    super(dependencies, 'PerformanceStateOrchestrator');
+    this.eventBus = dependencies.eventBus;
   }
 
   async onInitialize(): Promise<void> {
-    this.performanceStateService.initialize({
-      onStateChange: (state) => this._handleStateChanged(state)
-    });
+    const { visibilityAdapter, userActivityAdapter, reducedMotionAdapter } = this.dependencies;
+    this.track(visibilityAdapter.onVisibilityChange((hidden) => {
+      const changed = this.updateState({ hidden });
+      if (hidden) this.updateState({ idle: false });
+      if (changed) this.syncIdleTimer();
+    }));
+    this.updateState({ hidden: visibilityAdapter.isHidden() });
+
+    this.track(reducedMotionAdapter.onChange((reducedMotion) => this.updateState({ reducedMotion })));
+    this.updateState({ reducedMotion: reducedMotionAdapter.prefersReducedMotion() });
+
+    this.track(userActivityAdapter.onActivity(() => {
+      if (!this.shouldTrackIdle() || performance.now() - this.lastIdleReset < 1000) return;
+      this.lastIdleReset = performance.now();
+      this.updateState({ idle: false });
+      this.syncIdleTimer();
+    }));
+    this.syncIdleTimer();
+    this.publishState();
   }
 
   @OnEvent(EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED)
-  private _handlePerformanceModeChangedEvent(enabled: boolean): void {
-    this._handlePerformanceModeChanged(Boolean(enabled));
-  }
-
-  @OnEvent(EventChannels.STREAM.STARTED)
-  private _handleStreamStarted(): void {
-    this.performanceStateService.setStreaming(true);
-  }
-
-  @OnEvent(EventChannels.STREAM.STOPPED)
-  private _handleStreamStopped(): void {
-    this.performanceStateService.setStreaming(false);
-  }
-
-  _handlePerformanceModeChanged(enabled: boolean): void {
-    const changed = this.performanceStateService.setPerformanceModeEnabled(enabled);
-    if (changed) {
+  private handlePerformanceModeChanged(enabled: boolean): void {
+    enabled = Boolean(enabled);
+    if (this.updateState({ performanceModeEnabled: enabled })) {
+      this.syncIdleTimer();
       this.eventBus.publish(EventChannels.PERFORMANCE.RENDER_MODE_CHANGED, enabled);
     }
   }
 
-  _handleStateChanged(state: PerformanceState): void {
-    this.eventBus.publish(EventChannels.PERFORMANCE.STATE_CHANGED, { ...state });
-
+  @OnEvent(EventChannels.STREAM.STARTED)
+  private handleStreamStarted(): void {
+    this.setStreaming(true);
   }
 
-  override async onCleanup(): Promise<void> {
-    await this.performanceStateService.dispose();
+  @OnEvent(EventChannels.STREAM.STOPPED)
+  private handleStreamStopped(): void {
+    this.setStreaming(false);
   }
 
+  private setStreaming(isStreaming: boolean): void {
+    this.isStreaming = isStreaming;
+    this.updateState({ idle: false });
+    this.syncIdleTimer();
+  }
+
+  private shouldTrackIdle(): boolean {
+    return !this.isStreaming && !this.state.hidden && !this.state.performanceModeEnabled;
+  }
+
+  private syncIdleTimer(): void {
+    if (!this.shouldTrackIdle()) {
+      this.cancelManaged(IDLE_TIMER);
+      return;
+    }
+    if (this.state.idle) return;
+
+    this.lastIdleReset = performance.now();
+    this.schedule(IDLE_TIMER, () => this.updateState({ idle: true }), IDLE_DELAY_MS);
+  }
+
+  private updateState(partial: Partial<PerformanceState>): boolean {
+    let changed = false;
+    for (const key of Object.keys(partial) as Array<keyof PerformanceState>) {
+      const value = partial[key];
+      if (value !== undefined && this.state[key] !== value) {
+        this.state[key] = value;
+        changed = true;
+      }
+    }
+    if (changed) this.publishState();
+    return changed;
+  }
+
+  private publishState(): void {
+    this.eventBus.publish(EventChannels.PERFORMANCE.STATE_CHANGED, { ...this.state });
+  }
 }

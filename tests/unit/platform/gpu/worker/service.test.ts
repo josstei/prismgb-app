@@ -10,7 +10,7 @@ function fixture() {
   const scope: WorkerRendererServiceScope = { onmessage: null, postMessage: vi.fn() };
   startWorkerRendererService(scope);
   const send = (message: unknown) => scope.onmessage?.({ data: message } as MessageEvent);
-  const initialize = () => send(createWorkerMessage('init', { canvas: createMockCanvas().transferControlToOffscreen(), config: { nativeWidth: 160, nativeHeight: 144, targetWidth: 640, targetHeight: 576, backend: 'webgpu', presetId: 'vibrant' } }));
+  const initialize = () => send(createWorkerMessage('init', { canvas: createMockCanvas().transferControlToOffscreen(), config: { nativeWidth: 160, nativeHeight: 144, targetWidth: 640, targetHeight: 576, presetId: 'vibrant' } }));
   return { scope, send, initialize };
 }
 beforeEach(() => { create.mockResolvedValue(renderer); renderer.captureFrame.mockResolvedValue(bitmap()); });
@@ -21,7 +21,7 @@ describe('worker renderer ownership', () => {
     const frame = bitmap();
     await send(createWorkerMessage('frame', { imageBitmap: frame }));
     const preset = createRenderPresetFixture();
-    await send(createWorkerMessage('setPreset', { preset }));
+    await send(createWorkerMessage('setPreset', { presetId: preset.id }));
     await send(createWorkerMessage('resize', { width: 640, height: 576 }));
     expect(renderer.renderFrame).toHaveBeenCalledWith(frame);
     expect(frame.close).toHaveBeenCalledTimes(1);

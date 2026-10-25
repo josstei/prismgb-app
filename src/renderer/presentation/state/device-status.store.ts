@@ -4,7 +4,7 @@ import { ReactiveStore } from './reactive-store.base.js';
 
 export interface DeviceStatusStoreDependencies {
   eventBus: Pick<TypedEventBusLike, 'subscribe'>;
-  deviceConnectedSignal: ReadonlySignal<boolean>;
+  initialDeviceConnected: boolean;
 }
 
 export class DeviceStatusStore extends ReactiveStore {
@@ -19,7 +19,7 @@ export class DeviceStatusStore extends ReactiveStore {
     super();
 
     // Initial values
-    this._connected.value = this.dependencies.deviceConnectedSignal.value;
+    this._connected.value = this.dependencies.initialDeviceConnected;
 
     const bus = this.dependencies.eventBus;
 

@@ -9,17 +9,9 @@ export type Dimensions = {
 
 export type NativeResolution = Dimensions;
 
-export type RenderBackend = 'webgpu' | 'canvas2d';
-
 export type StreamingCapabilities = {
   nativeResolution?: NativeResolution;
   frameRate?: number;
-  preferredBackend?: RenderBackend;
-  webgpu?: boolean;
-  transferControlToOffscreen?: boolean;
-  offscreenCanvas?: boolean;
-  worker?: boolean;
-  supportsGPU?: boolean;
 };
 
 export type StreamSettingsPayload = {

@@ -1,6 +1,5 @@
 import { vi } from 'vitest';
 import { createCleanupStack, installTargetProperty } from '../runtime-property.installers.js';
-import { installProperty } from './install-property.helper.js';
 
 /**
  * Canonical mediaDevices installer with media stream helpers.
@@ -150,8 +149,8 @@ export function installMediaMocks(options = {}) {
     }
   };
 
-  const mediaStreamStack = installProperty(globalThis, 'MediaStream', NavigatorMediaStream);
-  const mediaStreamTrackStack = installProperty(globalThis, 'MediaStreamTrack', NavigatorMediaStreamTrack);
+  const mediaStreamStack = installTargetProperty(globalThis, 'MediaStream', NavigatorMediaStream);
+  const mediaStreamTrackStack = installTargetProperty(globalThis, 'MediaStreamTrack', NavigatorMediaStreamTrack);
   stack.add(() => {
     mediaStreamStack.cleanup();
     mediaStreamTrackStack.cleanup();
@@ -256,7 +255,7 @@ export function installMediaRecorderMock(options = {}) {
     MockMediaRecorder.isTypeSupported = isTypeSupported;
   }
 
-  const stack = installProperty(globalThis, 'MediaRecorder', MockMediaRecorder);
+  const stack = installTargetProperty(globalThis, 'MediaRecorder', MockMediaRecorder);
 
   return {
     ...stack,

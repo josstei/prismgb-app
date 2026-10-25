@@ -133,9 +133,9 @@ export class StreamingRenderService extends BaseService {
         this.canvasUsed = true;
         return createGpuVideoRendererSession({
           canvas, nativeResolution: native,
-          preferredBackend: backend,
+          backend,
           presetId: this.performanceMode ? PRESET_POLICY.performancePresetId : this.userPreset,
-          brightness: this.brightness, capabilities: this.gpuCapabilities!, signal: abort.signal,
+          brightness: this.brightness, signal: abort.signal,
           logger: this.logger
         });
       };

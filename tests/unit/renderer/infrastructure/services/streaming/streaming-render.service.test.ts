@@ -4,7 +4,7 @@ import type { SettingsAccess } from '@renderer/lib/settings.definitions';
 import { createEventBus, createLoggerFactory } from '../../../../../factories/index.js';
 const { createSession, detect } = vi.hoisted(() => ({ createSession: vi.fn(), detect: vi.fn() }));
 vi.mock('@platform/gpu/runtime', () => ({ createGpuVideoRendererSession: createSession, detectBrowserGpuCapabilities: detect }));
-const capabilities = { webgpu: true, transferControlToOffscreen: true, preferredBackend: 'webgpu' };
+const capabilities = { webgpu: true, transferControlToOffscreen: true };
 function session(backend = 'webgpu') {
   return { backend, isActive: true, isCanvasTransferred: backend === 'webgpu', renderFrame: vi.fn(async () => {}), resize: vi.fn(), setPreset: vi.fn(), setBrightness: vi.fn(), captureFrame: vi.fn(), getTargetDimensions: vi.fn(() => ({ width: 640, height: 576 })), terminate: vi.fn() };
 }
@@ -28,13 +28,13 @@ function fixture() {
   };
   return { service, appState, video, lifecycle, health, eventBus, begin, canvas: () => canvas };
 }
-beforeEach(() => { detect.mockResolvedValue(capabilities); createSession.mockImplementation(async (options) => session(options.preferredBackend)); });
+beforeEach(() => { detect.mockResolvedValue(capabilities); createSession.mockImplementation(async (options) => session(options.backend)); });
 afterEach(() => { vi.useRealTimers(); });
 describe('renderer session ownership', () => {
   it('starts after stream health and uses detected GPU capabilities', async () => {
     const { service, begin, video } = fixture();
     await begin();
-    expect(createSession).toHaveBeenCalledWith(expect.objectContaining({ preferredBackend: 'webgpu', presetId: 'pixel', brightness: 1.2 }));
+    expect(createSession).toHaveBeenCalledWith(expect.objectContaining({ backend: 'webgpu', presetId: 'pixel', brightness: 1.2 }));
     expect(video.requestVideoFrameCallback).toHaveBeenCalledTimes(1);
     expect(service.isActive()).toBe(true);
     await service.cleanup();
@@ -43,7 +43,7 @@ describe('renderer session ownership', () => {
     detect.mockResolvedValueOnce({ ...capabilities, webgpu: false });
     const { service, begin, lifecycle } = fixture();
     await begin();
-    expect(createSession).toHaveBeenCalledWith(expect.objectContaining({ preferredBackend: 'canvas2d' }));
+    expect(createSession).toHaveBeenCalledWith(expect.objectContaining({ backend: 'canvas2d' }));
     expect(service.isActive()).toBe(true);
     await service.stopPipeline();
     expect(lifecycle.recreateCanvas).toHaveBeenCalledTimes(1);
@@ -57,7 +57,7 @@ describe('renderer session ownership', () => {
     expect(lifecycle.recreateCanvas).toHaveBeenCalledTimes(1);
     expect(createSession.mock.calls[0][0].canvas).toBe(original);
     expect(createSession.mock.calls[1][0].canvas).not.toBe(original);
-    expect(createSession.mock.calls[1][0].preferredBackend).toBe('canvas2d');
+    expect(createSession.mock.calls[1][0].backend).toBe('canvas2d');
     expect(service.isActive()).toBe(true);
     expect(video.requestVideoFrameCallback).toHaveBeenCalledTimes(1);
     await service.cleanup();
@@ -66,10 +66,10 @@ describe('renderer session ownership', () => {
     const { service, begin } = fixture();
     await begin();
     await service.handlePerformanceModeChanged(true);
-    expect(createSession.mock.calls.at(-1)![0].preferredBackend).toBe('canvas2d');
+    expect(createSession.mock.calls.at(-1)![0].backend).toBe('canvas2d');
     service.handleRenderPresetChanged('vintage');
     await service.handlePerformanceModeChanged(false);
-    expect(createSession.mock.calls.at(-1)![0]).toMatchObject({ preferredBackend: 'webgpu', presetId: 'vintage', brightness: 1.2 });
+    expect(createSession.mock.calls.at(-1)![0]).toMatchObject({ backend: 'webgpu', presetId: 'vintage', brightness: 1.2 });
     await service.cleanup();
   });
   it('discards superseded backend switches', async () => {
@@ -79,7 +79,7 @@ describe('renderer session ownership', () => {
     const disabled = service.handlePerformanceModeChanged(false);
     await Promise.all([enabled, disabled]);
     expect(createSession).toHaveBeenCalledTimes(2);
-    expect(createSession.mock.calls.at(-1)![0].preferredBackend).toBe('webgpu');
+    expect(createSession.mock.calls.at(-1)![0].backend).toBe('webgpu');
     await service.cleanup();
   });
   it('stops pending health checks without reporting stale startup success', async () => {

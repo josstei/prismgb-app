@@ -23,7 +23,7 @@ Suffixes describe responsibilities, not construction mechanisms. Services, orche
 | `.orchestrator.<ext>` | Coordination across services | `capture.orchestrator.ts` |
 | `.controller.<ext>` | Interaction/behavior controllers (widgets, UI composition) | `disclosure.controller.ts` |
 | `.component.<ext>` | UI component logic | `notes-panel.component.ts` |
-| `.adapter.<ext>` | External or platform abstraction | `browser-media.adapter.ts` |
+| `.adapter.<ext>` | External or platform abstraction | `browser-storage.adapter.ts` |
 | `.driver.<ext>` | Low-level hardware/backend drivers | `canvas.driver.ts` |
 | `.monitor.<ext>` | Long-running observation loops | `usb.monitor.ts` |
 | `.bridge.<ext>` | Cross-boundary coordination | `ipc-push.bridge.ts` |
@@ -41,7 +41,7 @@ Suffixes describe responsibilities, not construction mechanisms. Services, orche
 | `.config.<ext>` | Configuration constants | `storage-keys.config.ts` (shared); `timing.config.ts` (in `@platform/config`) |
 | `.utils.<ext>` | Pure utilities | `filename-generator.utils.ts` |
 | `.base.<ext>` | Abstract base classes | `service.base.ts` |
-| `.worker.<ext>` / `.browser.<ext>` / `.renderer.<ext>` | Environment-specific split of one concern | `capabilities.worker.ts` / `capabilities.browser.ts` |
+| `.browser.<ext>` / `.renderer.<ext>` | Environment-specific implementation | `capabilities.browser.ts` / `app-shell.renderer.ts` |
 | `.testkit.<ext>` | Shared test fixtures and doubles | `media.testkit.ts` |
 
 Device hardware behavior belongs in `src/platform/devices/domain/catalog.json`, `DeviceCatalog`, and the device connection/runtime services. Do not add hardware-specific adapter or runtime classes.

@@ -1,17 +1,19 @@
-import { PresentationComponent } from '@platform/ui-base';
+import { PresentationComponent, ComboboxListboxController } from '@platform/ui-base';
+import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { EventChannels } from '@platform/events';
 import { NotesListViewComponent } from './notes-list-view.component.js';
 import { NotesEditorViewComponent } from './notes-editor-view.component.js';
-import { NotesSearchComponent } from './notes-search.component.js';
 import { GameFilterComponent } from './game-filter.component.js';
-import { GameAutocompleteComponent } from './game-autocomplete.component.js';
 import { NotesResizeHandlerComponent } from './notes-resize-handler.component.js';
 import { NotesPanelLayoutComponent } from './notes-panel-layout.component.js';
 import { disposeInOrder, type LoggerLike } from '@platform/core';
 import type { NotesService, UserNote } from '@platform/notes';
 import type { TypedEventBusLike } from '@platform/events';
 
+
+const SEARCH_DEBOUNCE_TIMEOUT = Symbol('notesPanelSearchDebounce');
+const SEARCH_DEBOUNCE_MS = 200;
 
 const NOTES_CREATED_SUBSCRIPTION = Symbol('notesPanelCreatedSubscription');
 const NOTES_DELETED_SUBSCRIPTION = Symbol('notesPanelDeletedSubscription');
@@ -24,9 +26,8 @@ type NotesEventBusLike = Pick<TypedEventBusLike, 'subscribe'>;
 interface NotesPanelChildren {
   listView: NotesListViewComponent;
   editorView: NotesEditorViewComponent;
-  searchComponent: NotesSearchComponent;
   gameFilter: GameFilterComponent;
-  gameAutocomplete: GameAutocompleteComponent;
+  gameAutocomplete: ComboboxListboxController<string>;
   resizeHandler: NotesResizeHandlerComponent;
   layout: NotesPanelLayoutComponent;
 }
@@ -83,12 +84,35 @@ class NotesPanelComponent extends PresentationComponent {
 
   _replaceSubComponents(): void {
     void this.cancelManaged(NOTES_PANEL_SUBCOMPONENT_LIFECYCLE);
+    const editorView = new NotesEditorViewComponent();
     const children: NotesPanelChildren = {
-      listView: new NotesListViewComponent({ notesService: this.notesService!, logger: this.logger }),
-      editorView: new NotesEditorViewComponent(),
-      searchComponent: new NotesSearchComponent({ logger: this.logger }),
+      listView: new NotesListViewComponent({ logger: this.logger }),
+      editorView,
       gameFilter: new GameFilterComponent({ notesService: this.notesService!, logger: this.logger }),
-      gameAutocomplete: new GameAutocompleteComponent({ notesService: this.notesService!, logger: this.logger }),
+      gameAutocomplete: new ComboboxListboxController<string>({
+        logger: this.logger,
+        optionSelector: '.notes-game-autocomplete-item',
+        optionClassName: 'notes-game-autocomplete-item',
+        optionIdPrefix: 'autocomplete-option',
+        listboxAriaLabel: 'Game suggestions',
+        debounceMs: 100,
+        blurDelayMs: NotesPanelConfig.BLUR_DELAY_MS,
+        getOptions: (query) => {
+          const normalized = query.toLowerCase().trim();
+          return this.notesService!.getUniqueGames().filter((game) => game.toLowerCase().includes(normalized));
+        },
+        getOptionValue: (game) => game,
+        getOptionLabel: (game) => game,
+        onInput: () => editorView.scheduleSave(),
+        onSelect: () => {
+          editorView.scheduleSave();
+          editorView.hideGameInput();
+          editorView.flushSave();
+        },
+        onEnter: () => { editorView.hideGameInput(); editorView.flushSave(); },
+        onEscape: () => editorView.hideGameInput(),
+        onBlur: () => editorView.hideGameInput()
+      }),
       resizeHandler: new NotesResizeHandlerComponent({ logger: this.logger }),
       layout: new NotesPanelLayoutComponent()
     };
@@ -113,6 +137,7 @@ class NotesPanelComponent extends PresentationComponent {
   initialize(elements: NotesPanelElements): void {
     this._resetPanelVisibilityState();
     const currentGameFilter = this.children?.gameFilter.getCurrentFilter() || '';
+    this.cancelManaged(SEARCH_DEBOUNCE_TIMEOUT);
     this.cancelManaged(NOTES_PANEL_SETUP_LIFECYCLE);
     [NOTES_CREATED_SUBSCRIPTION, NOTES_DELETED_SUBSCRIPTION, NOTES_UPDATED_SUBSCRIPTION].forEach((key) => this.cancelManaged(key));
     void this.cancelManaged(NOTES_PANEL_SUBCOMPONENT_LIFECYCLE);
@@ -130,12 +155,15 @@ class NotesPanelComponent extends PresentationComponent {
     this._initializeSubComponents();
     if (currentGameFilter) {
       this.children!.gameFilter.setCurrentFilter(currentGameFilter);
-      this._refreshGameFilterOptionsAndRenderList(this.children!.searchComponent.getQuery());
+      this._refreshGameFilterOptionsAndRenderList(this.searchQuery);
     }
     this._restoreSelectedNote();
 
     const setupDisposers: Array<() => void> = [];
     this.replaceManaged(NOTES_PANEL_SETUP_LIFECYCLE, () => setupDisposers.splice(0).reverse().forEach((dispose) => dispose()));
+    setupDisposers.push(this.listen(this.elements.notesSearchInput ?? null, 'input', () => {
+      this.replaceTimeout(SEARCH_DEBOUNCE_TIMEOUT, () => this._renderList(), SEARCH_DEBOUNCE_MS);
+    }));
     this._setupNewButton(setupDisposers);
     this._setupEscapeKey(setupDisposers);
     this.children!.layout.initialize({
@@ -149,15 +177,11 @@ class NotesPanelComponent extends PresentationComponent {
   }
 
   _initializeSubComponents(): void {
-    this.children!.searchComponent.initialize({
-      searchInput: this.elements!.notesSearchInput,
-      onSearch: (query: string) => this._handleSearch(query)
-    });
     this.children!.gameFilter.initialize({
       filterButton: this.elements!.notesGameFilter,
       filterLabel: this.elements!.notesGameFilterLabel,
       filterMenu: this.elements!.notesGameFilterMenu,
-      onFilterChange: (value: string) => this._handleGameFilterChange(value)
+      onFilterChange: () => this._renderList()
     });
     this.children!.listView.initialize({
       listElement: this.elements!.notesList,
@@ -174,16 +198,11 @@ class NotesPanelComponent extends PresentationComponent {
       gameAddBtn: this.elements!.notesGameAddBtn,
       onSave: () => this._saveCurrentNote(),
       onDelete: () => this._deleteCurrentNote(),
-      onShowGameInput: () => this._showGameInput()
+      onShowGameInput: () => this.children!.editorView.showGameInput()
     });
     this.children!.gameAutocomplete.initialize({
-      gameInput: this.elements!.notesGameInput,
-      autocompleteDropdown: this.elements!.notesGameAutocomplete,
-      onInput: () => this._handleGameInputChange(),
-      onSelect: (value: string) => this._handleAutocompleteSelect(value),
-      onEnter: () => this._handleAutocompleteEnter(),
-      onEscape: () => this._handleAutocompleteEscape(),
-      onBlur: () => this.children!.editorView.hideGameInput()
+      inputElement: this.elements!.notesGameInput ?? null,
+      listboxElement: this.elements!.notesGameAutocomplete ?? null
     });
     this.children!.resizeHandler.initialize({
       listToggle: this.elements!.notesListToggle,
@@ -207,7 +226,7 @@ class NotesPanelComponent extends PresentationComponent {
     this.elements.notesBtn?.classList.add(CSSClasses.PANEL_OPEN);
     this.elements.notesBtn?.setAttribute('aria-expanded', 'true');
     this.isVisible = true;
-    this.children!.searchComponent.focus();
+    this.elements.notesSearchInput?.focus({ preventScroll: true });
     this.logger?.debug('Notes panel shown');
   }
 
@@ -223,20 +242,20 @@ class NotesPanelComponent extends PresentationComponent {
     this.logger?.debug('Notes panel hidden');
   }
 
-  _handleSearch(query: string): void {
-    this.children!.listView.render(query);
+  private get searchQuery(): string {
+    return this.elements?.notesSearchInput?.value || '';
   }
 
-  _handleGameFilterChange(value: string): void {
-    this.children!.listView.setGameFilter(value);
-    this.children!.listView.render(this.children!.searchComponent.getQuery());
+  private _renderList(searchQuery = this.searchQuery): void {
+    const gameFilter = this.children!.gameFilter.getCurrentFilter();
+    const notes = this.notesService!.searchNotes(searchQuery, gameFilter);
+    this.children!.listView.render(notes, { searchQuery, gameFilter, selectedNoteId: this.currentNoteId });
   }
 
   _refreshGameFilterOptionsAndRenderList(searchQuery = ''): string {
     this.children!.gameFilter.updateOptions();
     const normalizedGameFilter = this.children!.gameFilter.getCurrentFilter();
-    this.children!.listView.setGameFilter(normalizedGameFilter);
-    this.children!.listView.render(searchQuery);
+    this._renderList(searchQuery);
     return normalizedGameFilter;
   }
 
@@ -248,13 +267,13 @@ class NotesPanelComponent extends PresentationComponent {
   }
 
   _handleNoteSelect(noteId: string): void {
+    if (noteId === this.currentNoteId) return;
     this.children!.editorView.flushSave();
     this._selectNote(noteId);
   }
 
   _restoreSelectedNote(): void {
     if (!this.currentNoteId) {
-      this.children!.listView.setCurrentNoteId(null);
       this.children!.listView.updateActiveState(null);
       return;
     }
@@ -263,35 +282,11 @@ class NotesPanelComponent extends PresentationComponent {
     if (!note) {
       this.currentNoteId = null;
       this.children!.editorView.clear();
-      this.children!.listView.setCurrentNoteId(null);
       this.children!.listView.updateActiveState(null);
       return;
     }
 
     this._loadNoteIntoViews(note);
-  }
-
-  _handleGameInputChange(): void {
-    this.children!.editorView.scheduleSave();
-  }
-
-  _showGameInput(): void {
-    this.children!.editorView.showGameInput();
-  }
-
-  _handleAutocompleteSelect(_value: string): void {
-    this.children!.editorView.scheduleSave();
-    this.children!.editorView.hideGameInput();
-    this.children!.editorView.flushSave();
-  }
-
-  _handleAutocompleteEnter(): void {
-    this.children!.editorView.hideGameInput();
-    this.children!.editorView.flushSave();
-  }
-
-  _handleAutocompleteEscape(): void {
-    this.children!.editorView.hideGameInput();
   }
 
   _saveCurrentNote(): void {
@@ -346,7 +341,6 @@ class NotesPanelComponent extends PresentationComponent {
   _loadNoteIntoViews(note: UserNote): void {
     this.currentNoteId = note.id || null;
     this.children!.editorView.loadNote(note);
-    this.children!.listView.setCurrentNoteId(note.id || null);
     this.children!.listView.updateActiveState(note.id || null);
   }
 
@@ -369,7 +363,7 @@ class NotesPanelComponent extends PresentationComponent {
       this.trackSubscription(
         this.eventBus!.subscribe(EventChannels.NOTES.NOTE_CREATED, (note) => {
           if (note.id !== this.currentNoteId) {
-            this._refreshGameFilterOptionsAndRenderList(this.children!.searchComponent.getQuery());
+            this._refreshGameFilterOptionsAndRenderList(this.searchQuery);
           }
         }),
         (error) => this.logger?.warn('Error unsubscribing from event', error)
@@ -380,7 +374,7 @@ class NotesPanelComponent extends PresentationComponent {
       NOTES_DELETED_SUBSCRIPTION,
       this.trackSubscription(
         this.eventBus!.subscribe(EventChannels.NOTES.NOTE_DELETED, (payload) => {
-          const searchQuery = this.children!.searchComponent.getQuery();
+          const searchQuery = this.searchQuery;
           const currentFilter = this._refreshGameFilterOptionsAndRenderList(searchQuery);
           if (payload.id === this.currentNoteId) {
             this.children!.editorView.cancelPendingSave();
@@ -398,7 +392,7 @@ class NotesPanelComponent extends PresentationComponent {
       this.trackSubscription(
         this.eventBus!.subscribe(EventChannels.NOTES.NOTE_UPDATED, (note) => {
           if (note) {
-            this._refreshGameFilterOptionsAndRenderList(this.children!.searchComponent.getQuery());
+            this._refreshGameFilterOptionsAndRenderList(this.searchQuery);
           }
         }),
         (error) => this.logger?.warn('Error unsubscribing from event', error)

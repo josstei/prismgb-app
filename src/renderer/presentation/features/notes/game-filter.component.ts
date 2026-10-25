@@ -23,7 +23,6 @@ class GameFilterComponent extends PresentationComponent {
   notesService: NotesGameServiceLike | null;
   logger: LoggerLike | null | undefined;
   currentGameFilter: string;
-  isGameFilterOpen: boolean;
   _filterDropdown: ListboxDropdownController | null;
   filterButton: HTMLElement | null | undefined;
   filterLabel: HTMLElement | null | undefined;
@@ -35,7 +34,6 @@ class GameFilterComponent extends PresentationComponent {
     this.notesService = options.notesService;
     this.logger = options.logger;
     this.currentGameFilter = '';
-    this.isGameFilterOpen = false;
     this._filterDropdown = null;
     this.filterButton = null;
     this.filterLabel = null;
@@ -44,7 +42,6 @@ class GameFilterComponent extends PresentationComponent {
 
   initialize(options: GameFilterInitializeOptions): void {
     this.cancelManaged(FILTER_SETUP_LIFECYCLE);
-    this.isGameFilterOpen = false;
     this.filterButton = options.filterButton;
     this.filterLabel = options.filterLabel;
     this.filterMenu = options.filterMenu;
@@ -91,7 +88,7 @@ class GameFilterComponent extends PresentationComponent {
   }
 
   hide(): void {
-    this._hideGameFilterMenu();
+    this._filterDropdown?.hide();
   }
 
   _setupGameFilter(): void {
@@ -108,12 +105,6 @@ class GameFilterComponent extends PresentationComponent {
       enableTriggerKeyboard: true,
       focusOnTriggerOpen: true,
       onChange: (value, label) => this._selectGameFilterOption(value, label),
-      onShow: () => {
-        this.isGameFilterOpen = true;
-      },
-      onHide: () => {
-        this.isGameFilterOpen = false;
-      },
       logger: this.logger
     });
     this._filterDropdown = filterDropdown;
@@ -122,7 +113,6 @@ class GameFilterComponent extends PresentationComponent {
       await filterDropdown.dispose();
       if (this._filterDropdown === filterDropdown) {
         this._filterDropdown = null;
-        this.isGameFilterOpen = false;
       }
     });
     filterDropdown.initialize({ activeValue: this.currentGameFilter });
@@ -159,8 +149,8 @@ class GameFilterComponent extends PresentationComponent {
     this.onFilterChange?.(nextValue, label);
   }
 
-  _hideGameFilterMenu(): void {
-    this._filterDropdown?.hide();
+  get isGameFilterOpen(): boolean {
+    return this._filterDropdown?.isOpen() ?? false;
   }
 
   override dispose(): void | Promise<void> {
@@ -172,7 +162,6 @@ class GameFilterComponent extends PresentationComponent {
     this.notesService = null;
     this.logger = null;
     this.currentGameFilter = '';
-    this.isGameFilterOpen = false;
     this._filterDropdown = null;
     return disposed;
   }

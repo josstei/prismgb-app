@@ -1,33 +1,5 @@
 import { vi } from 'vitest';
 import { createCleanupStack, installTargetProperty } from '../runtime-property.installers.js';
-import { installProperty } from './install-property.helper.js';
-
-function installWindowProperty(key, value) {
-  const target = globalThis.window;
-
-  if (!target) {
-    throw new Error(`Cannot install window.${String(key)} mock without a window global`);
-  }
-
-  return installTargetProperty(target, key, value);
-}
-
-export function installMissingWindowMock() {
-  const stack = createCleanupStack();
-  const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'window');
-
-  Reflect.deleteProperty(globalThis, 'window');
-
-  stack.add(() => {
-    if (descriptor) {
-      Object.defineProperty(globalThis, 'window', descriptor);
-    } else {
-      Reflect.deleteProperty(globalThis, 'window');
-    }
-  });
-
-  return stack;
-}
 
 export function installWindowPropertyMock(key, value) {
   if (!globalThis.window) {
@@ -41,7 +13,7 @@ export function installWindowPropertyMock(key, value) {
  */
 export function installGetComputedStyleMock(implementation = () => ({})) {
   const mockGetComputedStyle = vi.fn(implementation);
-  const stack = installWindowProperty('getComputedStyle', mockGetComputedStyle);
+  const stack = installWindowPropertyMock('getComputedStyle', mockGetComputedStyle);
 
   return {
     ...stack,
@@ -64,7 +36,7 @@ export function installMatchMediaMock(options = {}) {
     }
     return mediaQuery;
   });
-  const stack = installWindowProperty('matchMedia', mockMatchMedia);
+  const stack = installWindowPropertyMock('matchMedia', mockMatchMedia);
 
   return {
     ...stack,
@@ -160,7 +132,7 @@ export function installFullscreenDocumentMock(options = {}) {
     removeEventListener,
     body,
   };
-  const stack = installProperty(globalThis, 'document', documentMock);
+  const stack = installTargetProperty(globalThis, 'document', documentMock);
 
   return {
     ...stack,
@@ -203,17 +175,5 @@ export function installResizeObserverMock() {
   return {
     ...stack,
     ResizeObserver: MockResizeObserver,
-  };
-}
-
-/**
- * Canonical devicePixelRatio installer.
- */
-export function installDevicePixelRatioMock(value = 1) {
-  const stack = installProperty(globalThis, 'devicePixelRatio', value);
-
-  return {
-    ...stack,
-    devicePixelRatio: value,
   };
 }

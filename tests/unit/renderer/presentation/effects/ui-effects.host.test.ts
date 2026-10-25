@@ -73,20 +73,18 @@ vi.mock('@platform/ui-base', async (importOriginal) => {
 
 import { UIEffects } from '@renderer/presentation/effects/ui-effects.host';
 import { TIMING } from '@platform/config';
-import { createUIBodyClassManagerMock, createUIEffectsElementsMock } from '../../../../factories/index.js';
+import { createUIEffectsElementsMock } from '../../../../factories/index.js';
 import { installDocumentCreateElementMock } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('UIEffects', () => {
   describe('coordination and delegation', () => {
   let effects;
   let mockElements;
-  let mockBodyClassManager;
 
   beforeEach(() => {
     mockElements = createUIEffectsElementsMock();
-    mockBodyClassManager = createUIBodyClassManagerMock();
 
-    effects = new UIEffects({ elements: mockElements, bodyClassManager: mockBodyClassManager });
+    effects = new UIEffects({ elements: mockElements });
   });
 
   afterEach(() => {
@@ -394,23 +392,7 @@ describe('UIEffects', () => {
       expect(effects.elements).toBeNull();
     });
 
-    it('leaves the shared bodyClassManager to the application owner', () => {
-      effects._buttonFeedback.dispose = vi.fn();
-      effects._captureEffects.dispose = vi.fn();
-      mockBodyClassManager.dispose = vi.fn();
 
-      effects.dispose();
-
-      expect(mockBodyClassManager.dispose).not.toHaveBeenCalled();
-    });
-
-    it('handles bodyClassManager without dispose method', () => {
-      effects._buttonFeedback.dispose = vi.fn();
-      effects._captureEffects.dispose = vi.fn();
-      delete mockBodyClassManager.dispose;
-
-      expect(() => effects.dispose()).not.toThrow();
-    });
   });
 });
 
@@ -518,7 +500,7 @@ describe('UIEffects', () => {
       uiEffects.triggerShutterFlash();
 
       // Simulate element being removed from DOM
-      mockFlashElement.parentNode = null;
+      mockFlashElement.parentNode.removeChild(mockFlashElement);
 
       // Get the animationend handler and trigger it
       const animationendHandler = mockFlashElement.addEventListener.mock.calls[0][1];

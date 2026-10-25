@@ -1,4 +1,4 @@
-import type { UserNote, NotesService } from '@platform/notes';
+import type { UserNote } from '@platform/notes';
 import { PresentationComponent } from '@platform/ui-base';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { escapeHtml } from '@platform/core';
@@ -6,10 +6,7 @@ import type { LoggerLike } from '@platform/core';
 
 const LIST_SETUP_LIFECYCLE = Symbol('notesListSetupLifecycle');
 
-type NotesListServiceLike = Pick<NotesService, 'searchNotes'>;
-
 export interface NotesListViewComponentOptions {
-  notesService: NotesListServiceLike;
   logger?: LoggerLike | null;
 }
 
@@ -19,20 +16,14 @@ export interface NotesListViewInitializeOptions {
 }
 
 class NotesListViewComponent extends PresentationComponent {
-  notesService: NotesListServiceLike | null;
   logger: LoggerLike | null | undefined;
-  currentNoteId: string | null;
-  currentGameFilter: string;
   collapsedGameGroups: Set<string>;
   listElement: HTMLElement | null | undefined;
   onNoteSelect: ((noteId: string) => void) | null | undefined;
 
   constructor(options: NotesListViewComponentOptions) {
     super();
-    this.notesService = options.notesService;
     this.logger = options.logger;
-    this.currentNoteId = null;
-    this.currentGameFilter = '';
     this.collapsedGameGroups = new Set();
     this.listElement = null;
   }
@@ -50,30 +41,24 @@ class NotesListViewComponent extends PresentationComponent {
     this._setupListClickHandler();
   }
 
-  setCurrentNoteId(noteId: string | null): void {
-    this.currentNoteId = noteId;
-  }
-
-  setGameFilter(gameFilter: string | null | undefined): void {
-    this.currentGameFilter = gameFilter || '';
-  }
-
-  render(searchQuery = ''): void {
+  render(notes: UserNote[], { searchQuery, gameFilter, selectedNoteId }: {
+    searchQuery: string;
+    gameFilter: string;
+    selectedNoteId: string | null;
+  }): void {
     if (!this.listElement) return;
-
-    const notes = this.notesService!.searchNotes(searchQuery, this.currentGameFilter);
 
     if (notes.length === 0) {
       this.listElement.innerHTML = `
         <div class="notes-list-empty">
-          ${searchQuery ? 'No matching notes' : (this.currentGameFilter ? 'No notes for this game' : 'No notes yet')}
+          ${searchQuery ? 'No matching notes' : (gameFilter ? 'No notes for this game' : 'No notes yet')}
         </div>
       `;
       return;
     }
 
-    if (this.currentGameFilter) {
-      this.listElement.innerHTML = notes.map((note) => this._renderNoteItem(note)).join('');
+    if (gameFilter) {
+      this.listElement.innerHTML = notes.map((note) => this._renderNoteItem(note, selectedNoteId)).join('');
       return;
     }
 
@@ -85,7 +70,7 @@ class NotesListViewComponent extends PresentationComponent {
     });
 
     this.listElement.innerHTML = gameNames
-      .map((gameName) => this._renderGameGroup(gameName, grouped[gameName] || []))
+      .map((gameName) => this._renderGameGroup(gameName, grouped[gameName] || [], selectedNoteId))
       .join('');
   }
 
@@ -117,7 +102,7 @@ class NotesListViewComponent extends PresentationComponent {
         if (!item) return;
 
         const noteId = item.dataset.noteId;
-        if (noteId && noteId !== this.currentNoteId) {
+        if (noteId) {
           this.onNoteSelect?.(noteId);
         }
       })
@@ -147,7 +132,7 @@ class NotesListViewComponent extends PresentationComponent {
     return groups;
   }
 
-  _renderGameGroup(gameName: string, notes: UserNote[]): string {
+  _renderGameGroup(gameName: string, notes: UserNote[], selectedNoteId: string | null): string {
     const isCollapsed = this.collapsedGameGroups.has(gameName);
     const displayName = gameName || 'General';
     const safeGameName = escapeHtml(gameName);
@@ -162,14 +147,14 @@ class NotesListViewComponent extends PresentationComponent {
           </svg>
         </button>
         <div class="notes-game-notes">
-          ${notes.map((note) => this._renderNoteItem(note)).join('')}
+          ${notes.map((note) => this._renderNoteItem(note, selectedNoteId)).join('')}
         </div>
       </div>
     `;
   }
 
-  _renderNoteItem(note: UserNote): string {
-    const isActive = note.id === this.currentNoteId;
+  _renderNoteItem(note: UserNote, selectedNoteId: string | null): string {
+    const isActive = note.id === selectedNoteId;
     const safeId = escapeHtml(note.id || '');
     const title = escapeHtml(note.title || 'Untitled Note');
     const date = note.updatedAt ? new Date(note.updatedAt).toLocaleDateString() : '';
@@ -186,11 +171,8 @@ class NotesListViewComponent extends PresentationComponent {
   override dispose(): void | Promise<void> {
     const disposed = super.dispose();
     this.collapsedGameGroups.clear();
-    this.currentNoteId = null;
-    this.currentGameFilter = '';
     this.listElement = null;
     this.onNoteSelect = null;
-    this.notesService = null;
     this.logger = null;
     return disposed;
   }

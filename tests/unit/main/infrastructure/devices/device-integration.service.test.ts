@@ -39,7 +39,7 @@ describe('DeviceIntegrationService', () => {
   it('updates the tray and publishes a connected device before delayed window launch', () => {
     service.initialize();
     const device = createChromaticDeviceInfoPayload();
-    statusListener({ state: 'connected', connected: true, device, updatedAt: 1 }, 'startup');
+    statusListener({ state: 'connected', connected: true, device }, 'startup');
     expect(trayService.updateTrayMenu).toHaveBeenCalledOnce();
     expect(pushPublisher.emit).toHaveBeenCalledWith('device:connected', device);
     expect(windowService.showWindow).not.toHaveBeenCalled();
@@ -49,8 +49,8 @@ describe('DeviceIntegrationService', () => {
 
   it('cancels the pending window launch on disconnect and publishes the transition', () => {
     service.initialize();
-    statusListener({ state: 'connected', connected: true, device: createChromaticDeviceInfoPayload(), updatedAt: 1 }, 'hotplug-add');
-    statusListener({ state: 'disconnected', connected: false, device: null, updatedAt: 2 }, 'hotplug-remove');
+    statusListener({ state: 'connected', connected: true, device: createChromaticDeviceInfoPayload() }, 'hotplug-add');
+    statusListener({ state: 'disconnected', connected: false, device: null }, 'hotplug-remove');
     expect(trayService.updateTrayMenu).toHaveBeenCalledTimes(2);
     expect(pushPublisher.emit).toHaveBeenLastCalledWith('device:disconnected');
     vi.runAllTimers();

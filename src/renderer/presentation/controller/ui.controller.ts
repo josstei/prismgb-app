@@ -1,10 +1,7 @@
 import { disposeInOrder, type LoggerFactoryLike, type LoggerLike } from '@platform/core';
 import type { DomBindings, DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils.js';
-import type { RendererTemplateDeferredComponentId } from '@renderer/presentation/primitives/template-dom.contract.js';
-import type {
-  UiComponentHost,
-  RendererUiComponentInstanceMap
-} from '@renderer/presentation/controller/ui-component.host.js';
+import type { UiComponentHost } from '@renderer/presentation/controller/ui-component.host.js';
+import type { RendererUiComponentInstanceMap } from '@renderer/presentation/controller/ui-component.registry.js';
 
 interface UIEffectsLike {
   triggerShutterFlash(): void;
@@ -59,8 +56,8 @@ class UIController {
     this.host?.touchCore();
   }
 
-  initializeDeferredComponent<TId extends RendererTemplateDeferredComponentId>(id: TId): void {
-    this.host?.get(id);
+  initializeDeferredComponents(): void {
+    this.host?.touchDeferred();
   }
 
   toggleSettingsMenu(): void {

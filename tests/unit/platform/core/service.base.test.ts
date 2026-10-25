@@ -100,7 +100,7 @@ describe('BaseService', () => {
       const intervalHandler = vi.fn();
 
       service.timeout(timeoutHandler, 1000);
-      service.interval(intervalHandler, 100);
+      service.scheduleInterval('interval', intervalHandler, 100);
 
       await service.dispose();
       vi.advanceTimersByTime(2000);

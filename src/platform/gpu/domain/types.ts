@@ -45,26 +45,17 @@ export interface RenderPreset {
 
 export type RenderPresetSummary = Pick<RenderPreset, 'id' | 'name' | 'description'>;
 
-export interface ShaderPresetCatalog {
-  readonly presets: readonly RenderPreset[];
-  readonly packageDefaultPresetId: string;
-  readonly rendererDefaultPresetId: string;
-  readonly uiPresetIds: readonly string[];
-}
-
 export interface RenderPipelineConfig {
   canvas: RenderCanvas;
   nativeWidth: number;
   nativeHeight: number;
-  preset?: RenderPreset;
-  preferredBackend?: RenderBackend;
-  allowCanvas2D?: boolean;
+  preset: RenderPreset;
+  backend: RenderBackend;
 }
 
 export interface RenderCapabilities {
   webgpu: boolean;
   transferControlToOffscreen: boolean;
-  preferredBackend: RenderBackend;
 }
 
 export interface RenderPipeline {

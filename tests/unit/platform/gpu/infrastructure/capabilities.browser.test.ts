@@ -15,8 +15,7 @@ describe('detectBrowserGpuCapabilities', () => {
 
     expect(capabilities).toEqual({
       webgpu: false,
-      transferControlToOffscreen: false,
-      preferredBackend: 'canvas2d'
+      transferControlToOffscreen: false
     });
   });
 
@@ -30,8 +29,7 @@ describe('detectBrowserGpuCapabilities', () => {
 
     await expect(detectBrowserGpuCapabilities()).resolves.toEqual({
       webgpu: true,
-      transferControlToOffscreen: true,
-      preferredBackend: 'webgpu'
+      transferControlToOffscreen: true
     });
     expect(requestDevice).toHaveBeenCalledOnce();
     expect(destroy).toHaveBeenCalledOnce();
@@ -45,8 +43,7 @@ describe('detectBrowserGpuCapabilities', () => {
 
     await expect(detectBrowserGpuCapabilities()).resolves.toEqual({
       webgpu: false,
-      transferControlToOffscreen: false,
-      preferredBackend: 'canvas2d'
+      transferControlToOffscreen: false
     });
   });
 });

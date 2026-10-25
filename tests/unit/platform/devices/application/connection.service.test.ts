@@ -10,8 +10,6 @@ describe('DeviceConnectionService', () => {
   let usbMonitor: {
     startMonitoring: ReturnType<typeof vi.fn>;
     stopMonitoring: ReturnType<typeof vi.fn>;
-    registerLifecycleListeners: ReturnType<typeof vi.fn>;
-    unregisterLifecycleListeners: ReturnType<typeof vi.fn>;
     find: ReturnType<typeof vi.fn>;
   };
   let lifecycleListeners: {
@@ -22,23 +20,20 @@ describe('DeviceConnectionService', () => {
   function createUsbMonitor() {
     lifecycleListeners = {};
     return {
-      startMonitoring: vi.fn(),
-      stopMonitoring: vi.fn(),
-      registerLifecycleListeners: vi.fn((onAdd, onRemove) => {
+      startMonitoring: vi.fn((onAdd, onRemove) => {
         lifecycleListeners.onAdd = onAdd;
         lifecycleListeners.onRemove = onRemove;
       }),
-      unregisterLifecycleListeners: vi.fn(),
+      stopMonitoring: vi.fn(),
       find: vi.fn(() => [])
     };
   }
 
-  function createRuntime(now = () => 1000) {
+  function createRuntime() {
     usbMonitor = createUsbMonitor();
     return new DeviceConnectionService({
       loggerFactory: createLoggerFactory(),
-      usbMonitor: usbMonitor as never,
-      now
+      usbMonitor: usbMonitor as never
     });
   }
 
@@ -48,7 +43,6 @@ describe('DeviceConnectionService', () => {
     await runtime.initialize();
 
     expect(usbMonitor.startMonitoring).toHaveBeenCalledTimes(1);
-    expect(usbMonitor.registerLifecycleListeners).toHaveBeenCalledTimes(1);
   });
 
   it('is idempotent when initialized more than once', async () => {
@@ -58,11 +52,10 @@ describe('DeviceConnectionService', () => {
     await runtime.initialize();
 
     expect(usbMonitor.startMonitoring).toHaveBeenCalledTimes(1);
-    expect(usbMonitor.registerLifecycleListeners).toHaveBeenCalledTimes(1);
   });
 
   it('reconciles matching USB devices into canonical connected status', async () => {
-    const runtime = createRuntime(() => 2000);
+    const runtime = createRuntime();
     usbMonitor.find.mockReturnValue([createChromaticUsbDevice({
       locationId: 3,
       deviceAddress: 9,
@@ -78,14 +71,13 @@ describe('DeviceConnectionService', () => {
         locationId: 3,
         deviceAddress: 9,
         serialNumber: 'MOCK-001'
-      }),
-      updatedAt: 2000
+      })
     });
     expect(runtime.isConnected()).toBe(true);
   });
 
   it('reconciles no matching device into canonical disconnected status', async () => {
-    const runtime = createRuntime(() => 3000);
+    const runtime = createRuntime();
     usbMonitor.find.mockReturnValue([{
       ...createChromaticUsbDevice(),
       vendorId: 0x9999
@@ -96,14 +88,13 @@ describe('DeviceConnectionService', () => {
     expect(status).toEqual({
       state: 'disconnected',
       connected: false,
-      device: null,
-      updatedAt: 3000
+      device: null
     });
     expect(runtime.isConnected()).toBe(false);
   });
 
   it('emits status changes only when connection state changes', async () => {
-    const runtime = createRuntime(() => 4000);
+    const runtime = createRuntime();
     const onStatusChanged = vi.fn();
     runtime.onStatusChanged(onStatusChanged);
     usbMonitor.find.mockReturnValue([createChromaticUsbDevice()]);
@@ -119,7 +110,7 @@ describe('DeviceConnectionService', () => {
   });
 
   it('routes hotplug callbacks through the same reconciliation path', async () => {
-    const runtime = createRuntime(() => 5000);
+    const runtime = createRuntime();
     const onStatusChanged = vi.fn();
     runtime.onStatusChanged(onStatusChanged);
     usbMonitor.find.mockReturnValue([createChromaticUsbDevice()]);
@@ -135,7 +126,7 @@ describe('DeviceConnectionService', () => {
   });
 
   it('routes hotplug remove callbacks through the same reconciliation path', async () => {
-    const runtime = createRuntime(() => 5500);
+    const runtime = createRuntime();
     const onStatusChanged = vi.fn();
     runtime.onStatusChanged(onStatusChanged);
     usbMonitor.find.mockReturnValue([createChromaticUsbDevice()]);
@@ -157,8 +148,7 @@ describe('DeviceConnectionService', () => {
     usbMonitor = createUsbMonitor();
     const runtime = new DeviceConnectionService({
       loggerFactory,
-      usbMonitor: usbMonitor as never,
-      now: () => 5750
+      usbMonitor: usbMonitor as never
     });
     runtime.onStatusChanged(() => {
       throw new Error('integration failed');
@@ -180,7 +170,7 @@ describe('DeviceConnectionService', () => {
   });
 
   it('emits canonical error status when USB scan fails', async () => {
-    const runtime = createRuntime(() => 6000);
+    const runtime = createRuntime();
     const onStatusChanged = vi.fn();
     runtime.onStatusChanged(onStatusChanged);
     usbMonitor.find.mockImplementation(() => {
@@ -193,8 +183,7 @@ describe('DeviceConnectionService', () => {
       state: 'error',
       connected: false,
       device: null,
-      error: 'scan failed',
-      updatedAt: 6000
+      error: 'scan failed'
     });
     expect(onStatusChanged).toHaveBeenCalledWith(status, 'tray-refresh');
   });
@@ -205,7 +194,35 @@ describe('DeviceConnectionService', () => {
     await runtime.initialize();
     await runtime.dispose();
 
-    expect(usbMonitor.unregisterLifecycleListeners).toHaveBeenCalled();
     expect(usbMonitor.stopMonitoring).toHaveBeenCalled();
+  });
+
+  it('keeps the latest USB status when attach and detach arrive in the same turn', async () => {
+    const runtime = createRuntime();
+    const listener = vi.fn();
+    runtime.onStatusChanged(listener);
+    await runtime.initialize();
+    usbMonitor.find.mockReturnValue([createChromaticUsbDevice()]);
+    lifecycleListeners.onAdd?.({});
+    usbMonitor.find.mockReturnValue([]);
+    lifecycleListeners.onRemove?.({});
+    expect(listener.mock.calls.map(([status]) => status.connected)).toEqual([true, false]);
+    expect(runtime.getStatus()).toEqual({ state: 'disconnected', connected: false, device: null });
+    await runtime.dispose();
+  });
+
+  it('can initialize again after disposal without retaining old subscribers', async () => {
+    const runtime = createRuntime();
+    const listener = vi.fn();
+    runtime.onStatusChanged(listener);
+    await runtime.initialize();
+    await runtime.dispose();
+    await runtime.initialize();
+    usbMonitor.find.mockReturnValue([createChromaticUsbDevice()]);
+    lifecycleListeners.onAdd?.({});
+    expect(usbMonitor.startMonitoring).toHaveBeenCalledTimes(2);
+    expect(listener).not.toHaveBeenCalled();
+    expect(runtime.isConnected()).toBe(true);
+    await runtime.dispose();
   });
 });

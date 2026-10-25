@@ -1,12 +1,7 @@
-import { resolvePreset, getRendererDefaultPreset } from './catalog';
+import { resolvePreset } from './catalog';
 import { createGpuRenderer } from './renderer.service';
 import { WorkerRendererClient } from '../worker/client';
-import type {
-  RenderBackend,
-  RenderPreset,
-  RenderPipeline,
-  RenderCapabilities
-} from '../domain/types';
+import type { RenderBackend, RenderPipeline } from '../domain/types';
 
 export type GpuVideoRendererSession = {
   readonly backend: RenderBackend;
@@ -21,366 +16,114 @@ export type GpuVideoRendererSession = {
   terminate(): void;
 };
 
-export type GpuVideoRendererSessionOptions = {
+type GpuVideoRendererSessionOptions = {
   canvas: HTMLCanvasElement;
   nativeResolution: { width: number; height: number };
-  preferredBackend?: RenderBackend;
+  backend: RenderBackend;
   presetId?: string | null;
   brightness?: number;
-  allowCanvas2D?: boolean;
   createWorker?: () => Worker;
   signal?: AbortSignal;
-  capabilities?: RenderCapabilities;
-  logger?: Pick<Console, 'debug' | 'error' | 'info' | 'warn'>;
+  logger?: Pick<Console, 'error' | 'info'>;
 };
 
 class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
   readonly backend: RenderBackend;
-  readonly isCanvasTransferred: boolean;
-  private _isActive = true;
-
-  private workerClient: WorkerRendererClient | null = null;
-  private pendingFrames = 0;
-  private imageBitmapOptions: ImageBitmapOptions;
-  private nativeWidth: number;
-  private nativeHeight: number;
+  private active = true;
+  private pipeline: RenderPipeline | WorkerRendererClient | null = null;
   private targetWidth: number;
   private targetHeight: number;
-  private brightness = 1.0;
-  private currentPreset: RenderPreset;
+  private readonly logger: Pick<Console, 'error' | 'info'>;
 
-  private localPipeline: RenderPipeline | null = null;
-
-  private logger: Pick<Console, 'debug' | 'error' | 'info' | 'warn'>;
-
-  private pendingCaptureResolve: ((result: ImageBitmap) => void) | null = null;
-  private pendingCaptureReject: ((error: Error) => void) | null = null;
-  private captureSequence = 0;
-  private pendingCaptureId: number | null = null;
-  private captureTimeoutId: ReturnType<typeof setTimeout> | null = null;
-
-  private messageUnsubscribers: Array<() => void> = [];
-
-  constructor(
-    backend: RenderBackend,
-    isCanvasTransferred: boolean,
-    options: GpuVideoRendererSessionOptions
-  ) {
-    this.backend = backend;
-    this.isCanvasTransferred = isCanvasTransferred;
-    this.nativeWidth = options.nativeResolution.width;
-    this.nativeHeight = options.nativeResolution.height;
-    this.targetWidth = this.nativeWidth;
-    this.targetHeight = this.nativeHeight;
-    this.currentPreset = resolvePreset(options.presetId || getRendererDefaultPreset().id);
-    this.brightness = options.brightness !== undefined ? options.brightness : 1.0;
-
-    this.logger = options.logger || console;
-
-    this.imageBitmapOptions = {
-      resizeWidth: this.nativeWidth,
-      resizeHeight: this.nativeHeight,
-      resizeQuality: 'medium',
-      colorSpaceConversion: 'none'
-    };
+  constructor(private readonly options: GpuVideoRendererSessionOptions) {
+    this.backend = options.backend;
+    this.targetWidth = options.nativeResolution.width;
+    this.targetHeight = options.nativeResolution.height;
+    this.logger = options.logger ?? console;
   }
 
-  get isActive(): boolean {
-    return this._isActive;
-  }
+  get isActive(): boolean { return this.active; }
+  get isCanvasTransferred(): boolean { return this.backend === 'webgpu'; }
 
-  async initialize(canvas: HTMLCanvasElement, options: GpuVideoRendererSessionOptions): Promise<void> {
-    if (this.backend === 'canvas2d') {
-      try {
-        this.localPipeline = await createGpuRenderer({
+  async initialize(): Promise<void> {
+    const { canvas, nativeResolution, presetId, brightness = 1 } = this.options;
+    const preset = resolvePreset(presetId);
+    try {
+      if (this.backend === 'canvas2d') {
+        this.pipeline = await createGpuRenderer({
           canvas,
-          nativeWidth: this.nativeWidth,
-          nativeHeight: this.nativeHeight,
-          preferredBackend: 'canvas2d',
-          preset: this.currentPreset,
-          allowCanvas2D: true,
-          capabilities: options.capabilities
+          nativeWidth: nativeResolution.width,
+          nativeHeight: nativeResolution.height,
+          backend: 'canvas2d',
+          preset
         });
-        this.localPipeline.setBrightness(this.brightness);
-      } catch (err: unknown) {
-        this.logger.error('Failed to initialize local Canvas2D pipeline:', err);
-        throw err;
+      } else {
+        const worker = new WorkerRendererClient({
+          createWorker: this.options.createWorker ?? (() => new Worker(new URL('../worker-entry.js', import.meta.url), { type: 'module' })),
+          logger: this.logger
+        });
+        this.pipeline = worker;
+        this.updateTargetDimensions(canvas.clientWidth, canvas.clientHeight);
+        await worker.initialize(canvas, {
+          nativeWidth: nativeResolution.width,
+          nativeHeight: nativeResolution.height,
+          targetWidth: this.targetWidth,
+          targetHeight: this.targetHeight,
+          presetId: preset.id
+        });
+        this.logger.info('Render worker ready (backend: webgpu)');
       }
-    } else {
-      const createWorkerFn = options.createWorker || (() => {
-        return new Worker(new URL('../worker-entry.js', import.meta.url), { type: 'module' });
-      });
-
-      this.workerClient = new WorkerRendererClient({
-        createWorker: createWorkerFn,
-        logger: this.logger
-      });
-
-      this.updateTargetDimensions(canvas.clientWidth, canvas.clientHeight);
-
-      const config = {
-        nativeWidth: this.nativeWidth,
-        nativeHeight: this.nativeHeight,
-        targetWidth: this.targetWidth,
-        targetHeight: this.targetHeight,
-        backend: this.backend as 'webgpu',
-        presetId: this.currentPreset.id
-      };
-
-      this.registerMessageHandlers();
-
-      try {
-        await this.workerClient.initialize(canvas, config, 5000);
-        this.logger.info(`Render worker ready (backend: ${this.backend})`);
-        this.workerClient.setBrightness(this.brightness);
-      } catch (err: unknown) {
-        this.logger.error('Failed to initialize worker renderer:', err);
-        this.unregisterMessageHandlers();
-        throw err;
-      }
+      this.pipeline?.setBrightness(brightness);
+    } catch (error) {
+      this.logger.error(`Failed to initialize ${this.backend} renderer:`, error);
+      throw error;
     }
-  }
-
-  private calculateScale(clientWidth: number, clientHeight: number): number {
-    if (clientWidth <= 0 || clientHeight <= 0) return 1;
-    const scaleX = clientWidth / this.nativeWidth;
-    const scaleY = clientHeight / this.nativeHeight;
-    return Math.max(1, Math.floor(Math.min(scaleX, scaleY)));
   }
 
   private updateTargetDimensions(width: number, height: number): void {
-    const scale = this.calculateScale(width, height);
-    this.targetWidth = this.nativeWidth * scale;
-    this.targetHeight = this.nativeHeight * scale;
-  }
-
-  private registerMessageHandlers(): void {
-    if (!this.workerClient) return;
-
-    this.messageUnsubscribers = [
-      this.workerClient.onFrameRendered(() => {
-        this.pendingFrames = Math.max(0, this.pendingFrames - 1);
-      }),
-
-      this.workerClient.onError((payload) => {
-        if (payload.requestId !== undefined) {
-          if (payload.requestId === this.pendingCaptureId) this.resolvePendingCapture(null, new Error(payload.message));
-          return;
-        }
-        this.logger.error('Render worker error:', payload.message);
-        this.pendingFrames = 0;
-        this.resolvePendingCapture(null, new Error(payload.message));
-      }),
-
-      this.workerClient.onCaptureReady((payload) => {
-        if (payload.requestId !== this.pendingCaptureId) {
-          payload.bitmap.close();
-          return;
-        }
-        this.resolvePendingCapture(payload.bitmap, null);
-      })
-    ];
-  }
-
-  private unregisterMessageHandlers(): void {
-    for (const unsub of this.messageUnsubscribers) {
-      unsub();
-    }
-    this.messageUnsubscribers = [];
+    const native = this.options.nativeResolution;
+    const scale = width <= 0 || height <= 0 ? 1 : Math.max(1, Math.floor(Math.min(width / native.width, height / native.height)));
+    this.targetWidth = native.width * scale;
+    this.targetHeight = native.height * scale;
   }
 
   async renderFrame(video: HTMLVideoElement): Promise<void> {
-    if (!this._isActive) return;
-
-    if (this.backend === 'canvas2d') {
-      if (this.localPipeline && video.readyState >= video.HAVE_CURRENT_DATA) {
-        this.localPipeline.renderFrame(video);
-      }
-    } else {
-      if (!this.workerClient || !this.workerClient.isReady() || this.pendingFrames >= 2) {
-        return;
-      }
-
-      if (video.readyState < video.HAVE_CURRENT_DATA) {
-        return;
-      }
-
-      let imageBitmap: ImageBitmap | null = null;
-      this.pendingFrames++;
-      try {
-        imageBitmap = await createImageBitmap(video, this.imageBitmapOptions);
-        if (!this._isActive || !this.workerClient) {
-          imageBitmap.close();
-          imageBitmap = null;
-          this.pendingFrames = Math.max(0, this.pendingFrames - 1);
-          return;
-        }
-        if (this.workerClient.renderFrame(imageBitmap)) {
-          imageBitmap = null;
-        } else {
-          this.pendingFrames = Math.max(0, this.pendingFrames - 1);
-          imageBitmap.close();
-          imageBitmap = null;
-        }
-      } catch (err: unknown) {
-        this.pendingFrames = Math.max(0, this.pendingFrames - 1);
-        this.logger.error('Failed to render frame in worker:', err);
-        if (imageBitmap) {
-          imageBitmap.close();
-        }
-      }
-    }
+    if (this.active && video.readyState >= video.HAVE_CURRENT_DATA) await this.pipeline?.renderFrame(video);
   }
 
   resize(width: number, height: number): void {
     if (this.backend === 'canvas2d') {
-      if (this.localPipeline) {
-        const dpr = window.devicePixelRatio || 1;
-        const backingWidth = Math.round(width * dpr);
-        const backingHeight = Math.round(height * dpr);
-        this.localPipeline.resize(backingWidth, backingHeight);
-      }
+      const dpr = window.devicePixelRatio || 1;
+      this.pipeline?.resize(Math.round(width * dpr), Math.round(height * dpr));
     } else {
       this.updateTargetDimensions(width, height);
-
-      if (this.workerClient && this.workerClient.isReady()) {
-        this.workerClient.resize(this.targetWidth, this.targetHeight);
-      }
+      this.pipeline?.resize(this.targetWidth, this.targetHeight);
     }
   }
 
-  setPreset(presetId: string): void {
-    const preset = resolvePreset(presetId);
-    this.currentPreset = preset;
-
-    if (this.backend === 'canvas2d') {
-      this.localPipeline?.setPreset(preset);
-    } else {
-      if (this.workerClient && this.workerClient.isReady()) {
-        this.workerClient.setPreset(preset);
-      }
-    }
-  }
-
-  setBrightness(value: number): void {
-    this.brightness = value;
-    if (this.backend === 'canvas2d') {
-      this.localPipeline?.setBrightness(value);
-    } else {
-      if (this.workerClient && this.workerClient.isReady()) {
-        this.workerClient.setBrightness(value);
-      }
-    }
-  }
-
-  getTargetDimensions(): { width: number; height: number } {
-    return { width: this.targetWidth, height: this.targetHeight };
-  }
+  setPreset(presetId: string): void { this.pipeline?.setPreset(resolvePreset(presetId)); }
+  setBrightness(value: number): void { this.pipeline?.setBrightness(value); }
+  getTargetDimensions(): { width: number; height: number } { return { width: this.targetWidth, height: this.targetHeight }; }
 
   async captureFrame(): Promise<ImageBitmap> {
-    if (!this._isActive) {
-      throw new Error('Session is not active');
-    }
-
-    if (this.backend === 'canvas2d') {
-      if (!this.localPipeline) {
-        throw new Error('Canvas2D pipeline not initialized');
-      }
-      return this.localPipeline.captureFrame();
-    } else {
-      if (!this.workerClient || !this.workerClient.isReady()) {
-        throw new Error('Worker renderer client not ready');
-      }
-      if (this.pendingCaptureResolve) {
-        throw new Error('Capture already in progress');
-      }
-
-      return new Promise((resolve, reject) => {
-        this.pendingCaptureResolve = resolve;
-        this.pendingCaptureReject = reject;
-
-        this.pendingCaptureId = ++this.captureSequence;
-        try {
-          if (!this.workerClient?.requestCapture(this.pendingCaptureId)) {
-            this.resolvePendingCapture(null, new Error('GPU renderer not ready'));
-            return;
-          }
-        } catch (error) {
-          this.resolvePendingCapture(null, error instanceof Error ? error : new Error(String(error)));
-          return;
-        }
-
-        this.captureTimeoutId = setTimeout(() => {
-          this.resolvePendingCapture(null, new Error('Capture request timed out'));
-        }, 1000);
-      });
-    }
-  }
-
-  private resolvePendingCapture(result: ImageBitmap | null, error: Error | null): void {
-    if (this.captureTimeoutId) {
-      clearTimeout(this.captureTimeoutId);
-      this.captureTimeoutId = null;
-    }
-
-    if (error && this.pendingCaptureReject) {
-      this.pendingCaptureReject(error);
-    } else if (result && this.pendingCaptureResolve) {
-      this.pendingCaptureResolve(result);
-    }
-
-    this.pendingCaptureResolve = null;
-    this.pendingCaptureReject = null;
-    this.pendingCaptureId = null;
+    if (!this.active || !this.pipeline) throw new Error('Session is not active');
+    return this.pipeline.captureFrame();
   }
 
   terminate(): void {
-    this._isActive = false;
-    this.unregisterMessageHandlers();
-    this.resolvePendingCapture(null, new Error('Session terminated'));
-
-    if (this.backend === 'canvas2d') {
-      if (this.localPipeline) {
-        this.localPipeline.dispose().catch(() => {});
-        this.localPipeline = null;
-      }
-    } else {
-      if (this.workerClient) {
-        this.workerClient.terminate();
-        this.workerClient = null;
-      }
-    }
+    this.active = false;
+    void this.pipeline?.dispose().catch((error) => this.logger.error('Failed to dispose renderer:', error));
+    this.pipeline = null;
   }
 }
 
-export async function createGpuVideoRendererSession(
-  options: GpuVideoRendererSessionOptions
-): Promise<GpuVideoRendererSession> {
-  const capabilities = options.capabilities ?? await (async () => {
-    const { detectBrowserGpuCapabilities } = await import('../infrastructure/capabilities.browser');
-    return detectBrowserGpuCapabilities();
-  })();
-
-  const allowCanvas2D = options.allowCanvas2D !== false;
-
-  const canUseWebgpu =
-    capabilities.webgpu &&
-    capabilities.transferControlToOffscreen &&
-    options.preferredBackend !== 'canvas2d';
-
-  if (!canUseWebgpu && !allowCanvas2D) {
-    throw new Error('No accelerated render backend available');
-  }
-
-  const backend: RenderBackend = canUseWebgpu ? 'webgpu' : 'canvas2d';
-
-  const session = new DefaultGpuVideoRendererSession(backend, canUseWebgpu, options);
-
+export async function createGpuVideoRendererSession(options: GpuVideoRendererSessionOptions): Promise<GpuVideoRendererSession> {
+  const session = new DefaultGpuVideoRendererSession(options);
   const abort = () => session.terminate();
   options.signal?.addEventListener('abort', abort, { once: true });
   try {
     options.signal?.throwIfAborted();
-    await session.initialize(options.canvas, options);
+    await session.initialize();
     options.signal?.throwIfAborted();
     return session;
   } catch (error) {

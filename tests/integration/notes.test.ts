@@ -4,7 +4,6 @@ import { PlatformEventBus, EventChannels } from '@platform/events';
 import { NotesPanelComponent } from '@renderer/presentation/features/notes/notes-panel.component.js';
 import { createAppShellTemplate } from '@renderer/presentation/shell/app-shell.template.js';
 import { createDomBindings } from '@renderer/presentation/primitives/dom-bindings.utils.js';
-import { createTemplateComponentElements } from '@renderer/presentation/primitives/template-dom.contract.js';
 import { createLoggerFactory, createStorageService } from '../factories/index.js';
 
 describe('notes persistence and presentation', () => {
@@ -23,7 +22,7 @@ describe('notes persistence and presentation', () => {
     eventBus = new PlatformEventBus({ loggerFactory });
     service = new NotesService({ storageService: storage, eventBus, loggerFactory });
     panel = new NotesPanelComponent({ notesService: service, eventBus, logger: loggerFactory.create('NotesPanel') });
-    panel.initialize(createTemplateComponentElements('notesPanelComponent', dom));
+    panel.initialize(dom.flat);
   });
 
   afterEach(async () => {
@@ -62,7 +61,6 @@ describe('notes persistence and presentation', () => {
     const note = service.createNote('Checklist', '', 'Old Game')!;
     panel._selectNote(note.id);
     panel.children!.gameFilter.setCurrentFilter('Old Game');
-    panel.children!.listView.setGameFilter('Old Game');
     dom.notes.notesGameInput!.value = 'New Game';
     dom.notes.notesGameInput!.dispatchEvent(new Event('input'));
     panel.hide();
@@ -85,7 +83,7 @@ describe('notes persistence and presentation', () => {
 
     dom.notes.notesTitleInput!.value = 'Saved before remount';
     dom.notes.notesTitleInput!.dispatchEvent(new Event('input'));
-    panel.initialize(createTemplateComponentElements('notesPanelComponent', dom));
+    panel.initialize(dom.flat);
     expect(service.getNote(noteId)?.title).toBe('Saved before remount');
     expect(dom.notes.notesTitleInput!.value).toBe('Saved before remount');
     expect(eventBus.emitter.listenerCount(EventChannels.NOTES.NOTE_UPDATED)).toBe(1);

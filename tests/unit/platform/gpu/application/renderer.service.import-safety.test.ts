@@ -23,13 +23,7 @@ describe('createGpuRenderer import safety', () => {
     const session = await createGpuVideoRendererSession({
       canvas,
       nativeResolution: { width: 160, height: 144 },
-      preferredBackend: 'canvas2d',
-      allowCanvas2D: true,
-      capabilities: {
-        webgpu: false,
-        transferControlToOffscreen: false,
-        preferredBackend: 'canvas2d'
-      }
+      backend: 'canvas2d'
     });
 
     expect(session.isActive).toBe(true);

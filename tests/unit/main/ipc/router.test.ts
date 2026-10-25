@@ -14,14 +14,12 @@ function createContext(overrides: Partial<Record<string, unknown>> = {}) {
       getStatus: vi.fn(() => ({
         state: 'connected',
         connected: true,
-        device: createChromaticDeviceInfoPayload(),
-        updatedAt: 12345
+        device: createChromaticDeviceInfoPayload()
       })),
       reconcileDeviceStatus: vi.fn(async () => ({
         state: 'connected',
         connected: true,
-        device: createChromaticDeviceInfoPayload(),
-        updatedAt: 12346
+        device: createChromaticDeviceInfoPayload()
       }))
     },
     mainProcessTestControl: {

@@ -1,6 +1,5 @@
-import { getRendererDefaultPreset } from '../application/catalog';
+import { resolvePreset } from '../application/catalog';
 import type {
-  RenderCapabilities,
   RenderCanvas,
   RenderPreset
 } from '../domain/types';
@@ -20,21 +19,10 @@ type MockRenderCanvas = RenderCanvas & {
   transferControlToOffscreen(): OffscreenCanvas;
 };
 
-export function createRenderCapabilitiesFixture(
-  overrides: Partial<RenderCapabilities> = {}
-): RenderCapabilities {
-  return {
-    webgpu: false,
-    transferControlToOffscreen: true,
-    preferredBackend: 'canvas2d',
-    ...overrides
-  };
-}
-
 export function createRenderPresetFixture(
   overrides: DeepPartial<RenderPreset> = {}
 ): RenderPreset {
-  const preset = getRendererDefaultPreset();
+  const preset = resolvePreset();
 
   return {
     ...preset,

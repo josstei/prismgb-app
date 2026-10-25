@@ -25,7 +25,6 @@
     "tests/devices/**/*.ts",
     "tests/unit/**/*.ts",
     "tests/integration/**/*.ts",
-    "tests/workflows/**/*.ts",
     "tests/factories/**/*.js",
     "tests/support/**/*.ts",
     "tests/support/**/*.js"

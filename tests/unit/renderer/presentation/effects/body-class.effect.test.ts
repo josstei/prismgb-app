@@ -234,11 +234,15 @@ describe('BodyClassManager', () => {
       expect(document.body.classList.contains('minimalist-fullscreen')).toBe(true);
     });
 
-    it('tears down store subscriptions and bindings on dispose', () => {
+    it('releases its bindings while leaving the shared store to its owner', () => {
+      const disposeStore = vi.spyOn(store, 'dispose');
       manager.dispose();
       cinematicEnabled.value = true;
       bus.publish(EventChannels.UI.STREAMING_MODE, { enabled: true });
       expect(document.body.classList.contains('cinematic-active')).toBe(false);
+      expect(store.cinematicActive.value).toBe(true);
+      expect(disposeStore).not.toHaveBeenCalled();
+      store.dispose();
     });
   });
 });

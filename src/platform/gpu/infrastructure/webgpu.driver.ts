@@ -1,6 +1,5 @@
 import type { PipelineState, RenderDriver } from './pipeline-controller';
 import { loadWebGpuShaders } from './shaders';
-import { RecoverableBackendInitializationError } from '../domain/errors';
 import { PASS_SPECS, type RenderPassDefinition } from '../domain/pass-specs';
 import {
   createRenderPassPlan,
@@ -38,20 +37,20 @@ export class WebGpuDriver implements RenderDriver {
 
   async initialize(state: PipelineState): Promise<void> {
     if (!navigator.gpu) {
-      throw new RecoverableBackendInitializationError('WebGPU not supported');
+      throw new Error('WebGPU not supported');
     }
 
     const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'low-power' })
       ?? await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
 
     if (!adapter) {
-      throw new RecoverableBackendInitializationError('WebGPU adapter not available');
+      throw new Error('WebGPU adapter not available');
     }
 
     try {
       this.device = await adapter.requestDevice();
     } catch (error) {
-      throw new RecoverableBackendInitializationError('WebGPU device not available', { cause: error });
+      throw new Error('WebGPU device not available', { cause: error });
     }
 
     const initializedDevice = this.device;
@@ -64,7 +63,7 @@ export class WebGpuDriver implements RenderDriver {
 
     this.context = state.canvas.getContext('webgpu') as GPUCanvasContext;
     if (!this.context) {
-      throw new RecoverableBackendInitializationError('WebGPU context not available');
+      throw new Error('WebGPU context not available');
     }
 
     this.canvasFormat = navigator.gpu.getPreferredCanvasFormat();

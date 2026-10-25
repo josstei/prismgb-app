@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createGpuVideoRendererSession } from '../../../../../src/platform/gpu/application/video-session';
-import { createMockCanvas, createRenderCapabilitiesFixture } from '@platform/gpu/testkit';
+import { createMockCanvas } from '@platform/gpu/testkit';
 import { createWorkerResponse } from '../../../../../src/platform/gpu/worker/protocol';
 const bitmap = () => ({ close: vi.fn(), width: 640, height: 576 } as unknown as ImageBitmap);
 function fixture() {
   const worker = { onmessage: null, onerror: null, postMessage: vi.fn(), terminate: vi.fn() } as unknown as Worker;
   const canvas = createMockCanvas() as unknown as HTMLCanvasElement;
   const emit = (data: unknown) => worker.onmessage?.({ data } as MessageEvent);
-  const create = (signal?: AbortSignal) => createGpuVideoRendererSession({ canvas, nativeResolution: { width: 160, height: 144 }, createWorker: () => worker, capabilities: createRenderCapabilitiesFixture({ webgpu: true, transferControlToOffscreen: true, preferredBackend: 'webgpu' }), signal });
-  const start = async () => { const session = create(); emit(createWorkerResponse('ready', { backend: 'webgpu' })); return session; };
+  const create = (signal?: AbortSignal) => createGpuVideoRendererSession({ canvas, nativeResolution: { width: 160, height: 144 }, createWorker: () => worker, backend: 'webgpu', signal });
+  const start = async () => { const session = create(); emit(createWorkerResponse('ready')); return session; };
   return { worker, canvas, emit, create, start };
 }
 afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
@@ -16,7 +16,7 @@ describe('GPU video session', () => {
   it('creates Canvas2D rendering without transferring the canvas', async () => {
     const drawImage = vi.fn();
     const canvas = createMockCanvas(160, 144, { '2d': { drawImage, imageSmoothingEnabled: true } }) as unknown as HTMLCanvasElement;
-    const session = await createGpuVideoRendererSession({ canvas, nativeResolution: { width: 160, height: 144 }, preferredBackend: 'canvas2d', capabilities: createRenderCapabilitiesFixture() });
+    const session = await createGpuVideoRendererSession({ canvas, nativeResolution: { width: 160, height: 144 }, backend: 'canvas2d' });
     await session.renderFrame({ readyState: 4, HAVE_CURRENT_DATA: 2 } as HTMLVideoElement);
     expect(drawImage).toHaveBeenCalled();
     expect(session.isCanvasTransferred).toBe(false);
@@ -31,7 +31,7 @@ describe('GPU video session', () => {
     session.setBrightness(1.2);
     expect(worker.postMessage).toHaveBeenCalledWith({ type: 'setBrightness', payload: { brightness: 1.2 } }, []);
     session.setPreset('pixel');
-    expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'setPreset', payload: { preset: expect.objectContaining({ id: 'pixel' }) } }), []);
+    expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'setPreset', payload: { presetId: 'pixel' } }), []);
     session.terminate();
   });
   it('closes late capture replies and never lets them settle the next capture', async () => {

@@ -3,9 +3,7 @@ import { isPromiseLike } from './guards.utils.js';
 export type DisposableFunction = () => void | Promise<void>;
 
 type DisposableObject = {
-  dispose?: DisposableFunction;
-  unsubscribe?: DisposableFunction;
-  abort?: DisposableFunction;
+  dispose: DisposableFunction;
 };
 
 export type Disposable = DisposableFunction | DisposableObject | null | undefined;
@@ -19,6 +17,8 @@ export type EventTargetLike = {
 type TimerHandle = ReturnType<typeof setTimeout> | number;
 type AnimationFrameHandle = ReturnType<typeof requestAnimationFrame> | number;
 
+// Only aggregates created here are flattened when overlapping owners join cleanup.
+const cleanupAggregates = new WeakSet<AggregateError>();
 
 function toDisposableFunction(disposable: Disposable): DisposableFunction | null {
   if (!disposable) {
@@ -29,38 +29,37 @@ function toDisposableFunction(disposable: Disposable): DisposableFunction | null
     return disposable;
   }
 
-  if (typeof disposable.dispose === 'function') {
-    return () => disposable.dispose?.();
-  }
-
-  if (typeof disposable.unsubscribe === 'function') {
-    return () => disposable.unsubscribe?.();
-  }
-
-  if (typeof disposable.abort === 'function') {
-    return () => disposable.abort?.();
-  }
-
-  return null;
+  return () => disposable.dispose();
 }
 
 /** Starts all cleanup synchronously, then waits for every asynchronous result before reporting failures. */
 function disposeAll(disposers: readonly DisposableFunction[]): void | Promise<void> {
-  const errors: unknown[] = [];
+  const errors = new Set<unknown>();
+  const recordError = (error: unknown): void => {
+    if (error instanceof AggregateError && cleanupAggregates.has(error)) {
+      error.errors.forEach(recordError);
+    } else {
+      errors.add(error);
+    }
+  };
   const pending: Promise<void>[] = [];
   for (const dispose of disposers) {
     try {
       const result = dispose();
       if (isPromiseLike<void>(result)) {
-        pending.push(result.catch((error: unknown) => { errors.push(error); }));
+        pending.push(result.catch(recordError));
       }
     } catch (error) {
-      errors.push(error);
+      recordError(error);
     }
   }
   const reportErrors = () => {
-    if (errors.length === 1) throw errors[0];
-    if (errors.length > 1) throw new AggregateError(errors, 'Multiple disposables failed during cleanup');
+    if (errors.size === 1) throw errors.values().next().value;
+    if (errors.size > 1) {
+      const aggregate = new AggregateError(errors, 'Multiple disposables failed during cleanup');
+      cleanupAggregates.add(aggregate);
+      throw aggregate;
+    }
   };
   if (pending.length > 0) return Promise.all(pending).then(reportErrors);
   reportErrors();
@@ -69,6 +68,7 @@ function disposeAll(disposers: readonly DisposableFunction[]): void | Promise<vo
 export class DisposableBag {
   private disposables: DisposableFunction[] = [];
   private readonly managed = new Map<DisposableKey, DisposableFunction>();
+  private readonly pendingCleanups = new Set<Promise<void>>();
 
   get size(): number {
     return this.disposables.length;
@@ -81,19 +81,24 @@ export class DisposableBag {
     }
 
     let active = true;
+    let pending: Promise<void> | undefined;
     const tracked = (): void | Promise<void> => {
       if (!active) {
         return;
       }
       active = false;
-      return dispose();
+      const result = dispose();
+      if (isPromiseLike<void>(result)) {
+        pending = this.trackPending(Promise.resolve(result));
+      }
+      return pending;
     };
 
     this.disposables.push(tracked);
 
     return () => {
       this.disposables = this.disposables.filter((entry) => entry !== tracked);
-      return tracked();
+      return active ? tracked() : pending;
     };
   }
 
@@ -160,15 +165,27 @@ export class DisposableBag {
     return this.add(() => observer.disconnect());
   }
 
+  private trackPending(cleanup: Promise<void>): Promise<void> {
+    this.pendingCleanups.add(cleanup);
+    void cleanup.then(
+      () => this.pendingCleanups.delete(cleanup),
+      () => this.pendingCleanups.delete(cleanup)
+    );
+    return cleanup;
+  }
+
   clear(): Promise<void> {
     this.managed.clear();
-    const pending = [...this.disposables].reverse();
+    const pending = [
+      ...this.disposables.toReversed(),
+      ...Array.from(this.pendingCleanups, (cleanup) => () => cleanup)
+    ];
     this.disposables = [];
 
     try {
-      return Promise.resolve(disposeAll(pending));
+      return this.trackPending(Promise.resolve(disposeAll(pending)));
     } catch (error) {
-      return Promise.reject(error);
+      return this.trackPending(Promise.reject(error));
     }
   }
 

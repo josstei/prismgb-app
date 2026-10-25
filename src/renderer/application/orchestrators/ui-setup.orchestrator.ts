@@ -18,10 +18,9 @@ import {
 import type { LoggerFactoryLike } from '@platform/core';
 import type { TypedEventBusLike } from '@platform/events';
 import type { UIController } from '@renderer/presentation/controller/ui.controller.js';
-import { RendererTemplateDeferredComponentIds } from '@renderer/presentation/primitives/template-dom.contract.js';
 import type { AppState } from '@renderer/application/state/app-state.js';
 
-type UISetupController = Pick<UIController, 'initializeDeferredComponent' | 'toggleSettingsMenu' | 'toggleShaderSelector' | 'toggleNotesPanel'>;
+type UISetupController = Pick<UIController, 'initializeDeferredComponents' | 'toggleSettingsMenu' | 'toggleShaderSelector' | 'toggleNotesPanel'>;
 
 type AppStateLike = Pick<AppState, 'isStreaming'>;
 
@@ -51,9 +50,7 @@ export class UISetupOrchestrator extends BaseOrchestrator {
   }
 
   initializeDeferredComponents(): void {
-    RendererTemplateDeferredComponentIds.forEach((componentId) => {
-      this.uiController.initializeDeferredComponent(componentId);
-    });
+    this.uiController.initializeDeferredComponents();
   }
 
   setupUIEventListeners(): void {

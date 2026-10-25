@@ -50,8 +50,7 @@ export type RendererDeviceRefreshReason =
 const UNKNOWN_STATUS: DeviceStatus = Object.freeze({
   state: 'unknown',
   connected: false,
-  device: null,
-  updatedAt: 0
+  device: null
 });
 
 function statusChanged(previous: DeviceStatus, next: DeviceStatus): boolean {

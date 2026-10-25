@@ -1,24 +1,9 @@
 import type { LoggerFactoryLike, LoggerLike } from '@platform/core';
-import type { StatusNotificationComponent } from '@renderer/presentation/shared/status-notification.component.js';
-import type { DeviceStatusComponent } from '@renderer/presentation/shared/device-status.component.js';
-import type { StreamingControlsComponent } from '@renderer/presentation/features/streaming/streaming-controls.component.js';
-import type { TranscodeToastComponent } from '@renderer/presentation/features/transcode/transcode-toast.component.js';
-import type { SettingsMenuComponent } from '@renderer/presentation/features/settings/settings-menu.component.js';
-import type { ShaderSelectorComponent } from '@renderer/presentation/features/toolbar/shader-selector.component.js';
-import type { NotesPanelComponent } from '@renderer/presentation/features/notes/notes-panel.component.js';
-
-export interface RendererUiComponentInstanceMap {
-  statusNotificationComponent: StatusNotificationComponent;
-  deviceStatusComponent: DeviceStatusComponent;
-  streamControlsComponent: StreamingControlsComponent;
-  transcodeToastComponent: TranscodeToastComponent;
-  settingsMenuComponent: SettingsMenuComponent;
-  shaderSelectorComponent: ShaderSelectorComponent;
-  notesPanelComponent: NotesPanelComponent;
-}
-
-export type UiComponentFactories<TComponentMap> = {
-  readonly [TId in keyof TComponentMap]: (own: (component: TComponentMap[TId]) => TComponentMap[TId]) => TComponentMap[TId];
+type UiComponentRegistry<TComponentMap> = {
+  readonly [TId in keyof TComponentMap]: {
+    readonly deferred: boolean;
+    create(own: (component: TComponentMap[TId]) => TComponentMap[TId]): TComponentMap[TId];
+  };
 };
 
 interface DisposableComponent {
@@ -36,8 +21,7 @@ export class UiComponentHost<TComponentMap extends { [TId in keyof TComponentMap
   private disposal: Promise<void> | null = null;
 
   constructor(
-    private readonly factories: UiComponentFactories<TComponentMap>,
-    private readonly coreIds: readonly (keyof TComponentMap)[],
+    private readonly registry: UiComponentRegistry<TComponentMap>,
     loggerFactory?: LoggerFactoryLike | null
   ) {
     this._logger = loggerFactory?.create('UiComponentHost');
@@ -54,13 +38,23 @@ export class UiComponentHost<TComponentMap extends { [TId in keyof TComponentMap
         }
         return component;
       };
-      own(this.factories[id](own));
+      own(this.registry[id].create(own));
     }
     return this._resolved.get(id) as TComponentMap[TId];
   }
 
   touchCore(): void {
-    this.coreIds.forEach((id) => this.get(id));
+    this.touchPhase(false);
+  }
+
+  touchDeferred(): void {
+    this.touchPhase(true);
+  }
+
+  private touchPhase(deferred: boolean): void {
+    for (const id of Object.keys(this.registry) as (keyof TComponentMap)[]) {
+      if (this.registry[id].deferred === deferred) this.get(id);
+    }
   }
 
   dispose(): Promise<void> {

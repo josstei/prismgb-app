@@ -114,11 +114,11 @@ describe('UIController', () => {
     });
   });
 
-  describe('initializeDeferredComponent', () => {
+  describe('initializeDeferredComponents', () => {
     it('should resolve the deferred component through the host', () => {
-      controller.initializeDeferredComponent('settingsMenuComponent');
+      controller.initializeDeferredComponents();
 
-      expect(mockHost.get).toHaveBeenCalledWith('settingsMenuComponent');
+      expect(mockHost.touchDeferred).toHaveBeenCalledOnce();
     });
   });
 

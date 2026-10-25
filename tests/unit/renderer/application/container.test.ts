@@ -4,7 +4,6 @@ vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
 }));
 import { renderAppShell } from '@renderer/presentation/shell/app-shell.renderer.js';
 import { createRendererRuntime, type RendererRuntime } from '@renderer/application/container.js';
-import { RendererTemplateCoreComponentIds, RendererTemplateDeferredComponentIds } from '@renderer/presentation/primitives/template-dom.contract.js';
 import { createLoggerFactory, createStorageService } from '../../../factories/index.js';
 import { NotesPanelComponent } from '@renderer/presentation/features/notes/notes-panel.component.js';
 import { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge.js';
@@ -33,9 +32,9 @@ describe('Renderer runtime ownership', () => {
     const resolve = vi.spyOn(first.runtime.uiComponentHost, 'get');
     expect(resolve).not.toHaveBeenCalled();
     await Promise.all([first.runtime.initialize(), first.runtime.initialize()]);
-    expect(resolve.mock.calls.map(([id]) => id)).toEqual(RendererTemplateCoreComponentIds);
+    expect(resolve.mock.calls.map(([id]) => id)).toEqual(['statusNotificationComponent', 'deviceStatusComponent', 'streamControlsComponent', 'transcodeToastComponent']);
     await first.runtime.start();
-    expect(resolve.mock.calls.map(([id]) => id)).toEqual(expect.arrayContaining([...RendererTemplateDeferredComponentIds]));
+    expect(resolve.mock.calls.map(([id]) => id)).toEqual(expect.arrayContaining(['settingsMenuComponent', 'shaderSelectorComponent', 'notesPanelComponent']));
     await Promise.all([first.runtime.dispose(), first.runtime.dispose()]);
     expect(first.unsubscribe).toHaveBeenCalledTimes(2);
     expect(first.runtime.eventBus.emitter.eventNames()).toEqual([]);

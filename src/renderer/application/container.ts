@@ -18,8 +18,6 @@ import { UpdateUiService } from '../infrastructure/services/updates/update-ui.se
 import { VisibilityAdapter } from '../infrastructure/adapters/visibility.adapter';
 import { UserActivityAdapter } from '../infrastructure/adapters/user-activity.adapter';
 import { ReducedMotionAdapter } from '../infrastructure/adapters/reduced-motion.adapter';
-import { PerformanceStateService } from '../infrastructure/services/performance/performance-state.service';
-import { BrowserMediaAdapter } from '../infrastructure/adapters/browser-media.adapter';
 import { StreamingHealthService } from '../infrastructure/services/platform/health.service';
 import { StreamingViewportService } from '../infrastructure/services/platform/viewport.service';
 import { StreamingOrchestrator } from './orchestrators/streaming.orchestrator';
@@ -41,27 +39,14 @@ import { UIEffects } from '../presentation/effects/ui-effects.host';
 import { AppState } from './state/app-state';
 import { PresentationModeStore } from '../presentation/state/presentation-mode.store';
 import { createDomBindings } from '../presentation/primitives/dom-bindings.utils';
-import { createTemplateComponentElements } from '../presentation/primitives/template-dom.contract';
-import { StatusNotificationComponent } from '../presentation/shared/status-notification.component';
-import { StatusNotificationStore } from '../presentation/state/status-notification.store';
-import { DeviceStatusComponent } from '../presentation/shared/device-status.component';
-import { DeviceStatusStore } from '../presentation/state/device-status.store';
-import { StreamingControlsComponent } from '../presentation/features/streaming/streaming-controls.component';
-import { StreamInfoStore } from '../presentation/state/stream-info.store';
-import { TranscodeToastComponent } from '../presentation/features/transcode/transcode-toast.component';
-import { TranscodeProgressStore } from '../presentation/state/transcode-progress.store';
-import { SettingsMenuComponent } from '../presentation/features/settings/settings-menu.component';
-import { UpdateSectionComponent } from '../presentation/features/updates/update-section.component';
-import { ShaderSelectorComponent } from '../presentation/features/toolbar/shader-selector.component';
-import { NotesPanelComponent } from '../presentation/features/notes/notes-panel.component';
 import { BrowserStorageAdapter } from '../infrastructure/adapters/browser-storage.adapter';
 import { BrowserMediaDevicesPort } from '../infrastructure/services/devices/browser-media-devices.port';
 import { StorageDevicePreferenceStore } from '../infrastructure/services/devices/storage-device-preference.store';
 import { TrpcDeviceStatusPort } from '../infrastructure/services/devices/trpc-device-status.port';
 import { createApplicationLifecycle, disposeInOrder, type LoggerFactoryLike, type StorageServiceLike } from '@platform/core';
 import { StreamingCanvasLifecycleService } from '../infrastructure/services/streaming/canvas-lifecycle.service.js';
-import { UiComponentHost, type RendererUiComponentInstanceMap } from '../presentation/controller/ui-component.host.js';
-import { RendererTemplateCoreComponentIds } from '../presentation/primitives/template-dom.contract.js';
+import { UiComponentHost } from '../presentation/controller/ui-component.host.js';
+import { createRendererUiComponents } from '../presentation/controller/ui-component.registry.js';
 import { UIController } from '../presentation/controller/ui.controller.js';
 
 export interface RendererRuntimeOptions {
@@ -81,14 +66,13 @@ export function createRendererRuntime(options: RendererRuntimeOptions = {}) {
   const loggerFactory = options.loggerFactory ?? new ConsoleLoggerFactory();
   const eventBus = new PlatformEventBus({ loggerFactory });
   const storageService = options.storageService ?? new BrowserStorageAdapter({ protectedKeys: PROTECTED_STORAGE_KEYS });
-  const browserMediaService = new BrowserMediaAdapter();
   const deviceStatusPort = options.deviceStatusPort ?? new TrpcDeviceStatusPort(trpcClient, loggerFactory.create('TrpcDeviceStatusPort'));
-  const mediaDevicesPort = options.mediaDevicesPort ?? new BrowserMediaDevicesPort(browserMediaService, loggerFactory.create('BrowserMediaDevicesPort'));
+  const mediaDevicesPort = options.mediaDevicesPort ?? new BrowserMediaDevicesPort(undefined, loggerFactory.create('BrowserMediaDevicesPort'));
   const devicePreferenceStore = options.devicePreferenceStore ?? new StorageDevicePreferenceStore(storageService, loggerFactory.create('StorageDevicePreferenceStore'));
   const rendererDeviceRuntime = new RendererDeviceRuntime({ deviceStatusPort, mediaDevicesPort, devicePreferenceStore, eventBus, loggerFactory });
   const deviceMediaAcquirer = new DeviceMediaAcquirer({ mediaDevicesPort, loggerFactory });
   const streamingService = new StreamingService({ rendererDeviceRuntime, deviceMediaAcquirer, eventBus, loggerFactory });
-  const appState = new AppState({ streamingService, rendererDeviceRuntime, eventBus });
+  const appState = new AppState({ streamingService, rendererDeviceRuntime });
   const settingsService = new SettingsService({ eventBus, loggerFactory, storageService });
   const updateService = new UpdateService({ eventBus, loggerFactory });
   const updateUiService = new UpdateUiService({ eventBus, loggerFactory });
@@ -96,44 +80,11 @@ export function createRendererRuntime(options: RendererRuntimeOptions = {}) {
   const presentationModeStore = new PresentationModeStore({ eventBus, cinematicEnabled: appState.cinematicModeSignal });
   const bodyClassManager = new BodyClassManager();
   const domBindings = createDomBindings(document);
-  const uiEffects = new UIEffects({ bodyClassManager });
-  const uiComponentHost = new UiComponentHost<RendererUiComponentInstanceMap>({
-    statusNotificationComponent: () => new StatusNotificationComponent({
-      elements: createTemplateComponentElements('statusNotificationComponent', domBindings),
-      store: new StatusNotificationStore({ eventBus })
-    }),
-    deviceStatusComponent: () => new DeviceStatusComponent({
-      elements: createTemplateComponentElements('deviceStatusComponent', domBindings),
-      store: new DeviceStatusStore({ eventBus, deviceConnectedSignal: appState.deviceConnectedSignal })
-    }),
-    streamControlsComponent: () => new StreamingControlsComponent({
-      elements: createTemplateComponentElements('streamControlsComponent', domBindings),
-      bodyClassManager, store: new StreamInfoStore({ eventBus })
-    }),
-    transcodeToastComponent: () => new TranscodeToastComponent({
-      elements: createTemplateComponentElements('transcodeToastComponent', domBindings),
-      store: new TranscodeProgressStore({ eventBus })
-    }),
-    settingsMenuComponent: (own) => {
-      const component = own(new SettingsMenuComponent({
-        settingsService,
-        updateSectionComponent: new UpdateSectionComponent({ updateService, eventBus, loggerFactory }),
-        logger: loggerFactory.create('SettingsMenuComponent')
-      }));
-      component.initialize(createTemplateComponentElements('settingsMenuComponent', domBindings));
-      return component;
-    },
-    shaderSelectorComponent: (own) => {
-      const component = own(new ShaderSelectorComponent({ settingsService, appState, eventBus, logger: loggerFactory.create('ShaderSelectorComponent') }));
-      component.initialize(createTemplateComponentElements('shaderSelectorComponent', domBindings));
-      return component;
-    },
-    notesPanelComponent: (own) => {
-      const component = own(new NotesPanelComponent({ notesService, eventBus, logger: loggerFactory.create('NotesPanelComponent') }));
-      component.initialize(createTemplateComponentElements('notesPanelComponent', domBindings));
-      return component;
-    }
-  }, RendererTemplateCoreComponentIds, loggerFactory);
+  const uiEffects = new UIEffects();
+  const uiComponentHost = new UiComponentHost(createRendererUiComponents({
+    dom: domBindings, eventBus, loggerFactory, settingsService, notesService, updateService,
+    appState, bodyClassManager, initialDeviceConnected: rendererDeviceRuntime.isConnected
+  }), loggerFactory);
   const uiController = new UIController({ downloadFile, uiComponentHost, domBindings, uiEffects, loggerFactory });
   const streamViewService = new StreamingViewService({ uiController, loggerFactory });
   const viewportService = new StreamingViewportService({ loggerFactory });
@@ -147,13 +98,12 @@ export function createRendererRuntime(options: RendererRuntimeOptions = {}) {
   const captureSaveService = new CaptureSaveService({ downloadFile, eventBus, settingsService, transcodeService, loggerFactory });
   const fullscreenService = new SettingsFullscreenService({ eventBus, loggerFactory });
   const cinematicModeService = new SettingsCinematicModeService({ appState, eventBus, loggerFactory });
-  const performanceStateService = new PerformanceStateService({ loggerFactory, visibilityAdapter: new VisibilityAdapter(), userActivityAdapter: new UserActivityAdapter(), reducedMotionAdapter: new ReducedMotionAdapter() });
   const streamingOrchestrator = new StreamingOrchestrator({ streamingService, appState, streamViewService, streamingRenderService, gpuRecordingService, settingsService, eventBus, loggerFactory });
   const streamingAudioOrchestrator = new StreamingAudioOrchestrator({ streamingAudioPipelineService, streamViewService, appState, eventBus, loggerFactory });
   const captureOrchestrator = new CaptureOrchestrator({ captureService, appState, streamViewService, streamingRenderService, gpuRecordingService, transcodeService, captureSaveService, eventBus, loggerFactory });
   const displayModeOrchestrator = new SettingsDisplayModeOrchestrator({ fullscreenService, cinematicModeService, settingsService, eventBus, loggerFactory });
   const uiSetupOrchestrator = new UISetupOrchestrator({ appState, uiController, eventBus, loggerFactory });
-  const performanceStateOrchestrator = new PerformanceStateOrchestrator({ eventBus, performanceStateService, loggerFactory });
+  const performanceStateOrchestrator = new PerformanceStateOrchestrator({ eventBus, loggerFactory, visibilityAdapter: new VisibilityAdapter(), userActivityAdapter: new UserActivityAdapter(), reducedMotionAdapter: new ReducedMotionAdapter() });
   const uiEventBridge = new UIEventBridge({ eventBus, uiController, loggerFactory });
   const captureUiBridge = new CaptureUIBridge({ eventBus, uiController, loggerFactory });
   const transcodeUiBridge = new TranscodeUIBridge({ eventBus, loggerFactory });
@@ -188,7 +138,6 @@ export function createRendererRuntime(options: RendererRuntimeOptions = {}) {
     () => notesService.dispose(),
     () => bodyClassManager.dispose(),
     () => presentationModeStore.dispose(),
-    () => appState.dispose(),
     () => streamViewService.dispose(),
     () => deviceMediaAcquirer.dispose(),
     () => streamingService.dispose()

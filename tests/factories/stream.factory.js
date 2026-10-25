@@ -6,121 +6,13 @@
  */
 
 import { vi } from 'vitest';
-import { createMediaStream, createDeviceInfo } from './device.factory.js';
+import { createDeviceInfo } from './device.factory.js';
 import {
   CHROMATIC_SPECS,
   createMediaTrackMock as createDeviceMediaTrackMock,
   createChromaticStreamCapabilities,
   createMediaStream as createMediaStreamDouble,
 } from '../devices/media.testkit.ts';
-
-/**
- * Streaming service states
- */
-export const StreamingState = {
-  IDLE: 'idle',
-  STARTING: 'starting',
-  STREAMING: 'streaming',
-  STOPPING: 'stopping',
-  ERROR: 'error',
-};
-
-/**
- * Creates a mock StreamingService
- * @param {Object} options - Service options
- * @returns {Object} Mock StreamingService
- */
-export function createStreamingService(options = {}) {
-  const {
-    initialState = StreamingState.IDLE,
-  } = options;
-
-  let state = initialState;
-  let currentStream = null;
-  let currentDeviceId = null;
-  let currentCapabilities = null;
-
-  const service = {
-    /**
-     * Start streaming from a device
-     */
-    start: vi.fn(async (deviceId) => {
-      if (state === StreamingState.STREAMING) {
-        throw new Error('Already streaming');
-      }
-
-      state = StreamingState.STARTING;
-      currentDeviceId = deviceId;
-
-      try {
-        currentStream = createMediaStream({ deviceId });
-        currentCapabilities = createStreamCapabilitiesMock();
-        state = StreamingState.STREAMING;
-        return currentStream;
-      } catch (error) {
-        state = StreamingState.ERROR;
-        throw error;
-      }
-    }),
-
-    /**
-     * Stop streaming
-     */
-    stop: vi.fn(async () => {
-      if (state !== StreamingState.STREAMING) {
-        return;
-      }
-
-      state = StreamingState.STOPPING;
-
-      if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
-      }
-
-      currentStream = null;
-      currentDeviceId = null;
-      currentCapabilities = null;
-      state = StreamingState.IDLE;
-    }),
-
-    /**
-     * Check if actively streaming
-     */
-    isActive: vi.fn(() => state === StreamingState.STREAMING),
-
-    /**
-     * Get current stream
-     */
-    getStream: vi.fn(() => currentStream),
-
-    /**
-     * Get current device ID
-     */
-    getCurrentDeviceId: vi.fn(() => currentDeviceId),
-
-    /**
-     * Get current capabilities
-     */
-    getCapabilities: vi.fn(() => currentCapabilities),
-
-    // ==========================================
-    // Test Helpers
-    // ==========================================
-
-    _getState() { return state; },
-    _setState(s) { state = s; },
-    _setStream(s) { currentStream = s; },
-    _reset() {
-      state = StreamingState.IDLE;
-      currentStream = null;
-      currentDeviceId = null;
-      currentCapabilities = null;
-      vi.clearAllMocks();
-    },
-  };
-
-  return service;
-}
 
 /**
  * Creates a mock Canvas with 2D context

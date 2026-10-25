@@ -3,11 +3,9 @@ import {
   DeviceCatalog,
   getDeviceAcquisitionProfile,
   getDeviceStreamProfile,
-  matchByLabel,
-  toDeviceStatusPayload
+  matchByLabel
 } from '@platform/devices';
 import { matchByUsb } from '../../../../../src/platform/devices/domain/matching';
-import { toDeviceInfo } from '../../../../../src/platform/devices/domain/payloads';
 import {
   createFixtureDeviceStatus,
   createFixtureFrameData,
@@ -179,40 +177,6 @@ describe('DeviceCatalog', () => {
     expect(matchByUsb({ vendorId: 0x9999, productId: CHROMATIC_DESCRIPTOR.usb.productId }).matched).toBe(false);
     expect(matchByLabel(`USB ${CHROMATIC_DESCRIPTOR.name} Device`).deviceId).toBe(CHROMATIC_DESCRIPTOR.id);
     expect(matchByLabel(`${CHROMATIC_SPECS.hexVendorId.slice(2)}:${CHROMATIC_SPECS.hexProductId.slice(2)}`).reason).toBe('label');
-  });
-
-  it('maps canonical domain status to transport-safe payloads without IPC envelopes', () => {
-    const descriptor = DeviceCatalog.default();
-    const info = toDeviceInfo(descriptor, {
-      vendorId: descriptor.usb.vendorId,
-      productId: descriptor.usb.productId,
-      locationId: 7,
-      deviceAddress: 12,
-      serialNumber: 'abc'
-    });
-
-    const payload = toDeviceStatusPayload({
-      state: 'connected',
-      connected: true,
-      device: info,
-      updatedAt: 12345
-    });
-
-    expect(payload).toEqual({
-      state: 'connected',
-      connected: true,
-      device: {
-        id: descriptor.id,
-        name: descriptor.name,
-        manufacturer: descriptor.manufacturer,
-        vendorId: descriptor.usb.vendorId,
-        productId: descriptor.usb.productId,
-        locationId: 7,
-        deviceAddress: 12,
-        serialNumber: 'abc'
-      }
-    });
-    expect('success' in payload).toBe(false);
   });
 
 });

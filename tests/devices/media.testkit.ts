@@ -361,16 +361,6 @@ export function createMediaStream(options: MediaStreamOptions = {}): MediaStream
   return stream as unknown as MediaStreamDouble;
 }
 
-export function createChromaticMediaStream(options: MediaStreamOptions & { includeAudio?: boolean } = {}): MediaStreamDouble {
-  const videoTrack = createChromaticVideoTrack();
-  const audioTracks = options.includeAudio === false ? [] : [createChromaticAudioTrack()];
-
-  return createMediaStream({
-    ...options,
-    tracks: options.tracks ?? [videoTrack, ...audioTracks]
-  });
-}
-
 export function createChromaticMediaDevices(options: { includeAudio?: boolean } = {}): MediaDeviceInfoDouble[] {
   const devices = [createChromaticVideoDeviceInfo()];
   if (options.includeAudio !== false) {

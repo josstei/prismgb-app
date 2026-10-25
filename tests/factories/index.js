@@ -18,7 +18,6 @@ export {
   createSettingsMenuElementsMock,
   createTranscodeToastElementsMock,
   createMockElement,
-  createUIController,
   createUISetupControllerMock,
   createUIEventBridgeControllerMock,
   createStatusNotificationComponentMock,
@@ -48,15 +47,12 @@ export {
 
 // Stream factories
 export {
-  createStreamingService,
   createMockCanvas,
   createMockVideo,
-  StreamingState,
   createStreamPayloadMock,
   createMediaTrackMock,
   createMediaStreamMock,
   createCaptureStreamMock,
-  createStreamCapabilitiesMock,
   createSupportedDevicePayloadMock,
   createStreamStartedPayloadMock,
   createDeviceMediaAcquirerMock,
@@ -75,7 +71,6 @@ export {
 // AppState factories
 export {
   createAppState,
-  createStreamingAppState,
 } from './app-state.factory.js';
 
 // System factories
@@ -106,14 +101,6 @@ export {
   createWindowServiceMock,
   createWindowServiceElectronMock,
 } from './window.factory.js';
-
-// Performance factories
-export {
-  createVisibilityAdapterMock,
-  createUserActivityAdapterMock,
-  createReducedMotionAdapterMock,
-  createPerformanceStateServiceMock,
-} from './performance.factory.js';
 
 // Capture factories
 export {

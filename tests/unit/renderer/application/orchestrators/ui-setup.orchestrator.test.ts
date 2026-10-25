@@ -20,7 +20,7 @@ describe('UISetupOrchestrator', () => {
       eventBus: serviceMocks.createEventBus(),
       loggerFactory: serviceMocks.createLoggerFactory(),
       uiController: { ...createUISetupControllerMock(),
-          initializeDeferredComponent: vi.fn(),
+          initializeDeferredComponents: vi.fn(),
           toggleSettingsMenu: vi.fn(),
           toggleShaderSelector: vi.fn(),
           toggleNotesPanel: vi.fn()
@@ -42,9 +42,7 @@ describe('UISetupOrchestrator', () => {
     it('should initialize all deferred components', () => {
       orchestrator.initializeDeferredComponents();
 
-      expect(mockUiController.initializeDeferredComponent).toHaveBeenCalledWith('settingsMenuComponent');
-      expect(mockUiController.initializeDeferredComponent).toHaveBeenCalledWith('shaderSelectorComponent');
-      expect(mockUiController.initializeDeferredComponent).toHaveBeenCalledWith('notesPanelComponent');
+      expect(mockUiController.initializeDeferredComponents).toHaveBeenCalledOnce();
     });
   });
 

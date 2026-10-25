@@ -10,7 +10,6 @@ Each `application/container.ts` is an explicit construction function: `createMai
 flowchart TD
   MainEntry["main/index.ts"] --> MainBootstrap
   MainBootstrap --> MainRuntime["createMainRuntime"]
-  MainRuntime --> MainApp["Main AppOrchestrator"]
   MainRuntime --> MainServices["Window, tray, USB, IPC, update, transcode"]
   RendererEntry["renderer/index.ts"] --> RendererBootstrap
   RendererBootstrap --> RendererRuntime["createRendererRuntime"]

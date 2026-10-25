@@ -7,7 +7,6 @@
 
 export {
   createCleanupStack,
-  installTargetProperty,
 } from './runtime-property.installers.js';
 
 export {
@@ -20,7 +19,6 @@ export {
 } from './installers/canvas.installer.js';
 
 export {
-  installMissingWindowMock,
   installWindowPropertyMock,
   installGetComputedStyleMock,
   installMatchMediaMock,
@@ -28,7 +26,6 @@ export {
   installDocumentCreateElementMock,
   installFullscreenDocumentMock,
   installResizeObserverMock,
-  installDevicePixelRatioMock,
 } from './installers/dom-window.installer.js';
 
 export {
@@ -39,7 +36,6 @@ export {
 export {
   installBlobMock,
   installBlobDownloadMock,
-  installCreateImageBitmapMock,
 } from './installers/blob.installer.js';
 
 export {
@@ -47,12 +43,3 @@ export {
   installMediaMocks,
   installNavigatorMock,
 } from './installers/media.installer.js';
-
-export {
-  installWorkerMock,
-  installWorkerScopeMock,
-} from './installers/worker.installer.js';
-
-export {
-  installPerformanceApiMock,
-} from './installers/performance.installer.js';
