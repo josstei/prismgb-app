@@ -5,10 +5,8 @@
  * Emits state updates through provided callbacks.
  */
 
-import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import type { LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
 
 export type PerformanceState = {
   performanceModeEnabled: boolean;
@@ -49,7 +47,13 @@ interface PerformanceStateInitOptions {
   onStateChange?: (state: PerformanceState) => void;
 }
 
-@injectable()
+type PerformanceStateServiceDependencies = {
+  loggerFactory: LoggerFactoryLike;
+  visibilityAdapter: VisibilityAdapterLike;
+  userActivityAdapter: UserActivityAdapterLike;
+  reducedMotionAdapter: ReducedMotionAdapterLike;
+};
+
 class PerformanceStateService extends BaseService {
   private readonly _state: PerformanceState;
   private _isStreaming: boolean;
@@ -57,13 +61,15 @@ class PerformanceStateService extends BaseService {
   private _lastIdleReset: number;
   private _onStateChange: ((state: PerformanceState) => void) | null;
 
-  constructor(
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike,
-    @inject(TOKENS.visibilityAdapter) private readonly _visibilityAdapter: VisibilityAdapterLike,
-    @inject(TOKENS.userActivityAdapter) private readonly _userActivityAdapter: UserActivityAdapterLike,
-    @inject(TOKENS.reducedMotionAdapter) private readonly _reducedMotionAdapter: ReducedMotionAdapterLike
-  ) {
+  private readonly _visibilityAdapter: VisibilityAdapterLike;
+  private readonly _userActivityAdapter: UserActivityAdapterLike;
+  private readonly _reducedMotionAdapter: ReducedMotionAdapterLike;
+
+  constructor({ loggerFactory, visibilityAdapter: _visibilityAdapter, userActivityAdapter: _userActivityAdapter, reducedMotionAdapter: _reducedMotionAdapter }: PerformanceStateServiceDependencies) {
     super({ loggerFactory }, 'PerformanceStateService');
+    this._visibilityAdapter = _visibilityAdapter;
+    this._userActivityAdapter = _userActivityAdapter;
+    this._reducedMotionAdapter = _reducedMotionAdapter;
 
     this._state = { ...DEFAULT_STATE };
     this._isStreaming = false;

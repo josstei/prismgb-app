@@ -1,166 +1,84 @@
-import { BaseService } from '@platform/core';
-import { EventChannels } from '@platform/events';
+import { BaseService, type LoggerFactoryLike } from '@platform/core';
+import { EventChannels, type TypedEventBusLike } from '@platform/events';
 import { DeviceCatalog } from '@platform/devices';
-import type { TypedEventBusLike } from '@platform/events';
-import type { Dimensions } from '@renderer/infrastructure/services/streaming/streaming.contract.js';
-import type {
-  LoggerFactoryLike
-} from '@platform/core';
-
-type StreamViewServiceLike = {
-  getCanvas(): HTMLCanvasElement | null;
-  getCanvasContainer(): HTMLElement | null;
-  getCanvasSection(): HTMLElement | null;
-  setCanvas(canvas: HTMLCanvasElement): void;
-};
-
-type StreamingRenderServiceLike = {
-  isCanvasTransferred(): boolean;
-  resize(width: number, height: number): void;
-  resetCanvasState(): Promise<void>;
-};
-
-type ViewportDimensions = Dimensions & {
-  scale: number;
-};
-
-type ViewportServiceLike = {
-  forceResize(): void;
-  calculateDimensions(canvas: HTMLCanvasElement, nativeResolution: Dimensions): ViewportDimensions | null;
-  isInitialized(): boolean;
-  initialize(observeElement: HTMLElement, onResize: () => void): void;
-  resetDimensions(): void;
-  cleanup(): void;
-};
+import type { Dimensions } from './streaming.contract';
 
 type CanvasLifecycleDependencies = {
-  streamViewService: StreamViewServiceLike;
-  viewportService: ViewportServiceLike;
-  streamingRenderService: StreamingRenderServiceLike;
+  streamViewService: {
+    getCanvas(): HTMLCanvasElement | null;
+    getCanvasContainer(): HTMLElement | null;
+    getCanvasSection(): HTMLElement | null;
+    setCanvas(canvas: HTMLCanvasElement): void;
+  };
+  viewportService: {
+    forceResize(): void;
+    calculateDimensions(canvas: HTMLCanvasElement, resolution: Dimensions): (Dimensions & { scale: number }) | null;
+    isInitialized(): boolean;
+    initialize(element: HTMLElement, onResize: () => void): void;
+    resetDimensions(): void;
+    cleanup(): void;
+  };
   eventBus: TypedEventBusLike;
   loggerFactory: LoggerFactoryLike;
 };
 
-class StreamingCanvasLifecycleService extends BaseService {
-  private readonly dependencies: CanvasLifecycleDependencies;
-  private readonly streamViewService: StreamViewServiceLike;
-  private readonly viewportService: ViewportServiceLike;
-  protected readonly eventBus: TypedEventBusLike;
+/** Owns DOM canvas replacement and sizing; rendering ownership stays with its caller. */
+export class StreamingCanvasLifecycleService extends BaseService {
+  private readonly deps: CanvasLifecycleDependencies;
+  private resolution: Dimensions = DeviceCatalog.nativeResolution();
+  private transferred = false;
+  private onResize: ((dimensions: Dimensions) => void) | undefined;
 
-  private _nativeResolution: Dimensions | null;
-  private _useGpuRenderer: boolean;
-
-  private get streamingRenderService(): StreamingRenderServiceLike {
-    return this.dependencies.streamingRenderService;
+  constructor(deps: CanvasLifecycleDependencies) {
+    super({ loggerFactory: deps.loggerFactory, eventBus: deps.eventBus }, 'StreamingCanvasLifecycleService');
+    this.deps = deps;
   }
-
-  constructor(dependencies: CanvasLifecycleDependencies) {
-    const { streamViewService, viewportService, eventBus, loggerFactory } = dependencies;
-    super(
-      { streamViewService, viewportService, eventBus, loggerFactory },
-      'StreamingCanvasLifecycleService'
-    );
-
-    this.dependencies = dependencies;
-    this.streamViewService = dependencies.streamViewService;
-    this.viewportService = dependencies.viewportService;
-    this.eventBus = dependencies.eventBus;
-    this._nativeResolution = null;
-    this._useGpuRenderer = false;
+  initialize(onResize?: (dimensions: Dimensions) => void): void {
+    this.onResize = onResize;
+    this.setupCanvasSize();
   }
-
-  initialize(nativeResolution?: Dimensions): void {
-    this.setupCanvasSize(nativeResolution);
-  }
-
-  async handleCanvasExpired(): Promise<void> {
-    await this.recreateCanvas();
-    this.setupCanvasSize(this._nativeResolution, this._useGpuRenderer);
-  }
-
-  handleFullscreenChange(): void {
-    this.viewportService.forceResize();
-  }
-
-  setupCanvasSize(nativeResolution: Dimensions | null = null, useGpu = false): void {
-    const canvas = this.streamViewService.getCanvas();
-    const container = this.streamViewService.getCanvasContainer();
-    const section = this.streamViewService.getCanvasSection();
-    if (!canvas || !container || !section) return;
-
-    const resolution = nativeResolution || DeviceCatalog.nativeResolution();
-    this._nativeResolution = resolution;
-    this._useGpuRenderer = useGpu;
-    const nativeAspectRatio = `${resolution.width} / ${resolution.height}`;
-    if (typeof canvas.style?.setProperty === 'function') {
-      canvas.style.setProperty('--stream-native-aspect-ratio', nativeAspectRatio);
-    }
-
-    const dimensions = this.viewportService.calculateDimensions(canvas, resolution);
+  handleFullscreenChange(): void { this.deps.viewportService.forceResize(); }
+  setupCanvasSize(resolution: Dimensions = this.resolution, transferred = false): void {
+    this.resolution = resolution;
+    this.transferred = transferred;
+    const canvas = this.deps.streamViewService.getCanvas();
+    const section = this.deps.streamViewService.getCanvasSection();
+    if (!canvas || !section || !this.deps.streamViewService.getCanvasContainer()) return;
+    canvas.style.setProperty('--stream-native-aspect-ratio', `${resolution.width} / ${resolution.height}`);
+    const dimensions = this.deps.viewportService.calculateDimensions(canvas, resolution);
     if (!dimensions) return;
-
-    if (this.streamingRenderService.isCanvasTransferred()) {
-      this.streamingRenderService.resize(dimensions.width, dimensions.height);
-      canvas.style.width = dimensions.width + 'px';
-      canvas.style.height = dimensions.height + 'px';
-    } else {
+    if (!transferred) {
       const dpr = window.devicePixelRatio || 1;
-      const backingWidth = Math.round(dimensions.width * dpr);
-      const backingHeight = Math.round(dimensions.height * dpr);
-      canvas.width = backingWidth;
-      canvas.height = backingHeight;
-      canvas.style.width = `${dimensions.width}px`;
-      canvas.style.height = `${dimensions.height}px`;
-      this.streamingRenderService.resize(dimensions.width, dimensions.height);
+      canvas.width = Math.round(dimensions.width * dpr);
+      canvas.height = Math.round(dimensions.height * dpr);
     }
-
-    if (!this.viewportService.isInitialized()) {
-      this.viewportService.initialize(section, () =>
-        this.setupCanvasSize(this._nativeResolution, this._useGpuRenderer)
-      );
+    canvas.style.width = `${dimensions.width}px`;
+    canvas.style.height = `${dimensions.height}px`;
+    this.onResize?.(dimensions);
+    if (!this.deps.viewportService.isInitialized()) {
+      this.deps.viewportService.initialize(section, () => this.setupCanvasSize(this.resolution, this.transferred));
     }
   }
-
   async recreateCanvas(): Promise<void> {
-    const oldCanvas = this.streamViewService.getCanvas();
-    if (!oldCanvas) return;
-
-    const parent = oldCanvas.parentElement;
-    if (!parent) return;
-
+    const oldCanvas = this.deps.streamViewService.getCanvas();
+    if (!oldCanvas?.parentElement) return;
     const newCanvas = document.createElement('canvas');
     newCanvas.id = oldCanvas.id;
     newCanvas.className = oldCanvas.className;
-    Array.from(oldCanvas.attributes || [])
-      .filter((attribute) => attribute.name.startsWith('data-'))
-      .forEach((attribute) => newCanvas.setAttribute(attribute.name, attribute.value));
-
-    const computedStyle = window.getComputedStyle(oldCanvas);
-    newCanvas.style.position = computedStyle.position;
-    newCanvas.style.top = computedStyle.top;
-    newCanvas.style.left = computedStyle.left;
-    newCanvas.style.transform = computedStyle.transform;
-
-    parent.replaceChild(newCanvas, oldCanvas);
-
-    this.streamViewService.setCanvas(newCanvas);
-
-    await this.streamingRenderService.resetCanvasState();
-    this.viewportService.resetDimensions();
-
-    this.eventBus.publish(EventChannels.RENDER.CANVAS_RECREATED, { oldCanvas, newCanvas });
-
-    this.logger.info('Canvas element recreated for next GPU session');
+    for (const attribute of Array.from(oldCanvas.attributes)) {
+      if (attribute.name.startsWith('data-')) newCanvas.setAttribute(attribute.name, attribute.value);
+    }
+    const style = window.getComputedStyle(oldCanvas);
+    for (const property of ['position', 'top', 'left', 'transform'] as const) newCanvas.style[property] = style[property];
+    oldCanvas.parentElement.replaceChild(newCanvas, oldCanvas);
+    this.deps.streamViewService.setCanvas(newCanvas);
+    this.transferred = false;
+    this.deps.viewportService.resetDimensions();
+    this.deps.eventBus.publish(EventChannels.RENDER.CANVAS_RECREATED, { oldCanvas, newCanvas });
   }
-
   cleanup(): void {
-    this.viewportService.cleanup();
+    this.onResize = undefined;
+    this.deps.viewportService.cleanup();
   }
-
-  override dispose(): void | Promise<void> {
-    this.cleanup();
-    return super.dispose();
-  }
+  override dispose(): void | Promise<void> { this.cleanup(); return super.dispose(); }
 }
-
-export { StreamingCanvasLifecycleService };

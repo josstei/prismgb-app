@@ -3,7 +3,8 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { BaseOrchestrator, getEventHandlerBindings } from '@platform/core';
+import { BaseOrchestrator } from '@platform/core';
+import { getEventHandlerBindings } from '../../../../src/platform/core/primitives/event-decorator';
 import { EventChannels, OnEvent } from '@platform/events';
 import type { StreamStartedPayload } from '@platform/events';
 

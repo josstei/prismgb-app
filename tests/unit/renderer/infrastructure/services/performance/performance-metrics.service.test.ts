@@ -1,10 +1,11 @@
+import * as serviceMocks from '../../../../../factories/index.js';
 /**
  * PerformanceMetricsService Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { PerformanceMetricsService } from '@renderer/infrastructure/services/performance/performance-metrics.service';
-import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../../support/service.harness.js';
 
 describe('PerformanceMetricsService', () => {
   let service;
@@ -14,7 +15,10 @@ describe('PerformanceMetricsService', () => {
   beforeEach(() => {
     vi.useFakeTimers();
 
-    const h = createInjectableHarness(PerformanceMetricsService);
+    const h = createServiceHarness(PerformanceMetricsService, {
+      loggerFactory: serviceMocks.createLoggerFactory(),
+      metricsAdapter: serviceMocks.createPerformanceMetricsAdapterMock()
+    });
     service = h.subject;
     mockLogger = h.logger;
     ({ metricsAdapter: mockMetricsAdapter } = h.deps);

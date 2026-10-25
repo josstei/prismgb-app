@@ -19,7 +19,7 @@ export class ChromaticDeviceFixture {
     this.electronApp = electronApp;
     this.page = page;
     this.appShell = new AppShellPage(page);
-    this.streamPage = new StreamPage(page);
+    this.streamPage = new StreamPage(page, electronApp);
     this.fixture = CHROMATIC_MEDIA_FIXTURE;
     this.mediaEnvironment = null;
   }

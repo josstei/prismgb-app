@@ -1,6 +1,5 @@
-import { describe, expect, expectTypeOf, it } from 'vitest';
-import { EventChannels } from '@platform/events';
-import type { MainEventChannel } from '@platform/events';
+import { describe, expect, it } from 'vitest';
+import { EventChannels, type TypedEventBusLike } from '@platform/events';
 
 function flattenEventValues(node: unknown): string[] {
   const values: string[] = [];
@@ -42,9 +41,19 @@ describe('Event channel contract', () => {
     });
   });
 
-  it('keeps main event channel type narrowed to manifest values', () => {
-    expectTypeOf<MainEventChannel>().toEqualTypeOf<
-      'device:connection-changed' | 'device:check-error' | 'update:state-changed'
-    >();
-  });
+});
+
+function checkPayloadContracts(bus: TypedEventBusLike): void {
+  bus.publish(EventChannels.SETTINGS.VOLUME_CHANGED, 0.5);
+  bus.publish(EventChannels.DEVICE.DISCONNECTED, undefined);
+  // @ts-expect-error Numeric settings cannot publish a string.
+  bus.publish(EventChannels.SETTINGS.VOLUME_CHANGED, '0.5');
+  // @ts-expect-error Notes must use the canonical stored note contract.
+  bus.publish(EventChannels.NOTES.NOTE_CREATED, { id: 'incomplete' });
+  // @ts-expect-error Removed main-process events are not renderer events.
+  bus.publish('device:check-error', { error: 'failed' });
+}
+
+it('checks event payload contracts during TypeScript validation', () => {
+  expect(checkPayloadContracts).toBeTypeOf('function');
 });

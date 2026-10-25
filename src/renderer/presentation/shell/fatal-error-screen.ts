@@ -1,6 +1,6 @@
 /**
  * Renders a last-resort fatal error screen when application bootstrap fails,
- * before the logger/DI are available. Uses safe DOM construction (no innerHTML
+ * before the application logger is available. Uses safe DOM construction (no innerHTML
  * for untrusted content) to avoid XSS.
  */
 export function renderFatalError(error: Error): void {

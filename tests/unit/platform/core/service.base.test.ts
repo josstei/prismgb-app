@@ -42,8 +42,6 @@ describe('BaseService', () => {
       );
       const injected = service as unknown as InjectedServiceShape;
 
-      expect(injected.eventBus).toBe(mockEventBus);
-      expect(injected.loggerFactory).toBe(mockLoggerFactory);
       expect(injected.logger).toBe(mockLogger);
       expect(injected._serviceName).toBe('TestService');
     });
@@ -189,6 +187,25 @@ describe('BaseService', () => {
 
       expect(service.hookCalled).toBe(true);
       expect((service as unknown as InjectedServiceShape)._initialized).toBe(true);
+    });
+
+    it('shares pending initialization and preserves failure during rollback', async () => {
+      const failure = new Error('initialize failed');
+      const unsubscribe = vi.fn(() => { throw new Error('cleanup failed'); });
+      let rejectInitialization!: (error: unknown) => void;
+      class AsyncService extends BaseService {
+        protected override onInitialize(): Promise<void> {
+          this.disposables.add(unsubscribe);
+          return new Promise<void>((_resolve, reject) => { rejectInitialization = reject; });
+        }
+      }
+      const service = new AsyncService({ loggerFactory: mockLoggerFactory });
+      const first = service.initialize();
+      expect(service.initialize()).toBe(first);
+      rejectInitialization(failure);
+      await expect(first).rejects.toBe(failure);
+      expect(unsubscribe).toHaveBeenCalledOnce();
+      expect((service as unknown as InjectedServiceShape)._initialized).toBe(false);
     });
 
     it('should default to a no-op onInitialize', () => {

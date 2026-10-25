@@ -110,7 +110,7 @@ describe('ShaderSliderControlsComponent', () => {
         streamVideo
       });
 
-      expect(mockSettingsService.getNumberSetting).toHaveBeenCalledWith('globalBrightness');
+      expect(mockSettingsService.getSetting).toHaveBeenCalledWith('globalBrightness');
       expect(brightnessSlider.value).toBe('50'); // brightnessToSlider(1.0) = 50
     });
 
@@ -124,7 +124,7 @@ describe('ShaderSliderControlsComponent', () => {
         streamVideo
       });
 
-      expect(mockSettingsService.getNumberSetting).toHaveBeenCalledWith('gameVolume');
+      expect(mockSettingsService.getSetting).toHaveBeenCalledWith('gameVolume');
       expect(volumeSlider.value).toBe('70');
     });
 

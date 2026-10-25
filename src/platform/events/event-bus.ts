@@ -17,14 +17,7 @@ interface EventBusDependencies {
   createHandlerErrorPayload?: (eventName: string, error: Error) => unknown;
 }
 
-export interface IEventBus {
-  publish<T = unknown>(event: string, data?: T): void;
-  publishAsync<T = unknown>(event: string, data?: T): Promise<void>;
-  subscribe<T = unknown>(event: string, handler: EventHandler<T>): UnsubscribeFn;
-  unsubscribe<T = unknown>(event: string, handler: EventHandler<T>): void;
-}
-
-export class PlatformEventBus implements IEventBus {
+export class PlatformEventBus {
   readonly emitter: EventEmitter<string, unknown>;
   private readonly listeners = new Map<string, Map<EventHandler<unknown>, Set<EventHandler<unknown>>>>();
   private readonly logger: EventBusLogger | undefined;

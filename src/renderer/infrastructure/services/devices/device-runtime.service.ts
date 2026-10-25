@@ -1,9 +1,9 @@
-import { injectable, inject } from 'inversify';
+
 import { BaseService, getErrorMessage } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import type { TypedEventBusLike } from '@platform/events';
 import type { LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+
 import {
   getDeviceAcquisitionProfile,
   getDeviceStreamProfile
@@ -73,7 +73,15 @@ function stopStreamTracks(stream: MediaStream | null): void {
   }
 }
 
-@injectable()
+type RendererDeviceRuntimeDependencies = {
+  deviceStatusPort: DeviceStatusPort;
+  mediaDevicesPort: MediaDevicesPort;
+  devicePreferenceStore: DevicePreferenceStore;
+  eventBus: TypedEventBusLike;
+  loggerFactory: LoggerFactoryLike;
+  now?: () => number;
+};
+
 export class RendererDeviceRuntime extends BaseService {
   private readonly knownSupportedDeviceIds = new Set<string>();
   private refreshQueue: Promise<RendererDeviceSnapshot> = Promise.resolve({
@@ -95,15 +103,19 @@ export class RendererDeviceRuntime extends BaseService {
     lastEnumerationAt: null
   };
 
-  constructor(
-    @inject(TOKENS.deviceStatusPort) private readonly deviceStatusPort: DeviceStatusPort,
-    @inject(TOKENS.mediaDevicesPort) private readonly mediaDevicesPort: MediaDevicesPort,
-    @inject(TOKENS.devicePreferenceStore) private readonly devicePreferenceStore: DevicePreferenceStore,
-    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike,
-    private readonly now: () => number = Date.now
-  ) {
+  private readonly deviceStatusPort: DeviceStatusPort;
+  private readonly mediaDevicesPort: MediaDevicesPort;
+  private readonly devicePreferenceStore: DevicePreferenceStore;
+  private readonly eventBus: TypedEventBusLike;
+  private readonly now: () => number;
+
+  constructor({ deviceStatusPort, mediaDevicesPort, devicePreferenceStore, eventBus, loggerFactory, now = Date.now }: RendererDeviceRuntimeDependencies) {
     super({ loggerFactory, eventBus }, 'RendererDeviceRuntime');
+    this.deviceStatusPort = deviceStatusPort;
+    this.mediaDevicesPort = mediaDevicesPort;
+    this.devicePreferenceStore = devicePreferenceStore;
+    this.eventBus = eventBus;
+    this.now = now;
   }
 
   get isConnected(): boolean {

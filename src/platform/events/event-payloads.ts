@@ -1,49 +1,6 @@
-import type { LeafValues, AssertNever } from '@platform/core';
-import type { DeviceInfoPayload, DeviceStatus } from '@platform/devices';
-import { EventChannels } from './event-channels.js';
-export interface UpdateInfoPayload {
-  version?: string;
-  releaseDate?: string;
-  releaseNotes?: unknown;
-  reason?: string;
-}
-
-export interface UpdateProgressPayload {
-  percent?: number;
-  bytesPerSecond?: number;
-  transferred?: number;
-  total?: number;
-}
-
-export interface UpdateErrorPayload {
-  message?: string;
-  code?: string;
-}
-
-export interface TranscodeProgressPayload {
-  jobId?: string;
-  percent: number;
-  timeUs?: number;
-  elapsedMs?: number;
-}
-
-export interface TranscodeCompletedPayload {
-  jobId?: string;
-  filePath?: string | null;
-  outputPath?: string;
-}
-
-export interface TranscodeCancelledPayload {
-  jobId?: string;
-}
-
-export interface TranscodeErrorPayload {
-  jobId?: string;
-  error?: string;
-  message?: string;
-}
-
-export type EventChannelValue = LeafValues<typeof EventChannels>;
+import type { DeviceStatus } from '@platform/devices';
+import type { DefinedEventPayloadMap } from './event.manifest.js';
+export type { UpdateInfoPayload, UpdateProgressPayload, UpdateErrorPayload, TranscodeProgressPayload, TranscodeCompletedPayload, TranscodeCancelledPayload, TranscodeErrorPayload } from '@platform/ipc';
 
 export type Dimensions = {
   width: number;
@@ -142,7 +99,6 @@ export type RenderStatsPayload = {
   frameTime?: number | string;
   gpuTime?: number;
   uploadTime?: number;
-  [key: string]: unknown;
 };
 
 export type RenderPipelineReadyPayload = {
@@ -182,7 +138,7 @@ export type UiStatusMessagePayload = {
   type?: 'info' | 'success' | 'warning' | 'error' | string;
 };
 
-export type UiDeviceStatusPayload = { status: unknown };
+export type UiDeviceStatusPayload = { status: DeviceStatus };
 
 export type UiOverlayMessagePayload = {
   deviceConnected?: boolean;
@@ -195,7 +151,7 @@ export type UiOverlayErrorPayload = { message: string };
 
 export type UiStreamingModePayload = { enabled: boolean };
 
-export type UiStreamInfoPayload = { settings?: Record<string, unknown> };
+export type UiStreamInfoPayload = { settings?: MediaTrackSettings };
 
 export type UiButtonFeedbackPayload = {
   elementKey: string;
@@ -212,82 +168,7 @@ export type NotesDeletedPayload = { id: string };
 
 export type TranscodeStartedPayload = { jobId: string; format: string };
 
-type VoidEventChannel = typeof EventChannels.DEVICE.DISCONNECTED_DURING_SESSION | typeof EventChannels.STREAM.STOPPED | typeof EventChannels.CAPTURE.SCREENSHOT_TRIGGERED | typeof EventChannels.CAPTURE.RECORDING_STARTED | typeof EventChannels.CAPTURE.RECORDING_STOPPED | typeof EventChannels.RENDER.CANVAS_EXPIRED | typeof EventChannels.UI.SHUTTER_FLASH | typeof EventChannels.UI.RECORD_BUTTON_POP | typeof EventChannels.UI.RECORD_BUTTON_PRESS | typeof EventChannels.UI.RECORD_BUTTON_DISABLED | typeof EventChannels.UI.RECORD_BUTTON_ENABLED | typeof EventChannels.UI.WINDOW_RESIZED | typeof EventChannels.UI.SCREENSHOT_REQUESTED | typeof EventChannels.UI.RECORDING_TOGGLE_REQUESTED | typeof EventChannels.UI.FULLSCREEN_TOGGLE_REQUESTED | typeof EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED | typeof EventChannels.UI.STREAM_START_REQUESTED | typeof EventChannels.UI.STREAM_STOP_REQUESTED | typeof EventChannels.UPDATE.BADGE_SHOW | typeof EventChannels.UPDATE.BADGE_HIDE;
-
-type EventPayloadOverrides = {
-  [EventChannels.SYSTEM.HANDLER_ERROR]: HandlerErrorPayload;
-  [EventChannels.DEVICE.STATUS_CHANGED]: DeviceStatus;
-  [EventChannels.DEVICE.CONNECTED]: DeviceInfoPayload;
-  [EventChannels.DEVICE.DISCONNECTED]: DeviceInfoPayload | null | undefined;
-  [EventChannels.DEVICE.SUPPORTED_DEVICE_AVAILABLE]: SupportedDeviceAvailablePayload;
-  [EventChannels.DEVICE.ENUMERATION_FAILED]: DeviceEnumerationFailedPayload;
-  [EventChannels.STREAM.STARTED]: StreamStartedPayload;
-  [EventChannels.STREAM.ERROR]: StreamErrorPayload;
-  [EventChannels.STREAM.HEALTH_OK]: StreamHealthOkPayload;
-  [EventChannels.STREAM.HEALTH_TIMEOUT]: StreamHealthTimeoutPayload;
-  [EventChannels.CAPTURE.SCREENSHOT_READY]: ScreenshotReadyPayload;
-  [EventChannels.CAPTURE.RECORDING_READY]: RecordingReadyPayload;
-  [EventChannels.CAPTURE.RECORDING_ERROR]: RecordingErrorPayload;
-  [EventChannels.CAPTURE.RECORDING_DEGRADED]: RecordingDegradedPayload;
-  [EventChannels.SETTINGS.VOLUME_CHANGED]: number;
-  [EventChannels.SETTINGS.RENDER_PRESET_CHANGED]: string;
-  [EventChannels.SETTINGS.BRIGHTNESS_CHANGED]: number;
-  [EventChannels.SETTINGS.PERFORMANCE_MODE_CHANGED]: boolean;
-  [EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED]: { enabled: boolean };
-  [EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED]: boolean;
-  [EventChannels.SETTINGS.PREFERENCES_LOADED]: Record<string, unknown>;
-  [EventChannels.SETTINGS.RECORDING_FORMAT_CHANGED]: string;
-  [EventChannels.PERFORMANCE.STATE_CHANGED]: PerformanceStatePayload;
-  [EventChannels.PERFORMANCE.UI_MODE_CHANGED]: PerformanceUiModePayload;
-  [EventChannels.PERFORMANCE.RENDER_MODE_CHANGED]: boolean;
-  [EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED]: MemorySnapshotRequestPayload;
-  [EventChannels.RENDER.PIPELINE_READY]: RenderPipelineReadyPayload;
-  [EventChannels.RENDER.PIPELINE_ERROR]: RenderPipelineErrorPayload;
-  [EventChannels.RENDER.STATS_UPDATE]: RenderStatsPayload;
-  [EventChannels.RENDER.CANVAS_RECREATED]: CanvasRecreatedPayload;
-  [EventChannels.UI.STATUS_MESSAGE]: UiStatusMessagePayload;
-  [EventChannels.UI.DEVICE_STATUS]: UiDeviceStatusPayload;
-  [EventChannels.UI.OVERLAY_MESSAGE]: UiOverlayMessagePayload;
-  [EventChannels.UI.OVERLAY_VISIBLE]: UiOverlayVisiblePayload;
-  [EventChannels.UI.OVERLAY_ERROR]: UiOverlayErrorPayload;
-  [EventChannels.UI.STREAMING_MODE]: UiStreamingModePayload;
-  [EventChannels.UI.STREAM_INFO]: UiStreamInfoPayload;
-  [EventChannels.UI.BUTTON_FEEDBACK]: UiButtonFeedbackPayload;
-  [EventChannels.UI.RECORDING_STATE]: UiRecordingStatePayload;
-  [EventChannels.UI.FULLSCREEN_STATE]: UiFullscreenStatePayload;
-  [EventChannels.UPDATE.AVAILABLE]: UpdateInfoPayload;
-  [EventChannels.UPDATE.NOT_AVAILABLE]: UpdateInfoPayload;
-  [EventChannels.UPDATE.PROGRESS]: UpdateProgressPayload;
-  [EventChannels.UPDATE.DOWNLOADED]: UpdateInfoPayload;
-  [EventChannels.UPDATE.ERROR]: UpdateErrorPayload;
-  [EventChannels.NOTES.NOTE_DELETED]: NotesDeletedPayload;
-  [EventChannels.TRANSCODE.STARTED]: TranscodeStartedPayload;
-  [EventChannels.TRANSCODE.PROGRESS]: TranscodeProgressPayload;
-  [EventChannels.TRANSCODE.COMPLETED]: TranscodeCompletedPayload;
-  [EventChannels.TRANSCODE.ERROR]: TranscodeErrorPayload;
-  [EventChannels.TRANSCODE.CANCELLED]: TranscodeCancelledPayload;
-};
-
-export type EventPayloadMap = {
-  [K in EventChannelValue]: K extends keyof EventPayloadOverrides
-    ? EventPayloadOverrides[K]
-    : K extends VoidEventChannel
-      ? void
-      : unknown;
-};
-
-export type MissingEventPayloads = Exclude<EventChannelValue, keyof EventPayloadMap>;
-export type ExtraEventPayloads = Exclude<keyof EventPayloadMap, EventChannelValue>;
-
-/**
- * Compile-time exhaustiveness guard for the event payload map. `EventChannelValue`
- * is derived from `EventChannels`, which is itself derived from the event
- * manifest's renderer scope — so this guard only needs to police
- * `EventPayloadOverrides` against that single source, not a separate runtime
- * channel list.
- * @public
- */
-export type EventPayloadExhaustivenessCheck = AssertNever<MissingEventPayloads | ExtraEventPayloads>;
+export type EventPayloadMap = DefinedEventPayloadMap;
 
 type PublishArgs<K extends keyof EventPayloadMap> = EventPayloadMap[K] extends void
   ? [event: K, data?: EventPayloadMap[K]]

@@ -11,7 +11,7 @@ Related docs:
 
 | Workflow | Trigger | Purpose |
 | --- | --- | --- |
-| `ci-pr.yml` | pull_request, workflow_dispatch | PR lint, tests, optional full OS matrix, and Vite build smoke test. |
+| `ci-pr.yml` | pull_request, workflow_dispatch | PR lint, tests, Linux build and E2E, and optional full OS matrix. |
 | `build-smoke.yml` | workflow_dispatch | Manual packaging build and smoke tests across selected platforms. |
 | `release-prepare.yml` | workflow_dispatch | Creates a release PR and bumps version. |
 | `release.yml` | push to main (package.json), workflow_dispatch | Tags releases, builds artifacts, and publishes a draft release. |
@@ -24,8 +24,7 @@ Related docs:
 | Workflow | Purpose |
 | --- | --- |
 | `reusable-ci-lint.yml` | PR title validation and commit linting. |
-| `reusable-ci-tests.yml` | Linux test run, optional macOS/Windows matrix. |
-| `reusable-ci-build-smoke.yml` | Vite-only build smoke check. |
+| `reusable-ci-tests.yml` | Linux x64/ARM64 tests, built Linux E2E, optional macOS/Windows matrix. |
 | `reusable-release-check.yml` | Detects release commits, tags, audits, and emits build matrix JSON. |
 | `reusable-build-desktop.yml` | Cross-platform build, smoke tests, artifact upload. |
 | `reusable-release-publish.yml` | Assembles artifacts and creates draft GitHub release. |
@@ -46,6 +45,7 @@ Related docs:
 | Script | Purpose |
 | --- | --- |
 | `scripts/ci/build-matrix.mjs` | Generates the OS/arch build matrix for release and smoke builds (Linux x64/ARM64, macOS x64/ARM64, Windows x64). |
+| `scripts/generate-workspace-paths.mjs` | Generates TypeScript aliases from the platform registry; `--check` verifies freshness. |
 | `scripts/ci/merge-mac-yaml.sh` | Merges per-arch macOS update YAML files into one. |
 
 ## PR Validation Flow (`ci-pr.yml`)
@@ -55,9 +55,10 @@ flowchart TD
   PR[Pull Request] --> CI[ci-pr.yml]
   CI --> LINT[reusable-ci-lint.yml]
   LINT --> TESTS[reusable-ci-tests.yml]
-  LINT --> SMOKE[reusable-ci-build-smoke.yml]
 
-  TESTS --> LINUX[Test: ubuntu-latest]
+  TESTS --> LINUX[Test and build: ubuntu-latest]
+  LINUX --> E2E[Playwright against existing build]
+  TESTS --> ARM[Test and build: ubuntu-24.04-arm]
   TESTS --> MATRIX{Full matrix?}
   MATRIX -->|full-ci label or workflow_dispatch full_matrix| OS[Test: macOS + Windows]
 ```
@@ -124,3 +125,7 @@ flowchart TD
 - Entry points use kebab-case scope naming: `ci-pr.yml`, `build-smoke.yml`, `release-prepare.yml`.
 - Reusable workflows are prefixed with `reusable-`.
 - Shared build logic lives in composite actions and scripts to reduce drift.
+
+Each test job runs the complete Vitest suite once; it already includes integration tests. The Linux x64 job reuses its Vite build for Playwright. Artifact upload patterns come from the platform manifest through the build matrix.
+
+Packaged smoke runs the real application with an isolated temporary profile. Success requires renderer readiness, a shutdown request and acknowledgement after notes/recording cleanup, completion of accepted conversions and registered downloads, and main teardown before a zero exit. Missing or failed acknowledgements trigger cleanup and cancellation; startup/shutdown timeout, cleanup failure, or abnormal exit fails the check.

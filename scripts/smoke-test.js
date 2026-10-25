@@ -15,6 +15,7 @@ import { fileURLToPath } from 'url';
 import { pathToFileURL } from 'url';
 import path from 'path';
 import fs from 'fs';
+import os from 'node:os';
 import picomatch from 'picomatch';
 import { walkPaths } from './lib/fs-walk.js';
 import { headlessElectronEnv, terminateProcessTree } from './lib/process-runner.js';
@@ -24,7 +25,6 @@ const projectRoot = path.resolve(__dirname, '..');
 const platformManifestPath = path.join(__dirname, 'manifests/platforms.manifest.json');
 
 const TIMEOUT_MS = 60000; // 1 minute max
-const platform = process.platform;
 
 function loadPlatformManifest(manifestPath = platformManifestPath) {
   return JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
@@ -97,117 +97,80 @@ export function findExecutable({
   return null;
 }
 
-/**
- * Run the smoke test
- */
-async function runSmokeTest() {
-  const executable = findExecutable();
-
+/** Require the real application and renderer to start, then exit cleanly. */
+export async function runSmokeTest({
+  executable = findExecutable(),
+  timeoutMs = TIMEOUT_MS,
+  spawnFn = spawn,
+  terminate = terminateProcessTree,
+  logger = console
+} = {}) {
   if (!executable) {
-    console.error('ERROR: Could not find built executable');
-    console.error(`Platform: ${platform}`);
-    console.error('Ensure the application has been built for this platform.');
-    process.exit(1);
+    return { success: false, reason: 'Packaged executable not found', stdout: '', stderr: '' };
   }
 
-  console.log(`Platform: ${platform}`);
-  console.log(`Executable: ${executable}`);
-  console.log(`Timeout: ${TIMEOUT_MS}ms`);
-  console.log('');
-  console.log('Starting smoke test...');
-
-  const startTime = Date.now();
-
-  const child = spawn(executable, ['--smoke-test'], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: {
-      ...headlessElectronEnv(),
-      NODE_ENV: 'production'
-    },
-    // Detach on Windows to allow proper cleanup
-    detached: platform === 'win32'
-  });
-
-  let stdout = '';
-  let stderr = '';
-  let timedOut = false;
-
-  child.stdout.on('data', (data) => {
-    const text = data.toString();
-    stdout += text;
-    console.log(`[stdout] ${text.trim()}`);
-  });
-
-  child.stderr.on('data', (data) => {
-    const text = data.toString();
-    stderr += text;
-    // Filter out common Electron warnings
-    if (!text.includes('Passthrough is not supported') &&
-        !text.includes('libudev')) {
-      console.log(`[stderr] ${text.trim()}`);
-    }
-  });
-
-  // Set overall timeout
-  const timeout = setTimeout(() => {
-    timedOut = true;
-    console.log('');
-    console.log('Smoke test timeout reached - app appears to be running successfully');
-    console.log('Terminating process...');
-    terminateProcessTree(child);
-  }, TIMEOUT_MS);
-
-  return new Promise((resolve) => {
-    child.on('close', (code, signal) => {
-      clearTimeout(timeout);
-      const elapsed = Date.now() - startTime;
-
-      console.log('');
-      console.log(`Process exited after ${elapsed}ms`);
-      console.log(`Exit code: ${code}`);
-      console.log(`Signal: ${signal || 'none'}`);
-
-      // Success conditions:
-      // 1. Clean exit (code 0) - app started and exited via --smoke-test
-      // 2. Timeout with no crash - app started and kept running
-      // 3. SIGTERM/null (we killed it after timeout)
-      const success = code === 0 ||
-                      code === null ||
-                      (timedOut && (signal === 'SIGTERM' || signal === null));
-
-      if (success) {
-        console.log('');
-        console.log('=================================');
-        console.log('  SMOKE TEST PASSED');
-        console.log('=================================');
-        resolve(0);
-      } else {
-        console.error('');
-        console.error('=================================');
-        console.error('  SMOKE TEST FAILED');
-        console.error('=================================');
-        console.error('');
-        console.error('Full stdout:', stdout);
-        console.error('Full stderr:', stderr);
-        resolve(1);
-      }
+  let child;
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-smoke-'));
+  try {
+    child = spawnFn(executable, ['--smoke-test', `--user-data-dir=${userDataDir}`], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...headlessElectronEnv(), NODE_ENV: 'production' },
+      detached: process.platform !== 'win32'
     });
+  } catch (error) {
+    fs.rmSync(userDataDir, { recursive: true, force: true });
+    return { success: false, reason: `Failed to start process: ${error.message}`, stdout: '', stderr: '' };
+  }
 
-    child.on('error', (err) => {
-      clearTimeout(timeout);
-      console.error('');
-      console.error('Failed to start process:', err.message);
-      console.error('');
-      console.error('=================================');
-      console.error('  SMOKE TEST FAILED');
-      console.error('=================================');
-      resolve(1);
+  try {
+    return await new Promise((resolve) => {
+      let stdout = '';
+      let stderr = '';
+      let ready = false;
+      let settled = false;
+      let timeout;
+      const finish = async (success, reason, terminateChild = false) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        if (terminateChild) {
+          await terminate(child, { killProcessGroup: true }).catch((error) => logger.error(error.message));
+        }
+        resolve({ success, reason, stdout, stderr });
+      };
+
+      child.stdout?.on('data', (chunk) => {
+        const text = String(chunk);
+        stdout += text;
+        ready ||= stdout.split(/\r?\n/).includes('PRISMGB_SMOKE_READY');
+        stdout = stdout.slice(-30000);
+        logger.log(text.trim());
+      });
+      child.stderr?.on('data', (chunk) => {
+        const text = String(chunk);
+        stderr = (stderr + text).slice(-30000);
+        logger.error(text.trim());
+      });
+      child.once('error', (error) => finish(false, `Failed to start process: ${error.message}`));
+      child.once('close', (code, signal) => {
+        const success = ready && code === 0 && signal === null;
+        finish(success, success
+          ? 'Application and renderer started and shut down cleanly'
+          : `Application exited without a successful smoke handshake (ready=${ready}, code=${code}, signal=${signal})`);
+      });
+      timeout = setTimeout(() => {
+        // A running or signalled process is never evidence of successful startup.
+        void finish(false, `Smoke test timed out after ${timeoutMs}ms`, true);
+      }, timeoutMs);
     });
-  });
+  } finally {
+    fs.rmSync(userDataDir, { recursive: true, force: true });
+  }
 }
 
-// Run the test
 const invokedScript = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : '';
 if (import.meta.url === invokedScript) {
-  runSmokeTest().then(code => process.exit(code));
+  const result = await runSmokeTest();
+  console.log(`Smoke test ${result.success ? 'passed' : 'failed'}: ${result.reason}`);
+  process.exitCode = result.success ? 0 : 1;
 }

@@ -17,6 +17,24 @@ describe('PresentationComponent', () => {
     expect(disposeSpy).toHaveBeenCalled();
   });
 
+  it('reports cleanup failure after attempting every tracked disposer', async () => {
+    const failure = new Error('unsubscribe failed');
+    const onError = vi.fn();
+    const released = vi.fn();
+    const component = new (class extends PresentationComponent {
+      constructor() {
+        super();
+        this.track(released);
+        this.track(() => { throw failure; });
+      }
+      protected override onDisposeError(error: unknown): void { onError(error); }
+    })();
+
+    await expect(component.dispose()).rejects.toBe(failure);
+    expect(released).toHaveBeenCalledOnce();
+    expect(onError).toHaveBeenCalledWith(failure);
+  });
+
   it('listens to DOM events and removes them on dispose', async () => {
     const el = document.createElement('div');
     const handler = vi.fn();

@@ -6,11 +6,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { CaptureSaveService } from '@renderer/infrastructure/services/capture/capture-save.service';
 import { EventChannels } from '@platform/events';
-import { downloadFile } from '@renderer/lib/file-download.utils';
-
-vi.mock('@renderer/lib/file-download.utils.ts', () => ({
-  downloadFile: vi.fn()
-}));
 
 import {
   createEventBus,
@@ -26,6 +21,7 @@ type CaptureSaveServiceDependencies = {
 };
 
 describe('CaptureSaveService', () => {
+  const downloadFile = vi.fn<(blob: Blob, filename: string) => Promise<void>>();
   let service: CaptureSaveService;
   let mockEventBus: ReturnType<typeof createEventBus>;
   let mockSettingsService: ReturnType<typeof createSettingsServiceMock>;
@@ -47,7 +43,6 @@ describe('CaptureSaveService', () => {
     });
 
     mockTranscodeService = createTranscodeServiceMock({
-      isAvailable: vi.fn().mockReturnValue(true),
       transcode: vi.fn().mockResolvedValue({ status: 'ok', value: { jobId: 'job-123' } })
     });
 
@@ -65,7 +60,7 @@ describe('CaptureSaveService', () => {
 
   describe('Constructor', () => {
     it('should store required dependencies', () => {
-      service = new CaptureSaveService(mockEventBus, mockSettingsService, mockTranscodeService, mockLoggerFactory);
+      service = new CaptureSaveService({ downloadFile, eventBus: mockEventBus, settingsService: mockSettingsService, transcodeService: mockTranscodeService, loggerFactory: mockLoggerFactory });
 
       expect(serviceDependencies().eventBus).toBe(mockEventBus);
       expect(serviceDependencies().settingsService).toBe(mockSettingsService);
@@ -76,7 +71,7 @@ describe('CaptureSaveService', () => {
 
   describe('saveRecording', () => {
     beforeEach(() => {
-      service = new CaptureSaveService(mockEventBus, mockSettingsService, mockTranscodeService, mockLoggerFactory);
+      service = new CaptureSaveService({ downloadFile, eventBus: mockEventBus, settingsService: mockSettingsService, transcodeService: mockTranscodeService, loggerFactory: mockLoggerFactory });
     });
 
     describe('when format is webm', () => {
@@ -101,20 +96,6 @@ describe('CaptureSaveService', () => {
       });
     });
 
-    describe('when transcoding is not available', () => {
-      it('should use direct save regardless of format', async () => {
-        mockSettingsService.setSetting('recordingFormat', 'mp4');
-        mockTranscodeService.isAvailable.mockReturnValue(false);
-        const mockBlob = new Blob(['test data'], { type: 'video/webm' });
-
-        const result = await service.saveRecording(mockBlob, 'recording.webm');
-
-        expect(result).toEqual({ success: true, transcoded: false });
-        expect(downloadFile).toHaveBeenCalledWith(mockBlob, 'recording.webm');
-        expect(mockTranscodeService.transcode).not.toHaveBeenCalled();
-      });
-    });
-
     describe('when format requires transcoding', () => {
       it('should call transcodeService for mp4', async () => {
         mockSettingsService.setSetting('recordingFormat', 'mp4');
@@ -126,7 +107,7 @@ describe('CaptureSaveService', () => {
           mockBlob,
           'mp4',
           'recording',
-          expect.objectContaining({ interrupted: false })
+          {}
         );
       });
 
@@ -140,7 +121,7 @@ describe('CaptureSaveService', () => {
           mockBlob,
           'mov',
           'recording',
-          expect.objectContaining({ interrupted: false })
+          {}
         );
       });
 
@@ -194,11 +175,11 @@ describe('CaptureSaveService', () => {
           mockBlob,
           'mp4',
           'my-recording-2024-01-15',
-          expect.objectContaining({ interrupted: false })
+          {}
         );
       });
 
-      it('should pass interrupted flag and inputArgs when recording was interrupted', async () => {
+      it('should pass recovery inputArgs when recording was interrupted', async () => {
         mockSettingsService.setSetting('recordingFormat', 'mp4');
         const mockBlob = new Blob(['test data'], { type: 'video/webm' });
 
@@ -210,7 +191,6 @@ describe('CaptureSaveService', () => {
           'recording',
           {
             inputArgs: ['-fflags', '+genpts', '-err_detect', 'ignore_err'],
-            interrupted: true
           }
         );
       });
@@ -219,7 +199,7 @@ describe('CaptureSaveService', () => {
 
   describe('saveScreenshot', () => {
     beforeEach(() => {
-      service = new CaptureSaveService(mockEventBus, mockSettingsService, mockTranscodeService, mockLoggerFactory);
+      service = new CaptureSaveService({ downloadFile, eventBus: mockEventBus, settingsService: mockSettingsService, transcodeService: mockTranscodeService, loggerFactory: mockLoggerFactory });
     });
 
     it('should use direct save', async () => {
@@ -235,7 +215,7 @@ describe('CaptureSaveService', () => {
 
   describe('_directSave', () => {
     beforeEach(() => {
-      service = new CaptureSaveService(mockEventBus, mockSettingsService, mockTranscodeService, mockLoggerFactory);
+      service = new CaptureSaveService({ downloadFile, eventBus: mockEventBus, settingsService: mockSettingsService, transcodeService: mockTranscodeService, loggerFactory: mockLoggerFactory });
     });
 
     it('should call downloadFile', async () => {
@@ -267,7 +247,7 @@ describe('CaptureSaveService', () => {
 
   describe('dispose', () => {
     it('should log disposal', async () => {
-      service = new CaptureSaveService(mockEventBus, mockSettingsService, mockTranscodeService, mockLoggerFactory);
+      service = new CaptureSaveService({ downloadFile, eventBus: mockEventBus, settingsService: mockSettingsService, transcodeService: mockTranscodeService, loggerFactory: mockLoggerFactory });
 
       await service.dispose();
 

@@ -1,3 +1,4 @@
+import * as serviceMocks from '../../../../../factories/index.js';
 /**
  * StreamingService Unit Tests
  */
@@ -16,7 +17,7 @@ import {
   createRendererDeviceRuntimeMock,
   createMediaTrackMock,
 } from '../../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../../support/service.harness.js';
 import { createDeferred } from '../../../../../support/deferred.testkit.js';
 
 function createStreamingTarget(overrides = {}) {
@@ -44,12 +45,13 @@ describe('StreamingService', () => {
   beforeEach(() => {
     mockTarget = createStreamingTarget();
 
-    const h = createInjectableHarness(StreamingService, {
-      overrides: {
-        rendererDeviceRuntime: createRendererDeviceRuntimeMock({
+    const h = createServiceHarness(StreamingService, {
+      deviceMediaAcquirer: serviceMocks.createDeviceMediaAcquirerMock(),
+      eventBus: serviceMocks.createEventBus(),
+      loggerFactory: serviceMocks.createLoggerFactory(),
+      rendererDeviceRuntime: createRendererDeviceRuntimeMock({
           resolveStreamingTarget: vi.fn().mockResolvedValue(mockTarget)
         })
-      }
     });
     service = h.subject;
     mockLogger = h.logger;

@@ -1,20 +1,13 @@
-import { injectable, inject } from 'inversify';
-import { BaseService, isPromiseLike } from '@platform/core';
-import { EventChannels } from '@platform/events';
-import { SettingsDefinitions, getStartupPreferenceEventDefinitions } from '@renderer/lib/settings.definitions.js';
-import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
-import type { EventPublisherLike, LoggerFactoryLike, LoggerLike, StorageServiceLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
 
-type SettingDefinition = (typeof SettingsDefinitions.definitions)[number];
+import { BaseService } from '@platform/core';
+import { EventChannels, type TypedEventBusLike } from '@platform/events';
+import { SettingsDefinitions, getStartupPreferenceEventDefinitions, type SettingsDefinition, type SettingName, type StoredSettingName, type SettingValues, type SettingsAccess } from '@renderer/lib/settings.definitions.js';
+import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
+import type { LoggerFactoryLike, LoggerLike, StorageServiceLike } from '@platform/core';
+
+type SettingDefinition = SettingsDefinition;
 type SettingDefaultValue = string | number | boolean;
 type SettingValue = SettingDefaultValue;
-type SettingResult = SettingValue | Promise<SettingValue>;
-type SettingValidation = {
-  min?: number;
-  max?: number;
-  clamp?: boolean;
-};
 type SettingEncodeResult = { ok: true; value: SettingValue } | { ok: false };
 
 /**
@@ -27,14 +20,6 @@ type SettingEncodeResult = { ok: true; value: SettingValue } | { ok: false };
 interface SettingCodec {
   decode(saved: string, definition: SettingDefinition): SettingValue;
   encode(value: unknown, definition: SettingDefinition, logger: LoggerLike): SettingEncodeResult;
-}
-
-function createDefinitionMap(definitions: readonly SettingDefinition[]): Map<string, SettingDefinition> {
-  return new Map(definitions.map((definition: any) => [definition.name, definition]));
-}
-
-function getAllowedValues(definition: SettingDefinition): string[] {
-  return Array.isArray(definition.allowedValues) ? definition.allowedValues : [];
 }
 
 function normalizeBooleanValue(value: unknown): boolean {
@@ -51,7 +36,7 @@ function normalizeBooleanValue(value: unknown): boolean {
 }
 
 function applyNumberValidation(definition: SettingDefinition, value: number): number {
-  const validation = (definition as SettingDefinition & { validation?: SettingValidation }).validation;
+  const validation = definition.validation;
   if (!validation?.clamp) {
     return value;
   }
@@ -83,12 +68,12 @@ const NUMBER_SETTING_CODEC: SettingCodec = {
 
 const ENUM_SETTING_CODEC: SettingCodec = {
   decode: (saved, definition) => {
-    const allowedValues = getAllowedValues(definition);
+    const allowedValues = (definition.allowedValues ?? []);
     return allowedValues.includes(saved) ? saved : definition.default as string;
   },
   encode: (value, definition, logger) => {
     const normalized = String(value);
-    const allowedValues = getAllowedValues(definition);
+    const allowedValues = (definition.allowedValues ?? []);
     if (!allowedValues.includes(normalized)) {
       logger.warn(`Invalid ${definition.name}: ${normalized}. Valid values: ${allowedValues.join(', ')}`);
       return { ok: false };
@@ -102,7 +87,7 @@ const STRING_SETTING_CODEC: SettingCodec = {
   encode: (value) => ({ ok: true, value: String(value) })
 };
 
-const SETTING_CODECS: Record<string, SettingCodec> = {
+const SETTING_CODECS: Record<SettingDefinition['type'], SettingCodec> = {
   boolean: BOOLEAN_SETTING_CODEC,
   number: NUMBER_SETTING_CODEC,
   enum: ENUM_SETTING_CODEC,
@@ -110,23 +95,27 @@ const SETTING_CODECS: Record<string, SettingCodec> = {
 };
 
 function getSettingCodec(definition: SettingDefinition): SettingCodec {
-  return SETTING_CODECS[definition.type] ?? STRING_SETTING_CODEC;
+  return SETTING_CODECS[definition.type];
 }
 
-@injectable()
-class SettingsService extends BaseService {
-  private readonly settingDefinitions: readonly SettingDefinition[];
+type SettingsServiceDependencies = {
+  eventBus: Pick<TypedEventBusLike, 'publish'>;
+  loggerFactory: LoggerFactoryLike;
+  storageService: StorageServiceLike;
+};
+
+class SettingsService extends BaseService implements SettingsAccess {
   private readonly settingDefinitionMap: Map<string, SettingDefinition>;
 
-  constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: EventPublisherLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike,
-    @inject(TOKENS.storageService) private readonly storageService: StorageServiceLike
-  ) {
-    super({ loggerFactory, eventBus }, 'SettingsService');
+  private readonly eventBus: Pick<TypedEventBusLike, 'publish'>;
+  private readonly storageService: StorageServiceLike;
 
-    this.settingDefinitions = SettingsDefinitions.definitions;
-    this.settingDefinitionMap = createDefinitionMap(this.settingDefinitions);
+  constructor({ eventBus, loggerFactory, storageService }: SettingsServiceDependencies) {
+    super({ loggerFactory }, 'SettingsService');
+    this.eventBus = eventBus;
+    this.storageService = storageService;
+
+    this.settingDefinitionMap = new Map(SettingsDefinitions.definitions.map((definition) => [definition.name, definition]));
   }
 
   async initialize(): Promise<void> {
@@ -145,62 +134,16 @@ class SettingsService extends BaseService {
     }
   }
 
-  listSettings(): string[] {
-    return this.settingDefinitions.map((definition) => definition.name);
-  }
-
-  getAllowedValues(name: string): string[] {
-    return getAllowedValues(this._getSettingDefinition(name));
-  }
-
-  getSetting(name: string): SettingResult {
+  getSetting<K extends StoredSettingName>(name: K): SettingValues[K] {
     const definition = this._getSettingDefinition(name);
-
-    if (this._usesLoginItemAPI(definition)) {
-      return this._readLoginItemSetting(definition);
-    }
-
-    return this._readStoredSetting(definition);
+    if (definition.externalSource) throw new Error(`Setting requires asynchronous access: ${name}`);
+    return this._readStoredSetting(definition) as SettingValues[K];
   }
 
-  setSetting(name: string, value: unknown): boolean | Promise<boolean> {
+  setSetting<K extends StoredSettingName>(name: K, value: SettingValues[K]): boolean {
     const definition = this._getSettingDefinition(name);
-
-    if (this._usesLoginItemAPI(definition)) {
-      return this._writeLoginItemSetting(definition, value);
-    }
-
+    if (definition.externalSource) throw new Error(`Setting requires asynchronous access: ${name}`);
     return this._writeStoredSetting(definition, value);
-  }
-
-  getNumberSetting(name: string): number {
-    const value = this._getSynchronousSetting(name);
-    if (typeof value === 'number') {
-      return value;
-    }
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-    throw new Error(`Setting is not numeric: ${name}`);
-  }
-
-  getBooleanSetting(name: string): boolean {
-    const value = this._getSynchronousSetting(name);
-    return this._normalizeBoolean(value);
-  }
-
-  getStringSetting(name: string): string {
-    const value = this._getSynchronousSetting(name);
-    return String(value);
-  }
-
-  _getSynchronousSetting(name: string): SettingValue {
-    const value = this.getSetting(name);
-    if (isPromiseLike<SettingValue>(value)) {
-      throw new Error(`Setting requires asynchronous access: ${name}`);
-    }
-    return value;
   }
 
   _readStoredSetting(definition: SettingDefinition): SettingValue {
@@ -213,7 +156,7 @@ class SettingsService extends BaseService {
   }
 
   _writeStoredSetting(definition: SettingDefinition, value: unknown): boolean {
-    const normalized = this._normalizeSettingValue(definition, value);
+    const normalized = getSettingCodec(definition).encode(value, definition, this.logger);
     if (!normalized.ok) {
       return false;
     }
@@ -228,20 +171,8 @@ class SettingsService extends BaseService {
     return true;
   }
 
-  _normalizeSettingValue(definition: SettingDefinition, value: unknown): SettingEncodeResult {
-    return getSettingCodec(definition).encode(value, definition, this.logger);
-  }
-
-  _normalizeBoolean(value: unknown): boolean {
-    return normalizeBooleanValue(value);
-  }
-
-  _usesLoginItemAPI(definition: SettingDefinition): boolean {
-    return definition.name === 'launchOnLogin'
-      && (definition as SettingDefinition & { externalSource?: string }).externalSource === 'window.loginItemAPI';
-  }
-
-  async _readLoginItemSetting(definition: SettingDefinition): Promise<boolean> {
+  async getLaunchOnLogin(): Promise<boolean> {
+    const definition = this._getSettingDefinition('launchOnLogin');
     try {
       const result = await trpcClient.loginItem.get.query();
       this.storageService.setItem(definition.storageKey, result.enabled.toString());
@@ -253,8 +184,9 @@ class SettingsService extends BaseService {
     return this._readStoredSetting(definition) as boolean;
   }
 
-  async _writeLoginItemSetting(definition: SettingDefinition, value: unknown): Promise<boolean> {
-    const enabled = this._normalizeBoolean(value);
+  async setLaunchOnLogin(value: boolean): Promise<boolean> {
+    const definition = this._getSettingDefinition('launchOnLogin');
+    const enabled = normalizeBooleanValue(value);
     try {
       await trpcClient.loginItem.set.mutate({ enabled });
     } catch (error) {
@@ -269,7 +201,7 @@ class SettingsService extends BaseService {
     return stored;
   }
 
-  _getSettingDefinition(name: string): SettingDefinition {
+  _getSettingDefinition(name: SettingName): SettingDefinition {
     const definition = this.settingDefinitionMap.get(name);
     if (!definition) {
       throw new Error(`Unknown setting: ${name}`);
@@ -277,13 +209,9 @@ class SettingsService extends BaseService {
     return definition;
   }
 
-  /**
-   * Load all saved preferences.
-   * @returns {Object} Preferences keyed by settings definition names.
-   */
   loadAllPreferences() {
     const preferences = Object.fromEntries(
-      SettingsDefinitions.loadAllPreferencesShape.map((name: string) => [name, this._getSynchronousSetting(name)])
+      SettingsDefinitions.loadAllPreferencesShape.map((name) => [name, this.getSetting(name)])
     );
 
     const summary = SettingsDefinitions.loadAllPreferencesShape

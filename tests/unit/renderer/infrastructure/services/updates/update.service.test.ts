@@ -1,3 +1,4 @@
+import * as serviceMocks from '../../../../../factories/index.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
   trpcClient: (await import('../../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
@@ -7,15 +8,21 @@ import { UpdateState } from '@platform/config';
 import { EventChannels } from '@platform/events';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { emitTrpcData, getTrpcUnsubscribe } from '../../../../../support/mocks/trpc-client.mock';
-import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../../support/service.harness.js';
+
+const updateInfoFixture = (version: string) => ({ version, files: [], path: 'update.zip', sha512: 'test', releaseDate: '2026-01-01' });
+const progressFixture = (percent: number) => ({ percent, total: 100, delta: 1, transferred: percent, bytesPerSecond: 1 });
 
 describe('UpdateService', () => {
   let service, mockEventBus, mockLogger, mockLoggerFactory;
 
   beforeEach(() => {
-    vi.mocked(trpcClient.update.getStatus.query).mockResolvedValue({ state: UpdateState.IDLE });
+    vi.mocked(trpcClient.update.getStatus.query).mockResolvedValue({ state: UpdateState.IDLE, updateInfo: null, downloadProgress: null, error: null });
 
-    const h = createInjectableHarness(UpdateService);
+    const h = createServiceHarness(UpdateService, {
+      eventBus: serviceMocks.createEventBus(),
+      loggerFactory: serviceMocks.createLoggerFactory()
+    });
     service = h.subject;
     mockLogger = h.logger;
     ({ eventBus: mockEventBus, loggerFactory: mockLoggerFactory } = h.deps);
@@ -36,7 +43,7 @@ describe('UpdateService', () => {
     it('should set up tRPC subscriptions', async () => {
       vi.mocked(trpcClient.update.getStatus.query).mockResolvedValue({
         state: UpdateState.IDLE,
-        updateInfo: null
+        updateInfo: null, downloadProgress: null, error: null
       });
 
       await service.initialize();
@@ -53,16 +60,16 @@ describe('UpdateService', () => {
     it('should load initial status', async () => {
       vi.mocked(trpcClient.update.getStatus.query).mockResolvedValue({
         state: UpdateState.AVAILABLE,
-        updateInfo: { version: '2.0.0' },
-        downloadProgress: { percent: 50 },
+        updateInfo: updateInfoFixture('2.0.0'),
+        downloadProgress: progressFixture(50),
         error: null
       });
 
       await service.initialize();
 
       expect(service.state).toBe(UpdateState.AVAILABLE);
-      expect(service.updateInfo).toEqual({ version: '2.0.0' });
-      expect(service.getStatus().downloadProgress).toEqual({ percent: 50 });
+      expect(service.updateInfo).toMatchObject({ version: '2.0.0' });
+      expect(service.getStatus().downloadProgress).toMatchObject({ percent: 50 });
     });
 
     it('should handle getStatus error gracefully', async () => {
@@ -132,7 +139,7 @@ describe('UpdateService', () => {
     });
 
     it('should set state to CHECKING', async () => {
-      vi.mocked(trpcClient.update.checkForUpdates.mutate).mockResolvedValue({});
+      vi.mocked(trpcClient.update.checkForUpdates.mutate).mockResolvedValue({ updateAvailable: false });
 
       const promise = service.checkForUpdates();
 
@@ -142,7 +149,7 @@ describe('UpdateService', () => {
     });
 
     it('should call trpcClient.update.checkForUpdates', async () => {
-      vi.mocked(trpcClient.update.checkForUpdates.mutate).mockResolvedValue({});
+      vi.mocked(trpcClient.update.checkForUpdates.mutate).mockResolvedValue({ updateAvailable: false });
 
       const result = await service.checkForUpdates();
 
@@ -161,7 +168,7 @@ describe('UpdateService', () => {
     });
 
     it('should reconcile an available result into the AVAILABLE state', async () => {
-      const updateInfo = { version: '2.0.0' };
+      const updateInfo = updateInfoFixture('2.0.0');
       vi.mocked(trpcClient.update.checkForUpdates.mutate).mockResolvedValue({
         updateAvailable: true,
         updateInfo
@@ -283,16 +290,16 @@ describe('UpdateService', () => {
   describe('getStatus', () => {
     it('should return current status', () => {
       service._state = UpdateState.DOWNLOADING;
-      service._updateInfo = { version: '2.0.0' };
-      service._downloadProgress = { percent: 50 };
+      service._updateInfo = updateInfoFixture('2.0.0');
+      service._downloadProgress = progressFixture(50);
       service._error = { message: 'Test' };
 
       const status = service.getStatus();
 
       expect(status).toEqual({
         state: UpdateState.DOWNLOADING,
-        updateInfo: { version: '2.0.0' },
-        downloadProgress: { percent: 50 },
+        updateInfo: updateInfoFixture('2.0.0'),
+        downloadProgress: progressFixture(50),
         error: { message: 'Test' }
       });
     });
@@ -307,8 +314,8 @@ describe('UpdateService', () => {
 
   describe('updateInfo getter', () => {
     it('should return update info', () => {
-      service._updateInfo = { version: '2.0.0' };
-      expect(service.updateInfo).toEqual({ version: '2.0.0' });
+      service._updateInfo = updateInfoFixture('2.0.0');
+      expect(service.updateInfo).toMatchObject({ version: '2.0.0' });
     });
   });
 
@@ -332,7 +339,7 @@ describe('UpdateService', () => {
 
     it('should reset state', async () => {
       service._state = UpdateState.AVAILABLE;
-      service._updateInfo = { version: '2.0.0' };
+      service._updateInfo = updateInfoFixture('2.0.0');
       service._initialized = true;
 
       await service.dispose();

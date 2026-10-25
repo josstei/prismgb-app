@@ -5,7 +5,6 @@
  * and publishes performance state events.
  */
 
-import { injectable, inject } from 'inversify';
 import { BaseOrchestrator } from '@platform/core';
 import { EventChannels, OnEvent } from '@platform/events';
 import type { PerformanceUiModePayload, TypedEventBusLike } from '@platform/events';
@@ -14,18 +13,23 @@ import type {
   PerformanceState,
   PerformanceStateService
 } from '@renderer/infrastructure/services/performance/performance-state.service';
-import { TOKENS } from '@renderer/application/di/tokens.js';
 
-@injectable()
+type PerformanceStateOrchestratorDependencies = {
+  eventBus: TypedEventBusLike;
+  performanceStateService: PerformanceStateService;
+  loggerFactory: LoggerFactoryLike;
+};
+
 export class PerformanceStateOrchestrator extends BaseOrchestrator {
   private _lastUiMode: PerformanceUiModePayload | null;
 
-  constructor(
-    @inject(TOKENS.eventBus) protected readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.performanceStateService) private readonly performanceStateService: PerformanceStateService,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  protected readonly eventBus: TypedEventBusLike;
+  private readonly performanceStateService: PerformanceStateService;
+
+  constructor({ eventBus, performanceStateService, loggerFactory }: PerformanceStateOrchestratorDependencies) {
     super({ loggerFactory, eventBus }, 'PerformanceStateOrchestrator');
+    this.eventBus = eventBus;
+    this.performanceStateService = performanceStateService;
 
     this._lastUiMode = null;
   }
@@ -73,7 +77,7 @@ export class PerformanceStateOrchestrator extends BaseOrchestrator {
   }
 
   override async onCleanup(): Promise<void> {
-    this.performanceStateService.dispose();
+    await this.performanceStateService.dispose();
   }
 
 }

@@ -1,13 +1,6 @@
-/**
- * Main-process DI container binding tests.
- *
- * Proves the Inversify wiring in `main.module.ts` is complete and correct:
- * every token resolves without throwing, resolution is singleton-scoped, and
- * overrides replace an already-bound token — mirroring the renderer's
- * container test shape (tests/unit/renderer/application/container.test.ts).
- */
+/** Main runtime ownership and process isolation. */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 
 vi.mock('electron', () => {
   class MockBrowserWindow {}
@@ -59,44 +52,61 @@ vi.mock('electron-updater', () => {
   };
 });
 
-import type { ServiceIdentifier } from 'inversify';
-import { createMainContainer } from '@main/application/container.js';
-import { TOKENS, TOKEN_KEYS } from '@main/application/di/tokens.js';
+import { createMainRuntime } from '@main/application/container.js';
+import { AppOrchestrator } from '@main/application/app.orchestrator.js';
+import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
+import { WindowService } from '@main/infrastructure/window/window.service.js';
+import { TranscodeService } from '@platform/transcode/service';
 import { createLoggerFactory } from '../../../factories/index.js';
 
-describe('Main container', () => {
-  let loggerFactory: ReturnType<typeof createLoggerFactory>;
+describe('Main runtime', () => {
+  afterEach(() => vi.restoreAllMocks());
 
-  beforeEach(() => {
-    loggerFactory = createLoggerFactory();
+  it('awaits renderer shutdown before main teardown and releases services after shutdown failure', async () => {
+    let rejectShutdown!: (error: Error) => void;
+    const shutdown = vi.spyOn(IpcHandlerRegistry.prototype, 'shutdownRenderer')
+      .mockImplementation(() => new Promise<void>((_resolve, reject) => { rejectShutdown = reject; }));
+    const drain = vi.spyOn(TranscodeService.prototype, 'drain').mockResolvedValue();
+    const cleanup = vi.spyOn(AppOrchestrator.prototype, 'cleanup').mockResolvedValue();
+    const disposeWindow = vi.spyOn(WindowService.prototype, 'dispose').mockResolvedValue();
+    const runtime = createMainRuntime(createLoggerFactory());
+    const disposal = runtime.dispose();
+    await vi.waitFor(() => expect(shutdown).toHaveBeenCalledOnce());
+    expect(cleanup).not.toHaveBeenCalled();
+    expect(disposeWindow).not.toHaveBeenCalled();
+
+    const failure = new Error('renderer flush failed');
+    rejectShutdown(failure);
+    await expect(disposal).rejects.toMatchObject({ errors: [failure] });
+    expect(drain).not.toHaveBeenCalled();
+    expect(cleanup).toHaveBeenCalledOnce();
+    expect(disposeWindow).toHaveBeenCalledOnce();
+    expect(runtime.dispose()).toBe(disposal);
   });
 
-  it('resolves every token without throwing', () => {
-    const container = createMainContainer(loggerFactory);
-
-    for (const key of TOKEN_KEYS) {
-      expect(() => container.get(TOKENS[key] as ServiceIdentifier)).not.toThrow();
-    }
+  it('finishes renderer-accepted recordings before main services close', async () => {
+    const order: string[] = [];
+    let finishRecording!: () => void;
+    vi.spyOn(IpcHandlerRegistry.prototype, 'shutdownRenderer').mockImplementation(async () => { order.push('renderer'); });
+    vi.spyOn(TranscodeService.prototype, 'drain').mockImplementation(() => {
+      order.push('recordings');
+      return new Promise<void>((resolve) => { finishRecording = resolve; });
+    });
+    vi.spyOn(WindowService.prototype, 'drainDownloads').mockImplementation(async () => { order.push('downloads'); });
+    vi.spyOn(AppOrchestrator.prototype, 'cleanup').mockImplementation(async () => { order.push('main'); });
+    const runtime = createMainRuntime(createLoggerFactory());
+    const disposal = runtime.dispose();
+    await vi.waitFor(() => expect(order).toEqual(['renderer', 'recordings']));
+    finishRecording();
+    await disposal;
+    expect(order).toEqual(['renderer', 'recordings', 'downloads', 'main']);
   });
 
-  it('returns the same singleton instance across repeated resolutions', () => {
-    const container = createMainContainer(loggerFactory);
-
-    expect(container.get(TOKENS.windowService)).toBe(container.get(TOKENS.windowService));
-    expect(container.get(TOKENS.appOrchestrator)).toBe(container.get(TOKENS.appOrchestrator));
-  });
-
-  it('replaces an already-bound token with an override', () => {
-    const fakeLoggerFactory = { create: vi.fn() };
-    const container = createMainContainer(loggerFactory, { loggerFactory: fakeLoggerFactory });
-
-    expect(container.get(TOKENS.loggerFactory)).toBe(fakeLoggerFactory);
-  });
-
-  it('binds an override for a token constructed from the overridden value', () => {
-    const fakeTranscodeService = { initialize: vi.fn(), dispose: vi.fn() };
-    const container = createMainContainer(loggerFactory, { transcodeService: fakeTranscodeService });
-
-    expect(container.get(TOKENS.transcodeService)).toBe(fakeTranscodeService);
+  it('owns independent service graphs and disposes an unstarted runtime', async () => {
+    const first = createMainRuntime(createLoggerFactory());
+    const second = createMainRuntime(createLoggerFactory());
+    expect(first.windowService).not.toBe(second.windowService);
+    await Promise.all([first.dispose(), first.dispose(), second.dispose()]);
+    await expect(first.initialize()).rejects.toThrow('disposed');
   });
 });

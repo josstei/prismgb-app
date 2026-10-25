@@ -20,7 +20,6 @@ export {
   createMockElement,
   createUIController,
   createUISetupControllerMock,
-  createPresentationModeControllerMock,
   createUIEventBridgeControllerMock,
   createStatusNotificationComponentMock,
   createStreamControlsComponentMock,
@@ -29,7 +28,6 @@ export {
   createUiComponentHostMock,
   createUIEffectsMock,
   createUIBodyClassManagerMock,
-
   createUIEffectsElementsMock,
   createStreamingControlsElementsMock,
   createUIControllerElementsMock,
@@ -44,7 +42,6 @@ export {
 // Device factories
 export {
   createDeviceInfo,
-  createMediaStream,
   createRendererDeviceRuntimeMock,
   createDeviceStatusComponentMock,
 } from './device.factory.js';
@@ -73,7 +70,6 @@ export {
 // Orchestrator factories
 export {
   createOrchestratorMock,
-  createRendererAppContainerMock,
 } from './orchestrator.factory.js';
 
 // AppState factories
@@ -89,7 +85,6 @@ export {
   createCanvasRenderingContextMock,
   createBitmapMock,
   createPreventDefaultEventMock,
-  createLoginItemServiceMock,
 } from './system.factory.js';
 
 // Settings factories
@@ -99,7 +94,6 @@ export {
   createNotesServiceMock,
   createSettingsFullscreenServiceMock,
   createSettingsCinematicModeServiceMock,
-  createPresentationModeServiceMock,
 } from './settings.factory.js';
 
 // Update factories
@@ -115,15 +109,12 @@ export {
 
 // Performance factories
 export {
-
   createPerformanceMetricsAdapterMock,
   createVisibilityAdapterMock,
   createUserActivityAdapterMock,
   createReducedMotionAdapterMock,
   createPerformanceStateServiceMock,
   createPerformanceMetricsServiceMock,
-  createPerformanceAnimationServiceMock,
-  createBodyClassManagerMock,
   createProcessMetricsMock,
 } from './performance.factory.js';
 
@@ -146,10 +137,7 @@ export {
   createStreamingAudioPipelineServiceMock,
   createStreamingViewServiceMock,
   createStreamingViewElementsMock,
-  createViewportServiceMock,
-  createStreamHealthServiceMock,
   createGpuRendererServiceMock,
   createStreamingServiceFacadeMock,
   createStreamingRenderServiceMock,
-  createCanvasLifecycleServiceMock,
 } from './streaming-pipeline.factory.js';

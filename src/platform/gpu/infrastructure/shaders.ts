@@ -1,3 +1,5 @@
+import { PASS_SPECS } from '../domain/pass-specs';
+
 export interface ShaderSourceMap {
   byFileName: Record<string, string>;
 }
@@ -41,7 +43,7 @@ const WEBGPU_SHADER_MODULES = import.meta.glob('./shaders/webgpu/*.wgsl', {
 
 function createShaderSourceMap(
   modules: Record<string, string>,
-  transformSource: (source: string) => string = (source) => source
+  transformSource: (source: string, fileName: string) => string = (source) => source
 ): ShaderSourceMap {
   const entries = Object.entries(modules).map(([modulePath, source]) => {
     const fileName = modulePath.split('/').pop();
@@ -53,7 +55,7 @@ function createShaderSourceMap(
       throw new Error(`Shader module '${modulePath}' did not resolve to source text`);
     }
 
-    return [fileName, transformSource(source)] as const;
+    return [fileName, transformSource(source, fileName)] as const;
   });
 
   return {
@@ -61,8 +63,9 @@ function createShaderSourceMap(
   };
 }
 
-function composeWebGpuShader(source: string): string {
-  return `${WEBGPU_FULLSCREEN_VERTEX_SOURCE}\n${source}`;
+function composeWebGpuShader(source: string, fileName: string): string {
+  const uniforms = PASS_SPECS.find((pass) => pass.webgpuShader === fileName)?.uniforms.wgsl ?? '';
+  return `${WEBGPU_FULLSCREEN_VERTEX_SOURCE}\n${uniforms}\n${source}`;
 }
 
 export function loadWebGpuShaders(): WebGpuShaders {

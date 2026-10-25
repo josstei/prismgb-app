@@ -1,8 +1,7 @@
-import { injectable } from 'inversify';
+
 
 type Cleanup = () => void;
 
-@injectable()
 export class VisibilityAdapter {
   private _handleVisibilityChange: (() => void) | null = null;
 

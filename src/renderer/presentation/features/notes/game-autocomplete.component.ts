@@ -24,7 +24,6 @@ export interface GameAutocompleteInitializeOptions {
   onEnter?: AutocompleteCallback | null;
   onEscape?: AutocompleteCallback | null;
   onBlur?: AutocompleteCallback | null;
-  onFocus?: AutocompleteCallback | null;
 }
 
 class GameAutocompleteComponent extends PresentationComponent {
@@ -38,7 +37,6 @@ class GameAutocompleteComponent extends PresentationComponent {
   declare onEnter: AutocompleteCallback | null | undefined;
   declare onEscape: AutocompleteCallback | null | undefined;
   declare onBlur: AutocompleteCallback | null | undefined;
-  declare onFocus: AutocompleteCallback | null | undefined;
 
   constructor(options: GameAutocompleteComponentOptions) {
     super();
@@ -73,8 +71,7 @@ class GameAutocompleteComponent extends PresentationComponent {
       onSelect: (value) => this.onSelect?.(value),
       onEnter: () => this.onEnter?.(),
       onEscape: () => this.onEscape?.(),
-      onBlur: () => this.onBlur?.(),
-      onFocus: () => this.onFocus?.()
+      onBlur: () => this.onBlur?.()
     });
     this.comboboxController.initialize({
       inputElement: this.gameInput,
@@ -148,7 +145,6 @@ class GameAutocompleteComponent extends PresentationComponent {
     this.onEnter = null;
     this.onEscape = null;
     this.onBlur = null;
-    this.onFocus = null;
     this.notesService = null;
     this.logger = null;
   }

@@ -1,10 +1,10 @@
-import { injectable, inject } from 'inversify';
+
 import { BaseOrchestrator } from '@platform/core';
 import { EventChannels, OnEvent } from '@platform/events';
 import type { LoggerFactoryLike } from '@platform/core';
 import type { StreamErrorPayload, TypedEventBusLike } from '@platform/events';
 import { getErrorMessage } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+
 import type {
   PerformanceStatePayload,
   StreamStartedPayload,
@@ -12,7 +12,6 @@ import type {
   SupportedDeviceAvailablePayload
 } from '@renderer/infrastructure/services/streaming/streaming.contract.js';
 import type { AppState } from '@renderer/application/state/app-state.js';
-
 
 type StreamingServiceLike = {
   start(deviceId?: string | null): Promise<unknown>;
@@ -30,13 +29,12 @@ type StreamViewServiceLike = {
 
 type StreamingRenderServiceLike = {
   initialize(): void;
-  handleCanvasExpired(): Promise<void>;
   handlePerformanceStateChanged(state: PerformanceStatePayload): void;
   handleFullscreenChange(): void;
   handleRenderPresetChanged(presetId: string): void;
   handlePerformanceModeChanged(enabled: boolean): Promise<void>;
   startPipeline(capabilities: StreamingCapabilities): Promise<void>;
-  stopPipeline(): void;
+  stopPipeline(): Promise<void>;
   cleanup(): Promise<void>;
 };
 
@@ -46,7 +44,7 @@ type GpuRecordingServiceLike = {
 };
 
 type SettingsServiceLike = {
-  getBooleanSetting(name: string): boolean;
+  getSetting(name: 'autoStreamOnConnect'): boolean;
 };
 
 function getStreamErrorMessage(payload: unknown): string {
@@ -63,28 +61,39 @@ function getStreamErrorMessage(payload: unknown): string {
   return getErrorMessage(payload, 'Stream error');
 }
 
-@injectable()
+type StreamingOrchestratorDependencies = {
+  streamingService: StreamingServiceLike;
+  appState: AppStateLike;
+  streamViewService: StreamViewServiceLike;
+  streamingRenderService: StreamingRenderServiceLike;
+  gpuRecordingService: GpuRecordingServiceLike;
+  settingsService: SettingsServiceLike;
+  eventBus: TypedEventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 export class StreamingOrchestrator extends BaseOrchestrator {
-  constructor(
-    @inject(TOKENS.streamingService) private readonly streamingService: StreamingServiceLike,
-    @inject(TOKENS.appState) private readonly appState: AppStateLike,
-    @inject(TOKENS.streamViewService) private readonly streamViewService: StreamViewServiceLike,
-    @inject(TOKENS.streamingRenderService) private readonly streamingRenderService: StreamingRenderServiceLike,
-    @inject(TOKENS.gpuRecordingService) private readonly gpuRecordingService: GpuRecordingServiceLike,
-    @inject(TOKENS.settingsService) private readonly settingsService: SettingsServiceLike,
-    @inject(TOKENS.eventBus) protected readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly streamingService: StreamingServiceLike;
+  private readonly appState: AppStateLike;
+  private readonly streamViewService: StreamViewServiceLike;
+  private readonly streamingRenderService: StreamingRenderServiceLike;
+  private readonly gpuRecordingService: GpuRecordingServiceLike;
+  private readonly settingsService: SettingsServiceLike;
+  protected readonly eventBus: TypedEventBusLike;
+
+  constructor({ streamingService, appState, streamViewService, streamingRenderService, gpuRecordingService, settingsService, eventBus, loggerFactory }: StreamingOrchestratorDependencies) {
     super({ loggerFactory, eventBus }, 'StreamingOrchestrator');
+    this.streamingService = streamingService;
+    this.appState = appState;
+    this.streamViewService = streamViewService;
+    this.streamingRenderService = streamingRenderService;
+    this.gpuRecordingService = gpuRecordingService;
+    this.settingsService = settingsService;
+    this.eventBus = eventBus;
   }
 
   async onInitialize(): Promise<void> {
     this.streamingRenderService.initialize();
-  }
-
-  @OnEvent(EventChannels.RENDER.CANVAS_EXPIRED)
-  private _handleCanvasExpired(): Promise<void> {
-    return this.streamingRenderService.handleCanvasExpired();
   }
 
   @OnEvent(EventChannels.UI.STREAM_START_REQUESTED)
@@ -175,6 +184,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
 
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Streaming from camera' });
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
       this.logger.error('Stream unhealthy:', getErrorMessage(error, 'No frames received'));
 
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, {
@@ -202,7 +212,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       await this.gpuRecordingService.stop();
     }
 
-    this.streamingRenderService.stopPipeline();
+    await this.streamingRenderService.stopPipeline();
     this.streamViewService.clearStream();
 
     this.eventBus.publish(EventChannels.UI.STREAMING_MODE, { enabled: false });
@@ -231,7 +241,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
 
   @OnEvent(EventChannels.DEVICE.SUPPORTED_DEVICE_AVAILABLE)
   async _handleSupportedDeviceAvailable(data: SupportedDeviceAvailablePayload): Promise<void> {
-    if (this.settingsService.getBooleanSetting('autoStreamOnConnect') && !this.streamingService.isActive()) {
+    if (this.settingsService.getSetting('autoStreamOnConnect') && !this.streamingService.isActive()) {
       const deviceLabel = data.device.label || data.device.deviceId;
       this.logger.info(`Auto-starting stream - device available: ${deviceLabel}`);
       try {

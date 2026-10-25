@@ -35,17 +35,21 @@ function createContext(overrides: Partial<Record<string, unknown>> = {}) {
       installUpdate: vi.fn(),
       getStatus: vi.fn(() => ({ state: 'idle' }))
     },
-    windowService: { setFullScreen: vi.fn(), isFullScreen: vi.fn(() => true) },
+    windowService: {
+      setFullScreen: vi.fn(), isFullScreen: vi.fn(() => true),
+      expectDownload: vi.fn(), cancelDownload: vi.fn()
+    },
     transcodeService: {
-      transcode: vi.fn(async () => ({ success: true, jobId: 'job-1' })),
-      cancel: vi.fn(() => ({ success: true })),
-      getStatus: vi.fn(() => ({ success: true }))
+      transcode: vi.fn(async () => ({ jobId: 'job-1' })),
+      cancel: vi.fn(),
     },
     loginItemService: { isEnabled: vi.fn(() => true), setEnabled: vi.fn() },
     app: { getAppMetrics: vi.fn(() => []) },
     shell: { openExternal: vi.fn(async () => undefined) },
     logger,
     ipcPushBridge: new IpcPushBridge(),
+    onRendererReady: vi.fn(),
+    onRendererShutdownComplete: vi.fn(),
     ...overrides
   };
   return context as unknown as IpcContext;
@@ -56,6 +60,20 @@ function caller(context: IpcContext) {
 }
 
 describe('appRouter — queries / mutations', () => {
+  it('app.rendererReady notifies the runtime after renderer startup', async () => {
+    const context = createContext();
+    await caller(context).app.rendererReady();
+    expect(context.onRendererReady).toHaveBeenCalledOnce();
+  });
+
+  it('app.rendererShutdownComplete validates and forwards the matching cleanup result', async () => {
+    const context = createContext();
+    const result = { requestId: 'shutdown-1', error: 'note save failed' };
+    await caller(context).app.rendererShutdownComplete(result);
+    expect(context.onRendererShutdownComplete).toHaveBeenCalledWith(result);
+    await expect(caller(context).app.rendererShutdownComplete({ requestId: '' })).rejects.toThrow();
+  });
+
   it('device.getStatus maps canonical device status to the payload-only response', async () => {
     const context = createContext();
     const result = await caller(context).device.getStatus();
@@ -191,6 +209,21 @@ describe('appRouter — queries / mutations', () => {
     expect(context.windowService.setFullScreen).toHaveBeenCalledWith(true);
   });
 
+  it.each(['expectDownload', 'cancelDownload'] as const)('window.%s forwards a local blob URL', async (operation) => {
+    const context = createContext();
+    const url = 'blob:null/9e09f080-5555-4444-9999-19b0467d5fce';
+    await caller(context).window[operation]({ url });
+    expect(context.windowService[operation]).toHaveBeenCalledWith(url);
+  });
+
+  it.each(['expectDownload', 'cancelDownload'] as const)('window.%s rejects remote and malformed download registrations', async (operation) => {
+    const context = createContext();
+    for (const url of ['https://example.com/video.webm', 'file:///tmp/video.webm', 'data:video/webm;base64,AA==', 'not a URL', `blob:null/${'a'.repeat(4096)}`]) {
+      await expect(caller(context).window[operation]({ url })).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    }
+    expect(context.windowService[operation]).not.toHaveBeenCalled();
+  });
+
   it('window.setFullScreen forwards enabled: false to the window service (falsy flag survives the boxed input)', async () => {
     const context = createContext();
     await expect(caller(context).window.setFullScreen({ enabled: false })).resolves.toBeUndefined();
@@ -279,13 +312,12 @@ describe('appRouter — queries / mutations', () => {
     ).rejects.toThrow();
   });
 
-  it('transcode.start passes a Buffer + interrupted flag through to the service for a valid input', async () => {
+  it('transcode.start passes a Buffer through to the service for a valid input', async () => {
     const context = createContext();
     await caller(context).transcode.start({ inputBuffer: new ArrayBuffer(8), format: 'mp4' } as never);
     const passed = (context.transcodeService.transcode as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(Buffer.isBuffer(passed.inputBuffer)).toBe(true);
     expect(passed.format).toBe('mp4');
-    expect(passed.interrupted).toBe(false);
   });
 
   it('transcode.start returns the payload-only shape on service success', async () => {
@@ -297,9 +329,8 @@ describe('appRouter — queries / mutations', () => {
   it('transcode.start rethrows an INTERNAL_SERVER_ERROR TRPCError when the service reports a business failure', async () => {
     const context = createContext({
       transcodeService: {
-        transcode: vi.fn(async () => ({ success: false, error: 'Unsupported format' })),
-        cancel: vi.fn(() => ({ success: true })),
-        getStatus: vi.fn(() => ({ success: true }))
+        transcode: vi.fn(async () => { throw new Error('Unsupported format'); }),
+        cancel: vi.fn(),
       }
     });
 
@@ -314,8 +345,7 @@ describe('appRouter — queries / mutations', () => {
         transcode: vi.fn(async () => {
           throw new Error('ffmpeg crashed');
         }),
-        cancel: vi.fn(() => ({ success: true })),
-        getStatus: vi.fn(() => ({ success: true }))
+        cancel: vi.fn(),
       }
     });
 
@@ -332,43 +362,14 @@ describe('appRouter — queries / mutations', () => {
   it('transcode.cancel rethrows an INTERNAL_SERVER_ERROR TRPCError when the service reports a business failure', async () => {
     const context = createContext({
       transcodeService: {
-        transcode: vi.fn(async () => ({ success: true, jobId: 'job-1' })),
-        cancel: vi.fn(() => ({ success: false, error: 'Job not found or already completed' })),
-        getStatus: vi.fn(() => ({ success: true }))
+        transcode: vi.fn(async () => ({ jobId: 'job-1' })),
+        cancel: vi.fn(() => { throw new Error('Job not found or already completed'); }),
       }
     });
 
     await expect(caller(context).transcode.cancel({ jobId: 'job-1' })).rejects.toMatchObject({
       code: 'INTERNAL_SERVER_ERROR',
       message: 'Job not found or already completed'
-    });
-  });
-
-  it('transcode.getStatus returns the payload-only jobs shape on service success', async () => {
-    const job = { id: 'job-1', state: 'running', progress: 50, outputPath: null, error: null, startTime: 1 };
-    const context = createContext({
-      transcodeService: {
-        transcode: vi.fn(async () => ({ success: true, jobId: 'job-1' })),
-        cancel: vi.fn(() => ({ success: true })),
-        getStatus: vi.fn(() => ({ success: true, jobs: [job] }))
-      }
-    });
-
-    await expect(caller(context).transcode.getStatus()).resolves.toEqual({ jobs: [job] });
-  });
-
-  it('transcode.getStatus rethrows an INTERNAL_SERVER_ERROR TRPCError when the service reports a business failure', async () => {
-    const context = createContext({
-      transcodeService: {
-        transcode: vi.fn(async () => ({ success: true, jobId: 'job-1' })),
-        cancel: vi.fn(() => ({ success: true })),
-        getStatus: vi.fn(() => ({ success: false, error: 'Status unavailable' }))
-      }
-    });
-
-    await expect(caller(context).transcode.getStatus()).rejects.toMatchObject({
-      code: 'INTERNAL_SERVER_ERROR',
-      message: 'Status unavailable'
     });
   });
 
@@ -429,10 +430,10 @@ describe('appRouter — subscriptions', () => {
 
     const validDevice = createChromaticDeviceInfoPayload();
 
-    bridge.emit('device:connected', validDevice);
-    bridge.emit('device:connected', { vendorId: 'not-a-number' });
-    bridge.emit('device:connected', { ...validDevice, extra: true });
-    bridge.emit('device:connected', { ...validDevice, serialNumber: 'MOCK-002' });
+    bridge.emitUnchecked('device:connected', validDevice);
+    bridge.emitUnchecked('device:connected', { vendorId: 'not-a-number' });
+    bridge.emitUnchecked('device:connected', { ...validDevice, extra: true });
+    bridge.emitUnchecked('device:connected', { ...validDevice, serialNumber: 'MOCK-002' });
 
     expect(received).toEqual([
       validDevice,
@@ -446,7 +447,7 @@ describe('appRouter — subscriptions', () => {
     const received: unknown[] = [];
     const subscription = observableResult.subscribe({ next: (value: unknown) => received.push(value) });
 
-    bridge.emit('window:enter-fullscreen');
+    bridge.emitUnchecked('window:enter-fullscreen');
 
     expect(received).toEqual([undefined]);
     subscription.unsubscribe();

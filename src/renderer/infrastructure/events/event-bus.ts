@@ -1,12 +1,14 @@
-import { injectable, inject } from 'inversify';
+
 import { PlatformEventBus } from '@platform/events';
 import { EventChannels } from '@platform/events';
 import type { LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
 
-@injectable()
+type EventBusDependencies = {
+  loggerFactory: LoggerFactoryLike;
+};
+
 class EventBus extends PlatformEventBus {
-  constructor(@inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike) {
+  constructor({ loggerFactory }: EventBusDependencies) {
     super({
       loggerFactory,
       handlerErrorEvent: EventChannels.SYSTEM.HANDLER_ERROR,

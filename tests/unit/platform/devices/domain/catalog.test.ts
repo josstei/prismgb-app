@@ -1,17 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_DEVICE_ID,
-  DEFAULT_NATIVE_RESOLUTION,
   DeviceCatalog,
   getDeviceAcquisitionProfile,
   getDeviceStreamProfile,
   matchByLabel,
-  matchByUsb,
-  matchDevice,
-  toDeviceInfo,
   toDeviceStatusPayload
 } from '@platform/devices';
-import * as DevicesPublicApi from '@platform/devices';
+import { matchByUsb } from '../../../../../src/platform/devices/domain/matching';
+import { toDeviceInfo } from '../../../../../src/platform/devices/domain/payloads';
 import {
   createFixtureDeviceStatus,
   createFixtureFrameData,
@@ -28,7 +24,7 @@ describe('DeviceCatalog', () => {
     const chromatic = DeviceCatalog.get(CHROMATIC_DESCRIPTOR.id);
 
     expect(chromatic).not.toBeNull();
-    expect(chromatic?.id).toBe(DEFAULT_DEVICE_ID);
+    expect(chromatic?.id).toBe(DeviceCatalog.default().id);
     expect(chromatic?.name).toBe(CHROMATIC_DESCRIPTOR.name);
     expect(chromatic?.manufacturer).toBe(CHROMATIC_DESCRIPTOR.manufacturer);
     expect(chromatic?.usb).toMatchObject(CHROMATIC_DESCRIPTOR.usb);
@@ -68,12 +64,12 @@ describe('DeviceCatalog', () => {
   });
 
   it('exposes default native resolution through catalog helpers', () => {
-    expect(DEFAULT_NATIVE_RESOLUTION).toEqual({
+    const expectedResolution = {
       width: CHROMATIC_DESCRIPTOR.display.nativeWidth,
       height: CHROMATIC_DESCRIPTOR.display.nativeHeight
-    });
-    expect(DeviceCatalog.nativeResolution()).toEqual(DEFAULT_NATIVE_RESOLUTION);
-    expect(DeviceCatalog.nativeResolution(CHROMATIC_DESCRIPTOR.id)).toEqual(DEFAULT_NATIVE_RESOLUTION);
+    };
+    expect(DeviceCatalog.nativeResolution()).toEqual(expectedResolution);
+    expect(DeviceCatalog.nativeResolution(CHROMATIC_DESCRIPTOR.id)).toEqual(expectedResolution);
   });
 
   it('derives stream profiles through the catalog', () => {
@@ -83,7 +79,10 @@ describe('DeviceCatalog', () => {
       hasVideo: true,
       audioSupport: true,
       canvasScale: 4,
-      nativeResolution: DEFAULT_NATIVE_RESOLUTION,
+      nativeResolution: {
+        width: CHROMATIC_DESCRIPTOR.display.nativeWidth,
+        height: CHROMATIC_DESCRIPTOR.display.nativeHeight
+      },
       canvasResolution: {
         width: CHROMATIC_DESCRIPTOR.display.nativeWidth * 4,
         height: CHROMATIC_DESCRIPTOR.display.nativeHeight * 4,
@@ -172,19 +171,14 @@ describe('DeviceCatalog', () => {
     });
   });
 
-  it('matches observed USB devices and media labels through one matcher', () => {
+  it('matches observed USB devices and media labels through the catalog', () => {
     expect(matchByUsb({
       vendorId: CHROMATIC_DESCRIPTOR.usb.vendorId,
       productId: CHROMATIC_DESCRIPTOR.usb.productId
     }).deviceId).toBe(CHROMATIC_DESCRIPTOR.id);
     expect(matchByUsb({ vendorId: 0x9999, productId: CHROMATIC_DESCRIPTOR.usb.productId }).matched).toBe(false);
     expect(matchByLabel(`USB ${CHROMATIC_DESCRIPTOR.name} Device`).deviceId).toBe(CHROMATIC_DESCRIPTOR.id);
-    expect(matchDevice({
-      deviceId: 'media-1',
-      kind: 'videoinput',
-      label: `${CHROMATIC_SPECS.hexVendorId.slice(2)}:${CHROMATIC_SPECS.hexProductId.slice(2)}`,
-      groupId: 'g1'
-    }).reason).toBe('label');
+    expect(matchByLabel(`${CHROMATIC_SPECS.hexVendorId.slice(2)}:${CHROMATIC_SPECS.hexProductId.slice(2)}`).reason).toBe('label');
   });
 
   it('maps canonical domain status to transport-safe payloads without IPC envelopes', () => {
@@ -221,22 +215,4 @@ describe('DeviceCatalog', () => {
     expect('success' in payload).toBe(false);
   });
 
-  it('keeps the package root to catalog, matcher, and payload helpers', () => {
-    expect(Object.keys(DevicesPublicApi).sort()).toEqual([
-      'DEFAULT_DEVICE_ID',
-      'DEFAULT_NATIVE_RESOLUTION',
-      'DeviceCatalog',
-      'deviceInfoSchema',
-      'deviceStatusPayloadSchema',
-      'getDeviceAcquisitionProfile',
-      'getDeviceStreamProfile',
-      'matchByLabel',
-      'matchByUsb',
-      'matchDevice',
-      'nullableDeviceInfoSchema',
-      'toDeviceInfo',
-      'toDeviceInfoPayload',
-      'toDeviceStatusPayload'
-    ]);
-  });
 });

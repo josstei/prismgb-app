@@ -7,7 +7,7 @@ describe('IpcPushBridge', () => {
     const listener = vi.fn();
     bridge.on('device:connected', listener);
 
-    bridge.emit('device:connected', { vendorId: 1234 });
+    bridge.emitUnchecked('device:connected', { vendorId: 1234 });
 
     expect(listener).toHaveBeenCalledTimes(1);
     expect(listener).toHaveBeenCalledWith({ vendorId: 1234 });
@@ -18,7 +18,7 @@ describe('IpcPushBridge', () => {
     const listener = vi.fn();
     bridge.on('window:enter-fullscreen', listener);
 
-    bridge.emit('window:enter-fullscreen');
+    bridge.emitUnchecked('window:enter-fullscreen');
 
     expect(listener).toHaveBeenCalledWith(undefined);
   });
@@ -30,7 +30,7 @@ describe('IpcPushBridge', () => {
     bridge.on('transcode:progress', a);
     bridge.on('transcode:progress', b);
 
-    bridge.emit('transcode:progress', { percent: 50 });
+    bridge.emitUnchecked('transcode:progress', { percent: 50 });
 
     expect(a).toHaveBeenCalledWith({ percent: 50 });
     expect(b).toHaveBeenCalledWith({ percent: 50 });
@@ -42,7 +42,7 @@ describe('IpcPushBridge', () => {
     bridge.on('transcode:completed', listener);
     bridge.off('transcode:completed', listener);
 
-    bridge.emit('transcode:completed', { jobId: 'j' });
+    bridge.emitUnchecked('transcode:completed', { jobId: 'j' });
 
     expect(listener).not.toHaveBeenCalled();
   });
@@ -52,7 +52,7 @@ describe('IpcPushBridge', () => {
     const listener = vi.fn();
     bridge.on('device:connected', listener);
 
-    bridge.emit('device:disconnected', null);
+    bridge.emitUnchecked('device:disconnected', null);
 
     expect(listener).not.toHaveBeenCalled();
   });

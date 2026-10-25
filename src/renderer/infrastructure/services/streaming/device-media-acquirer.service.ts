@@ -1,4 +1,4 @@
-import { injectable, inject } from 'inversify';
+
 import { BaseService, getErrorMessage } from '@platform/core';
 import type { LoggerFactoryLike } from '@platform/core';
 import type {
@@ -8,7 +8,6 @@ import type {
 } from '@platform/devices';
 import type { MediaDevicesPort } from '../devices/browser-media-devices.port.js';
 import type { DeviceStreamingTarget } from '../devices/device-runtime.service.js';
-import { TOKENS } from '@renderer/application/di/tokens.js';
 
 export interface DeviceStreamCapabilities extends DeviceStreamProfile {
   hasAudio: boolean;
@@ -20,28 +19,19 @@ export interface DeviceMediaAcquireResult {
   capabilities: DeviceStreamCapabilities;
 }
 
-type TrackInfo = {
-  kind: string;
-  label: string;
-  enabled: boolean;
-  muted: boolean;
-  readyState: string;
-  settings: MediaTrackSettings;
+type DeviceMediaAcquirerDependencies = {
+  mediaDevicesPort: MediaDevicesPort;
+  loggerFactory: LoggerFactoryLike;
 };
 
-function getTrackSettings(track: MediaStreamTrack): MediaTrackSettings {
-  return typeof track.getSettings === 'function' ? track.getSettings() : {};
-}
-
-@injectable()
 export class DeviceMediaAcquirer extends BaseService {
   private readonly activeStreams = new Set<MediaStream>();
 
-  constructor(
-    @inject(TOKENS.mediaDevicesPort) private readonly mediaDevicesPort: MediaDevicesPort,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly mediaDevicesPort: MediaDevicesPort;
+
+  constructor({ mediaDevicesPort, loggerFactory }: DeviceMediaAcquirerDependencies) {
     super({ loggerFactory }, 'DeviceMediaAcquirer');
+    this.mediaDevicesPort = mediaDevicesPort;
   }
 
   async acquire(target: DeviceStreamingTarget): Promise<DeviceMediaAcquireResult> {
@@ -93,27 +83,6 @@ export class DeviceMediaAcquirer extends BaseService {
     }
 
     this.activeStreams.delete(stream);
-  }
-
-  getStreamInfo(stream: MediaStream): Record<string, unknown> | null {
-    if (!stream) {
-      return null;
-    }
-
-    const tracks: TrackInfo[] = stream.getTracks().map((track) => ({
-      kind: track.kind,
-      label: track.label,
-      enabled: track.enabled,
-      muted: track.muted,
-      readyState: track.readyState,
-      settings: getTrackSettings(track)
-    }));
-
-    return {
-      id: stream.id,
-      active: stream.active,
-      tracks
-    };
   }
 
   override async dispose(): Promise<void> {

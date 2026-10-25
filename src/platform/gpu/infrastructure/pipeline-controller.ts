@@ -35,7 +35,6 @@ export interface RenderDriver {
   initialize(state: PipelineState): Promise<void>;
   renderFrame(source: TexImageSource, state: PipelineState): void;
   resize(state: PipelineState): void;
-  clearFrame(state: PipelineState): void;
   captureFrame(state: PipelineState): Promise<ImageBitmap>;
   onUniformsChanged(): void;
   releaseResources(): void;
@@ -117,10 +116,6 @@ export class PipelineController implements RenderPipeline, PipelineState {
     this.driver.onUniformsChanged();
   }
 
-  getPreset(): RenderPreset {
-    return this.preset;
-  }
-
   setBrightness(value: number): void {
     this.brightness = Math.max(0, Math.min(2, value));
     this.uniforms = this.rebuildUniforms();
@@ -134,16 +129,6 @@ export class PipelineController implements RenderPipeline, PipelineState {
     this.canvas.height = height;
     this.uniforms = this.rebuildUniforms();
     this.driver.resize(this);
-  }
-
-  pause(): void {
-    this._isActive = false;
-  }
-
-  resume(): void {
-    if (this._isInitialized) {
-      this._isActive = true;
-    }
   }
 
   getStats(): RenderStats {
@@ -169,17 +154,9 @@ export class PipelineController implements RenderPipeline, PipelineState {
     return this.driver.captureFrame(this);
   }
 
-  clearFrame(): void {
-    this.driver.clearFrame(this);
-  }
-
-  releaseResources(): void {
+  async dispose(): Promise<void> {
     this.driver.releaseResources();
     this._isActive = false;
     this._isInitialized = false;
-  }
-
-  async dispose(): Promise<void> {
-    this.releaseResources();
   }
 }

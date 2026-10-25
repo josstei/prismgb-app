@@ -15,8 +15,9 @@ export const StreamSelectors = Object.freeze({
 });
 
 export class StreamPage {
-  constructor(page) {
+  constructor(page, electronApp) {
     this.page = page;
+    this.electronApp = electronApp;
     this.overlay = page.locator(StreamSelectors.overlay);
     this.canvas = page.locator(StreamSelectors.canvas);
     this.screenshotButton = page.locator(StreamSelectors.screenshotButton);
@@ -116,32 +117,19 @@ export class StreamPage {
   }
 
   async suppressDownloads() {
-    await this.page.evaluate(() => {
-      window.__smokeDownloads = [];
-
-      if (window.__smokeDownloadPatchInstalled) {
-        return;
-      }
-
-      const originalClick = HTMLAnchorElement.prototype.click;
-      HTMLAnchorElement.prototype.click = function patchedAnchorClick() {
-        if (this.download) {
-          window.__smokeDownloads.push({
-            filename: this.download,
-            hrefPrefix: this.href.slice(0, 16),
-          });
-          return;
-        }
-
-        return originalClick.call(this);
-      };
-
-      window.__smokeDownloadPatchInstalled = true;
+    await this.electronApp.evaluate(({ BrowserWindow }) => {
+      globalThis.__smokeDownloads = [];
+      BrowserWindow.getAllWindows()[0].webContents.session.on('will-download', (_event, item) => {
+        globalThis.__smokeDownloads.push({ filename: item.getFilename(), hrefPrefix: item.getURL().slice(0, 16) });
+        // Let the production will-download handler accept ownership, then cancel
+        // the real DownloadItem so every registered download reaches done.
+        item.cancel();
+      });
     });
   }
 
   async getDownloads() {
-    return this.page.evaluate(() => window.__smokeDownloads ?? []);
+    return this.electronApp.evaluate(() => globalThis.__smokeDownloads ?? []);
   }
 
   async selectAlternateShaderPreset() {

@@ -1,22 +1,6 @@
-/**
- * Coverage characterization for the settings-definitions module.
- *
- * The following defensive branches are intentionally left uncovered because they are
- * unreachable through the public API over the frozen, valid settings manifest, and
- * covering them would require exporting private functions or mutating a frozen manifest
- * (the manifest is frozen by design; tests must not mutate it or export private internals):
- *  - resolveSettingDefinition: the "Unknown settings allowedValuesSource" and "missing a default" throws.
- *  - shouldLoadAtStartup: the "Startup preference must be synchronously readable" throw.
- *  - assertSettingEventMatchesManifest: the missing-event and payload-mismatch throws.
- *  - getSettingsUiDefinitions: the `?? 0` sort fallback (every UI definition declares an order).
- *  - registerAllowedValuesSource / registerDefaultValueSource: the production "registered after resolve"
- *    throw, reachable only by faking NODE_ENV and deleting globalThis.vi (defeats a production-only guard).
- */
 import { describe, expect, it } from 'vitest';
 import {
   SettingsDefinitions,
-  registerAllowedValuesSource,
-  registerDefaultValueSource,
   hasSettingsControl,
   hasSettingsListboxControl,
   hasExternalSource,
@@ -37,9 +21,9 @@ function definitionNamed(name: string) {
 }
 
 describe('SettingsDefinitions manifest', () => {
-  it('exposes resolved manifest metadata via getters', () => {
-    expect(typeof SettingsDefinitions.name).toBe('undefined');
-    expect(typeof SettingsDefinitions.mode).toBe('string');
+  it('exposes immutable setting definitions', () => {
+    expect(Object.isFrozen(SettingsDefinitions)).toBe(true);
+    expect(Object.isFrozen(SettingsDefinitions.definitions)).toBe(true);
     expect(Array.isArray(SettingsDefinitions.definitions)).toBe(true);
     expect(Array.isArray(SettingsDefinitions.startupPreferenceDefinitions)).toBe(true);
     expect(Array.isArray(SettingsDefinitions.startupPreferenceEventDefinitions)).toBe(true);
@@ -60,20 +44,6 @@ describe('SettingsDefinitions manifest', () => {
       expect(typeof definition.event).toBe('string');
       expect(definition.event.length).toBeGreaterThan(0);
     }
-  });
-});
-
-describe('settings source registration (test-environment cache reset)', () => {
-  it('resets the resolved cache when an allowed-values source is registered', () => {
-    expect(SettingsDefinitions.definitions.length).toBeGreaterThan(0);
-    registerAllowedValuesSource('TEST_ALLOWED', () => ['one', 'two']);
-    expect(SettingsDefinitions.definitions.length).toBeGreaterThan(0);
-  });
-
-  it('resets the resolved cache when a default-value source is registered', () => {
-    expect(SettingsDefinitions.definitions.length).toBeGreaterThan(0);
-    registerDefaultValueSource('TEST_DEFAULT', () => 'value');
-    expect(SettingsDefinitions.definitions.length).toBeGreaterThan(0);
   });
 });
 

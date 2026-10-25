@@ -1,3 +1,4 @@
+import * as serviceMocks from '../../../../../factories/index.js';
 /**
  * StreamingViewportService Unit Tests
  */
@@ -9,7 +10,7 @@ import {
   installGetComputedStyleMock,
   installResizeObserverMock
 } from '../../../../../support/mocks/browser-api.installers.js';
-import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+import { createServiceHarness, type LoggerMockLike } from '../../../../../support/service.harness.js';
 
 interface ViewportComputedStyle {
   paddingLeft?: string;
@@ -47,7 +48,7 @@ type StreamingViewportServiceState = {
 
 describe('StreamingViewportService', () => {
   let service: StreamingViewportService;
-  let mockLogger: ReturnType<typeof createInjectableHarness<StreamingViewportService>>['logger'];
+  let mockLogger: LoggerMockLike;
   let mockCanvas: ReturnType<typeof createMockCanvas>;
   let mockContainer: ReturnType<typeof createMockElement>;
   let mockSection: ReturnType<typeof createMockElement>;
@@ -106,7 +107,9 @@ describe('StreamingViewportService', () => {
     getComputedStyleMock = installGetComputedStyleMock(getViewportComputedStyle);
     resizeObserverMock = installResizeObserverMock();
 
-    const h = createInjectableHarness(StreamingViewportService);
+    const h = createServiceHarness(StreamingViewportService, {
+      loggerFactory: serviceMocks.createLoggerFactory()
+    });
     service = h.subject;
     mockLogger = h.logger;
   });
@@ -187,7 +190,7 @@ describe('StreamingViewportService', () => {
 
       const dimensions = service.calculateDimensions(mockCanvas, nativeResolution);
 
-      expect(dimensions.scale).toBeGreaterThanOrEqual(1);
+      expect(dimensions?.scale).toBeGreaterThanOrEqual(1);
     });
 
     it('should return null if canvas is missing', () => {

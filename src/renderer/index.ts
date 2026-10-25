@@ -1,12 +1,11 @@
 /**
  * Renderer Entry Point
  *
- * Simplified entry point using RendererBootstrap
- * All DI configuration, service instantiation, and event wiring
- * is handled by RendererBootstrap
+ * Starts one renderer runtime and acknowledges process shutdown after disposal.
  */
 
 import './presentation/styles/styles.css';
+import { trpcClient } from './infrastructure/ipc/trpc-client';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 // Global error handlers for uncaught errors
 window.addEventListener('unhandledrejection', (event) => {
@@ -24,6 +23,33 @@ import { renderFatalError } from './presentation/shell/fatal-error-screen';
 
 // Global application instance
 let app: RendererBootstrap | null = null;
+let cleanupPromise: Promise<void> | null = null;
+
+// Register before reporting readiness so main can keep IPC and transcoding alive
+// until notes are flushed and recording/rendering resources finish draining.
+const shutdownSubscription = trpcClient.app.onShutdown.subscribe(undefined, {
+  onData: ({ requestId }) => {
+    void completeShutdown(requestId).catch((error: unknown) => {
+      console.error('Failed to acknowledge renderer shutdown:', error);
+    });
+  },
+  onError: (error) => console.error('Application shutdown subscription failed:', error)
+});
+
+async function completeShutdown(requestId: string): Promise<void> {
+  let failure: string | undefined;
+  try {
+    await cleanup();
+  } catch (error) {
+    failure = error instanceof Error ? error.message : String(error);
+    console.error('Renderer cleanup failed:', error);
+  }
+  try {
+    await trpcClient.app.rendererShutdownComplete.mutate({ requestId, error: failure });
+  } finally {
+    shutdownSubscription.unsubscribe();
+  }
+}
 
 /**
  * Initialize the application
@@ -35,6 +61,9 @@ async function init() {
 
     // Mark body ready after CSS and templates are loaded (prevents FOUC)
     document.body.classList.add(CSSClasses.BODY_READY);
+    void trpcClient.app.rendererReady.mutate().catch((error: unknown) => {
+      console.error('Failed to report renderer readiness:', error);
+    });
   } catch (error) {
     const normalizedError = error instanceof Error ? error : new Error(String(error));
 
@@ -50,10 +79,15 @@ async function init() {
 /**
  * Cleanup on window unload
  */
-async function cleanup() {
-  if (app) {
-    await app.cleanup();
-  }
+function cleanup(): Promise<void> {
+  return cleanupPromise ??= (async () => {
+    const current = app;
+    try {
+      await current?.cleanup();
+    } finally {
+      if (app === current) app = null;
+    }
+  })();
 }
 
 // Initialize when DOM is ready

@@ -1,3 +1,4 @@
+import * as serviceMocks from '../../../../../factories/index.js';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   DeviceCatalog,
@@ -9,7 +10,7 @@ import {
   createCaptureStreamMock,
   createMediaTrackMock
 } from '../../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../../support/service.harness.js';
 import {
   CHROMATIC_AUDIO_DEVICE_INFO,
   CHROMATIC_VIDEO_DEVICE_INFO
@@ -52,9 +53,10 @@ function createAcquirer() {
     getUserMedia: vi.fn(async () => createActiveStream()),
     subscribeDeviceChange: vi.fn()
   };
-  const h = createInjectableHarness(DeviceMediaAcquirer, {
-    overrides: { mediaDevicesPort }
-  });
+  const h = createServiceHarness(DeviceMediaAcquirer, {
+      loggerFactory: serviceMocks.createLoggerFactory(),
+      mediaDevicesPort
+    });
   const acquirer = h.subject;
   const { loggerFactory } = h.deps;
 
@@ -145,17 +147,4 @@ describe('DeviceMediaAcquirer', () => {
     expect(audioTrack.stop).toHaveBeenCalledTimes(1);
   });
 
-  it('returns stream track diagnostics', () => {
-    const { acquirer } = createAcquirer();
-    const stream = createActiveStream();
-
-    expect(acquirer.getStreamInfo(stream)).toEqual(expect.objectContaining({
-      id: 'stream-1',
-      active: true,
-      tracks: expect.arrayContaining([
-        expect.objectContaining({ kind: 'video' }),
-        expect.objectContaining({ kind: 'audio' })
-      ])
-    }));
-  });
 });

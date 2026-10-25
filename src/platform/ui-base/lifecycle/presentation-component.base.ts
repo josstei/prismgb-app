@@ -116,6 +116,9 @@ export class PresentationComponent {
   protected onDisposeError(_error: unknown): void {}
 
   dispose(): void | Promise<void> {
-    return this._lifecycle.dispose().catch((error) => this.onDisposeError(error));
+    return this._lifecycle.dispose().catch((error) => {
+      this.onDisposeError(error);
+      throw error;
+    });
   }
 }

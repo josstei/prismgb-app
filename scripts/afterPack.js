@@ -302,6 +302,7 @@ async function signFfmpegBinaries(appOutDir, platform, arch) {
   }
 }
 
+/** @public Electron Builder invokes the package.json afterPack hook. */
 export default async function afterPack(context) {
   await pruneLocales(context.appOutDir);
 

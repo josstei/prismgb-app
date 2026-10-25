@@ -3,13 +3,13 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { BaseOrchestrator, type LoggerFactoryLike, type LoggerLike } from '@platform/core';
+import { BaseOrchestrator, type EventBusLike, type LoggerFactoryLike, type LoggerLike } from '@platform/core';
 import { createLoggerFactory } from '../../../factories/index.js';
 
 type MockLoggerFactory = LoggerFactoryLike & ReturnType<typeof createLoggerFactory>;
 type OrchestratorDependencies = {
   loggerFactory?: MockLoggerFactory;
-  eventBus?: object;
+  eventBus?: EventBusLike;
 };
 type InjectedOrchestratorShape = {
   loggerFactory?: MockLoggerFactory;
@@ -29,12 +29,11 @@ describe('BaseOrchestrator', () => {
   describe('Constructor', () => {
     it('should create orchestrator with valid dependencies', () => {
       const orchestrator = new BaseOrchestrator(
-        { loggerFactory: mockLoggerFactory, eventBus: {} },
+        { loggerFactory: mockLoggerFactory },
         'TestOrchestrator'
       );
       const injected = orchestrator as unknown as InjectedOrchestratorShape;
 
-      expect(injected.loggerFactory).toBe(mockLoggerFactory);
       expect(injected.logger).toBe(mockLogger);
       expect(orchestrator.isInitialized).toBe(false);
     });
@@ -53,7 +52,7 @@ describe('BaseOrchestrator', () => {
 
     it('should work without loggerFactory', () => {
       const orchestrator = new BaseOrchestrator(
-        { eventBus: {} },
+        {},
         'TestOrchestrator'
       );
 

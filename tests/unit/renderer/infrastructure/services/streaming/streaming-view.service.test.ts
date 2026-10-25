@@ -1,3 +1,4 @@
+import * as serviceMocks from '../../../../../factories/index.js';
 /**
  * StreamingViewService Unit Tests
  */
@@ -9,7 +10,7 @@ import {
   createMockVideo,
   createStreamingViewControllerMock,
 } from '../../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../../support/service.harness.js';
 
 describe('StreamingViewService', () => {
   let service;
@@ -33,13 +34,12 @@ describe('StreamingViewService', () => {
     mockContainerElement.appendChild(mockCanvasElement);
     mockSectionElement.appendChild(mockContainerElement);
 
-    const h = createInjectableHarness(StreamingViewService, {
-      overrides: {
-        uiController: createStreamingViewControllerMock({
+    const h = createServiceHarness(StreamingViewService, {
+      loggerFactory: serviceMocks.createLoggerFactory(),
+      uiController: createStreamingViewControllerMock({
           streamVideo: mockVideoElement,
           streamCanvas: mockCanvasElement
         })
-      }
     });
     service = h.subject;
     mockLogger = h.logger;

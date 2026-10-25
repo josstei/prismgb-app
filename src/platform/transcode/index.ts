@@ -6,4 +6,6 @@
  * this barrel never drags ffmpeg/electron/node modules into the renderer bundle.
  */
 
-export { TRANSCODE_CONFIG, TranscodeState } from './transcode.config.js';
+export { TRANSCODE_CONFIG } from './transcode.config.js';
+
+export type { TranscodeFormat } from './transcode.config.js';

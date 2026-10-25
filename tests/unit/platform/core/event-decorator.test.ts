@@ -3,7 +3,8 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { BaseOrchestrator, createOnEventDecorator, getEventHandlerBindings } from '@platform/core';
+import { BaseOrchestrator, createOnEventDecorator } from '@platform/core';
+import { getEventHandlerBindings } from '../../../../src/platform/core/primitives/event-decorator';
 
 type TestPayloadMap = {
   'test:alpha': { value: number };

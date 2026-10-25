@@ -12,7 +12,6 @@
  * - 'stream:error' - Stream error occurred
  */
 
-import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import { getErrorMessage } from '@platform/core';
@@ -28,7 +27,6 @@ import type {
   DeviceStreamCapabilities
 } from './device-media-acquirer.service.js';
 import type { DeviceStreamingTarget } from '../devices/device-runtime.service.js';
-import { TOKENS } from '@renderer/application/di/tokens.js';
 
 const StreamState = {
   IDLE: 'idle',
@@ -72,7 +70,13 @@ function toSettingsPayload(
   );
 }
 
-@injectable()
+type StreamingServiceDependencies = {
+  rendererDeviceRuntime: RendererDeviceRuntimeLike;
+  deviceMediaAcquirer: Pick<DeviceMediaAcquirer, 'acquire' | 'release'>;
+  eventBus: TypedEventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 export class StreamingService extends BaseService {
   private readonly _trackMonitor: StreamTrackMonitor;
 
@@ -82,13 +86,15 @@ export class StreamingService extends BaseService {
   currentDevice: MediaDeviceInfo | null;
   currentCapabilities: DeviceStreamCapabilities | null;
 
-  constructor(
-    @inject(TOKENS.rendererDeviceRuntime) private readonly rendererDeviceRuntime: RendererDeviceRuntimeLike,
-    @inject(TOKENS.deviceMediaAcquirer) private readonly deviceMediaAcquirer: DeviceMediaAcquirer,
-    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly rendererDeviceRuntime: RendererDeviceRuntimeLike;
+  private readonly deviceMediaAcquirer: Pick<DeviceMediaAcquirer, 'acquire' | 'release'>;
+  private readonly eventBus: TypedEventBusLike;
+
+  constructor({ rendererDeviceRuntime, deviceMediaAcquirer, eventBus, loggerFactory }: StreamingServiceDependencies) {
     super({ loggerFactory, eventBus }, 'StreamingService');
+    this.rendererDeviceRuntime = rendererDeviceRuntime;
+    this.deviceMediaAcquirer = deviceMediaAcquirer;
+    this.eventBus = eventBus;
 
     this._trackMonitor = new StreamTrackMonitor(this.logger);
     // State machine

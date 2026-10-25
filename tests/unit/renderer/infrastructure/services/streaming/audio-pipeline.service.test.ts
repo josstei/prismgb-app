@@ -1,21 +1,22 @@
+import * as serviceMocks from '../../../../../factories/index.js';
 import { describe, expect, it, vi } from 'vitest';
 import { StreamingAudioPipelineService } from '@renderer/infrastructure/services/streaming/audio-pipeline.service';
 import { createSettingsServiceMock } from '../../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../../support/service.harness.js';
 
 function createService() {
-  const h = createInjectableHarness(StreamingAudioPipelineService, {
-    overrides: {
+  const h = createServiceHarness(StreamingAudioPipelineService, {
+      eventBus: serviceMocks.createEventBus(),
+      loggerFactory: serviceMocks.createLoggerFactory(),
       settingsService: createSettingsServiceMock({
         values: {
           gameVolume: 70
         }
       })
-    }
-  });
+    });
   const service: any = h.subject;
   const logger = h.logger;
-  const unsubscribe = h.deps.eventBus.subscribe.mock.results[0].value;
+  const unsubscribe = vi.mocked(h.deps.eventBus.subscribe).mock.results[0].value;
 
   return { service, logger, unsubscribe };
 }

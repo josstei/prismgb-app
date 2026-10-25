@@ -27,7 +27,6 @@ export interface NotesResizeHandlerInitializeOptions {
   panelElement?: HTMLElement | null;
   panelContent?: HTMLElement | null;
   listWrapper?: HTMLElement | null;
-  onToggle?: ((isVisible: boolean) => void) | null;
 }
 
 class NotesResizeHandlerComponent extends PresentationComponent {
@@ -43,7 +42,6 @@ class NotesResizeHandlerComponent extends PresentationComponent {
   declare panelElement: HTMLElement | null | undefined;
   declare _contentElement: HTMLElement | null;
   declare _listWrapperElement: HTMLElement | null;
-  declare onToggle: ((isVisible: boolean) => void) | null | undefined;
 
   constructor({ logger }: NotesResizeHandlerComponentOptions) {
     super();
@@ -61,7 +59,7 @@ class NotesResizeHandlerComponent extends PresentationComponent {
     this._listWrapperElement = null;
   }
 
-  initialize({ listToggle, panelElement, panelContent, listWrapper, onToggle }: NotesResizeHandlerInitializeOptions): void {
+  initialize({ listToggle, panelElement, panelContent, listWrapper }: NotesResizeHandlerInitializeOptions): void {
     this.cancelManaged(LIST_TOGGLE_SETUP_LIFECYCLE);
     this._cleanupDragListeners();
     this._cancelDragFrame();
@@ -69,7 +67,6 @@ class NotesResizeHandlerComponent extends PresentationComponent {
     this._isDragging = false;
     this.listToggle = listToggle;
     this.panelElement = panelElement;
-    this.onToggle = onToggle;
     this._contentElement = panelContent || null;
     this._listWrapperElement = listWrapper || null;
 
@@ -182,7 +179,6 @@ class NotesResizeHandlerComponent extends PresentationComponent {
       this.listToggle?.setAttribute('aria-expanded', 'false');
     }
 
-    this.onToggle?.(this.isListVisible);
   }
 
   _getListWidth(): number {
@@ -239,7 +235,6 @@ class NotesResizeHandlerComponent extends PresentationComponent {
     this.panelElement = null;
     this._contentElement = null;
     this._listWrapperElement = null;
-    this.onToggle = null;
     this.logger = null;
     this.isListVisible = true;
     this._customListWidth = LIST_WIDTH_DEFAULT;

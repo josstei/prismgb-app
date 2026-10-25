@@ -13,14 +13,12 @@
  * Single source of truth for canvas sizing - used by init, resize, and streaming
  */
 
-import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import { TIMING } from '@platform/config';
 import type {
   LoggerFactoryLike
 } from '@platform/core';
 import type { Dimensions } from '@renderer/infrastructure/services/streaming/streaming.contract.js';
-import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type ResizeDimensions = Dimensions & {
   scale: number;
@@ -38,7 +36,10 @@ const RESIZE_OBSERVER_LIFECYCLE = Symbol('streamingViewportResizeObserver');
 const RESIZE_DEBOUNCE_LIFECYCLE = Symbol('streamingViewportResizeDebounce');
 const FORCE_RESIZE_LIFECYCLE = Symbol('streamingViewportForceResize');
 
-@injectable()
+type StreamingViewportServiceDependencies = {
+  loggerFactory: LoggerFactoryLike;
+};
+
 export class StreamingViewportService extends BaseService {
   private _resizeObserver: ResizeObserver | null;
   private _onResizeCallback: (() => void) | null;
@@ -46,7 +47,7 @@ export class StreamingViewportService extends BaseService {
   private _forceResizePending: boolean;
   private _cachedStyles: CachedViewportStyles | null;
 
-  constructor(@inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike) {
+  constructor({ loggerFactory }: StreamingViewportServiceDependencies) {
     super({ loggerFactory }, 'StreamingViewportService');
 
     // ResizeObserver for canvas resize handling
@@ -92,7 +93,7 @@ export class StreamingViewportService extends BaseService {
   }
 
   calculateDimensions(
-    canvas: HTMLCanvasElement,
+    canvas: HTMLCanvasElement | null,
     nativeResolution: Dimensions
   ): ResizeDimensions | null {
     const container = canvas?.parentElement;

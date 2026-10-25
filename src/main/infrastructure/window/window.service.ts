@@ -4,10 +4,10 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { uiConfig } from '@platform/config';
 import { IPC_CHANNELS } from '@platform/ipc';
-import { injectable, inject } from 'inversify';
+
 import { BaseService, type LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@main/application/di/tokens.js';
-import type { IpcPushBridge } from '@main/ipc/ipc-push.bridge.js';
+
+import type { IpcPushPublisher } from '@platform/ipc';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const { WINDOW_CONFIG } = uiConfig;
@@ -21,6 +21,13 @@ type ConsoleMessageListener = (
 ) => void;
 
 type DownloadHandler = (event: Event, item: DownloadItem) => void;
+type ExpectedDownload = {
+  promise: Promise<void>;
+  resolve(): void;
+  reject(error: Error): void;
+  timeout: ReturnType<typeof setTimeout>;
+};
+const DOWNLOAD_START_TIMEOUT_MS = 5000;
 
 type FullscreenListener = () => void;
 
@@ -42,17 +49,23 @@ type CleanupWindowListenersOptions = {
   includeClosedListener?: boolean;
 };
 
-@injectable()
+type WindowServiceDependencies = {
+  ipcPushBridge: IpcPushPublisher;
+  loggerFactory: LoggerFactoryLike;
+};
+
 class WindowService extends BaseService {
 
   private mainWindow: BrowserWindow | null = null;
   private _isHiddenLaunch: boolean = false;
+  private readonly pendingDownloads = new Set<Promise<void>>();
+  private readonly expectedDownloads = new Map<string, ExpectedDownload>();
 
-  constructor(
-    @inject(TOKENS.ipcPushBridge) private readonly ipcPushBridge: IpcPushBridge,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly ipcPushBridge: IpcPushPublisher;
+
+  constructor({ ipcPushBridge, loggerFactory }: WindowServiceDependencies) {
     super({ loggerFactory }, 'WindowService');
+    this.ipcPushBridge = ipcPushBridge;
   }
 
   createWindow(options: CreateWindowOptions = {}): BrowserWindow {
@@ -116,7 +129,17 @@ class WindowService extends BaseService {
       this.logger.info(`Auto-saving download: ${filename} to ${downloadsPath}`);
       item.setSavePath(savePath);
 
+      const url = item.getURL();
+      const expected = this.expectedDownloads.get(url);
+      if (expected) {
+        clearTimeout(expected.timeout);
+        this.expectedDownloads.delete(url);
+      }
+      const completed = expected ?? Promise.withResolvers<void>();
+      this.pendingDownloads.add(completed.promise);
       item.once('done', (event: Event, state: string) => {
+        this.pendingDownloads.delete(completed.promise);
+        completed.resolve();
         if (state === 'completed') {
           this.logger.info(`Download completed: ${savePath}`);
         } else {
@@ -169,13 +192,13 @@ class WindowService extends BaseService {
     });
 
     const enterFullscreenListener: FullscreenListener = () => {
-      this.send(IPC_CHANNELS.WINDOW.ENTER_FULLSCREEN);
+      this.ipcPushBridge.emit(IPC_CHANNELS.WINDOW.ENTER_FULLSCREEN);
     };
     const leaveFullscreenListener: FullscreenListener = () => {
-      this.send(IPC_CHANNELS.WINDOW.LEAVE_FULLSCREEN);
+      this.ipcPushBridge.emit(IPC_CHANNELS.WINDOW.LEAVE_FULLSCREEN);
     };
     const resizedListener = () => {
-      this.send(IPC_CHANNELS.WINDOW.RESIZED);
+      this.ipcPushBridge.emit(IPC_CHANNELS.WINDOW.RESIZED);
     };
     mainWindow.on('enter-full-screen', enterFullscreenListener);
     this.disposables.replace(WINDOW_ENTER_FULLSCREEN_LIFECYCLE, () => {
@@ -250,6 +273,43 @@ class WindowService extends BaseService {
     }
   }
 
+  expectDownload(url: string): void {
+    if (this.expectedDownloads.has(url)) throw new Error('Download already registered');
+    const completed = Promise.withResolvers<void>();
+    // Missing-start failures remain observable by drain without becoming an
+    // unhandled rejection if the renderer continues running before shutdown.
+    void completed.promise.catch(() => {});
+    const timeout = setTimeout(() => {
+      this.expectedDownloads.delete(url);
+      this.logger.error('Registered download did not start');
+      completed.reject(new Error('Registered download did not start'));
+    }, DOWNLOAD_START_TIMEOUT_MS);
+    this.expectedDownloads.set(url, { ...completed, timeout });
+    this.pendingDownloads.add(completed.promise);
+  }
+
+  cancelDownload(url: string): void {
+    const expected = this.expectedDownloads.get(url);
+    if (!expected) return;
+    clearTimeout(expected.timeout);
+    this.expectedDownloads.delete(url);
+    this.pendingDownloads.delete(expected.promise);
+    expected.resolve();
+  }
+
+  async drainDownloads(): Promise<void> {
+    const failures: unknown[] = [];
+    while (this.pendingDownloads.size > 0) {
+      const pending = [...this.pendingDownloads];
+      const results = await Promise.allSettled(pending);
+      pending.forEach((download) => this.pendingDownloads.delete(download));
+      for (const result of results) {
+        if (result.status === 'rejected') failures.push(result.reason);
+      }
+    }
+    if (failures.length) throw new AggregateError(failures, 'Downloads failed to start');
+  }
+
   destroyWindow(): void {
     if (!this.mainWindow || this.mainWindow.isDestroyed()) {
       this.mainWindow = null;
@@ -302,10 +362,6 @@ class WindowService extends BaseService {
     return false;
   }
 
-  send(channel: string, ...args: unknown[]): void {
-    this.ipcPushBridge.emit(channel, args[0]);
-  }
-
   private _cleanupWindowListeners({
     includeCloseListener = true,
     includeClosedListener = false
@@ -336,6 +392,7 @@ class WindowService extends BaseService {
   }
 
   override dispose(): void | Promise<void> {
+    for (const url of this.expectedDownloads.keys()) this.cancelDownload(url);
     this._cleanupWindowListeners({
       includeCloseListener: true,
       includeClosedListener: true

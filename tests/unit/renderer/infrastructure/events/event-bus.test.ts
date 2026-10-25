@@ -17,18 +17,18 @@ describe('EventBus', () => {
 
   beforeEach(() => {
     mockLoggerFactory = createLoggerFactory();
-    eventBus = new EventBus(mockLoggerFactory);
+    eventBus = new EventBus({ loggerFactory: mockLoggerFactory });
   });
 
   describe('Constructor', () => {
     it('should create EventBus without logger', () => {
-      const bus = new EventBus(undefined as unknown as LoggerFactoryLike);
+      const bus = new EventBus({ loggerFactory: undefined as unknown as LoggerFactoryLike });
       expect(bus).toBeDefined();
       expect(bus.emitter).toBeDefined();
     });
 
     it('should create EventBus with logger factory', () => {
-      const bus = new EventBus(mockLoggerFactory);
+      const bus = new EventBus({ loggerFactory: mockLoggerFactory });
       expect(bus).toBeDefined();
     });
   });
@@ -103,7 +103,7 @@ describe('EventBus', () => {
     });
 
     it('should handle errors when no logger is configured', () => {
-      const busWithoutLogger = new EventBus(undefined as unknown as LoggerFactoryLike);
+      const busWithoutLogger = new EventBus({ loggerFactory: undefined as unknown as LoggerFactoryLike });
       const throwingHandler = vi.fn(() => {
         throw new Error('Handler error');
       });

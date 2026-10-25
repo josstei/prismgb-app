@@ -1,29 +1,14 @@
 import type { UpdateStateValue } from '@platform/config';
 import type {
-  DeviceInfoPayload,
   DeviceStatusPayload
 } from '@platform/devices';
 import type {
   UpdateInfoPayload,
   UpdateProgressPayload,
-  UpdateErrorPayload,
-  TranscodeProgressPayload,
-  TranscodeCompletedPayload,
-  TranscodeCancelledPayload,
-  TranscodeErrorPayload
-} from '@platform/events';
+  UpdateErrorPayload
+} from './push-payloads.schemas.js';
 
-export type {
-  UpdateInfoPayload,
-  UpdateProgressPayload,
-  UpdateErrorPayload,
-  TranscodeProgressPayload,
-  TranscodeCompletedPayload,
-  TranscodeCancelledPayload,
-  TranscodeErrorPayload
-};
-
-export type { DeviceInfoPayload, DeviceStatusPayload };
+export type { DeviceStatusPayload };
 
 export interface UpdateStatusPayload {
   state?: UpdateStateValue;
@@ -39,29 +24,14 @@ export interface UpdateCheckPayload {
   reason?: string;
 }
 
-export type TranscodeFormat = 'webm' | 'mp4' | 'mov';
+export type { TranscodeFormat } from '@platform/transcode';
 
 export interface TranscodeStartOptions {
   inputArgs?: string[];
-  interrupted?: boolean;
-}
-
-export interface TranscodeJobPayload {
-  id: string;
-  state: string;
-  progress: number;
-  outputPath: string | null;
-  error: string | null;
-  startTime: number;
 }
 
 export interface TranscodeStartPayload {
-  jobId?: string;
-  filePath?: string;
-}
-
-export interface TranscodeStatusPayload {
-  jobs: TranscodeJobPayload[];
+  jobId: string;
 }
 
 export interface ProcessMetricPayload {

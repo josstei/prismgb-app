@@ -31,12 +31,9 @@ export interface StorageServiceLike {
   removeItem(key: string): void;
 }
 
-function isEventBusLike(value: unknown): value is EventBusLike {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as { subscribe?: unknown }).subscribe === 'function'
-  );
+export interface LifecycleDependencies {
+  eventBus?: EventBusLike | null;
+  loggerFactory?: LoggerFactoryLike | null;
 }
 
 export class BaseService {
@@ -44,16 +41,12 @@ export class BaseService {
   readonly disposables: DisposableBag;
   private readonly _lifecycle: ManagedLifecycleHost;
   protected _initialized: boolean;
+  private _initialization: Promise<void> | null = null;
   private readonly _eventBus: EventBusLike | null;
   private readonly _serviceName: string;
 
-  constructor(dependencies: object, serviceName: string | null = null) {
+  constructor({ loggerFactory, eventBus }: LifecycleDependencies, serviceName: string | null = null) {
     const name = serviceName || this.constructor.name;
-    const dependencyMap = dependencies as Record<string, unknown>;
-
-    Object.assign(this, dependencyMap);
-
-    const loggerFactory = dependencyMap.loggerFactory as LoggerFactoryLike | undefined;
     if (loggerFactory) {
       this.logger = loggerFactory.create(name);
     }
@@ -61,7 +54,7 @@ export class BaseService {
     this._lifecycle = new ManagedLifecycleHost();
     this.disposables = this._lifecycle.disposables;
     this._initialized = false;
-    this._eventBus = isEventBusLike(dependencyMap.eventBus) ? dependencyMap.eventBus : null;
+    this._eventBus = eventBus ?? null;
     this._serviceName = name;
   }
 
@@ -71,11 +64,18 @@ export class BaseService {
       return;
     }
 
+    if (this._initialization) return this._initialization;
     const result = this.onInitialize();
     if (result instanceof Promise) {
-      return result.then(() => {
+      this._initialization = result.then(() => {
         this._initialized = true;
-      });
+      }).catch(async (error: unknown) => {
+        await this._lifecycle.dispose().catch((cleanupError: unknown) => {
+          this.logger?.error(`${this._serviceName} initialization rollback failed`, cleanupError);
+        });
+        throw error;
+      }).finally(() => { this._initialization = null; });
+      return this._initialization;
     }
 
     this._initialized = true;
@@ -140,6 +140,7 @@ export class BaseService {
   }
 
   dispose(): void | Promise<void> {
+    this._initialized = false;
     return this._lifecycle.dispose();
   }
 }

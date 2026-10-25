@@ -1,11 +1,11 @@
-import { injectable, inject } from 'inversify';
+
 import { BaseService } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { callIpc, type CallIpcResult } from '@renderer/infrastructure/ipc/call-ipc.js';
 import type { EventPublisherLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+
 import type {
   TranscodeCancelledPayload,
   TranscodeCompletedPayload,
@@ -18,16 +18,20 @@ import type {
 
 const TRANSCODE_SUBSCRIPTION_LIFECYCLE = Symbol('transcodeSubscriptionLifecycle');
 
-@injectable()
+type TranscodeServiceDependencies = {
+  eventBus: EventPublisherLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 class TranscodeService extends BaseService {
   private _isTranscoding: boolean;
   private _activeJobId: string | null;
 
-  constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: EventPublisherLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
-    super({ loggerFactory, eventBus }, 'TranscodeService');
+  private readonly eventBus: EventPublisherLike;
+
+  constructor({ eventBus, loggerFactory }: TranscodeServiceDependencies) {
+    super({ loggerFactory }, 'TranscodeService');
+    this.eventBus = eventBus;
 
     this._isTranscoding = false;
     this._activeJobId = null;
@@ -65,8 +69,7 @@ class TranscodeService extends BaseService {
         inputBuffer: arrayBuffer,
         format,
         outputFilename: outputBaseName,
-        inputArgs: Array.isArray(options.inputArgs) ? options.inputArgs : undefined,
-        interrupted: Boolean(options.interrupted)
+        inputArgs: options.inputArgs
       });
     }, this.logger);
 
@@ -93,10 +96,6 @@ class TranscodeService extends BaseService {
 
   isTranscoding() {
     return this._isTranscoding;
-  }
-
-  isAvailable() {
-    return true;
   }
 
   _handleProgress(data: TranscodeProgressPayload) {

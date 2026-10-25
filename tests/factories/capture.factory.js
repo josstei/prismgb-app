@@ -144,7 +144,7 @@ export function createMediaRecorderErrorEventMock(overrides = {}) {
  */
 export function createCaptureUIControllerMock(overrides = {}) {
   return {
-    triggerDownload: vi.fn(),
+    triggerDownload: vi.fn().mockResolvedValue(undefined),
     ...overrides
   };
 }
@@ -183,7 +183,6 @@ export function createCaptureServiceMock(overrides = {}) {
     takeScreenshot: vi.fn(),
     toggleRecording: vi.fn(),
     startRecording: vi.fn(),
-    getRecordingState: vi.fn(),
     stopRecording: vi.fn(),
     isRecording: false,
     ...overrides

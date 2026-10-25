@@ -1,3 +1,4 @@
+import * as serviceMocks from '../../../../factories/index.js';
 /**
  * UIEventBridge Unit Tests
  * Tests the event bridge between EventBus and UIController
@@ -10,13 +11,12 @@ import {
   createEventBus,
   createUIEventBridgeControllerMock
 } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../support/service.harness.js';
 
 describe('UIEventBridge', () => {
   let handler;
   let mockEventBus;
   let mockUiController;
-  let mockPresentationModeService;
   let mockLogger;
   let mockLoggerFactory;
   let subscribedHandlers;
@@ -24,22 +24,20 @@ describe('UIEventBridge', () => {
   beforeEach(() => {
     subscribedHandlers = {};
 
-    const h = createInjectableHarness(UIEventBridge, {
-      overrides: {
-        eventBus: createEventBus({
+    const h = createServiceHarness(UIEventBridge, {
+      loggerFactory: serviceMocks.createLoggerFactory(),
+      eventBus: createEventBus({
           onSubscribe: (event, handlerFn) => {
             subscribedHandlers[event] = handlerFn;
           },
         }),
-        uiController: createUIEventBridgeControllerMock()
-      }
+      uiController: createUIEventBridgeControllerMock()
     });
     handler = h.subject;
     mockLogger = h.logger;
     ({
       eventBus: mockEventBus,
       uiController: mockUiController,
-      presentationModeService: mockPresentationModeService,
       loggerFactory: mockLoggerFactory
     } = h.deps);
   });
@@ -48,7 +46,6 @@ describe('UIEventBridge', () => {
     it('should store dependencies', () => {
       expect(handler.eventBus).toBe(mockEventBus);
       expect(handler.uiController).toBe(mockUiController);
-      expect(handler.presentationModeService).toBe(mockPresentationModeService);
     });
 
     it('should initialize disposables bag', () => {
@@ -91,10 +88,10 @@ describe('UIEventBridge', () => {
       handler.initialize();
     });
 
-    it('routes streaming mode changes to presentation service', () => {
+    it('routes streaming mode changes to UI controller', () => {
       subscribedHandlers[EventChannels.UI.STREAMING_MODE]({ enabled: true });
 
-      expect(mockPresentationModeService.handleStreamingMode).toHaveBeenCalledWith(true);
+      expect(mockUiController.setStreamingMode).toHaveBeenCalledWith(true);
     });
 
     it('routes visual effects events', () => {
@@ -150,10 +147,14 @@ describe('UIEventBridge', () => {
       });
     });
 
-    it('routes fullscreen state changes to presentation service', () => {
+    it('routes fullscreen state changes to UI controller', () => {
       subscribedHandlers[EventChannels.UI.FULLSCREEN_STATE]({ active: true });
 
-      expect(mockPresentationModeService.handleFullscreenState).toHaveBeenCalledWith(true);
+      expect(mockUiController.updateFullscreenButton).toHaveBeenCalledWith(true);
+      expect(mockUiController.enableControlsAutoHide).toHaveBeenCalledOnce();
+      subscribedHandlers[EventChannels.UI.FULLSCREEN_STATE]({ active: false });
+      expect(mockUiController.updateFullscreenButton).toHaveBeenLastCalledWith(false);
+      expect(mockUiController.disableControlsAutoHide).toHaveBeenCalledOnce();
     });
   });
 

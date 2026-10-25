@@ -1,17 +1,9 @@
 import { signal, computed, type ReadonlySignal } from '@platform/ui-base/reactive';
-import { EventChannels } from '@platform/events';
-import type { EventBusLike } from '@platform/core';
+import { EventChannels, type TypedEventBusLike } from '@platform/events';
 import { ReactiveStore } from './reactive-store.base.js';
 
-export interface DeviceStatusPayloadLike {
-  connected: boolean;
-  device?: {
-    name?: string | null;
-  } | null;
-}
-
 export interface DeviceStatusStoreDependencies {
-  eventBus: EventBusLike;
+  eventBus: Pick<TypedEventBusLike, 'subscribe'>;
   deviceConnectedSignal: ReadonlySignal<boolean>;
 }
 
@@ -32,10 +24,9 @@ export class DeviceStatusStore extends ReactiveStore {
     const bus = this.dependencies.eventBus;
 
     this.track(
-      bus.subscribe(EventChannels.UI.DEVICE_STATUS, (payload: unknown) => {
-        const data = typeof payload === 'object' && payload !== null ? (payload as { status?: unknown }).status : null;
-        if (data && typeof data === 'object' && 'connected' in data) {
-          const status = data as DeviceStatusPayloadLike;
+      bus.subscribe(EventChannels.UI.DEVICE_STATUS, (payload) => {
+        const status = payload?.status;
+        if (status && typeof status.connected === 'boolean') {
           this._connected.value = status.connected;
           this._deviceName.value = status.connected
             ? (status.device?.name || 'Device')
@@ -48,9 +39,8 @@ export class DeviceStatusStore extends ReactiveStore {
     );
 
     this.track(
-      bus.subscribe(EventChannels.UI.OVERLAY_MESSAGE, (payload: unknown) => {
-        const data = typeof payload === 'object' && payload !== null ? (payload as { deviceConnected?: unknown }) : {};
-        const deviceConnected = typeof data.deviceConnected === 'boolean' ? data.deviceConnected : false;
+      bus.subscribe(EventChannels.UI.OVERLAY_MESSAGE, (payload) => {
+        const deviceConnected = payload?.deviceConnected === true;
         this._overlayMessage.value = '';
         this._overlayReady.value = deviceConnected;
         this._overlayWaiting.value = !deviceConnected;
@@ -58,18 +48,16 @@ export class DeviceStatusStore extends ReactiveStore {
     );
 
     this.track(
-      bus.subscribe(EventChannels.UI.OVERLAY_VISIBLE, (payload: unknown) => {
-        const data = typeof payload === 'object' && payload !== null ? (payload as { visible?: unknown }) : {};
-        if (typeof data.visible === 'boolean') {
-          this._overlayVisible.value = data.visible;
+      bus.subscribe(EventChannels.UI.OVERLAY_VISIBLE, (payload) => {
+        if (typeof payload?.visible === 'boolean') {
+          this._overlayVisible.value = payload.visible;
         }
       })
     );
 
     this.track(
-      bus.subscribe(EventChannels.UI.OVERLAY_ERROR, (payload: unknown) => {
-        const data = typeof payload === 'object' && payload !== null ? (payload as { message?: unknown }) : {};
-        const message = typeof data.message === 'string' ? data.message : '';
+      bus.subscribe(EventChannels.UI.OVERLAY_ERROR, (payload) => {
+        const message = typeof payload?.message === 'string' ? payload.message : '';
         this._overlayMessage.value = message ? `Error: ${message}` : '';
         this._overlayVisible.value = true;
       })

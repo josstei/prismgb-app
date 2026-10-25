@@ -111,6 +111,25 @@ describe('ManagedLifecycleHost', () => {
       expect(fresh).toHaveBeenCalledTimes(1);
     });
 
+    it('starts every group cleanup despite failure and awaits pending members before rejecting', async () => {
+      const order: string[] = [];
+      const failure = new Error('group cleanup failed');
+      let finish!: () => void;
+      host.replaceManagedGroup('group', [
+        () => { order.push('first'); },
+        () => new Promise<void>((resolve) => { order.push('pending'); finish = resolve; }),
+        () => { order.push('last'); throw failure; }
+      ]);
+      const cleanup = host.cancelManaged('group');
+      expect(order).toEqual(['last', 'pending', 'first']);
+      let settled = false;
+      const result = Promise.resolve(cleanup).finally(() => { settled = true; });
+      await Promise.resolve();
+      expect(settled).toBe(false);
+      finish();
+      await expect(result).rejects.toBe(failure);
+    });
+
     it('supports async members and settles the disposal promise', async () => {
       const settled = vi.fn();
       host.replaceManagedGroup('group', [async () => { settled(); }]);

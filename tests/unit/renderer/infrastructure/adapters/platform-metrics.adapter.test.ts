@@ -1,3 +1,4 @@
+import * as serviceMocks from '../../../../factories/index.js';
 /**
  * MetricsAdapter Unit Tests
  */
@@ -11,22 +12,24 @@ vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
 import { MetricsAdapter } from '@renderer/infrastructure/adapters/platform-metrics.adapter';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { createProcessMetricsMock } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
-import type { ProcessMetricsPayload } from '@platform/ipc';
+import { createServiceHarness } from '../../../../support/service.harness.js';
+type ProcessMetricsResult = Awaited<ReturnType<typeof trpcClient.performance.getProcessMetrics.query>>;
 
 describe('MetricsAdapter', () => {
   let adapter;
   let loggerFactory;
 
   beforeEach(() => {
-    const h = createInjectableHarness(MetricsAdapter);
+    const h = createServiceHarness(MetricsAdapter, {
+      loggerFactory: serviceMocks.createLoggerFactory()
+    });
     adapter = h.subject;
     ({ loggerFactory } = h.deps);
   });
 
   describe('constructor', () => {
     it('should construct without throwing', () => {
-      expect(() => new MetricsAdapter(loggerFactory)).not.toThrow();
+      expect(() => new MetricsAdapter({ loggerFactory: loggerFactory })).not.toThrow();
     });
   });
 
@@ -40,10 +43,10 @@ describe('MetricsAdapter', () => {
     it('should query performance.getProcessMetrics and return an ok result carrying the payload', async () => {
       const mockMetrics = createProcessMetricsMock({
         totalMB: '150.0',
-        processes: [{ type: 'Renderer', memoryMB: '80.0' }]
+        processes: [{ type: 'Tab', memoryMB: '80.0' }]
       });
 
-      vi.mocked(trpcClient.performance.getProcessMetrics.query).mockResolvedValue(mockMetrics as ProcessMetricsPayload);
+      vi.mocked(trpcClient.performance.getProcessMetrics.query).mockResolvedValue(mockMetrics as ProcessMetricsResult);
 
       const result = await adapter.getProcessMetrics();
 
@@ -55,13 +58,13 @@ describe('MetricsAdapter', () => {
       const mockMetrics = createProcessMetricsMock({
         totalMB: '200.5',
         processes: [
-          { type: 'Renderer', memoryMB: '100.0' },
+          { type: 'Tab', memoryMB: '100.0' },
           { type: 'GPU', memoryMB: '80.0' },
           { type: 'Browser', memoryMB: '20.5' }
         ]
       });
 
-      vi.mocked(trpcClient.performance.getProcessMetrics.query).mockResolvedValue(mockMetrics as ProcessMetricsPayload);
+      vi.mocked(trpcClient.performance.getProcessMetrics.query).mockResolvedValue(mockMetrics as ProcessMetricsResult);
 
       const result = await adapter.getProcessMetrics();
 

@@ -4,25 +4,29 @@
  * Owns cinematic mode state and settings-level event emission.
  */
 
-import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import { EventChannels, OnEvent } from '@platform/events';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type CinematicModeAppStateLike = {
   readonly isCinematicModeEnabled: boolean;
   setCinematicMode(enabled: boolean): void;
 };
 
-@injectable()
+type SettingsCinematicModeServiceDependencies = {
+  appState: CinematicModeAppStateLike;
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 class SettingsCinematicModeService extends BaseService {
-  constructor(
-    @inject(TOKENS.appState) private readonly appState: CinematicModeAppStateLike,
-    @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly appState: CinematicModeAppStateLike;
+  private readonly eventBus: EventBusLike;
+
+  constructor({ appState, eventBus, loggerFactory }: SettingsCinematicModeServiceDependencies) {
     super({ loggerFactory, eventBus }, 'SettingsCinematicModeService');
+    this.appState = appState;
+    this.eventBus = eventBus;
   }
 
   initialize(): void {

@@ -76,12 +76,12 @@ describe('ShaderPresetListComponent', () => {
 
     it('should load current preset from settings', () => {
       component.initialize({ optionsContainer, unavailableMessage });
-      expect(mockSettingsService.getStringSetting).toHaveBeenCalledWith('renderPreset');
+      expect(mockSettingsService.getSetting).toHaveBeenCalledWith('renderPreset');
       expect(component.currentPresetId).toBe(PRESET_POLICY.rendererDefaultId);
     });
 
     it('should normalize an unknown saved preset to the renderer default', () => {
-      mockSettingsService.getStringSetting.mockReturnValueOnce('missing-preset');
+      mockSettingsService.getSetting.mockReturnValueOnce('missing-preset');
 
       component.initialize({ optionsContainer, unavailableMessage });
 
@@ -92,7 +92,7 @@ describe('ShaderPresetListComponent', () => {
 
     it('should load performance mode state', () => {
       component.initialize({ optionsContainer, unavailableMessage });
-      expect(mockSettingsService.getBooleanSetting).toHaveBeenCalledWith('performanceMode');
+      expect(mockSettingsService.getSetting).toHaveBeenCalledWith('performanceMode');
     });
 
     it('should render preset list', () => {

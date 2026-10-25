@@ -1,3 +1,4 @@
+import * as serviceMocks from '../../../../../factories/index.js';
 /**
  * PerformanceStateService Unit Tests
  */
@@ -9,7 +10,7 @@ import {
   createUserActivityAdapterMock,
   createVisibilityAdapterMock,
 } from '../../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../../support/service.harness.js';
 
 describe('PerformanceStateService', () => {
   let service;
@@ -33,27 +34,26 @@ describe('PerformanceStateService', () => {
     // Mock ReducedMotionAdapter
     motionCallback = null;
 
-    const h = createInjectableHarness(PerformanceStateService, {
-      overrides: {
-        visibilityAdapter: createVisibilityAdapterMock({
+    const h = createServiceHarness(PerformanceStateService, {
+      loggerFactory: serviceMocks.createLoggerFactory(),
+      visibilityAdapter: createVisibilityAdapterMock({
           onVisibilityChange: vi.fn((callback) => {
             visibilityCallback = callback;
             return vi.fn();
           })
         }),
-        userActivityAdapter: createUserActivityAdapterMock({
+      userActivityAdapter: createUserActivityAdapterMock({
           onActivity: vi.fn((callback) => {
             activityCallback = callback;
             return vi.fn();
           })
         }),
-        reducedMotionAdapter: createReducedMotionAdapterMock({
+      reducedMotionAdapter: createReducedMotionAdapterMock({
           onChange: vi.fn((callback) => {
             motionCallback = callback;
             return vi.fn();
           })
         })
-      }
     });
     service = h.subject;
     ({

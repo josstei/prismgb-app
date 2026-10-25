@@ -22,6 +22,24 @@ describe('BodyClassManager', () => {
     document.body.className = '';
   });
 
+  it('projects performance state directly and unsubscribes on disposal', async () => {
+    const bus = new PlatformEventBus();
+    manager.bindPerformanceState(bus);
+    bus.publish(EventChannels.PERFORMANCE.STATE_CHANGED, { idle: true, hidden: true, weakGpuDetected: true });
+    expect(document.body.classList.contains('app-idle')).toBe(true);
+    expect(document.body.classList.contains('app-hidden')).toBe(true);
+    expect(manager.areAnimationsOff()).toBe(false);
+    bus.publish(EventChannels.PERFORMANCE.STATE_CHANGED, { performanceModeEnabled: true });
+    expect(manager.areAnimationsOff()).toBe(true);
+    bus.publish(EventChannels.PERFORMANCE.STATE_CHANGED, { reducedMotion: true });
+    expect(manager.areAnimationsOff()).toBe(true);
+    bus.publish(EventChannels.PERFORMANCE.STATE_CHANGED, {});
+    expect(manager.areAnimationsOff()).toBe(false);
+    await manager.dispose();
+    bus.publish(EventChannels.PERFORMANCE.STATE_CHANGED, { performanceModeEnabled: true });
+    expect(manager.areAnimationsOff()).toBe(false);
+  });
+
   describe('setIdle', () => {
     it('should add app-idle class when idle is true', () => {
       manager.setIdle(true);

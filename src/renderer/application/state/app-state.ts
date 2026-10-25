@@ -122,8 +122,8 @@ class AppState {
     this._isCinematicModeEnabled.value = enabled;
   }
 
-  dispose() {
-    this._bag.dispose();
+  async dispose(): Promise<void> {
+    await this._bag.dispose();
     this._streamCache.value = null;
     this._capabilitiesCache.value = null;
   }

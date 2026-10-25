@@ -24,7 +24,7 @@ describe('CaptureEffects', () => {
 
       const flash = document.querySelector('.shutter-flash');
       expect(flash).not.toBeNull();
-      expect(flash.className).toBe('shutter-flash');
+      expect(flash!.className).toBe('shutter-flash');
     });
 
     it('should remove flash overlay after animationend', () => {
@@ -33,7 +33,7 @@ describe('CaptureEffects', () => {
       const flash = document.querySelector('.shutter-flash');
       expect(flash).not.toBeNull();
 
-      flash.dispatchEvent(new Event('animationend'));
+      flash!.dispatchEvent(new Event('animationend'));
 
       expect(document.querySelector('.shutter-flash')).toBeNull();
     });

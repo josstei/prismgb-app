@@ -7,7 +7,6 @@ import { NotesResizeHandlerComponent } from '@renderer/presentation/features/not
 import { createLogger } from '../../../../../factories/index.js';
 import { installAnimationFrameMock } from '../../../../../support/mocks/browser-api.installers.js';
 
-type ToggleCallback = (isVisible: boolean) => void;
 type ClientXTouch = Pick<Touch, 'clientX'>;
 
 const createClientXTouch = (clientX: number): ClientXTouch => ({ clientX });
@@ -54,7 +53,6 @@ describe('NotesResizeHandlerComponent', () => {
         panelElement,
         panelContent,
         listWrapper,
-        onToggle: vi.fn()
       });
 
       expect(component.listToggle).toBe(listToggle);
@@ -65,7 +63,6 @@ describe('NotesResizeHandlerComponent', () => {
       component.initialize({
         listToggle: null,
         panelElement: document.createElement('div'),
-        onToggle: vi.fn()
       });
 
       expect(mockLogger.warn).toHaveBeenCalledWith('List toggle element not found');
@@ -76,7 +73,6 @@ describe('NotesResizeHandlerComponent', () => {
       expect(() => comp.initialize({
         listToggle: null,
         panelElement: null,
-        onToggle: vi.fn()
       })).not.toThrow();
       comp.dispose();
     });
@@ -88,7 +84,6 @@ describe('NotesResizeHandlerComponent', () => {
         panelElement: document.createElement('div'),
         panelContent: null,
         listWrapper: null,
-        onToggle: vi.fn()
       });
 
       expect(component._contentElement).toBeNull();
@@ -142,19 +137,16 @@ describe('NotesResizeHandlerComponent', () => {
   describe('click-to-toggle (no drag)', () => {
     let listToggle: HTMLButtonElement;
     let panelContent: HTMLDivElement;
-    let onToggle: ToggleCallback;
 
     beforeEach(() => {
       listToggle = document.createElement('button');
       panelContent = document.createElement('div');
-      onToggle = vi.fn<ToggleCallback>();
 
       component.initialize({
         listToggle,
         panelElement: document.createElement('div'),
         panelContent,
         listWrapper: document.createElement('div'),
-        onToggle
       });
     });
 
@@ -166,7 +158,6 @@ describe('NotesResizeHandlerComponent', () => {
 
       expect(component.isListVisible).toBe(false);
       expect(panelContent.classList.contains('notes-list-collapsed')).toBe(true);
-      expect(onToggle).toHaveBeenCalledWith(false);
     });
 
     it('should expand list on click when collapsed', () => {
@@ -178,7 +169,6 @@ describe('NotesResizeHandlerComponent', () => {
 
       expect(component.isListVisible).toBe(true);
       expect(panelContent.classList.contains('notes-list-collapsed')).toBe(false);
-      expect(onToggle).toHaveBeenCalledWith(true);
     });
 
     it('should set aria-expanded attribute on toggle', () => {
@@ -200,13 +190,7 @@ describe('NotesResizeHandlerComponent', () => {
       expect(component.isListVisible).toBe(false);
     });
 
-    it('should handle toggle without onToggle callback', () => {
-      component.onToggle = null;
-      component.isListVisible = true;
 
-      listToggle.dispatchEvent(new MouseEvent('mousedown', { clientX: 100 }));
-      expect(() => document.dispatchEvent(new MouseEvent('mouseup'))).not.toThrow();
-    });
   });
 
   describe('drag-to-resize', () => {
@@ -222,7 +206,6 @@ describe('NotesResizeHandlerComponent', () => {
         panelElement: document.createElement('div'),
         panelContent,
         listWrapper: document.createElement('div'),
-        onToggle: vi.fn()
       });
     });
 
@@ -303,7 +286,6 @@ describe('NotesResizeHandlerComponent', () => {
         panelElement: document.createElement('div'),
         panelContent: document.createElement('div'),
         listWrapper: document.createElement('div'),
-        onToggle: vi.fn()
       });
     });
 
@@ -344,7 +326,6 @@ describe('NotesResizeHandlerComponent', () => {
         panelElement: document.createElement('div'),
         panelContent: document.createElement('div'),
         listWrapper: document.createElement('div'),
-        onToggle: vi.fn()
       });
 
       listToggle.dispatchEvent(new MouseEvent('mousedown', { clientX: 100 }));
@@ -366,7 +347,6 @@ describe('NotesResizeHandlerComponent', () => {
         panelElement: document.createElement('div'),
         panelContent: document.createElement('div'),
         listWrapper: document.createElement('div'),
-        onToggle: vi.fn()
       });
 
       listToggle.dispatchEvent(new MouseEvent('mousedown', { clientX: 100 }));
@@ -385,7 +365,6 @@ describe('NotesResizeHandlerComponent', () => {
         panelElement: document.createElement('div'),
         panelContent: document.createElement('div'),
         listWrapper: document.createElement('div'),
-        onToggle: vi.fn()
       });
 
       listToggle.dispatchEvent(new MouseEvent('mousedown', { clientX: 100 }));
@@ -413,7 +392,6 @@ describe('NotesResizeHandlerComponent', () => {
       expect(component.panelElement).toBeNull();
       expect(component._contentElement).toBeNull();
       expect(component._listWrapperElement).toBeNull();
-      expect(component.onToggle).toBeNull();
       expect(component.logger).toBeNull();
     });
   });

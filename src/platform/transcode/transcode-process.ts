@@ -7,7 +7,6 @@
 
 import { spawn, ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
-import { getFfmpegPath, getOptionalFfprobePath } from './ffmpeg-path.utils.js';
 import { TRANSCODE_CONFIG } from './transcode.config.js';
 import { DisposableBag } from '@platform/core';
 
@@ -25,9 +24,8 @@ export interface TranscodeProgressData {
  * @param inputPath - Path to the input file
  * @returns Duration in microseconds
  */
-export async function probeDuration(inputPath: string): Promise<number> {
+export async function probeDuration(inputPath: string, ffprobePath: string | null): Promise<number> {
   return new Promise((resolve, reject) => {
-    const ffprobePath = getOptionalFfprobePath();
     if (!ffprobePath) {
       resolve(0);
       return;
@@ -109,7 +107,7 @@ export class TranscodeProcess extends EventEmitter {
    * @param durationUs - Expected duration in microseconds (for progress)
    * @param inputArgs - Optional input arguments (applied before -i)
    */
-  constructor(inputPath: string, outputPath: string, ffmpegArgs: readonly string[], durationUs: number, inputArgs: readonly string[] = []) {
+  constructor(inputPath: string, outputPath: string, ffmpegArgs: readonly string[], durationUs: number, inputArgs: readonly string[], private readonly ffmpegPath: string) {
     super();
     this._inputPath = inputPath;
     this._outputPath = outputPath;
@@ -131,7 +129,6 @@ export class TranscodeProcess extends EventEmitter {
 
       this._startTime = Date.now();
 
-      const ffmpegPath = getFfmpegPath();
       const args = [
         '-y', // Overwrite output file
         ...this._inputArgs,
@@ -142,7 +139,7 @@ export class TranscodeProcess extends EventEmitter {
         this._outputPath
       ];
 
-      this._process = spawn(ffmpegPath, args, {
+      this._process = spawn(this.ffmpegPath, args, {
         stdio: ['ignore', 'pipe', 'pipe']
       });
 
@@ -161,7 +158,10 @@ export class TranscodeProcess extends EventEmitter {
         stderrBuffer += data.toString();
       });
 
+      let settled = false;
       this._process.on('close', (code, signal) => {
+        if (settled) return;
+        settled = true;
         this._process = null;
         this._disposables.cancel(FORCE_KILL_LIFECYCLE);
 
@@ -186,6 +186,8 @@ export class TranscodeProcess extends EventEmitter {
       });
 
       this._process.on('error', (error) => {
+        if (settled) return;
+        settled = true;
         this._process = null;
         this._disposables.cancel(FORCE_KILL_LIFECYCLE);
         this.emit('error', error);

@@ -7,7 +7,6 @@
 
 import { vi } from 'vitest';
 
-
 export function createPerformanceMetricsAdapterMock(overrides = {}) {
   return {
     isAvailable: vi.fn(() => false),
@@ -103,36 +102,6 @@ export function createPerformanceMetricsServiceMock(overrides = {}) {
     clearPendingRequests: vi.fn(),
     ...overrides
   });
-}
-
-/**
- * @typedef {import('@renderer/infrastructure/services/performance/performance-animation.service').PerformanceAnimationService} PerformanceAnimationService
- */
-
-/**
- * Creates a mock PerformanceAnimationService.
- *
- * @param {Partial<import('vitest').Mocked<PerformanceAnimationService>>} [overrides={}] - Mock overrides.
- * @returns {import('vitest').Mocked<PerformanceAnimationService>} A strongly-typed mock PerformanceAnimationService.
- */
-export function createPerformanceAnimationServiceMock(overrides = {}) {
-  return /** @type {any} */ ({
-    setPerformanceState: vi.fn(() => ({
-      idle: false,
-      hidden: false,
-      animationsOff: false
-    })),
-    ...overrides
-  });
-}
-
-export function createBodyClassManagerMock(overrides = {}) {
-  return {
-    setIdle: vi.fn(),
-    setHidden: vi.fn(),
-    setAnimationsOff: vi.fn(),
-    ...overrides
-  };
 }
 
 export function createProcessMetricsMock(overrides = {}) {

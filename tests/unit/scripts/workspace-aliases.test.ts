@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { join, resolve } from 'node:path';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { generateWorkspacePaths } from '../../../scripts/generate-workspace-paths.mjs';
 import {
   PLATFORM_MODULES,
   platformAliasMap,
@@ -67,7 +69,7 @@ describe('workspace-aliases registry', () => {
     const entries = platformAliasEntries('/repo') as PlatformAliasEntry[];
     const gpuBare = entries.find((entry) => entry.find.test('@platform/gpu'));
     expect(gpuBare).toBeDefined();
-    expect(gpuBare.replacement).toBe(resolve('/repo', 'src/platform/gpu/index.ts'));
+    expect(gpuBare!.replacement).toBe(resolve('/repo', 'src/platform/gpu/index.ts'));
     expect(entries.some((entry) => entry.find.test('@platform/gpu/infrastructure/shaders'))).toBe(false);
   });
 
@@ -78,12 +80,24 @@ describe('workspace-aliases registry', () => {
     expect(Object.keys(paths).some((key) => key.includes('*'))).toBe(false);
   });
 
-  it('tsconfig.base.json @platform paths match the registry emission', () => {
-    const tsconfig = JSON.parse(readFileSync(join(process.cwd(), 'tsconfig.base.json'), 'utf8')) as TsconfigWithPaths;
+  it('generated TypeScript @platform paths match the registry emission', () => {
+    const tsconfig = JSON.parse(readFileSync(join(process.cwd(), 'tsconfig.paths.generated.json'), 'utf8')) as TsconfigWithPaths;
     const actualPlatformPaths = Object.fromEntries(
       Object.entries(tsconfig.compilerOptions.paths).filter(([alias]) => alias.startsWith('@platform/'))
     );
     expect(actualPlatformPaths).toEqual(platformTsconfigPaths());
+  });
+
+  it('detects stale generated paths without rewriting the file', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'prismgb-aliases-'));
+    const output = join(root, 'paths.json');
+    try {
+      await expect(generateWorkspacePaths({ check: true, output })).rejects.toThrow('Workspace paths are stale');
+      await generateWorkspacePaths({ output });
+      await expect(generateWorkspacePaths({ check: true, output })).resolves.toBeUndefined();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it('vite and vitest configs consume the registry module', () => {

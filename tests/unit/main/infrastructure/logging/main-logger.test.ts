@@ -31,9 +31,9 @@ describe('MainLogger', () => {
   let envMock: ProcessEnvMock;
 
   beforeEach(() => {
-    log.transports.console.level = undefined;
-    log.transports.file.level = undefined;
-    log.transports.file.resolvePathFn = undefined;
+    Reflect.deleteProperty(log.transports.console, 'level');
+    Reflect.deleteProperty(log.transports.file, 'level');
+    Reflect.deleteProperty(log.transports.file, 'resolvePathFn');
     envMock = installProcessEnvMock({
       NODE_ENV: 'development',
       LOG_LEVEL: undefined,

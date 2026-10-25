@@ -1,3 +1,4 @@
+import * as serviceMocks from '../../../../factories/index.js';
 /**
  * PerformanceStateOrchestrator Unit Tests
  */
@@ -6,7 +7,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { PerformanceStateOrchestrator } from '@renderer/application/orchestrators/performance/performance-state.orchestrator';
 import { EventChannels } from '@platform/events';
 import { createEventBus, createPerformanceStateServiceMock } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../support/service.harness.js';
 
 describe('PerformanceStateOrchestrator', () => {
   let coordinator;
@@ -17,19 +18,18 @@ describe('PerformanceStateOrchestrator', () => {
 
   beforeEach(() => {
     eventHandlers = {};
-    const h = createInjectableHarness(PerformanceStateOrchestrator, {
-      overrides: {
-        eventBus: createEventBus({
+    const h = createServiceHarness(PerformanceStateOrchestrator, {
+      loggerFactory: serviceMocks.createLoggerFactory(),
+      eventBus: createEventBus({
           onSubscribe: (channel, handler) => {
             eventHandlers[channel] = handler;
           }
         }),
-        performanceStateService: createPerformanceStateServiceMock({
-          initialize: vi.fn(({ onStateChange: callback }) => {
+      performanceStateService: createPerformanceStateServiceMock({
+          initialize: vi.fn(({ onStateChange: callback } = {}) => {
             onStateChange = callback;
           })
         })
-      }
     });
     coordinator = h.subject;
     ({

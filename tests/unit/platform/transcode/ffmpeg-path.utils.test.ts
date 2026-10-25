@@ -38,7 +38,7 @@ function restoreProcessGlobals(): void {
   else process.env.FFPROBE_PATH = ORIGINAL_FFPROBE_ENV;
 }
 
-async function loadFfmpegPathUtils(options: LoadOptions = {}): Promise<FfmpegPathModule> {
+async function loadFfmpegPathUtils(options: LoadOptions = {}): Promise<{ [K in keyof FfmpegPathModule]: () => ReturnType<FfmpegPathModule[K]> }> {
   vi.resetModules();
 
   Object.defineProperty(process, 'platform', { value: options.platform ?? 'darwin', configurable: true });
@@ -54,16 +54,6 @@ async function loadFfmpegPathUtils(options: LoadOptions = {}): Promise<FfmpegPat
   if (options.env?.FFPROBE_PATH !== undefined) process.env.FFPROBE_PATH = options.env.FFPROBE_PATH;
 
   vi.spyOn(process, 'cwd').mockReturnValue(options.cwd ?? '/mock/cwd');
-
-  const electronRequireMock = vi.fn((specifier: string) => {
-    if (specifier !== 'electron') throw new Error(`Cannot find module '${specifier}'`);
-    if (!options.electronApp) throw new Error('Cannot find module electron');
-    return { app: options.electronApp };
-  });
-  vi.spyOn(process, 'getBuiltinModule').mockImplementation(((id: string) => {
-    if (id === 'node:module') return { createRequire: () => electronRequireMock };
-    return undefined;
-  }) as never);
 
   const packageRequireMock = vi.fn((specifier: string) => {
     if (options.requireImpl) return options.requireImpl(specifier);
@@ -90,7 +80,14 @@ async function loadFfmpegPathUtils(options: LoadOptions = {}): Promise<FfmpegPat
     return { ...actual, execSync: execSyncImpl };
   });
 
-  return import('../../../../src/platform/transcode/ffmpeg-path.utils.js');
+  const module = await import('../../../../src/platform/transcode/ffmpeg-path.utils.js');
+  const environment = { isPackaged: options.electronApp?.isPackaged ?? false, resourcesPath: options.resourcesPath ?? '/mock/resources' };
+  return {
+    getFfmpegPath: () => module.getFfmpegPath(environment),
+    getFfprobePath: () => module.getFfprobePath(environment),
+    getOptionalFfprobePath: () => module.getOptionalFfprobePath(environment),
+    validateFfmpegBinaries: () => module.validateFfmpegBinaries(environment)
+  };
 }
 
 describe('ffmpeg-path.utils (characterization)', () => {

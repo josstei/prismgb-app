@@ -1,13 +1,12 @@
 import { signal, type ReadonlySignal } from '@platform/ui-base/reactive';
-import { EventChannels } from '@platform/events';
-import type { EventBusLike } from '@platform/core';
+import { EventChannels, type EventPayloadMap, type TypedEventBusLike } from '@platform/events';
 import { ReactiveStore } from './reactive-store.base.js';
 
 const VALID_TYPES = ['info', 'success', 'warning', 'error'] as const;
 export type StatusNotificationType = (typeof VALID_TYPES)[number];
 
 export interface StatusNotificationStoreDependencies {
-  eventBus: EventBusLike;
+  eventBus: Pick<TypedEventBusLike, 'subscribe'>;
 }
 
 /** Owns status-message reactive state; subscribes the bus → signal (event→state). */
@@ -20,7 +19,7 @@ export class StatusNotificationStore extends ReactiveStore {
 
     this.track(this.dependencies.eventBus.subscribe(
       EventChannels.UI.STATUS_MESSAGE,
-      (...args: unknown[]) => this.apply(args[0])
+      (payload) => this.apply(payload)
     ));
   }
 
@@ -32,14 +31,10 @@ export class StatusNotificationStore extends ReactiveStore {
     return this._type;
   }
 
-  private apply(payload: unknown): void {
-    const data =
-      typeof payload === 'object' && payload !== null
-        ? (payload as { message?: unknown; type?: unknown })
-        : {};
-    this._message.value = typeof data.message === 'string' ? data.message : '';
-    this._type.value = VALID_TYPES.includes(data.type as StatusNotificationType)
-      ? (data.type as StatusNotificationType)
+  private apply(payload: EventPayloadMap[typeof EventChannels.UI.STATUS_MESSAGE]): void {
+    this._message.value = typeof payload?.message === 'string' ? payload.message : '';
+    this._type.value = VALID_TYPES.includes(payload?.type as StatusNotificationType)
+      ? (payload?.type as StatusNotificationType)
       : 'info';
   }
 }

@@ -360,7 +360,6 @@ export function createDeviceMediaAcquirerMock(overrides = {}) {
       capabilities
     })),
     release: vi.fn().mockResolvedValue(undefined),
-    getStreamInfo: vi.fn(() => null),
     ...overrides
   };
 }

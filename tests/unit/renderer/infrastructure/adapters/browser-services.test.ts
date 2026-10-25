@@ -172,8 +172,8 @@ describe('BrowserMediaAdapter', () => {
 
       service.removeEventListener('devicechange', handler1);
 
-      expect(service._listeners.get('devicechange').size).toBe(1);
-      expect(service._listeners.get('devicechange').has(handler2)).toBe(true);
+      expect(service._listeners.get('devicechange')?.size).toBe(1);
+      expect(service._listeners.get('devicechange')?.has(handler2)).toBe(true);
     });
   });
 

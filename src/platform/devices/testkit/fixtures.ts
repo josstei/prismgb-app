@@ -9,15 +9,14 @@ import {
 } from '../domain/payloads.js';
 import type {
   DeviceDescriptor,
-  DeviceFixtureFrameData,
-  DeviceFixtureProfile,
-  DeviceFixtureTrackSettings,
   DeviceId,
   DeviceInfoPayload,
   DeviceStatusPayload,
-  ObservedMediaDevice,
   ObservedUsbDevice
 } from '../domain/types.js';
+import type {
+  DeviceFixtureFrameData, DeviceFixtureProfile, DeviceFixtureTrackSettings, ObservedMediaDevice
+} from './types.js';
 
 type FixtureSource = DeviceId | DeviceDescriptor | undefined;
 

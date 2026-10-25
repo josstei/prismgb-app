@@ -183,25 +183,20 @@ export class UIEffects extends PresentationComponent {
   }
 
   private async _disposeRuntimeEffects(): Promise<void> {
-    await Promise.all([
-      this._cursor.dispose(),
-      this._toolbar.dispose(),
-      this._controls.dispose(),
-      this._buttonFeedback.dispose(),
-      this._captureEffects.dispose(),
-      this._unifiedTimer.dispose()
-    ]);
+    const results = await Promise.allSettled([
+      this._cursor,
+      this._toolbar,
+      this._controls,
+      this._buttonFeedback,
+      this._captureEffects,
+      this._unifiedTimer
+    ].map(async (effect) => effect.dispose()));
+    const failures = results.filter((result) => result.status === 'rejected').map((result) => result.reason);
+    if (failures.length) throw new AggregateError(failures, 'UI effects disposal failed');
   }
 
   override dispose(): void | Promise<void> {
     const disposed = super.dispose();
-    if (this._bodyClassManager && 'dispose' in this._bodyClassManager && typeof this._bodyClassManager.dispose === 'function') {
-      try {
-        void this._bodyClassManager.dispose();
-      } catch (error) {
-        console.error('Error disposing bodyClassManager', error);
-      }
-    }
     this.setElements(null);
     return disposed;
   }

@@ -44,6 +44,11 @@ function subscription(): SubscriptionProcedureMock {
 
 export function createTrpcClientMock() {
   return {
+    app: {
+      rendererReady: mutation(),
+      onShutdown: subscription(),
+      rendererShutdownComplete: mutation()
+    },
     device: {
       getStatus: query(),
       refreshStatus: mutation(),
@@ -54,6 +59,8 @@ export function createTrpcClientMock() {
       openExternal: mutation()
     },
     window: {
+      expectDownload: mutation(),
+      cancelDownload: mutation(),
       setFullScreen: mutation(),
       isFullScreen: query(),
       onEnterFullscreen: subscription(),
@@ -81,7 +88,6 @@ export function createTrpcClientMock() {
     transcode: {
       start: mutation(),
       cancel: mutation(),
-      getStatus: query(),
       onProgress: subscription(),
       onCompleted: subscription(),
       onError: subscription(),

@@ -1,3 +1,4 @@
+import * as serviceMocks from '../../../../factories/index.js';
 /**
  * UISetupOrchestrator Unit Tests
  */
@@ -5,7 +6,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { UISetupOrchestrator } from '@renderer/application/orchestrators/ui-setup.orchestrator';
 import { createUISetupControllerMock } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../support/service.harness.js';
 
 describe('UISetupOrchestrator', () => {
   let orchestrator;
@@ -14,15 +15,16 @@ describe('UISetupOrchestrator', () => {
   let mockLogger;
 
   beforeEach(() => {
-    const h = createInjectableHarness(UISetupOrchestrator, {
-      overrides: {
-        uiController: createUISetupControllerMock({
+    const h = createServiceHarness(UISetupOrchestrator, {
+      appState: serviceMocks.createAppState(),
+      eventBus: serviceMocks.createEventBus(),
+      loggerFactory: serviceMocks.createLoggerFactory(),
+      uiController: { ...createUISetupControllerMock(),
           initializeDeferredComponent: vi.fn(),
           toggleSettingsMenu: vi.fn(),
           toggleShaderSelector: vi.fn(),
           toggleNotesPanel: vi.fn()
-        })
-      }
+        }
     });
     orchestrator = h.subject;
     mockLogger = h.logger;

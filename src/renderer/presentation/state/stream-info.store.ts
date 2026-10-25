@@ -1,11 +1,9 @@
 import { signal, type ReadonlySignal } from '@platform/ui-base/reactive';
-import { EventChannels } from '@platform/events';
-import type { EventBusLike } from '@platform/core';
-import type { StreamInfoSettings } from '@renderer/presentation/features/streaming/streaming-controls.component.js';
+import { EventChannels, type TypedEventBusLike } from '@platform/events';
 import { ReactiveStore } from './reactive-store.base.js';
 
 export interface StreamInfoStoreDependencies {
-  eventBus: EventBusLike;
+  eventBus: Pick<TypedEventBusLike, 'subscribe'>;
 }
 
 export class StreamInfoStore extends ReactiveStore {
@@ -18,10 +16,9 @@ export class StreamInfoStore extends ReactiveStore {
     const bus = this.dependencies.eventBus;
 
     this.track(
-      bus.subscribe(EventChannels.UI.STREAM_INFO, (payload: unknown) => {
-        const data = typeof payload === 'object' && payload !== null ? (payload as { settings?: unknown }).settings : null;
-        if (data && typeof data === 'object' && 'width' in data && 'height' in data && 'frameRate' in data) {
-          const settings = data as StreamInfoSettings;
+      bus.subscribe(EventChannels.UI.STREAM_INFO, (payload) => {
+        const settings = payload?.settings;
+        if (settings && typeof settings.width === 'number' && typeof settings.height === 'number' && typeof settings.frameRate === 'number') {
           this._resolution.value = `${settings.width}x${settings.height}`;
           this._fps.value = `${settings.frameRate} fps`;
         } else {

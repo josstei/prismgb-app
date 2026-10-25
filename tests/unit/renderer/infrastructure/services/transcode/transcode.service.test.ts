@@ -27,13 +27,13 @@ describe('TranscodeService', () => {
 
   describe('Constructor', () => {
     it('should store eventBus', () => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
+      service = new TranscodeService({ eventBus: mockEventBus, loggerFactory: mockLoggerFactory });
 
       expect(service.eventBus).toBe(mockEventBus);
     });
 
     it('should initialize state properties', () => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
+      service = new TranscodeService({ eventBus: mockEventBus, loggerFactory: mockLoggerFactory });
 
       expect(service.isTranscoding()).toBe(false);
       expect(service._activeJobId).toBeNull();
@@ -43,7 +43,7 @@ describe('TranscodeService', () => {
 
   describe('initialize', () => {
     beforeEach(() => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
+      service = new TranscodeService({ eventBus: mockEventBus, loggerFactory: mockLoggerFactory });
     });
 
     it('should subscribe to tRPC push events', () => {
@@ -84,7 +84,7 @@ describe('TranscodeService', () => {
 
   describe('transcode', () => {
     beforeEach(() => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
+      service = new TranscodeService({ eventBus: mockEventBus, loggerFactory: mockLoggerFactory });
       service.initialize();
     });
 
@@ -98,22 +98,20 @@ describe('TranscodeService', () => {
         format: 'mp4',
         outputFilename: 'output-name',
         inputArgs: undefined,
-        interrupted: false
       });
     });
 
-    it('should pass inputArgs and interrupted flag when provided', async () => {
+    it('should pass inputArgs when provided', async () => {
       const mockBlob = new Blob(['test data'], { type: 'video/webm' });
       const inputArgs = ['-fflags', '+genpts', '-err_detect', 'ignore_err'];
 
-      await service.transcode(mockBlob, 'mp4', 'output-name', { inputArgs, interrupted: true });
+      await service.transcode(mockBlob, 'mp4', 'output-name', { inputArgs });
 
       expect(trpcClient.transcode.start.mutate).toHaveBeenCalledWith({
         inputBuffer: expect.any(ArrayBuffer),
         format: 'mp4',
         outputFilename: 'output-name',
         inputArgs,
-        interrupted: true
       });
     });
 
@@ -178,7 +176,7 @@ describe('TranscodeService', () => {
 
   describe('cancel', () => {
     beforeEach(() => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
+      service = new TranscodeService({ eventBus: mockEventBus, loggerFactory: mockLoggerFactory });
       service.initialize();
     });
 
@@ -212,7 +210,7 @@ describe('TranscodeService', () => {
 
   describe('isTranscoding', () => {
     beforeEach(() => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
+      service = new TranscodeService({ eventBus: mockEventBus, loggerFactory: mockLoggerFactory });
     });
 
     it('should return false initially', () => {
@@ -228,17 +226,9 @@ describe('TranscodeService', () => {
     });
   });
 
-  describe('isAvailable', () => {
-    it('should return true', () => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
-
-      expect(service.isAvailable()).toBe(true);
-    });
-  });
-
   describe('tRPC Push Event Handlers', () => {
     beforeEach(() => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
+      service = new TranscodeService({ eventBus: mockEventBus, loggerFactory: mockLoggerFactory });
 
       service.initialize();
     });
@@ -346,7 +336,7 @@ describe('TranscodeService', () => {
 
   describe('dispose', () => {
     beforeEach(() => {
-      service = new TranscodeService(mockEventBus, mockLoggerFactory);
+      service = new TranscodeService({ eventBus: mockEventBus, loggerFactory: mockLoggerFactory });
     });
 
     it('should unsubscribe all bridge-owned tRPC subscriptions', () => {

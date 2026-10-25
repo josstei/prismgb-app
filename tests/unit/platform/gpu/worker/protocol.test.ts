@@ -1,56 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import {
-  WorkerMessageType,
-  WorkerResponseType,
-  createWorkerMessage,
-  createWorkerResponse,
-  isValidWorkerMessage,
-  isValidWorkerResponse
-} from '../../../../../src/platform/gpu/worker/protocol';
-
-const validConfig = {
-  nativeWidth: 160,
-  nativeHeight: 144,
-  targetWidth: 640,
-  targetHeight: 576,
-  scaleFactor: 4,
-  backend: 'webgpu',
-  presetId: 'true-color'
-} as const;
+import { createWorkerMessage, createWorkerResponse, isValidWorkerMessage, isValidWorkerResponse } from '../../../../../src/platform/gpu/worker/protocol';
+import { createRenderPresetFixture } from '@platform/gpu/testkit';
 
 describe('worker protocol', () => {
-  it('creates typed worker messages with timestamps', () => {
-    const message = createWorkerMessage(WorkerMessageType.INIT, { config: validConfig });
-
-    expect(message).toMatchObject({
-      type: WorkerMessageType.INIT,
-      payload: { config: validConfig }
-    });
-    expect(typeof message.timestamp).toBe('number');
+  it('validates one canonical payload shape and rejects removed protocol fields', () => {
+    expect(isValidWorkerMessage(createWorkerMessage('resize', { width: 640, height: 576 }))).toBe(true);
+    expect(isValidWorkerMessage({ type: 'resize', payload: { width: '640', height: 576 } })).toBe(false);
+    expect(isValidWorkerMessage({ type: 'release' })).toBe(false);
+    expect(createWorkerMessage('capture', { requestId: 3 })).toEqual({ type: 'capture', payload: { requestId: 3 } });
   });
-
-  it('validates worker messages at the boundary', () => {
-    expect(isValidWorkerMessage(createWorkerMessage(WorkerMessageType.INIT, {
-      config: validConfig
-    }))).toBe(true);
-    expect(isValidWorkerMessage({
-      type: WorkerMessageType.INIT,
-      payload: { config: { ...validConfig, targetWidth: '640' } }
-    })).toBe(false);
-    expect(isValidWorkerMessage({ type: 'unknown', payload: {} })).toBe(false);
+  it('requires a complete preset and correlated capture response', () => {
+    expect(isValidWorkerMessage(createWorkerMessage('setPreset', { preset: createRenderPresetFixture() }))).toBe(true);
+    expect(isValidWorkerMessage({ type: 'setPreset', payload: { preset: {} } })).toBe(false);
+    expect(isValidWorkerResponse({ type: 'captureReady', payload: { bitmap: { close() {} } } })).toBe(false);
+    expect(isValidWorkerResponse(createWorkerResponse('captureReady', { requestId: 2, bitmap: { close() {} } as ImageBitmap }))).toBe(true);
   });
-
-  it('validates worker responses at the boundary', () => {
-    expect(isValidWorkerResponse(createWorkerResponse(WorkerResponseType.READY, {
-      backend: 'webgpu'
-    }))).toBe(true);
-    expect(isValidWorkerResponse(createWorkerResponse(WorkerResponseType.ERROR, {
-      message: 'failed',
-      code: 'INIT_FAILED'
-    }))).toBe(true);
-    expect(isValidWorkerResponse({
-      type: WorkerResponseType.ERROR,
-      payload: { code: 'INIT_FAILED' }
-    })).toBe(false);
+  it('accepts numeric stats only', () => {
+    expect(isValidWorkerResponse(createWorkerResponse('stats', { fps: 60, frameTime: 1.5 }))).toBe(true);
+    expect(isValidWorkerResponse({ type: 'stats', payload: { fps: 60, frameTime: '1.5' } })).toBe(false);
   });
 });

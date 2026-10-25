@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getErrorMessage, isErrorLike } from '@platform/core';
+import { getErrorMessage, isErrorLike } from '../../../../src/platform/core/primitives/error.utils';
 
 describe('error-guards', () => {
   it('detects values with string messages', () => {

@@ -1,7 +1,6 @@
 export * from './reactive/index.js';
 export { PresentationComponent } from './lifecycle/presentation-component.base.js';
 export type { PresentationLifecycleToken } from './lifecycle/presentation-component.base.js';
-export { applyOptions } from './lifecycle/apply-options.utils.js';
 
 export { DisclosureController, calculateAnchoredDisclosureLayout } from './widgets/disclosure.controller.js';
 export type {
@@ -14,10 +13,9 @@ export { ComboboxListboxController } from './widgets/combobox-listbox.controller
 
 export { ActivityAutoHideController } from './widgets/activity-auto-hide.controller.js';
 
-export { renderListboxOptions, updateListboxActiveState } from './widgets/listbox.utils.js';
+export { renderListboxOptions } from './widgets/listbox.utils.js';
 
 export {
-  createTemplateRefSelector,
   getTemplateAction,
   getTemplateActionTarget,
   bindTemplateRefs

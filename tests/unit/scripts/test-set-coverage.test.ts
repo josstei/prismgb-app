@@ -37,8 +37,8 @@ function collectTestFilesOnDisk(): string[] {
   return walk(join(ROOT, 'tests'), []);
 }
 
-const includeGlobs = vitestConfig.test.projects.flatMap((project) =>
-  typeof project === 'object' && project !== null && 'test' in project ? project.test.include : []
+const includeGlobs = (vitestConfig.test?.projects ?? []).flatMap((project) =>
+  typeof project === 'object' && project !== null && 'test' in project ? project.test?.include ?? [] : []
 );
 const isCollected = picomatch(includeGlobs);
 

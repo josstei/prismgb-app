@@ -1,9 +1,8 @@
-import { injectable, inject } from 'inversify';
+
 import { BaseService } from '@platform/core';
 import type {
   LoggerFactoryLike
 } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type StreamHealthyPayload = {
   frameTime: number;
@@ -32,7 +31,10 @@ const HEALTH_TIMEUPDATE_LIFECYCLE = Symbol('streamHealthTimeupdate');
  * Follows the same lightweight, focused, callback-based pattern as other render helpers.
  * Uses RVFC (already used in GPU render loop) - zero polling overhead.
  */
-@injectable()
+type StreamingHealthServiceDependencies = {
+  loggerFactory: LoggerFactoryLike;
+};
+
 export class StreamingHealthService extends BaseService {
   private _timeoutMs: number;
   private _isMonitoring: boolean;
@@ -41,7 +43,7 @@ export class StreamingHealthService extends BaseService {
   private _onUnhealthy: ((payload: StreamUnhealthyPayload) => void) | null;
   private _videoElement: HTMLVideoElement | null;
 
-  constructor(@inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike) {
+  constructor({ loggerFactory }: StreamingHealthServiceDependencies) {
     super({ loggerFactory }, 'StreamingHealthService');
 
     this._timeoutMs = 4000;

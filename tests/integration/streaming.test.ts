@@ -294,7 +294,7 @@ describe('Streaming Pipeline Integration', () => {
       }
 
       expect(errorReceived).toBeDefined();
-      expect(errorReceived.name).toBe('NotFoundError');
+      expect(errorReceived).toMatchObject({ name: 'NotFoundError' });
     });
 
     it('should clean up on unexpected disconnection', async () => {

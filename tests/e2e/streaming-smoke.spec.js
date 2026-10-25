@@ -6,6 +6,9 @@
  */
 
 import { test, expect } from './fixtures/electron.fixture.js';
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
 test.setTimeout(45000);
 
@@ -35,6 +38,7 @@ test.describe('Streaming Smoke with Chromatic Media Environment', () => {
     await streamPage.page.waitForTimeout(1200);
     await streamPage.stopRecording();
 
+    await expect.poll(async () => (await streamPage.getDownloads()).length).toBe(2);
     const downloads = await streamPage.getDownloads();
     expect(downloads.some((download) => download.filename.endsWith('.png'))).toBe(true);
     expect(downloads.some((download) => download.filename.endsWith('.webm'))).toBe(true);
@@ -57,22 +61,31 @@ test.describe('Streaming Smoke with Chromatic Media Environment', () => {
 });
 
 test.describe('Streaming Smoke Cleanup', () => {
-  test('closes cleanly while recording is active', async ({
+  test('saves the final WebM recording before closing', async ({
     appShell,
     chromaticDevice,
     electronApp,
     streamPage,
   }) => {
-    await appShell.waitForReady();
-    await streamPage.suppressDownloads();
-    await chromaticDevice.connect();
-    await streamPage.start();
+    const downloads = await mkdtemp(path.join(os.tmpdir(), 'prismgb-recording-shutdown-'));
+    try {
+      await electronApp.evaluate(({ app }, directory) => app.setPath('downloads', directory), downloads);
+      await appShell.waitForReady();
+      await chromaticDevice.connect();
+      await streamPage.start();
+      await streamPage.startRecording();
 
-    await streamPage.startRecording();
+      await Promise.race([
+        electronApp.close(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Electron close timed out')), 7000)),
+      ]);
 
-    await Promise.race([
-      electronApp.close(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Electron close timed out')), 7000)),
-    ]);
+      const recordings = (await readdir(downloads)).filter((name) => name.endsWith('.webm'));
+      expect(recordings).toHaveLength(1);
+      expect(await readFile(path.join(downloads, recordings[0]), 'utf8'))
+        .toContain('chromatic-recording-');
+    } finally {
+      await rm(downloads, { recursive: true, force: true });
+    }
   });
 });

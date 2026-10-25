@@ -6,10 +6,10 @@
 import { app } from 'electron';
 import fs from 'fs';
 import path from 'path';
-import { injectable, inject } from 'inversify';
+
 import { BaseOrchestrator } from '@platform/core';
-import { safeDisposeAll } from '@platform/core';
-import { TOKENS } from './di/tokens.js';
+import { disposeInOrder } from '@platform/core';
+
 import type { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
 import type { WindowService } from '@main/infrastructure/window/window.service.js';
 import type { DeviceConnectionService } from '@platform/devices/runtime';
@@ -29,25 +29,43 @@ function resolveDevDockIconPath(appPath: string): string | null {
   return candidates.find(candidate => fs.existsSync(candidate)) ?? null;
 }
 
-@injectable()
+type AppOrchestratorDependencies = {
+  windowService: WindowService;
+  deviceConnectionService: DeviceConnectionService;
+  deviceIntegrationService: DeviceIntegrationService;
+  trayService: TrayService;
+  ipcHandlerRegistry: IpcHandlerRegistry;
+  updateService: UpdateService;
+  transcodeService: TranscodeService;
+  loginItemService: LoginItemService;
+  loggerFactory: MainLogger;
+};
+
 export class AppOrchestrator extends BaseOrchestrator {
 
-  constructor(
-    @inject(TOKENS.windowService) private readonly windowService: WindowService,
-    @inject(TOKENS.deviceConnectionService) private readonly deviceConnectionService: DeviceConnectionService,
-    @inject(TOKENS.deviceIntegrationService) private readonly deviceIntegrationService: DeviceIntegrationService,
-    @inject(TOKENS.trayService) private readonly trayService: TrayService,
-    @inject(TOKENS.ipcHandlerRegistry) private readonly ipcHandlerRegistry: IpcHandlerRegistry,
-    @inject(TOKENS.updateService) private readonly updateService: UpdateService,
-    @inject(TOKENS.transcodeService) private readonly transcodeService: TranscodeService,
-    @inject(TOKENS.loginItemService) private readonly loginItemService: LoginItemService,
-    @inject(TOKENS.loggerFactory) loggerFactory: MainLogger
-  ) {
+  private readonly windowService: WindowService;
+  private readonly deviceConnectionService: DeviceConnectionService;
+  private readonly deviceIntegrationService: DeviceIntegrationService;
+  private readonly trayService: TrayService;
+  private readonly ipcHandlerRegistry: IpcHandlerRegistry;
+  private readonly updateService: UpdateService;
+  private readonly transcodeService: TranscodeService;
+  private readonly loginItemService: LoginItemService;
+
+  constructor({ windowService, deviceConnectionService, deviceIntegrationService, trayService, ipcHandlerRegistry, updateService, transcodeService, loginItemService, loggerFactory }: AppOrchestratorDependencies) {
     super({ loggerFactory }, 'AppOrchestrator');
+    this.windowService = windowService;
+    this.deviceConnectionService = deviceConnectionService;
+    this.deviceIntegrationService = deviceIntegrationService;
+    this.trayService = trayService;
+    this.ipcHandlerRegistry = ipcHandlerRegistry;
+    this.updateService = updateService;
+    this.transcodeService = transcodeService;
+    this.loginItemService = loginItemService;
   }
 
   /**
-   * Initialize the application and DI container
+   * Initialize the application services
    * Called by BaseOrchestrator.initialize()
    */
   async onInitialize(): Promise<void> {
@@ -107,21 +125,14 @@ export class AppOrchestrator extends BaseOrchestrator {
   async onCleanup(): Promise<void> {
     this.logger.info('Shutting down PrismGB...');
 
-    // Window cleanup is safely handled by the window service
-    try {
-      this.windowService.destroyWindow();
-    } catch (error) {
-      this.logger.error('Error destroying window during cleanup:', error);
-    }
-
-    // Dispose services using safe utility (eliminates repetitive try-catch)
-    await safeDisposeAll(this.logger, [
-      ['IPC handler registry', this.ipcHandlerRegistry],
-      ['device integration service', this.deviceIntegrationService],
-      ['device connection service', this.deviceConnectionService],
-      ['system tray', this.trayService, 'destroy'],
-      ['update service', this.updateService],
-      ['transcode service', this.transcodeService]
+    await disposeInOrder([
+      () => this.deviceConnectionService.dispose(),
+      () => this.deviceIntegrationService.dispose(),
+      () => this.updateService.dispose(),
+      () => this.transcodeService.dispose(),
+      () => this.ipcHandlerRegistry.dispose(),
+      () => this.trayService.destroy(),
+      () => this.windowService.destroyWindow()
     ]);
 
     this.logger.info('PrismGB shutdown complete');

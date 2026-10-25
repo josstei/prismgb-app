@@ -38,13 +38,6 @@ export class CanvasDriver implements RenderDriver {
     return createImageBitmap(state.canvas as ImageBitmapSource);
   }
 
-  clearFrame(state: PipelineState): void {
-    if (!this.ctx) return;
-
-    this.ctx.fillStyle = '#000000';
-    this.ctx.fillRect(0, 0, state.outputWidth, state.outputHeight);
-  }
-
   onUniformsChanged(): void {
     // Canvas2D has no shader uniform state.
   }

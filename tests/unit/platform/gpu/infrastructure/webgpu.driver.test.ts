@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getPreset } from '../../../../../src/platform/gpu/application/catalog';
 import { WebGpuDriver } from '../../../../../src/platform/gpu/infrastructure/webgpu.driver';
 import { PipelineController } from '../../../../../src/platform/gpu/infrastructure/pipeline-controller';
+import * as passes from '../../../../../src/platform/gpu/application/passes';
 
 interface MockGpuTexture {
   label: string;
@@ -9,8 +10,6 @@ interface MockGpuTexture {
   createView: ReturnType<typeof vi.fn>;
   destroy: ReturnType<typeof vi.fn>;
 }
-
-const CREATE_NATIVE_RENDER_PIPELINE_ASYNC = ['create', 'Render', 'PipelineAsync'].join('');
 
 function createGpuTexture(label: string): MockGpuTexture {
   const view = { label: `${label} view` };
@@ -49,7 +48,7 @@ function createWebGpuRuntimeMock() {
       code: descriptor.code,
       getCompilationInfo: vi.fn(async () => ({ messages: [] }))
     })),
-    [CREATE_NATIVE_RENDER_PIPELINE_ASYNC]: vi.fn(async (descriptor) => {
+    createRenderPipelineAsync: vi.fn(async (descriptor) => {
       const pipeline = {
         label: descriptor.label,
         getBindGroupLayout: vi.fn(() => ({ label: `${descriptor.label} layout` }))
@@ -90,6 +89,18 @@ function createWebGpuRuntimeMock() {
   };
 }
 
+async function createRenderer(runtime: ReturnType<typeof createWebGpuRuntimeMock>): Promise<PipelineController> {
+  vi.stubGlobal('navigator', { gpu: runtime.gpu });
+  const renderer = new PipelineController({
+    canvas: { width: 640, height: 576, getContext: () => runtime.context },
+    nativeWidth: 160,
+    nativeHeight: 144,
+    preset: getPreset('vibrant')!
+  }, new WebGpuDriver());
+  await renderer.initialize();
+  return renderer;
+}
+
 describe('WebGpuDriver', () => {
   beforeEach(() => {
     vi.stubGlobal('GPUTextureUsage', {
@@ -108,6 +119,7 @@ describe('WebGpuDriver', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it('renders planned WebGPU passes to intermediates and presents the final texture to the canvas', async () => {
@@ -151,64 +163,89 @@ describe('WebGpuDriver', () => {
     expect(runtime.device.queue.submit).toHaveBeenCalledTimes(1);
   });
 
-  it('recreates intermediate textures on resize and clears via a dedicated render pass', async () => {
+  it('reuses uniform storage, pass plans, bind groups and sampled views across unchanged frames', async () => {
+    const plan = vi.spyOn(passes, 'createRenderPassPlan');
     const runtime = createWebGpuRuntimeMock();
-    vi.stubGlobal('navigator', { gpu: runtime.gpu });
+    const renderer = await createRenderer(runtime);
+    for (let i = 0; i < 10; i++) renderer.renderFrame({} as TexImageSource);
 
-    const canvas = {
-      width: 640,
-      height: 576,
-      getContext: vi.fn((contextType) => contextType === 'webgpu' ? runtime.context : null)
-    };
-    const renderer = new PipelineController({
-      canvas: canvas as unknown as HTMLCanvasElement,
-      nativeWidth: 160,
-      nativeHeight: 144,
-      preset: getPreset('vibrant')!
-    }, new WebGpuDriver());
-
-    await renderer.initialize();
-    const texturesAfterInit = runtime.createTexture.mock.calls.length;
-    const configuresAfterInit = runtime.context.configure.mock.calls.length;
-
-    renderer.resize(1280, 1152);
-
-    expect(runtime.createTexture.mock.calls.length).toBe(texturesAfterInit + 2);
-    expect(runtime.context.configure.mock.calls.length).toBe(configuresAfterInit + 1);
-
-    runtime.beginRenderPass.mockClear();
-    runtime.draw.mockClear();
-    runtime.device.queue.submit.mockClear();
-
-    renderer.clearFrame();
-
-    expect(runtime.beginRenderPass).toHaveBeenCalledTimes(1);
-    expect(runtime.beginRenderPass.mock.calls[0][0].colorAttachments[0].loadOp).toBe('clear');
-    expect(runtime.draw).not.toHaveBeenCalled();
-    expect(runtime.device.queue.submit).toHaveBeenCalledTimes(1);
+    expect(runtime.device.queue.writeBuffer).toHaveBeenCalledTimes(4);
+    expect(plan).toHaveBeenCalledTimes(1);
+    expect(runtime.createBindGroup).toHaveBeenCalledTimes(4);
+    for (const result of runtime.createTexture.mock.results) {
+      expect(result.value.createView).toHaveBeenCalledTimes(1);
+    }
+    // Presentation targets belong to the swapchain and must be reacquired every frame.
+    expect(runtime.context.getCurrentTexture).toHaveBeenCalledTimes(10);
+    expect(runtime.canvasTexture.createView).toHaveBeenCalledTimes(10);
+    expect(runtime.device.queue.submit).toHaveBeenCalledTimes(10);
+    await renderer.dispose();
   });
 
-  it('does not resume after public resource release destroys GPU resources', async () => {
+  it('updates uniforms and pass selection only after preset or brightness changes', async () => {
+    const plan = vi.spyOn(passes, 'createRenderPassPlan');
     const runtime = createWebGpuRuntimeMock();
-    vi.stubGlobal('navigator', { gpu: runtime.gpu });
+    const renderer = await createRenderer(runtime);
+    renderer.renderFrame({} as TexImageSource);
+    const initialStorage = runtime.device.queue.writeBuffer.mock.calls.map((call) => call[2]);
 
-    const canvas = {
-      width: 640,
-      height: 576,
-      getContext: vi.fn((contextType) => contextType === 'webgpu' ? runtime.context : null)
-    };
-    const renderer = new PipelineController({
-      canvas: canvas as unknown as HTMLCanvasElement,
-      nativeWidth: 160,
-      nativeHeight: 144,
-      preset: getPreset('vibrant')!
-    }, new WebGpuDriver());
+    renderer.setBrightness(1.25);
+    renderer.renderFrame({} as TexImageSource);
+    expect(runtime.device.queue.writeBuffer).toHaveBeenCalledTimes(8);
+    for (const [index, call] of runtime.device.queue.writeBuffer.mock.calls.slice(4).entries()) {
+      expect(call[2]).toBe(initialStorage[index]);
+    }
+    expect(runtime.createBindGroup).toHaveBeenCalledTimes(4);
+    expect(plan).toHaveBeenCalledTimes(2);
 
-    await renderer.initialize();
-    renderer.releaseResources();
-    renderer.resume();
+    renderer.setPreset(getPreset('performance')!);
+    runtime.setPipeline.mockClear();
+    renderer.renderFrame({} as TexImageSource);
+    expect(runtime.setPipeline.mock.calls.map(([pipeline]) => pipeline.label)).toEqual([
+      'pixel-upscale pipeline', 'present pipeline'
+    ]);
+    expect(runtime.device.queue.writeBuffer).toHaveBeenCalledTimes(12);
+    expect(plan).toHaveBeenCalledTimes(3);
+    renderer.renderFrame({} as TexImageSource);
+    expect(plan).toHaveBeenCalledTimes(3);
+    await renderer.dispose();
+  });
+
+  it('destroys old intermediates and invalidates plans and bind groups on resize', async () => {
+    const plan = vi.spyOn(passes, 'createRenderPassPlan');
+    const runtime = createWebGpuRuntimeMock();
+    const renderer = await createRenderer(runtime);
+    renderer.renderFrame({} as TexImageSource);
+    const oldTextures = runtime.createTexture.mock.results.map((result) => result.value);
+    const oldGroups = runtime.createBindGroup.mock.results.map((result) => result.value);
+
+    renderer.resize(1280, 1152);
+    expect(oldTextures[0].destroy).not.toHaveBeenCalled();
+    expect(oldTextures[1].destroy).toHaveBeenCalledTimes(1);
+    expect(oldTextures[2].destroy).toHaveBeenCalledTimes(1);
+    expect(runtime.createTexture).toHaveBeenCalledTimes(5);
+    expect(runtime.createTexture.mock.calls.slice(3).map(([descriptor]) => descriptor.size)).toEqual([
+      [1280, 1152], [1280, 1152]
+    ]);
+    runtime.setBindGroup.mockClear();
+    renderer.renderFrame({} as TexImageSource);
+    expect(runtime.device.queue.writeBuffer).toHaveBeenCalledTimes(8);
+    expect(plan).toHaveBeenCalledTimes(2);
+    expect(runtime.createBindGroup).toHaveBeenCalledTimes(8);
+    for (const [, group] of runtime.setBindGroup.mock.calls) expect(oldGroups).not.toContain(group);
+    expect(runtime.context.configure).toHaveBeenCalledTimes(2);
+    await renderer.dispose();
+  });
+
+  it('disposes resources once and stops rendering', async () => {
+    const runtime = createWebGpuRuntimeMock();
+    const renderer = await createRenderer(runtime);
+    await renderer.dispose();
+    await renderer.dispose();
+    renderer.renderFrame({} as TexImageSource);
 
     expect(runtime.device.destroy).toHaveBeenCalledTimes(1);
+    expect(runtime.device.queue.submit).not.toHaveBeenCalled();
     expect(renderer.isInitialized).toBe(false);
     expect(renderer.isActive).toBe(false);
   });

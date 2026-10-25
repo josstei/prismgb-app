@@ -1,25 +1,23 @@
+import { disposeInOrder } from './application-lifecycle.js';
 import { ManagedLifecycleHost } from './managed-lifecycle-host.js';
 import { getEventHandlerBindings } from './event-decorator.js';
 import type { Disposable, DisposableBag, DisposableFunction, DisposableKey, EventTargetLike } from './disposable-bag.js';
-import type { EventBusLike, LoggerFactoryLike, LoggerLike } from './service.base.js';
+import type { EventBusLike, LifecycleDependencies, LoggerLike } from './service.base.js';
 
 export class BaseOrchestrator {
   protected logger!: LoggerLike;
-  protected eventBus!: EventBusLike;
+  protected eventBus: EventBusLike | undefined;
   isInitialized: boolean;
+  private _initialization: Promise<void> | null = null;
   protected _isCleanedUp: boolean;
   protected _isCleaningUp: boolean;
   protected readonly _orchestratorName: string;
   readonly disposables: DisposableBag;
   private readonly _lifecycle: ManagedLifecycleHost;
 
-  constructor(dependencies: object, name: string | null = null) {
+  constructor({ eventBus, loggerFactory }: LifecycleDependencies, name: string | null = null) {
     const orchestratorName = name || this.constructor.name;
-    const dependencyMap = dependencies as Record<string, unknown>;
-
-    Object.assign(this, dependencyMap);
-
-    const loggerFactory = dependencyMap.loggerFactory as LoggerFactoryLike | undefined;
+    this.eventBus = eventBus ?? undefined;
     if (loggerFactory) {
       this.logger = loggerFactory.create(orchestratorName);
     }
@@ -32,7 +30,13 @@ export class BaseOrchestrator {
     this.disposables = this._lifecycle.disposables;
   }
 
-  async initialize(): Promise<void> {
+  initialize(): Promise<void> {
+    if (this._initialization) return this._initialization;
+    this._initialization = this._initialize().finally(() => { this._initialization = null; });
+    return this._initialization;
+  }
+
+  private async _initialize(): Promise<void> {
     if (this.isInitialized) {
       this.logger?.warn(`${this._orchestratorName} already initialized`);
       return;
@@ -49,6 +53,7 @@ export class BaseOrchestrator {
       this.logger?.info(`${this._orchestratorName} initialized`);
     } catch (error) {
       this.logger?.error(`${this._orchestratorName} initialization failed`, error);
+      await this._cleanupLifecycle();
       throw error;
     }
   }
@@ -65,16 +70,12 @@ export class BaseOrchestrator {
     this.logger?.info(`Cleaning up ${this._orchestratorName}`);
 
     try {
-      await this.onCleanup();
-    } catch (error) {
-      this.logger?.error(`${this._orchestratorName} cleanup failed`, error);
+      await disposeInOrder([() => this.onCleanup(), () => this._lifecycle.dispose()]);
+    } finally {
+      this.isInitialized = false;
+      this._isCleanedUp = true;
+      this._isCleaningUp = false;
     }
-
-    await this._cleanupLifecycle();
-
-    this.isInitialized = false;
-    this._isCleanedUp = true;
-    this._isCleaningUp = false;
   }
 
   private _subscribeDeclaredEventHandlers(): void {

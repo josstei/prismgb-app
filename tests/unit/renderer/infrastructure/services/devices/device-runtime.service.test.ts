@@ -85,14 +85,7 @@ function createRuntime(options: {
     readStoredDeviceIds: vi.fn(() => options.storedDeviceIds ?? []),
     storeDeviceId: vi.fn()
   };
-  const runtime = new RendererDeviceRuntime(
-    statusPort,
-    mediaDevicesPort,
-    devicePreferenceStore,
-    eventBus,
-    loggerFactory,
-    () => 100
-  );
+  const runtime = new RendererDeviceRuntime({ deviceStatusPort: statusPort, mediaDevicesPort: mediaDevicesPort, devicePreferenceStore: devicePreferenceStore, eventBus: eventBus, loggerFactory: loggerFactory, now: () => 100 });
 
   return {
     runtime,

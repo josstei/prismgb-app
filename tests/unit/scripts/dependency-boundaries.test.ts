@@ -1,14 +1,10 @@
-import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { cruise } from 'dependency-cruiser';
+import extractTSConfig from 'dependency-cruiser/config-utl/extract-ts-config';
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { PLATFORM_MODULES } from '../../../scripts/lib/workspace-aliases.mjs';
-
-type DependencyCruiserManifest = {
-  bin: string | {
-    depcruise: string;
-  };
-};
 
 type DependencyCruiserReport = {
   summary: {
@@ -29,23 +25,19 @@ const projectRoot = process.cwd();
 const fixtureRoot = path.join(projectRoot, 'tests/fixtures/dependency-boundaries');
 const configPath = path.join(projectRoot, '.dependency-cruiser.cjs');
 
-function resolveDepcruiseBin(): string {
-  const manifestPath = path.join(projectRoot, 'node_modules/dependency-cruiser/package.json');
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as DependencyCruiserManifest;
-  const binEntry = typeof manifest.bin === 'string' ? manifest.bin : manifest.bin.depcruise;
-  return path.join(projectRoot, 'node_modules/dependency-cruiser', binEntry);
-}
-
-function cruiseFixtureTree(): string[] {
-  const result = spawnSync(
-    process.execPath,
-    [resolveDepcruiseBin(), '--config', configPath, '--output-type', 'json', 'src'],
-    { cwd: fixtureRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
-  );
-  if (!result.stdout) {
-    throw new Error(`depcruise produced no output: ${result.stderr}`);
-  }
-  const report = JSON.parse(result.stdout) as DependencyCruiserReport;
+async function cruiseFixtureTree(): Promise<string[]> {
+  const require = createRequire(import.meta.url);
+  const config = require(configPath);
+  const tsconfigPath = path.join(fixtureRoot, 'tsconfig.app.json');
+  const result = await cruise(['src'], {
+    ...config.options,
+    baseDir: fixtureRoot,
+    tsConfig: { fileName: tsconfigPath },
+    ruleSet: { forbidden: config.forbidden },
+    validate: true,
+    outputType: 'json'
+  }, {}, { tsConfig: extractTSConfig(tsconfigPath) });
+  const report = (typeof result.output === 'string' ? JSON.parse(result.output) : result.output) as DependencyCruiserReport;
   return report.summary.violations.map((violation) => `${violation.rule.name} ${violation.from}`).sort();
 }
 
@@ -72,8 +64,8 @@ const EXPECTED_VIOLATIONS = [
 ].sort();
 
 describe('dependency boundary rules', () => {
-  it('reports exactly the expected violation set for the fixture tree', () => {
-    expect(cruiseFixtureTree()).toEqual(EXPECTED_VIOLATIONS);
+  it('reports exactly the expected violation set for the fixture tree', async () => {
+    expect(await cruiseFixtureTree()).toEqual(EXPECTED_VIOLATIONS);
   });
 });
 

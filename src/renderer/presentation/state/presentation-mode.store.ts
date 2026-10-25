@@ -1,25 +1,13 @@
 import { signal, computed, type ReadonlySignal } from '@platform/ui-base/reactive';
-import { EventChannels } from '@platform/events';
-import type { EventBusLike } from '@platform/core';
+import { EventChannels, type TypedEventBusLike } from '@platform/events';
 import { ReactiveStore } from './reactive-store.base.js';
 
-function readBooleanField(payload: unknown, key: string): boolean | null {
-  if (typeof payload !== 'object' || payload === null) return null;
-  const value = (payload as Record<string, unknown>)[key];
-  return typeof value === 'boolean' ? value : null;
-}
-
 export interface PresentationModeStoreDependencies {
-  eventBus: EventBusLike;
+  eventBus: Pick<TypedEventBusLike, 'subscribe'>;
   cinematicEnabled: ReadonlySignal<boolean>;
 }
 
-/**
- * Owns the reactive inputs for the presentation-mode body classes and exposes the gated
- * composites, reproducing PresentationModeService's predicates without imperative DOM writes:
- * cinematic = cinematicEnabled && streaming; minimalist = minimalist && fullscreen && streaming.
- * Each input is fed from the same bus channel / signal the imperative service consumed.
- */
+/** Derives cinematic and minimalist modes from stream, fullscreen, and preference state. */
 export class PresentationModeStore extends ReactiveStore {
   private readonly _streamingActive = signal(false);
   private readonly _fullscreenActive = signal(Boolean(document.fullscreenElement));
@@ -42,28 +30,19 @@ export class PresentationModeStore extends ReactiveStore {
     );
 
     const bus = this.dependencies.eventBus;
-    this.track(bus.subscribe(EventChannels.UI.STREAMING_MODE, (payload: unknown) => this.applyStreaming(payload)));
-    this.track(bus.subscribe(EventChannels.UI.FULLSCREEN_STATE, (payload: unknown) => this.applyFullscreen(payload)));
-    this.track(bus.subscribe(EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED, (payload: unknown) =>
-      this.applyMinimalist(payload)
-    ));
+    this.track(bus.subscribe(EventChannels.UI.STREAMING_MODE, (payload) => {
+      if (typeof payload?.enabled === 'boolean') this._streamingActive.value = payload.enabled;
+    }));
+    this.track(bus.subscribe(EventChannels.UI.FULLSCREEN_STATE, (payload) => {
+      if (typeof payload?.active === 'boolean') this._fullscreenActive.value = payload.active;
+    }));
+    this.track(bus.subscribe(EventChannels.SETTINGS.MINIMALIST_FULLSCREEN_CHANGED, (enabled) => {
+      if (typeof enabled === 'boolean') this._minimalistEnabled.value = enabled;
+    }));
   }
 
   get fullscreenActive(): ReadonlySignal<boolean> {
     return this._fullscreenActive;
   }
 
-  private applyStreaming(payload: unknown): void {
-    const enabled = readBooleanField(payload, 'enabled');
-    if (enabled !== null) this._streamingActive.value = enabled;
-  }
-
-  private applyFullscreen(payload: unknown): void {
-    const active = readBooleanField(payload, 'active');
-    if (active !== null) this._fullscreenActive.value = active;
-  }
-
-  private applyMinimalist(payload: unknown): void {
-    if (typeof payload === 'boolean') this._minimalistEnabled.value = payload;
-  }
 }

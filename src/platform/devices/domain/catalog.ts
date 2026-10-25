@@ -13,7 +13,6 @@ import type {
   DeviceMediaAudioProfile,
   DeviceMediaFallbackStrategy,
   DeviceMediaProfile,
-  DeviceNativeResolution,
   DeviceResolution,
   DeviceStreamProfile
 } from './types.js';
@@ -356,6 +355,3 @@ export const DeviceCatalog: DeviceCatalogApi = Object.freeze<DeviceCatalogApi>({
     return getDeviceAcquisitionProfile(id);
   }
 });
-
-export const DEFAULT_DEVICE_ID: DeviceId = DeviceCatalog.default().id;
-export const DEFAULT_NATIVE_RESOLUTION: DeviceNativeResolution = Object.freeze(DeviceCatalog.nativeResolution());

@@ -1,4 +1,4 @@
-import { injectable, inject } from 'inversify';
+
 import { BaseService, getErrorMessage } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import { createTrpcEventBridge } from '@renderer/infrastructure/services/platform/trpc-event-bridge.factory';
@@ -6,7 +6,7 @@ import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { UpdateState } from '@platform/config';
 import type { UpdateStateValue } from '@platform/config';
 import type { EventPublisherLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+
 import type {
   UpdateCheckPayload,
   UpdateErrorPayload,
@@ -21,18 +21,22 @@ type UpdateStatusSnapshot = UpdateStatusPayload & {
   state: UpdateStateValue;
 };
 
-@injectable()
+type UpdateServiceDependencies = {
+  eventBus: EventPublisherLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 class UpdateService extends BaseService {
   private _state: UpdateStateValue;
   private _updateInfo: UpdateInfoPayload | null;
   private _downloadProgress: UpdateProgressPayload | null;
   private _error: string | UpdateErrorPayload | null;
 
-  constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: EventPublisherLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
-    super({ loggerFactory, eventBus }, 'UpdateService');
+  private readonly eventBus: EventPublisherLike;
+
+  constructor({ eventBus, loggerFactory }: UpdateServiceDependencies) {
+    super({ loggerFactory }, 'UpdateService');
+    this.eventBus = eventBus;
 
     this._state = UpdateState.IDLE;
     this._updateInfo = null;

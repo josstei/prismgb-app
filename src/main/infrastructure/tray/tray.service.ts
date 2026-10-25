@@ -5,10 +5,10 @@
 
 import { Tray, Menu, app, MenuItemConstructorOptions } from 'electron';
 import path from 'path';
-import { injectable, inject } from 'inversify';
+import { fileURLToPath } from 'node:url';
+
 import { BaseService, type LoggerFactoryLike } from '@platform/core';
 import type { DeviceConnectionReason } from '@platform/devices/runtime';
-import { TOKENS } from '@main/application/di/tokens.js';
 
 /**
  * Menu configuration item
@@ -42,16 +42,22 @@ const MENU_CONFIG: MenuConfigItem[] = [
   }
 ];
 
-@injectable()
+type TrayServiceDependencies = {
+  windowService: TrayWindowServiceLike;
+  deviceConnectionService: TrayDeviceConnectionServiceLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 class TrayService extends BaseService {
   private tray: Tray | null = null;
 
-  constructor(
-    @inject(TOKENS.windowService) private readonly windowService: TrayWindowServiceLike,
-    @inject(TOKENS.deviceConnectionService) private readonly deviceConnectionService: TrayDeviceConnectionServiceLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly windowService: TrayWindowServiceLike;
+  private readonly deviceConnectionService: TrayDeviceConnectionServiceLike;
+
+  constructor({ windowService, deviceConnectionService, loggerFactory }: TrayServiceDependencies) {
     super({ loggerFactory }, 'TrayService');
+    this.windowService = windowService;
+    this.deviceConnectionService = deviceConnectionService;
   }
 
   /**
@@ -66,8 +72,10 @@ class TrayService extends BaseService {
 
     const appPath = app.getAppPath();
     const trayIconPath = app.isPackaged
-      ? path.join(appPath, 'dist/renderer/assets/tray-icon.png')
-      : path.join(appPath, 'assets/tray-icon.png');
+      ? path.join(appPath, 'dist/renderer/tray-icon.png')
+      : process.env.ELECTRON_IS_DEV === '0'
+        ? fileURLToPath(new URL('../renderer/tray-icon.png', import.meta.url))
+        : path.join(appPath, 'assets/tray-icon.png');
 
     this.logger.info('Creating system tray icon');
 

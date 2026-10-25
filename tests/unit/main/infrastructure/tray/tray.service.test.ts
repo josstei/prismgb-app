@@ -1,18 +1,20 @@
+import * as serviceMocks from '../../../../factories/index.js';
 /**
  * TrayService Unit Tests
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   createWindowServiceMock
 } from '../../../../factories/index.js';
-import { createInjectableHarness, type LoggerMockLike } from '../../../../support/di/injectable.harness.js';
+import { createServiceHarness, type LoggerMockLike } from '../../../../support/service.harness.js';
 
 type PathModuleWithDefault = typeof import('node:path') & { default: typeof import('node:path') };
 
 vi.mock('electron', () => {
   return {
     Tray: class MockTray {
+      constructor(readonly iconPath: string) {}
       setToolTip = vi.fn();
       setContextMenu = vi.fn();
       on = vi.fn();
@@ -24,7 +26,8 @@ vi.mock('electron', () => {
     app: {
       getAppPath: vi.fn(() => '/app/path'),
       quit: vi.fn(),
-      isQuitting: false
+      isQuitting: false,
+      isPackaged: false
     }
   };
 });
@@ -44,8 +47,9 @@ vi.mock('path', async (importOriginal) => {
 import { TrayService } from '@main/infrastructure/tray/tray.service.js';
 import { Menu, app } from 'electron';
 
-type MockFn = ReturnType<typeof vi.fn>;
+type MockFn = ReturnType<typeof vi.fn<(...args: any[]) => any>>;
 type MockTrayInstance = {
+  iconPath: string;
   setToolTip: MockFn;
   setContextMenu: MockFn;
   on: MockFn;
@@ -79,16 +83,15 @@ describe('TrayService', () => {
   let mockLoggerFactory: MockLoggerFactory;
 
   beforeEach(() => {
-    const h = createInjectableHarness(TrayService, {
-      overrides: {
-        windowService: createWindowServiceMock({
+    const h = createServiceHarness(TrayService, {
+      loggerFactory: serviceMocks.createLoggerFactory(),
+      windowService: createWindowServiceMock({
           showWindow: vi.fn()
         }),
-        deviceConnectionService: {
+      deviceConnectionService: {
           isConnected: vi.fn(),
           reconcileDeviceStatus: vi.fn(async () => ({ connected: false }))
         }
-      }
     });
     trayService = h.subject as unknown as TestableTrayService;
     mockLogger = h.logger;
@@ -101,6 +104,21 @@ describe('TrayService', () => {
       deviceConnectionService: MockDeviceConnectionService;
       loggerFactory: MockLoggerFactory;
     });
+  });
+
+  afterEach(() => { vi.unstubAllEnvs(); Object.defineProperty(app, 'isPackaged', { value: false, configurable: true }); });
+
+  it('loads the copied renderer icon for a locally built production launch', () => {
+    vi.stubEnv('ELECTRON_IS_DEV', '0');
+    trayService.createTray();
+    expect(trayService.tray!.iconPath).toMatch(/\/renderer\/tray-icon\.png$/);
+    expect(trayService.tray!.iconPath).not.toContain('/app/path/assets/');
+  });
+
+  it('loads the copied renderer icon from the packaged application', () => {
+    Object.defineProperty(app, 'isPackaged', { value: true, configurable: true });
+    trayService.createTray();
+    expect(trayService.tray!.iconPath).toBe('/app/path/dist/renderer/tray-icon.png');
   });
 
   describe('Constructor', () => {
@@ -132,21 +150,21 @@ describe('TrayService', () => {
     it('should set initial tooltip', () => {
       trayService.createTray();
 
-      expect(trayService.tray.setToolTip).toHaveBeenCalledWith('PrismGB - Monitoring for device');
+      expect(trayService.tray!.setToolTip).toHaveBeenCalledWith('PrismGB - Monitoring for device');
     });
 
     it('should register click handler', () => {
       trayService.createTray();
 
-      expect(trayService.tray.on).toHaveBeenCalledWith('click', expect.any(Function));
+      expect(trayService.tray!.on).toHaveBeenCalledWith('click', expect.any(Function));
     });
 
     it('should show window on click', () => {
       trayService.createTray();
 
-      const clickHandler = trayService.tray.on.mock.calls.find(
+      const clickHandler = trayService.tray!.on.mock.calls.find(
         call => call[0] === 'click'
-      )[1];
+      )![1];
 
       clickHandler();
 
@@ -188,7 +206,7 @@ describe('TrayService', () => {
     it('should set context menu', () => {
       trayService.updateTrayMenu();
 
-      expect(trayService.tray.setContextMenu).toHaveBeenCalled();
+      expect(trayService.tray!.setContextMenu).toHaveBeenCalled();
     });
 
     it('should do nothing if tray not created', () => {
@@ -221,7 +239,7 @@ describe('TrayService', () => {
   describe('destroy', () => {
     it('should destroy tray when it exists', () => {
       trayService.createTray();
-      const trayInstance = trayService.tray;
+      const trayInstance = trayService.tray!;
 
       trayService.destroy();
 

@@ -1,6 +1,5 @@
 import { signal, computed, type ReadonlySignal } from '@platform/ui-base/reactive';
-import { EventChannels } from '@platform/events';
-import type { EventBusLike } from '@platform/core';
+import { EventChannels, type EventPayloadMap, type TypedEventBusLike } from '@platform/events';
 import { ReactiveStore } from './reactive-store.base.js';
 
 const SUCCESS_HIDE_DELAY_MS = 1200;
@@ -11,7 +10,7 @@ const ERROR_LABEL = '✗';
 export type TranscodePhase = 'idle' | 'transcoding' | 'success' | 'error';
 
 export interface TranscodeProgressStoreDependencies {
-  eventBus: EventBusLike;
+  eventBus: Pick<TypedEventBusLike, 'subscribe'>;
 }
 
 /**
@@ -37,7 +36,7 @@ export class TranscodeProgressStore extends ReactiveStore {
 
     const bus = this.dependencies.eventBus;
     this.track(bus.subscribe(EventChannels.TRANSCODE.STARTED, () => this.start()));
-    this.track(bus.subscribe(EventChannels.TRANSCODE.PROGRESS, (payload: unknown) => this.advance(payload)));
+    this.track(bus.subscribe(EventChannels.TRANSCODE.PROGRESS, (payload) => this.advance(payload)));
     this.track(bus.subscribe(EventChannels.TRANSCODE.COMPLETED, () => this.complete()));
     this.track(bus.subscribe(EventChannels.TRANSCODE.ERROR, () => this.fail()));
     this.track(bus.subscribe(EventChannels.TRANSCODE.CANCELLED, () => this.hide()));
@@ -62,13 +61,10 @@ export class TranscodeProgressStore extends ReactiveStore {
     this._label.value = '';
   }
 
-  private advance(payload: unknown): void {
+  private advance(payload: EventPayloadMap[typeof EventChannels.TRANSCODE.PROGRESS]): void {
     if (this._phase.value !== 'transcoding') return;
-    const percent =
-      typeof payload === 'object' && payload !== null
-        ? (payload as { percent?: number }).percent ?? -1
-        : -1;
-    if (percent <= 0) return;
+    const percent = payload?.percent ?? -1;
+    if (!Number.isFinite(percent) || percent <= 0) return;
     const clamped = Math.min(100, Math.max(0, Math.round(percent)));
     this._progress.value = clamped;
     this._label.value = `${clamped}%`;

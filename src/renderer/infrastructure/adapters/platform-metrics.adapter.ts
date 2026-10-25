@@ -1,22 +1,23 @@
 /**
  * Metrics Adapter
  *
- * Wraps the main-process performance metrics tRPC query to provide a clean DI boundary,
+ * Wraps the main-process performance metrics tRPC query to provide a typed platform boundary,
  * isolating the PerformanceMetricsService from the transport client.
  */
 
-import { injectable, inject } from 'inversify';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { callIpc, type CallIpcResult } from '@renderer/infrastructure/ipc/call-ipc.js';
 import type { ProcessMetricsPayload } from '@platform/ipc';
 import type { LoggerFactoryLike, LoggerLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
 
-@injectable()
+type MetricsAdapterDependencies = {
+  loggerFactory: LoggerFactoryLike;
+};
+
 export class MetricsAdapter {
   private readonly logger: LoggerLike;
 
-  constructor(@inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike) {
+  constructor({ loggerFactory }: MetricsAdapterDependencies) {
     this.logger = loggerFactory.create('MetricsAdapter');
   }
 

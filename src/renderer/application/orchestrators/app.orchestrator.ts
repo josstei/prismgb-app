@@ -1,9 +1,8 @@
-import { injectable, inject } from 'inversify';
-import { BaseOrchestrator } from '@platform/core';
+
+import { BaseOrchestrator, disposeInOrder } from '@platform/core';
 import { EventChannels, OnEvent } from '@platform/events';
 import type { DeviceEnumerationFailedPayload, DeviceStatus } from '@platform/events';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type LifecycleOrchestrator = {
   initialize(): Promise<void> | void;
@@ -20,32 +19,57 @@ type SettingsServiceLike = {
 };
 
 type UpdateServiceLike = {
-  initialize(): Promise<void>;
+  initialize(): void | Promise<void>;
 };
 
 type UpdateUiServiceLike = {
   initialize(): void;
 };
 
-@injectable()
+type AppOrchestratorDependencies = {
+  rendererDeviceRuntime: LifecycleOrchestrator;
+  streamingOrchestrator: LifecycleOrchestrator;
+  streamingAudioOrchestrator: LifecycleOrchestrator;
+  captureOrchestrator: LifecycleOrchestrator;
+  displayModeOrchestrator: LifecycleOrchestrator;
+  settingsService: SettingsServiceLike;
+  updateService: UpdateServiceLike;
+  updateUiService: UpdateUiServiceLike;
+  uiSetupOrchestrator: UISetupOrchestratorLike;
+  performanceMetricsOrchestrator: LifecycleOrchestrator;
+  performanceStateOrchestrator: LifecycleOrchestrator;
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 export class AppOrchestrator extends BaseOrchestrator {
-  constructor(
-    @inject(TOKENS.rendererDeviceRuntime) private readonly rendererDeviceRuntime: LifecycleOrchestrator,
-    @inject(TOKENS.streamingOrchestrator) private readonly streamingOrchestrator: LifecycleOrchestrator,
-    @inject(TOKENS.streamingAudioOrchestrator) private readonly streamingAudioOrchestrator: LifecycleOrchestrator,
-    @inject(TOKENS.captureOrchestrator) private readonly captureOrchestrator: LifecycleOrchestrator,
-    @inject(TOKENS.displayModeOrchestrator) private readonly displayModeOrchestrator: LifecycleOrchestrator,
-    @inject(TOKENS.settingsService) private readonly settingsService: SettingsServiceLike,
-    @inject(TOKENS.updateService) private readonly updateService: UpdateServiceLike,
-    @inject(TOKENS.updateUiService) private readonly updateUiService: UpdateUiServiceLike,
-    @inject(TOKENS.uiSetupOrchestrator) private readonly uiSetupOrchestrator: UISetupOrchestratorLike,
-    @inject(TOKENS.animationPerformanceOrchestrator) private readonly animationPerformanceOrchestrator: LifecycleOrchestrator,
-    @inject(TOKENS.performanceMetricsOrchestrator) private readonly performanceMetricsOrchestrator: LifecycleOrchestrator,
-    @inject(TOKENS.performanceStateOrchestrator) private readonly performanceStateOrchestrator: LifecycleOrchestrator,
-    @inject(TOKENS.eventBus) eventBus: EventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  protected readonly eventBus: EventBusLike;
+  private readonly rendererDeviceRuntime: LifecycleOrchestrator;
+  private readonly streamingOrchestrator: LifecycleOrchestrator;
+  private readonly streamingAudioOrchestrator: LifecycleOrchestrator;
+  private readonly captureOrchestrator: LifecycleOrchestrator;
+  private readonly displayModeOrchestrator: LifecycleOrchestrator;
+  private readonly settingsService: SettingsServiceLike;
+  private readonly updateService: UpdateServiceLike;
+  private readonly updateUiService: UpdateUiServiceLike;
+  private readonly uiSetupOrchestrator: UISetupOrchestratorLike;
+  private readonly performanceMetricsOrchestrator: LifecycleOrchestrator;
+  private readonly performanceStateOrchestrator: LifecycleOrchestrator;
+
+  constructor({ rendererDeviceRuntime, streamingOrchestrator, streamingAudioOrchestrator, captureOrchestrator, displayModeOrchestrator, settingsService, updateService, updateUiService, uiSetupOrchestrator, performanceMetricsOrchestrator, performanceStateOrchestrator, eventBus, loggerFactory }: AppOrchestratorDependencies) {
     super({ loggerFactory, eventBus }, 'AppOrchestrator');
+    this.eventBus = eventBus;
+    this.rendererDeviceRuntime = rendererDeviceRuntime;
+    this.streamingOrchestrator = streamingOrchestrator;
+    this.streamingAudioOrchestrator = streamingAudioOrchestrator;
+    this.captureOrchestrator = captureOrchestrator;
+    this.displayModeOrchestrator = displayModeOrchestrator;
+    this.settingsService = settingsService;
+    this.updateService = updateService;
+    this.updateUiService = updateUiService;
+    this.uiSetupOrchestrator = uiSetupOrchestrator;
+    this.performanceMetricsOrchestrator = performanceMetricsOrchestrator;
+    this.performanceStateOrchestrator = performanceStateOrchestrator;
   }
 
   async onInitialize(): Promise<void> {
@@ -57,7 +81,6 @@ export class AppOrchestrator extends BaseOrchestrator {
 
     // Initialize application orchestrators
     await this.performanceStateOrchestrator.initialize();
-    await this.animationPerformanceOrchestrator.initialize();
     await this.performanceMetricsOrchestrator.initialize();
     await this.displayModeOrchestrator.initialize();
     await this.settingsService.initialize();
@@ -120,24 +143,19 @@ export class AppOrchestrator extends BaseOrchestrator {
     // Cleanup all sub-orchestrators (continue even if one fails)
     const orchestrators: Array<[string, LifecycleOrchestrator]> = [
       ['uiSetupOrchestrator', this.uiSetupOrchestrator],
-      ['animationPerformanceOrchestrator', this.animationPerformanceOrchestrator],
       ['performanceMetricsOrchestrator', this.performanceMetricsOrchestrator],
       ['performanceStateOrchestrator', this.performanceStateOrchestrator],
       ['displayModeOrchestrator', this.displayModeOrchestrator],
-      ['streamingAudioOrchestrator', this.streamingAudioOrchestrator],
-      ['streamingOrchestrator', this.streamingOrchestrator],
       ['captureOrchestrator', this.captureOrchestrator],
+      ['streamingOrchestrator', this.streamingOrchestrator],
+      ['streamingAudioOrchestrator', this.streamingAudioOrchestrator],
       ['rendererDeviceRuntime', this.rendererDeviceRuntime]
     ];
 
-    for (const [name, orchestrator] of orchestrators) {
-      try {
-        await orchestrator.cleanup();
-        this.logger.debug(`${name} cleaned up`);
-      } catch (error) {
-        this.logger.error(`Error cleaning up ${name}:`, error);
-      }
-    }
+    await disposeInOrder(orchestrators.map(([name, orchestrator]) => async () => {
+      await orchestrator.cleanup();
+      this.logger.debug(`${name} cleaned up`);
+    }));
 
     this.logger.info('AppOrchestrator cleanup complete');
   }

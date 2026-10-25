@@ -1,3 +1,4 @@
+import * as serviceMocks from '../../../../factories/index.js';
 /**
  * AppOrchestrator Unit Tests
  */
@@ -6,7 +7,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { AppOrchestrator } from '@renderer/application/orchestrators/app.orchestrator';
 import { EventChannels } from '@platform/events';
 import { createOrchestratorMock } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../support/service.harness.js';
 
 describe('AppOrchestrator', () => {
   let orchestrator;
@@ -19,20 +20,26 @@ describe('AppOrchestrator', () => {
   let mockUpdateService;
   let mockUpdateUiService;
   let mockUISetupOrchestrator;
-  let mockPerformanceAnimationOrchestrator;
   let mockPerformanceMetricsOrchestrator;
   let mockPerformanceStateOrchestrator;
   let mockEventBus;
   let mockLogger;
 
   beforeEach(() => {
-    const h = createInjectableHarness(AppOrchestrator, {
-      overrides: {
-        settingsService: { initialize: vi.fn().mockResolvedValue(undefined) },
-        updateService: { initialize: vi.fn().mockResolvedValue(undefined) },
-        updateUiService: { initialize: vi.fn() },
-        uiSetupOrchestrator: createOrchestratorMock({ initializeDeferredComponents: vi.fn() })
-      }
+    const h = createServiceHarness(AppOrchestrator, {
+      rendererDeviceRuntime: serviceMocks.createRendererDeviceRuntimeMock(),
+      streamingOrchestrator: serviceMocks.createOrchestratorMock(),
+      streamingAudioOrchestrator: serviceMocks.createOrchestratorMock(),
+      captureOrchestrator: serviceMocks.createOrchestratorMock(),
+      displayModeOrchestrator: serviceMocks.createOrchestratorMock(),
+      performanceMetricsOrchestrator: serviceMocks.createOrchestratorMock(),
+      performanceStateOrchestrator: serviceMocks.createOrchestratorMock(),
+      eventBus: serviceMocks.createEventBus(),
+      loggerFactory: serviceMocks.createLoggerFactory(),
+      settingsService: { initialize: vi.fn().mockResolvedValue(undefined) },
+      updateService: { initialize: vi.fn().mockResolvedValue(undefined) },
+      updateUiService: { initialize: vi.fn() },
+      uiSetupOrchestrator: createOrchestratorMock({ initializeDeferredComponents: vi.fn() })
     });
     orchestrator = h.subject;
     mockLogger = h.logger;
@@ -46,7 +53,6 @@ describe('AppOrchestrator', () => {
       updateService: mockUpdateService,
       updateUiService: mockUpdateUiService,
       uiSetupOrchestrator: mockUISetupOrchestrator,
-      animationPerformanceOrchestrator: mockPerformanceAnimationOrchestrator,
       performanceMetricsOrchestrator: mockPerformanceMetricsOrchestrator,
       performanceStateOrchestrator: mockPerformanceStateOrchestrator,
       eventBus: mockEventBus
@@ -92,7 +98,6 @@ describe('AppOrchestrator', () => {
       expect(mockUpdateService.initialize).toHaveBeenCalled();
       expect(mockUpdateUiService.initialize).toHaveBeenCalled();
       expect(mockPerformanceStateOrchestrator.initialize).toHaveBeenCalled();
-      expect(mockPerformanceAnimationOrchestrator.initialize).toHaveBeenCalled();
       expect(mockPerformanceMetricsOrchestrator.initialize).toHaveBeenCalled();
       expect(mockUISetupOrchestrator.initialize).toHaveBeenCalled();
     });
@@ -153,7 +158,6 @@ describe('AppOrchestrator', () => {
       await orchestrator.onCleanup();
 
       expect(mockUISetupOrchestrator.cleanup).toHaveBeenCalled();
-      expect(mockPerformanceAnimationOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockPerformanceMetricsOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockPerformanceStateOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockSettingsDisplayModeOrchestrator.cleanup).toHaveBeenCalled();
@@ -167,12 +171,11 @@ describe('AppOrchestrator', () => {
       const error = new Error('Cleanup failed');
       mockStreamingOrchestrator.cleanup.mockRejectedValue(error);
 
-      await orchestrator.onCleanup();
+      await expect(orchestrator.onCleanup()).rejects.toThrow('Runtime disposal failed');
 
       expect(mockUISetupOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockCaptureOrchestrator.cleanup).toHaveBeenCalled();
       expect(mockRendererDeviceRuntime.cleanup).toHaveBeenCalled();
-      expect(mockLogger.error).toHaveBeenCalledWith('Error cleaning up streamingOrchestrator:', error);
     });
   });
 });

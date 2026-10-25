@@ -1,3 +1,4 @@
+import * as serviceMocks from '../../../../factories/index.js';
 /**
  * StreamingAudioOrchestrator Unit Tests
  */
@@ -10,7 +11,7 @@ import {
   createMediaTrackMock,
   createStreamingViewServiceMock
 } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../support/service.harness.js';
 
 describe('StreamingAudioOrchestrator', () => {
   let orchestrator;
@@ -21,11 +22,12 @@ describe('StreamingAudioOrchestrator', () => {
   let mockLogger;
 
   beforeEach(() => {
-    const h = createInjectableHarness(StreamingAudioOrchestrator, {
-      overrides: {
-        streamViewService: createStreamingViewServiceMock({ setMuted: vi.fn() }),
-        appState: createAppState({ initialState: { isStreaming: false } })
-      }
+    const h = createServiceHarness(StreamingAudioOrchestrator, {
+      streamingAudioPipelineService: serviceMocks.createStreamingAudioPipelineServiceMock(),
+      eventBus: serviceMocks.createEventBus(),
+      loggerFactory: serviceMocks.createLoggerFactory(),
+      streamViewService: createStreamingViewServiceMock({ setMuted: vi.fn() }),
+      appState: createAppState({ initialState: { isStreaming: false } })
     });
     orchestrator = h.subject;
     mockLogger = h.logger;

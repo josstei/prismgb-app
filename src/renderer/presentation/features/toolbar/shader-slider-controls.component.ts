@@ -1,3 +1,4 @@
+import type { SettingsAccess } from '@renderer/lib/settings.definitions.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresentationComponent, bindText, bindClass, computed } from '@platform/ui-base';
 import { signal } from '@platform/ui-base/reactive';
@@ -6,11 +7,7 @@ import { EventChannels } from '@platform/events';
 import type { TypedEventBusLike } from '@platform/events';
 import type { LoggerLike } from '@platform/core';
 
-export interface ShaderSliderSettingsService {
-  getNumberSetting(name: string): number;
-  getBooleanSetting(name: string): boolean;
-  setSetting(name: string, value: unknown): boolean | Promise<boolean>;
-}
+export type ShaderSliderSettingsService = Pick<SettingsAccess, 'getSetting' | 'setSetting'>;
 
 export interface ShaderSliderControlsComponentOptions {
   settingsService: ShaderSliderSettingsService;
@@ -89,7 +86,7 @@ class ShaderSliderControlsComponent extends PresentationComponent {
   _loadCurrentBrightness(): void {
     if (!this.brightnessSlider) return;
 
-    this.currentBrightness = this.settingsService.getNumberSetting('globalBrightness');
+    this.currentBrightness = this.settingsService.getSetting('globalBrightness');
     this.brightnessSlider.value = String(brightnessToSlider(this.currentBrightness));
     this._updateBrightnessDisplay();
   }
@@ -97,14 +94,14 @@ class ShaderSliderControlsComponent extends PresentationComponent {
   _loadCurrentVolume(): void {
     if (!this.volumeSlider) return;
 
-    this.currentVolume = this.settingsService.getNumberSetting('gameVolume');
+    this.currentVolume = this.settingsService.getSetting('gameVolume');
     this.volumeSlider.value = String(this.currentVolume);
     this._updateVolumeDisplay();
     this._applyVolumeToVideo();
   }
 
   _loadPerformanceModeState(): void {
-    this._performanceModeEnabled.value = this.settingsService.getBooleanSetting('performanceMode');
+    this._performanceModeEnabled.value = this.settingsService.getSetting('performanceMode');
   }
 
   _setupBrightnessSlider(): void {

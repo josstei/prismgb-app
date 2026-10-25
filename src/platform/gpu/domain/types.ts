@@ -106,18 +106,12 @@ export interface RenderPipeline {
   resize(width: number, height: number): void;
 
   setPreset(preset: RenderPreset): void;
-  getPreset(): RenderPreset;
 
   setBrightness(value: number): void;
 
   captureFrame(): Promise<ImageBitmap>;
-  clearFrame(): void;
-
-  pause(): void;
-  resume(): void;
 
   getStats(): RenderStats;
 
-  releaseResources(): void;
   dispose(): Promise<void>;
 }

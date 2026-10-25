@@ -7,7 +7,7 @@ import { SettingsMenuComponent } from '@renderer/presentation/features/settings/
 import {
   createSettingsControlsTemplate
 } from '@renderer/presentation/features/settings/settings-menu.template.js';
-import { SettingsDefinitions } from '@renderer/lib/settings.definitions.js';
+import { SettingsDefinitions, hasSettingsControl } from '@renderer/lib/settings.definitions.js';
 import {
   createLogger,
   createSettingsMenuElementsMock,
@@ -51,7 +51,7 @@ describe('SettingsMenuComponent', () => {
   describe('Constructor', () => {
     it('should create component with default state', () => {
       expect(component.isVisible).toBe(false);
-      expect(component.disclaimerExpanded).toBe(false);
+      expect(mockElements.disclaimerBtn.getAttribute('aria-expanded')).not.toBe('true');
     });
   });
 
@@ -59,7 +59,7 @@ describe('SettingsMenuComponent', () => {
     it('derives settings controls from settings definition UI metadata', () => {
       const controlsTemplate = createSettingsControlsTemplate();
       const uiDefinitions = SettingsDefinitions.definitions
-        .filter((definition) => definition.ui?.controlId)
+        .filter(hasSettingsControl)
         .sort((a, b) => (a.ui.order ?? 0) - (b.ui.order ?? 0));
 
       for (const definition of uiDefinitions) {
@@ -82,8 +82,8 @@ describe('SettingsMenuComponent', () => {
 
       expect(component.container).toBe(mockElements.settingsMenuContainer);
       expect(component.toggleButton).toBe(mockElements.settingsBtn);
-      expect(component.statusStripCheckbox).toBe(mockElements.settingStatusStrip);
-      expect(component.animationSaverCheckbox).toBe(mockElements.settingAnimationSaver);
+      expect(component.checkboxElements.get('statusStripVisible')).toBe(mockElements.settingStatusStrip);
+      expect(component.checkboxElements.get('performanceMode')).toBe(mockElements.settingAnimationSaver);
     });
 
     it('should warn if required elements are missing', () => {
@@ -95,8 +95,8 @@ describe('SettingsMenuComponent', () => {
     it('should load current settings on initialize', () => {
       component.initialize(mockElements);
 
-      expect(mockSettingsService.getBooleanSetting).toHaveBeenCalledWith('statusStripVisible');
-      expect(mockSettingsService.getBooleanSetting).toHaveBeenCalledWith('performanceMode');
+      expect(mockSettingsService.getSetting).toHaveBeenCalledWith('statusStripVisible');
+      expect(mockSettingsService.getSetting).toHaveBeenCalledWith('performanceMode');
       expect(mockElements.settingStatusStrip.checked).toBe(true);
       expect(mockElements.settingAnimationSaver.checked).toBe(true);
     });
@@ -183,12 +183,12 @@ describe('SettingsMenuComponent', () => {
 
     it('should collapse disclaimer when hiding menu', () => {
       // Expand disclaimer first
-      component._expandDisclaimer();
-      expect(component.disclaimerExpanded).toBe(true);
+      mockElements.disclaimerBtn.click();
+      expect(mockElements.disclaimerBtn.getAttribute('aria-expanded')).toBe('true');
 
       component.hide();
 
-      expect(component.disclaimerExpanded).toBe(false);
+      expect(mockElements.disclaimerBtn.getAttribute('aria-expanded')).not.toBe('true');
     });
 
     it('should log when hidden', () => {
@@ -262,7 +262,7 @@ describe('SettingsMenuComponent', () => {
       mockElements.settingAnimationSaver.checked = true;
       componentWithLimitedService.initialize(mockElements);
 
-      expect(serviceWithoutMethod.getBooleanSetting).toHaveBeenCalledWith('performanceMode');
+      expect(serviceWithoutMethod.getSetting).toHaveBeenCalledWith('performanceMode');
       expect(mockElements.settingAnimationSaver.checked).toBe(false);
 
       componentWithLimitedService.dispose();
@@ -278,11 +278,11 @@ describe('SettingsMenuComponent', () => {
       mockElements.settingLaunchOnLogin.checked = true;
       mockElements.settingLaunchOnLogin.dispatchEvent(new Event('change'));
 
-      expect(mockSettingsService.setSetting).toHaveBeenCalledWith('launchOnLogin', true);
+      expect(mockSettingsService.setLaunchOnLogin).toHaveBeenCalledWith(true);
     });
 
     it('should load saved state on initialization', async () => {
-      mockSettingsService.setSetting('launchOnLogin', true);
+      await mockSettingsService.setLaunchOnLogin(true);
       await component._loadAsyncSettings({ isActive: () => true, dispose: vi.fn() });
 
       expect(mockElements.settingLaunchOnLogin.checked).toBe(true);
@@ -297,7 +297,7 @@ describe('SettingsMenuComponent', () => {
     it('should expand disclaimer when collapsed', () => {
       mockElements.disclaimerBtn.click();
 
-      expect(component.disclaimerExpanded).toBe(true);
+      expect(mockElements.disclaimerBtn.getAttribute('aria-expanded')).toBe('true');
       expect(mockElements.disclaimerContent.classList.contains('visible')).toBe(true);
     });
 
@@ -305,7 +305,7 @@ describe('SettingsMenuComponent', () => {
       mockElements.disclaimerBtn.click(); // expand
       mockElements.disclaimerBtn.click(); // collapse
 
-      expect(component.disclaimerExpanded).toBe(false);
+      expect(mockElements.disclaimerBtn.getAttribute('aria-expanded')).not.toBe('true');
       expect(mockElements.disclaimerContent.classList.contains('visible')).toBe(false);
     });
 

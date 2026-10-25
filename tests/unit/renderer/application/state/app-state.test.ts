@@ -289,8 +289,8 @@ describe('AppState', () => {
     });
   });
 
-  describe('dispose', () => {
-    it('should unsubscribe from all event subscriptions', () => {
+  describe('dispose', async () => {
+    it('should unsubscribe from all event subscriptions', async () => {
       const unsubscribe1 = vi.fn();
       const unsubscribe2 = vi.fn();
       const unsubscribe3 = vi.fn();
@@ -309,41 +309,41 @@ describe('AppState', () => {
         eventBus: mockEventBus
       });
 
-      testState.dispose();
+      await testState.dispose();
 
       expect(unsubscribe1).toHaveBeenCalled();
       expect(unsubscribe2).toHaveBeenCalled();
       expect(unsubscribe3).toHaveBeenCalled();
     });
 
-    it('should clear stream cache', () => {
+    it('should clear stream cache', async () => {
       state._streamCache.value = createStreamPayloadMock({ id: 'test-stream' });
 
-      state.dispose();
+      await state.dispose();
 
       expect(state._streamCache.value).toBeNull();
     });
 
-    it('should clear capabilities cache', () => {
+    it('should clear capabilities cache', async () => {
       state._capabilitiesCache.value = createStreamCapabilitiesMock();
 
-      state.dispose();
+      await state.dispose();
 
       expect(state._capabilitiesCache.value).toBeNull();
     });
 
-    it('should handle missing eventBus subscription dispose gracefully', () => {
+    it('should handle missing eventBus subscription dispose gracefully', async () => {
       const testState = new AppState({
         streamingService: mockStreamingService,
         rendererDeviceRuntime: mockRendererDeviceRuntime
       });
 
-      expect(() => testState.dispose()).not.toThrow();
+      await expect(testState.dispose()).resolves.toBeUndefined();
     });
 
-    it('should be idempotent - safe to call multiple times', () => {
-      state.dispose();
-      state.dispose();
+    it('should be idempotent - safe to call multiple times', async () => {
+      await state.dispose();
+      await state.dispose();
 
       expect(state._streamCache.value).toBeNull();
       expect(state._capabilitiesCache.value).toBeNull();

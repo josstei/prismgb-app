@@ -1,10 +1,10 @@
 import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
 import type { UpdateInfo, ProgressInfo } from 'electron-updater';
-import { BaseService, getElectronApp } from '@platform/core';
-import type { LoggerFactoryLike as LoggerFactory, EventBusLike } from '@platform/core';
-import { MainEventChannels } from '@platform/events';
+import { BaseService } from '@platform/core';
+import type { LoggerFactoryLike as LoggerFactory } from '@platform/core';
 import { IPC_CHANNELS } from '@platform/ipc';
+import type { IpcPushPublisher, IpcPushPayloadMap, IpcPushArguments, UpdateCheckPayload, UpdateStatusPayload } from '@platform/ipc';
 import { UpdateState, type UpdateStateValue } from '@platform/config';
 
 type UpdateStateType = UpdateStateValue;
@@ -14,42 +14,24 @@ const PERIODIC_UPDATE_CHECK_LIFECYCLE = Symbol('periodicUpdateCheck');
 
 
 
-interface WindowService {
-  send(channel: string, data: unknown): void;
-}
-
 interface Config {
   isDevelopment?: boolean;
   version?: string;
 }
 
 interface UpdateServiceDependencies {
-  windowService: WindowService;
-  eventBus: EventBusLike;
+  pushPublisher: IpcPushPublisher;
+  prepareInstall: () => void;
   loggerFactory: LoggerFactory;
   config: Config;
-}
-
-interface UpdateCheckResult {
-  updateAvailable: boolean;
-  updateInfo?: UpdateInfo;
-  skipped?: boolean;
-  reason?: string;
-}
-
-interface UpdateStatus {
-  state: UpdateStateType;
-  updateInfo: UpdateInfo | null;
-  downloadProgress: ProgressInfo | null;
-  error: string | null;
 }
 
 type AutoUpdaterEventName = Parameters<typeof autoUpdater.on>[0];
 type AutoUpdaterListener = Parameters<typeof autoUpdater.on>[1];
 
 class UpdateService extends BaseService {
-  private readonly windowService: WindowService;
-  protected readonly eventBus: EventBusLike;
+  private readonly pushPublisher: IpcPushPublisher;
+  private readonly prepareInstall: () => void;
   private readonly config: Config;
 
   state: UpdateStateType;
@@ -62,8 +44,8 @@ class UpdateService extends BaseService {
   constructor(dependencies: UpdateServiceDependencies) {
     super(dependencies, 'UpdateService');
 
-    this.windowService = dependencies.windowService;
-    this.eventBus = dependencies.eventBus;
+    this.pushPublisher = dependencies.pushPublisher;
+    this.prepareInstall = dependencies.prepareInstall;
     this.config = dependencies.config;
 
     this.state = UpdateState.IDLE;
@@ -205,9 +187,7 @@ class UpdateService extends BaseService {
    * @private
    */
   _setState(newState: UpdateStateType): void {
-    const oldState = this.state;
     this.state = newState;
-    this.eventBus.publish(MainEventChannels.UPDATE.STATE_CHANGED, { oldState, newState });
   }
 
   /**
@@ -216,11 +196,11 @@ class UpdateService extends BaseService {
    * @param data - Data to send
    * @private
    */
-  _notifyRenderer(channel: string, data: unknown): void {
+  _notifyRenderer<K extends keyof IpcPushPayloadMap>(...args: IpcPushArguments<K>): void {
     try {
-      this.windowService.send(channel, data);
+      this.pushPublisher.emit<K>(...args);
     } catch (error) {
-      this.logger.warn('Failed to notify renderer', { channel, error: (error as Error).message });
+      this.logger.warn('Failed to notify renderer', { channel: args[0], error: (error as Error).message });
     }
   }
 
@@ -230,7 +210,7 @@ class UpdateService extends BaseService {
    * @param options.force - Force check even if already downloaded/downloading
    * @returns Update check result
    */
-  async checkForUpdates({ force = false }: { force?: boolean } = {}): Promise<UpdateCheckResult> {
+  async checkForUpdates({ force = false }: { force?: boolean } = {}): Promise<UpdateCheckPayload> {
     if (!this._initialized) {
       throw new Error('UpdateService not initialized');
     }
@@ -276,7 +256,7 @@ class UpdateService extends BaseService {
 
     if (this.state === UpdateState.DOWNLOADED) {
       this.logger.info('Update already downloaded');
-      this._notifyRenderer(IPC_CHANNELS.UPDATE.DOWNLOADED, this.updateInfo);
+      if (this.updateInfo) this._notifyRenderer(IPC_CHANNELS.UPDATE.DOWNLOADED, this.updateInfo);
       return;
     }
 
@@ -309,10 +289,7 @@ class UpdateService extends BaseService {
     }
 
     this.logger.info('Installing update and restarting...');
-    const electronApp = getElectronApp();
-    if (electronApp) {
-      electronApp.isQuitting = true;
-    }
+    this.prepareInstall();
     autoUpdater.quitAndInstall(false, true);
   }
 
@@ -360,7 +337,7 @@ class UpdateService extends BaseService {
    * Get current update status
    * @returns Current status object
    */
-  getStatus(): UpdateStatus {
+  getStatus(): UpdateStatusPayload {
     return {
       state: this.state,
       updateInfo: this.updateInfo,

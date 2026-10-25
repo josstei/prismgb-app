@@ -41,12 +41,6 @@ export interface StreamingControlsComponentOptions {
   store: StreamInfoStore;
 }
 
-export interface StreamInfoSettings {
-  width: number;
-  height: number;
-  frameRate: number;
-}
-
 class StreamingControlsComponent extends PresentationComponent {
   declare elements: StreamingControlsElements | null;
   declare bodyClassManager: StreamingControlsBodyClassManager | null;

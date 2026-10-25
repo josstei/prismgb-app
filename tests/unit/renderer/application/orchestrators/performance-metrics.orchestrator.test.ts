@@ -1,3 +1,4 @@
+import * as serviceMocks from '../../../../factories/index.js';
 /**
  * PerformanceMetricsOrchestrator Unit Tests
  */
@@ -6,7 +7,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { PerformanceMetricsOrchestrator } from '@renderer/application/orchestrators/performance/performance-metrics.orchestrator';
 import { EventChannels } from '@platform/events';
 import { createEventBus } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../support/service.harness.js';
 
 describe('PerformanceMetricsOrchestrator', () => {
   let orchestrator;
@@ -16,14 +17,14 @@ describe('PerformanceMetricsOrchestrator', () => {
 
   beforeEach(() => {
     handlers = {};
-    const h = createInjectableHarness(PerformanceMetricsOrchestrator, {
-      overrides: {
-        eventBus: createEventBus({
+    const h = createServiceHarness(PerformanceMetricsOrchestrator, {
+      loggerFactory: serviceMocks.createLoggerFactory(),
+      performanceMetricsService: serviceMocks.createPerformanceMetricsServiceMock(),
+      eventBus: createEventBus({
           onSubscribe: (channel, handler) => {
             handlers[channel] = handler;
           }
         })
-      }
     });
     orchestrator = h.subject;
     ({

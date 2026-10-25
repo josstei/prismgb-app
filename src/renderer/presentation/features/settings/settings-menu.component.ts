@@ -9,6 +9,8 @@ import {
   getBooleanSettingsUiDefinitions,
   getListboxSettingsUiDefinitions,
   hasExternalSource,
+  type SettingsAccess,
+  type SettingName,
   type SettingsControlDefinition,
   type SettingsListboxDefinition
 } from '@renderer/lib/settings.definitions.js';
@@ -18,18 +20,11 @@ import type { UpdateSectionElements } from '@renderer/presentation/features/upda
 declare const __APP_VERSION__: string | undefined;
 
 type CheckboxElement = HTMLInputElement & { checked: boolean };
-type SettingValue = string | number | boolean;
-type SettingResult = SettingValue | Promise<SettingValue>;
-type BooleanSettingBinding = readonly [CheckboxElement | null | undefined, string, ((value: boolean) => void)?];
+type BooleanSettingBinding = readonly [CheckboxElement | null | undefined, SettingName, ((value: boolean) => void)?];
 
 type ListboxElementBinding = { definition: SettingsListboxDefinition; triggerElement: HTMLElement; labelElement: HTMLElement | null; menuElement: HTMLElement };
 
-interface SettingsServiceLike {
-  getBooleanSetting(name: string): boolean;
-  getStringSetting(name: string): string;
-  getSetting(name: string): SettingResult;
-  setSetting(name: string, value: unknown): boolean | Promise<boolean>;
-}
+type SettingsServiceLike = SettingsAccess;
 
 type UpdateSectionLike = { initialize(elements: UpdateSectionElements): void; setCurrentVersion(version: string): void; dispose(): void | Promise<void> };
 
@@ -87,30 +82,6 @@ class SettingsMenuComponent extends PresentationComponent {
   declare disclaimerContent: HTMLElement | null | undefined;
   declare footer: HTMLElement | null | undefined;
   declare updateElements: UpdateSectionElements;
-
-  get disclaimerExpanded(): boolean {
-    return this._disclaimerDisclosure?.isOpen() ?? false;
-  }
-  set disclaimerExpanded(value: boolean) {
-    if (value) this._disclaimerDisclosure?.show();
-    else this._disclaimerDisclosure?.hide();
-  }
-
-  get statusStripCheckbox(): CheckboxElement | null | undefined {
-    return this.checkboxElements.get('statusStripVisible');
-  }
-
-  get animationSaverCheckbox(): CheckboxElement | null | undefined {
-    return this.checkboxElements.get('performanceMode');
-  }
-
-  _expandDisclaimer(): void {
-    this._disclaimerDisclosure?.show();
-  }
-
-  _collapseDisclaimer(): void {
-    this._disclaimerDisclosure?.hide();
-  }
 
   constructor({ settingsService, updateSectionComponent, logger }: SettingsMenuComponentOptions) {
     super();
@@ -187,7 +158,8 @@ class SettingsMenuComponent extends PresentationComponent {
       if (!checkbox) continue;
       this.listen(checkbox, 'change', () => {
         const value = checkbox.checked;
-        this.settingsService.setSetting(settingName, value);
+        if (settingName === 'launchOnLogin') void this.settingsService.setLaunchOnLogin(value);
+        else this.settingsService.setSetting(settingName, value);
         afterChange?.(value);
       });
     }
@@ -201,15 +173,16 @@ class SettingsMenuComponent extends PresentationComponent {
 
   _loadCurrentSettings(asyncSettingsToken: PresentationLifecycleToken): void {
     for (const [checkbox, settingName, afterLoad] of this._getBooleanSettingBindings({ includeAsync: false })) {
-      const value = this.settingsService.getBooleanSetting(settingName);
+      if (settingName === 'launchOnLogin') continue;
+      const value = Boolean(this.settingsService.getSetting(settingName));
       if (checkbox) checkbox.checked = value;
       afterLoad?.(value);
     }
 
     for (const [settingName, dropdown] of this.listboxDropdowns) {
       const definition = this.listboxElements.get(settingName)?.definition;
-      if (definition) {
-        dropdown.setActive(this.settingsService.getStringSetting(definition.name));
+      if (definition && definition.name !== 'launchOnLogin') {
+        dropdown.setActive(String(this.settingsService.getSetting(definition.name)));
       }
     }
     void this._loadAsyncSettings(asyncSettingsToken);
@@ -218,7 +191,7 @@ class SettingsMenuComponent extends PresentationComponent {
   async _loadAsyncSettings(asyncSettingsToken: PresentationLifecycleToken): Promise<void> {
     const asyncDefinitions = getBooleanSettingsUiDefinitions().filter(hasExternalSource);
     for (const definition of asyncDefinitions) {
-      const enabled = await this.settingsService.getSetting(definition.name);
+      const enabled = await this.settingsService.getLaunchOnLogin();
 
       if (!this._initialized || !asyncSettingsToken.isActive()) {
         return;
@@ -249,7 +222,7 @@ class SettingsMenuComponent extends PresentationComponent {
         optionSelector: '.settings-select-option',
         ignoreOutsideSelectors: ['.settings-select-wrapper'],
         onChange: (value) => {
-          this.settingsService.setSetting(binding.definition.name, value);
+          if (binding.definition.name !== 'launchOnLogin') this.settingsService.setSetting(binding.definition.name, value);
         },
         logger: this.logger
       });

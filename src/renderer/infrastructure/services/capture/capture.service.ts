@@ -1,10 +1,9 @@
-import { injectable, inject } from 'inversify';
+
 import { BaseService } from '@platform/core';
 import type { LoggerFactoryLike } from '@platform/core';
 import { FilenameGenerator } from '@renderer/lib/filename-generator.utils.js';
 import { EventChannels } from '@platform/events';
 import type { RecordingReadyPayload, TypedEventBusLike } from '@platform/events';
-import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type MediaRecorderErrorEvent = Event & {
   error?: DOMException | Error | { message?: string; name?: string };
@@ -35,7 +34,11 @@ function getRecorderError(event: MediaRecorderErrorEvent): Error {
   return new Error('Recording failed');
 }
 
-@injectable()
+type CaptureServiceDependencies = {
+  eventBus: TypedEventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 class CaptureService extends BaseService {
   isRecording: boolean;
   mediaRecorder: MediaRecorder | null;
@@ -43,11 +46,11 @@ class CaptureService extends BaseService {
   private _isDisposing: boolean;
   private _stopWaiter: StopWaiter | null;
 
-  constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly eventBus: TypedEventBusLike;
+
+  constructor({ eventBus, loggerFactory }: CaptureServiceDependencies) {
     super({ loggerFactory, eventBus }, 'CaptureService');
+    this.eventBus = eventBus;
 
     this.isRecording = false;
     this.mediaRecorder = null;
@@ -61,32 +64,32 @@ class CaptureService extends BaseService {
     const isCanvas = source instanceof HTMLCanvasElement;
     const isBitmap = typeof ImageBitmap !== 'undefined' && source instanceof ImageBitmap;
 
-    if (!source) {
-      this.logger.warn('Cannot take screenshot - no source provided');
-      throw new Error('Invalid source');
-    }
-
-    if (isVideo && !source.videoWidth) {
-      this.logger.warn('Cannot take screenshot - invalid video element');
-      throw new Error('Invalid video element');
-    }
-
-    if (isCanvas && !source.width) {
-      this.logger.warn('Cannot take screenshot - invalid canvas element');
-      throw new Error('Invalid canvas element');
-    }
-
-    if (isBitmap && !source.width) {
-      this.logger.warn('Cannot take screenshot - invalid ImageBitmap');
-      throw new Error('Invalid ImageBitmap');
-    }
-
-    if (!isVideo && !isCanvas && !isBitmap) {
-      this.logger.warn('Cannot take screenshot - unsupported source type');
-      throw new Error('Invalid source type');
-    }
-
     try {
+      if (!source) {
+        this.logger.warn('Cannot take screenshot - no source provided');
+        throw new Error('Invalid source');
+      }
+
+      if (isVideo && !source.videoWidth) {
+        this.logger.warn('Cannot take screenshot - invalid video element');
+        throw new Error('Invalid video element');
+      }
+
+      if (isCanvas && !source.width) {
+        this.logger.warn('Cannot take screenshot - invalid canvas element');
+        throw new Error('Invalid canvas element');
+      }
+
+      if (isBitmap && !source.width) {
+        this.logger.warn('Cannot take screenshot - invalid ImageBitmap');
+        throw new Error('Invalid ImageBitmap');
+      }
+
+      if (!isVideo && !isCanvas && !isBitmap) {
+        this.logger.warn('Cannot take screenshot - unsupported source type');
+        throw new Error('Invalid source type');
+      }
+
       let width, height;
       if (isVideo) {
         width = source.videoWidth;
@@ -105,10 +108,6 @@ class CaptureService extends BaseService {
         throw new Error('Failed to create 2D canvas context');
       }
       ctx.drawImage(source, 0, 0);
-
-      if (isBitmap) {
-        source.close();
-      }
 
       const blob = await new Promise<Blob>((resolve, reject) => {
         canvas.toBlob((blob) => {
@@ -130,6 +129,8 @@ class CaptureService extends BaseService {
     } catch (error) {
       this.logger.error('Error taking screenshot:', error);
       throw error;
+    } finally {
+      if (isBitmap) source.close();
     }
   }
 
@@ -181,8 +182,7 @@ class CaptureService extends BaseService {
     }
 
     if (!this.isRecording || !this.mediaRecorder) {
-      this.logger.warn('Not currently recording');
-      throw new Error('Not recording');
+      return;
     }
 
     try {
@@ -191,14 +191,6 @@ class CaptureService extends BaseService {
       this.logger.error('Error stopping recording:', error);
       throw error;
     }
-  }
-
-  async toggleRecording(stream: MediaStream): Promise<void> {
-    return this.isRecording ? this.stopRecording() : this.startRecording(stream);
-  }
-
-  getRecordingState(): boolean {
-    return this.isRecording;
   }
 
   async _handleRecordingStop(): Promise<void> {
@@ -329,11 +321,7 @@ class CaptureService extends BaseService {
     event: typeof EventChannels.CAPTURE.RECORDING_READY,
     payload: RecordingReadyPayload
   ): Promise<void> {
-    if (this.eventBus.publishAsync) {
-      await this.eventBus.publishAsync(event, payload);
-      return;
-    }
-    this.eventBus.publish(event, payload);
+    await this.eventBus.publishAsync(event, payload);
   }
 
   private async _stopActiveRecorder({ emitStoppedEvent }: { emitStoppedEvent: boolean }): Promise<void> {

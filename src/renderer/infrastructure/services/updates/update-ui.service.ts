@@ -1,16 +1,19 @@
-import { injectable, inject } from 'inversify';
+
 import { BaseService } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
 
-@injectable()
+type UpdateUiServiceDependencies = {
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 class UpdateUiService extends BaseService {
-  constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly eventBus: EventBusLike;
+
+  constructor({ eventBus, loggerFactory }: UpdateUiServiceDependencies) {
     super({ loggerFactory, eventBus }, 'UpdateUiService');
+    this.eventBus = eventBus;
   }
 
   initialize() {

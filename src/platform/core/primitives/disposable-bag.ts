@@ -44,6 +44,28 @@ function toDisposableFunction(disposable: Disposable): DisposableFunction | null
   return null;
 }
 
+/** Starts all cleanup synchronously, then waits for every asynchronous result before reporting failures. */
+function disposeAll(disposers: readonly DisposableFunction[]): void | Promise<void> {
+  const errors: unknown[] = [];
+  const pending: Promise<void>[] = [];
+  for (const dispose of disposers) {
+    try {
+      const result = dispose();
+      if (isPromiseLike<void>(result)) {
+        pending.push(result.catch((error: unknown) => { errors.push(error); }));
+      }
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+  const reportErrors = () => {
+    if (errors.length === 1) throw errors[0];
+    if (errors.length > 1) throw new AggregateError(errors, 'Multiple disposables failed during cleanup');
+  };
+  if (pending.length > 0) return Promise.all(pending).then(reportErrors);
+  reportErrors();
+}
+
 export class DisposableBag {
   private disposables: DisposableFunction[] = [];
   private readonly managed = new Map<DisposableKey, DisposableFunction>();
@@ -109,18 +131,7 @@ export class DisposableBag {
       .map((entry) => toDisposableFunction(entry))
       .filter((entry): entry is DisposableFunction => entry !== null);
 
-    return this.replace(key, () => {
-      const pending: Promise<void>[] = [];
-      for (const dispose of group.splice(0).reverse()) {
-        const result = dispose();
-        if (isPromiseLike<void>(result)) {
-          pending.push(result);
-        }
-      }
-      if (pending.length > 0) {
-        return Promise.all(pending).then(() => undefined);
-      }
-    });
+    return this.replace(key, () => disposeAll(group.splice(0).reverse()));
   }
 
   addEvent(
@@ -154,30 +165,11 @@ export class DisposableBag {
     const pending = [...this.disposables].reverse();
     this.disposables = [];
 
-    const errors: unknown[] = [];
-    const asyncDisposals: Promise<void>[] = [];
-
-    for (const dispose of pending) {
-      try {
-        const result = dispose();
-        if (isPromiseLike<void>(result)) {
-          asyncDisposals.push(result.catch((error) => {
-            errors.push(error);
-          }));
-        }
-      } catch (error) {
-        errors.push(error);
-      }
+    try {
+      return Promise.resolve(disposeAll(pending));
+    } catch (error) {
+      return Promise.reject(error);
     }
-
-    return Promise.all(asyncDisposals).then(() => {
-      if (errors.length === 1) {
-        throw errors[0];
-      }
-      if (errors.length > 1) {
-        throw new AggregateError(errors, 'Multiple disposables failed during cleanup');
-      }
-    });
   }
 
   dispose(): Promise<void> {

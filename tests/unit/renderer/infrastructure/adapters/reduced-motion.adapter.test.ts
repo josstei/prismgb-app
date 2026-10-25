@@ -7,7 +7,7 @@ import { ReducedMotionAdapter } from '@renderer/infrastructure/adapters/reduced-
 import { installMatchMediaMock } from '../../../../support/mocks/browser-api.installers.js';
 import { createMediaQueryListMock } from '../../../../factories/index.js';
 
-type MediaQueryListMock = ReturnType<typeof createMediaQueryListMock> & {
+type MediaQueryListMock = Omit<ReturnType<typeof createMediaQueryListMock>, 'addEventListener' | 'removeEventListener'> & {
   addEventListener?: ReturnType<typeof vi.fn>;
   removeEventListener?: ReturnType<typeof vi.fn>;
 };

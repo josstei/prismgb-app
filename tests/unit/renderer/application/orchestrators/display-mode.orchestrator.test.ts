@@ -1,3 +1,4 @@
+import * as serviceMocks from '../../../../factories/index.js';
 /**
  * SettingsDisplayModeOrchestrator Unit Tests
  */
@@ -5,7 +6,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { SettingsDisplayModeOrchestrator } from '@renderer/application/orchestrators/display-mode.orchestrator';
 import { createSettingsServiceMock } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../support/service.harness.js';
 import { installDocumentPropertyMock } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('SettingsDisplayModeOrchestrator', () => {
@@ -19,10 +20,12 @@ describe('SettingsDisplayModeOrchestrator', () => {
   beforeEach(() => {
     hiddenMock = installDocumentPropertyMock('hidden', false);
 
-    const h = createInjectableHarness(SettingsDisplayModeOrchestrator, {
-      overrides: {
-        settingsService: createSettingsServiceMock({ values: { fullscreenOnStartup: false } })
-      }
+    const h = createServiceHarness(SettingsDisplayModeOrchestrator, {
+      fullscreenService: serviceMocks.createSettingsFullscreenServiceMock(),
+      cinematicModeService: serviceMocks.createSettingsCinematicModeServiceMock(),
+      eventBus: serviceMocks.createEventBus(),
+      loggerFactory: serviceMocks.createLoggerFactory(),
+      settingsService: createSettingsServiceMock({ values: { fullscreenOnStartup: false } })
     });
     orchestrator = h.subject;
     ({
@@ -80,7 +83,7 @@ describe('SettingsDisplayModeOrchestrator', () => {
 
       orchestrator._applyStartupBehaviors();
 
-      expect(mockSettingsService.getBooleanSetting).toHaveBeenCalledWith('fullscreenOnStartup');
+      expect(mockSettingsService.getSetting).toHaveBeenCalledWith('fullscreenOnStartup');
       expect(mockSettingsFullscreenService.enterFullscreen).toHaveBeenCalled();
     });
 

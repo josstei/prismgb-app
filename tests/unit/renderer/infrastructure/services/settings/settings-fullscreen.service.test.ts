@@ -1,3 +1,4 @@
+import * as serviceMocks from '../../../../../factories/index.js';
 /**
  * SettingsFullscreenService Unit Tests
  */
@@ -12,7 +13,7 @@ import { EventChannels } from '@platform/events';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { emitTrpcData, getTrpcUnsubscribe } from '../../../../../support/mocks/trpc-client.mock';
 import { installFullscreenDocumentMock } from '../../../../../support/mocks/browser-api.installers.js';
-import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../../support/service.harness.js';
 
 describe('SettingsFullscreenService', () => {
   let service;
@@ -36,7 +37,10 @@ describe('SettingsFullscreenService', () => {
     mockDocument = documentMock.document;
     mockDocumentElement = documentMock.documentElement;
 
-    const h = createInjectableHarness(SettingsFullscreenService);
+    const h = createServiceHarness(SettingsFullscreenService, {
+      eventBus: serviceMocks.createEventBus(),
+      loggerFactory: serviceMocks.createLoggerFactory()
+    });
     service = h.subject;
     mockLogger = h.logger;
     ({ eventBus: mockEventBus, loggerFactory: mockLoggerFactory } = h.deps);
@@ -130,7 +134,7 @@ describe('SettingsFullscreenService', () => {
     });
 
     it('should handle dispose when not initialized', async () => {
-      const uninitializedService = new SettingsFullscreenService(mockEventBus, mockLoggerFactory);
+      const uninitializedService = new SettingsFullscreenService({ eventBus: mockEventBus, loggerFactory: mockLoggerFactory });
 
       await expect(uninitializedService.dispose()).resolves.toBeUndefined();
     });

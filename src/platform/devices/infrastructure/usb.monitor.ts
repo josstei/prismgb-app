@@ -197,13 +197,8 @@ function createNodeUsbMonitor(options: { loadUsbModule?: UsbModuleLoader } = {})
   }
 }
 
-function createNoopUsbMonitor(): UsbMonitor {
-  return new NoopUsbMonitor();
-}
-
 export {
   createNodeUsbMonitor,
-  createNoopUsbMonitor,
   loadNativeUsbModule,
   toUsbDevice
 };

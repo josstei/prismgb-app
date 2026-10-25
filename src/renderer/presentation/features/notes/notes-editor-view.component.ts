@@ -1,3 +1,4 @@
+import type { UserNote } from '@platform/notes';
 import { PresentationComponent } from '@platform/ui-base';
 import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
 import type { LoggerLike } from '@platform/core';
@@ -7,17 +8,11 @@ const SAVE_DEBOUNCE_TIMEOUT = Symbol('notesEditorSaveDebounceTimeout');
 const DELETE_HOLD_TIMEOUT = Symbol('notesEditorDeleteHoldTimeout');
 const EDITOR_SETUP_LIFECYCLE = Symbol('notesEditorSetupLifecycle');
 
-interface UserNoteLike {
-  id?: string;
-  gameName?: string;
-  title?: string;
-  content?: string;
-}
+
 
 type EditorCallback = () => void;
 
 export interface NotesEditorViewComponentOptions {
-  notesService?: unknown;
   logger?: LoggerLike | null;
 }
 
@@ -32,12 +27,10 @@ export interface NotesEditorViewInitializeOptions {
   gameAddBtn?: HTMLElement | null;
   onSave?: EditorCallback | null;
   onDelete?: EditorCallback | null;
-  onGameInputChange?: EditorCallback | null;
   onShowGameInput?: EditorCallback | null;
 }
 
 class NotesEditorViewComponent extends PresentationComponent {
-  declare notesService: unknown;
   declare logger: LoggerLike | null | undefined;
   declare currentNoteId: string | null | undefined;
   declare hasNote: boolean;
@@ -51,7 +44,6 @@ class NotesEditorViewComponent extends PresentationComponent {
   declare gameAddBtn: HTMLElement | null | undefined;
   declare onSave: EditorCallback | null | undefined;
   declare onDelete: EditorCallback | null | undefined;
-  declare onGameInputChange: EditorCallback | null | undefined;
   declare onShowGameInput: EditorCallback | null | undefined;
   private _hasPendingSave: boolean;
 
@@ -86,7 +78,7 @@ class NotesEditorViewComponent extends PresentationComponent {
     });
   }
 
-  loadNote(note: UserNoteLike | null | undefined): void {
+  loadNote(note: UserNote | null | undefined): void {
     if (!note) return;
 
     this.currentNoteId = note.id;
@@ -233,9 +225,7 @@ class NotesEditorViewComponent extends PresentationComponent {
     this.gameAddBtn = null;
     this.onSave = null;
     this.onDelete = null;
-    this.onGameInputChange = null;
     this.onShowGameInput = null;
-    this.notesService = null;
     this.logger = null;
     return disposed;
   }

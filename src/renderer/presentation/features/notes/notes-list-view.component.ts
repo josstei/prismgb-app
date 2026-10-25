@@ -1,3 +1,4 @@
+import type { UserNote, NotesService } from '@platform/notes';
 import { PresentationComponent } from '@platform/ui-base';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { escapeHtml } from '@platform/core';
@@ -5,17 +6,7 @@ import type { LoggerLike } from '@platform/core';
 
 const LIST_SETUP_LIFECYCLE = Symbol('notesListSetupLifecycle');
 
-interface UserNoteLike {
-  id?: string;
-  gameName?: string;
-  title?: string;
-  content?: string;
-  updatedAt?: number;
-}
-
-interface NotesListServiceLike {
-  searchNotes(query: string, gameFilter?: string): UserNoteLike[];
-}
+type NotesListServiceLike = Pick<NotesService, 'searchNotes'>;
 
 export interface NotesListViewComponentOptions {
   notesService: NotesListServiceLike;
@@ -80,7 +71,7 @@ class NotesListViewComponent extends PresentationComponent {
     }
 
     if (this.currentGameFilter) {
-      this.listElement.innerHTML = notes.map((note) => this._renderNoteItem(note, false)).join('');
+      this.listElement.innerHTML = notes.map((note) => this._renderNoteItem(note)).join('');
       return;
     }
 
@@ -94,23 +85,6 @@ class NotesListViewComponent extends PresentationComponent {
     this.listElement.innerHTML = gameNames
       .map((gameName) => this._renderGameGroup(gameName, grouped[gameName] || []))
       .join('');
-  }
-
-  updateItemDisplay(noteId: string, title: string, gameName?: string): void {
-    const item = this.listElement?.querySelector<HTMLElement>(`[data-note-id="${noteId}"]`);
-    if (!item) return;
-
-    for (const child of item.children) {
-      const element = child as HTMLElement;
-      if (element.classList.contains('note-list-item-title')) {
-        element.textContent = title || 'Untitled Note';
-      } else if (element.classList.contains('note-list-item-date')) {
-        element.textContent = new Date().toLocaleDateString();
-      } else if (element.classList.contains('note-list-item-game-tag') && gameName !== undefined) {
-        element.textContent = gameName || '';
-        element.style.display = gameName ? '' : 'none';
-      }
-    }
   }
 
   updateActiveState(noteId: string | null): void {
@@ -161,8 +135,8 @@ class NotesListViewComponent extends PresentationComponent {
     }
   }
 
-  _groupNotesByGame(notes: UserNoteLike[]): Record<string, UserNoteLike[]> {
-    const groups: Record<string, UserNoteLike[]> = {};
+  _groupNotesByGame(notes: UserNote[]): Record<string, UserNote[]> {
+    const groups: Record<string, UserNote[]> = {};
     for (const note of notes) {
       const gameName = note.gameName || '';
       groups[gameName] ??= [];
@@ -171,7 +145,7 @@ class NotesListViewComponent extends PresentationComponent {
     return groups;
   }
 
-  _renderGameGroup(gameName: string, notes: UserNoteLike[]): string {
+  _renderGameGroup(gameName: string, notes: UserNote[]): string {
     const isCollapsed = this.collapsedGameGroups.has(gameName);
     const displayName = gameName || 'General';
     const safeGameName = escapeHtml(gameName);
@@ -186,26 +160,22 @@ class NotesListViewComponent extends PresentationComponent {
           </svg>
         </button>
         <div class="notes-game-notes">
-          ${notes.map((note) => this._renderNoteItem(note, false)).join('')}
+          ${notes.map((note) => this._renderNoteItem(note)).join('')}
         </div>
       </div>
     `;
   }
 
-  _renderNoteItem(note: UserNoteLike, showGameTag = true): string {
+  _renderNoteItem(note: UserNote): string {
     const isActive = note.id === this.currentNoteId;
     const safeId = escapeHtml(note.id || '');
     const title = escapeHtml(note.title || 'Untitled Note');
     const date = note.updatedAt ? new Date(note.updatedAt).toLocaleDateString() : '';
-    const gameName = note.gameName || '';
-    const gameTagHtml = showGameTag && gameName
-      ? `<div class="note-list-item-game-tag">${escapeHtml(gameName)}</div>`
-      : '';
+
 
     return `
       <div class="note-list-item${isActive ? ' active' : ''}" data-note-id="${safeId}">
         <div class="note-list-item-title">${title}</div>
-        ${gameTagHtml}
         <div class="note-list-item-date">${date}</div>
       </div>
     `;

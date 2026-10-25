@@ -1,7 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   createNodeUsbMonitor,
-  createNoopUsbMonitor,
   toUsbDevice
 } from '../../../../../src/platform/devices/infrastructure/usb.monitor.js';
 import type {
@@ -119,6 +118,7 @@ describe('usb.monitor', () => {
 
     expect(monitor.find()).toEqual([]);
     expect(onAdd).not.toHaveBeenCalled();
+    expect(() => monitor.stopMonitoring()).not.toThrow();
   });
 
   it('returns a no-op monitor when the loader throws', () => {
@@ -128,17 +128,5 @@ describe('usb.monitor', () => {
     const monitor = createNodeUsbMonitor({ loadUsbModule: loader });
 
     expect(monitor.find()).toEqual([]);
-  });
-
-  it('provides an explicit no-op monitor for tests that do not need USB', () => {
-    const monitor = createNoopUsbMonitor();
-    const onAdd = vi.fn();
-
-    monitor.startMonitoring();
-    monitor.on('add', onAdd);
-    monitor.stopMonitoring();
-
-    expect(monitor.find()).toEqual([]);
-    expect(onAdd).not.toHaveBeenCalled();
   });
 });

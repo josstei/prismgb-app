@@ -1,56 +1,79 @@
-/**
- * Dependency Injection Container
- * Wires every main-process service onto an Inversify container.
- */
-
-import { Container } from 'inversify';
+import { app } from 'electron';
 import pkg from '../../../package.json' assert { type: 'json' };
-import { TOKENS, TOKEN_KEYS, type TokenKey } from './di/tokens.js';
-import { mainModule } from './di/main.module.js';
+import { createApplicationLifecycle, disposeInOrder } from '@platform/core';
+import { DeviceConnectionService } from '@platform/devices/runtime';
+import { UpdateService } from '@platform/updates';
+import { TranscodeService } from '@platform/transcode/service';
+import { WindowService } from '@main/infrastructure/window/window.service.js';
+import { TrayService } from '@main/infrastructure/tray/tray.service.js';
+import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
+import { IpcPushBridge } from '@main/ipc/ipc-push.bridge.js';
+import { MainProcessTestControl } from '@main/ipc/test-control.port.js';
+import { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
+import { LoginItemService } from '@main/infrastructure/window/login-item.service.js';
+import { AppOrchestrator } from './app.orchestrator.js';
 import type { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
-import { applyBindingOverrides } from '@platform/core';
 
-/**
- * Main-process DI container, backed by Inversify.
- */
-export type MainServiceContainer = Container;
+export interface MainRuntimeOptions {
+  onRendererReady?: () => void;
+}
 
-/**
- * Build the main-process DI container: pre-seeded config + logger constants,
- * every service bound via {@link mainModule}, then test overrides. No
- * hand-rolled switch — the binding module is the source of truth.
- */
-export function createMainContainer(
-  loggerFactory: MainLogger,
-  overrides: Partial<Record<TokenKey, unknown>> = {}
-): MainServiceContainer {
-  const container = new Container({ defaultScope: 'Singleton' });
-
-  container.bind(TOKENS.config).toConstantValue({
-    isDevelopment: process.env.NODE_ENV === 'development',
-    appName: 'PrismGB',
-    version: pkg.version
+/** Explicit process composition. Construction never starts hardware monitoring. */
+export function createMainRuntime(loggerFactory: MainLogger, options: MainRuntimeOptions = {}) {
+  const ipcPushBridge = new IpcPushBridge();
+  const windowService = new WindowService({ ipcPushBridge, loggerFactory });
+  const deviceConnectionService = new DeviceConnectionService({ loggerFactory });
+  const trayService = new TrayService({ windowService, deviceConnectionService, loggerFactory });
+  const loginItemService = new LoginItemService({ loggerFactory });
+  const updateService = new UpdateService({
+    pushPublisher: ipcPushBridge,
+    prepareInstall: () => { app.isQuitting = true; },
+    loggerFactory,
+    config: { isDevelopment: process.env.NODE_ENV === 'development', version: pkg.version }
   });
-  container.bind(TOKENS.loggerFactory).toConstantValue(loggerFactory);
-
-  container.load(mainModule);
-
-  applyBindingOverrides(container, TOKENS, overrides);
-
-  return container;
+  const transcodeService = new TranscodeService({
+    pushPublisher: ipcPushBridge,
+    loggerFactory,
+    environment: {
+      downloadsDir: app.getPath('downloads'),
+      tempDir: app.getPath('temp'),
+      isPackaged: app.isPackaged,
+      resourcesPath: process.resourcesPath
+    }
+  });
+  const mainProcessTestControl = new MainProcessTestControl({
+    enabled: process.env.PRISMGB_E2E_TEST_CONTROL === '1', ipcPushBridge
+  });
+  const deviceIntegrationService = new DeviceIntegrationService({
+    deviceConnectionService, trayService, windowService, pushPublisher: ipcPushBridge, loggerFactory
+  });
+  const ipcHandlerRegistry = new IpcHandlerRegistry({
+    deviceConnectionService, mainProcessTestControl, updateService, windowService,
+    transcodeService, loginItemService, ipcPushBridge, loggerFactory,
+    onRendererReady: options.onRendererReady ?? (() => {})
+  });
+  const appOrchestrator = new AppOrchestrator({
+    windowService, deviceConnectionService, deviceIntegrationService, trayService,
+    ipcHandlerRegistry, updateService, transcodeService, loginItemService, loggerFactory
+  });
+  const lifecycle = createApplicationLifecycle(
+    () => appOrchestrator.initialize(),
+    () => disposeInOrder([
+      // Keep IPC and transcode alive until renderer-owned edits and captures are flushed.
+      async () => {
+        await ipcHandlerRegistry.shutdownRenderer();
+        await disposeInOrder([
+          () => transcodeService.drain(),
+          () => windowService.drainDownloads()
+        ]);
+      },
+      () => appOrchestrator.cleanup(),
+      () => windowService.dispose(),
+      () => loginItemService.dispose(),
+      () => ipcPushBridge.dispose()
+    ])
+  );
+  return { ...lifecycle, windowService };
 }
 
-/**
- * Create the container. Device monitoring starts from AppOrchestrator after
- * app-owned integration side effects have subscribed to runtime events.
- */
-export async function createAppContainer(loggerFactory: MainLogger): Promise<MainServiceContainer> {
-  const containerLogger = loggerFactory.create('Container');
-  containerLogger.info('Initializing dependency injection container');
-
-  const container = createMainContainer(loggerFactory);
-
-  containerLogger.info(`Registered ${TOKEN_KEYS.length} dependencies`);
-
-  return container;
-}
+export type MainRuntime = ReturnType<typeof createMainRuntime>;

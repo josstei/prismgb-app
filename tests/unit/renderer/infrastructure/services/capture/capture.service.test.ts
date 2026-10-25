@@ -1,3 +1,4 @@
+import * as serviceMocks from '../../../../../factories/index.js';
 /**
  * CaptureService Unit Tests
  */
@@ -18,7 +19,7 @@ import {
   installDocumentCreateElementMock,
   installMediaRecorderMock
 } from '../../../../../support/mocks/browser-api.installers.js';
-import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../../support/service.harness.js';
 
 import { FilenameGenerator } from '@renderer/lib/filename-generator.utils';
 
@@ -34,7 +35,10 @@ describe('CaptureService', () => {
     vi.spyOn(FilenameGenerator, 'forScreenshot').mockReturnValue('screenshot_2024-01-01_12-00-00.png');
     vi.spyOn(FilenameGenerator, 'forRecording').mockReturnValue('recording_2024-01-01_12-00-00.webm');
 
-    const h = createInjectableHarness(CaptureService);
+    const h = createServiceHarness(CaptureService, {
+      eventBus: serviceMocks.createEventBus(),
+      loggerFactory: serviceMocks.createLoggerFactory()
+    });
     service = h.subject;
     mockLogger = h.logger;
     ({ eventBus: mockEventBus } = h.deps);
@@ -94,6 +98,21 @@ describe('CaptureService', () => {
           return realCreateElement(tag);
         })
       });
+    });
+
+    it('closes an owned bitmap when screenshot drawing fails', async () => {
+      class Bitmap {
+        width = 160;
+        height = 144;
+        close = vi.fn();
+      }
+      vi.stubGlobal('ImageBitmap', Bitmap);
+      try {
+        const bitmap = new Bitmap();
+        mockCtx.drawImage.mockImplementationOnce(() => { throw new Error('drawing failed'); });
+        await expect(service.takeScreenshot(bitmap)).rejects.toThrow('drawing failed');
+        expect(bitmap.close).toHaveBeenCalledTimes(1);
+      } finally { vi.unstubAllGlobals(); }
     });
 
     it('should capture screenshot from video element', async () => {
@@ -255,50 +274,32 @@ describe('CaptureService', () => {
       expect(mockEventBus.publish).toHaveBeenCalledWith('capture:recording-stopped');
     });
 
-    it('should throw if not recording', async () => {
+    it('is an idempotent drain when not recording', async () => {
       service.isRecording = false;
 
-      await expect(service.stopRecording()).rejects.toThrow('Not recording');
-    });
-  });
-
-  describe('toggleRecording', () => {
-    let mockStream;
-
-    beforeEach(() => {
-      mockStream = createCaptureStreamMock({
-        getVideoTracks: vi.fn(() => [createMediaTrackMock()]),
-        getAudioTracks: vi.fn(() => [])
-      });
+      await expect(service.stopRecording()).resolves.toBeUndefined();
     });
 
-    it('should start recording when not recording', async () => {
-      await service.toggleRecording(mockStream);
-
-      expect(service.isRecording).toBe(true);
-    });
-
-    it('should stop recording when recording', async () => {
-      await service.startRecording(mockStream);
-      await service.toggleRecording(mockStream);
-
+    it('joins a stop already in progress until final chunks have been saved', async () => {
+      const recorder = service.mediaRecorder;
+      recorder.stop.mockImplementation(() => { recorder.state = 'inactive'; });
+      const saved = Promise.withResolvers<void>();
+      mockEventBus.publishAsync.mockImplementation(() => saved.promise);
+      const first = service.stopRecording();
       expect(service.isRecording).toBe(false);
-    });
-  });
+      const drained = vi.fn();
+      const second = service.stopRecording().then(drained);
 
-  describe('getRecordingState', () => {
-    it('should return false when not recording', () => {
-      expect(service.getRecordingState()).toBe(false);
-    });
+      recorder.ondataavailable(createMediaBlobEventMock({ data: new Blob(['final chunk']) }));
+      const stopped = recorder.onstop();
+      await Promise.resolve();
+      expect(mockEventBus.publishAsync).toHaveBeenCalledWith('capture:recording-ready', expect.any(Object));
+      expect(drained).not.toHaveBeenCalled();
 
-    it('should return true when recording', async () => {
-      const mockStream = createCaptureStreamMock({
-        getVideoTracks: vi.fn(() => []),
-        getAudioTracks: vi.fn(() => [])
-      });
-      await service.startRecording(mockStream);
-
-      expect(service.getRecordingState()).toBe(true);
+      saved.resolve();
+      await Promise.all([first, second, stopped]);
+      expect(recorder.stop).toHaveBeenCalledTimes(1);
+      expect(drained).toHaveBeenCalledOnce();
     });
   });
 

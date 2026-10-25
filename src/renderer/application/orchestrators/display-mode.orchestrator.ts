@@ -1,8 +1,8 @@
-import { injectable, inject } from 'inversify';
-import { BaseOrchestrator } from '@platform/core';
+import type { SettingsAccess } from '@renderer/lib/settings.definitions.js';
+
+import { BaseOrchestrator, disposeInOrder } from '@platform/core';
 import { EventChannels, OnEvent } from '@platform/events';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type FullscreenServiceLike = {
   initialize(): void;
@@ -15,22 +15,28 @@ type CinematicModeServiceLike = {
   dispose(): void | Promise<void>;
 };
 
-type SettingsServiceLike = {
-  getBooleanSetting(name: string): boolean;
-};
+type SettingsServiceLike = Pick<SettingsAccess, 'getSetting'>;
 
 const STARTUP_VISIBILITY_LIFECYCLE = Symbol('settingsDisplayModeStartupVisibilityLifecycle');
 
-@injectable()
+type SettingsDisplayModeOrchestratorDependencies = {
+  fullscreenService: FullscreenServiceLike;
+  cinematicModeService: CinematicModeServiceLike;
+  settingsService: SettingsServiceLike;
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
-  constructor(
-    @inject(TOKENS.fullscreenService) private readonly fullscreenService: FullscreenServiceLike,
-    @inject(TOKENS.cinematicModeService) private readonly cinematicModeService: CinematicModeServiceLike,
-    @inject(TOKENS.settingsService) private readonly settingsService: SettingsServiceLike,
-    @inject(TOKENS.eventBus) eventBus: EventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly fullscreenService: FullscreenServiceLike;
+  private readonly cinematicModeService: CinematicModeServiceLike;
+  private readonly settingsService: SettingsServiceLike;
+
+  constructor({ fullscreenService, cinematicModeService, settingsService, eventBus, loggerFactory }: SettingsDisplayModeOrchestratorDependencies) {
     super({ loggerFactory, eventBus }, 'SettingsDisplayModeOrchestrator');
+    this.fullscreenService = fullscreenService;
+    this.cinematicModeService = cinematicModeService;
+    this.settingsService = settingsService;
   }
 
   /**
@@ -45,7 +51,7 @@ export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
   _applyStartupBehaviors(): void {
     this._clearStartupVisibilityListener();
 
-    if (this.settingsService.getBooleanSetting('fullscreenOnStartup')) {
+    if (this.settingsService.getSetting('fullscreenOnStartup')) {
       if (document.hidden) {
         const onVisible = () => {
           if (document.hidden) {
@@ -68,7 +74,6 @@ export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
 
   async onCleanup(): Promise<void> {
     this._clearStartupVisibilityListener();
-    await this.fullscreenService.dispose();
-    await this.cinematicModeService.dispose();
+    await disposeInOrder([() => this.fullscreenService.dispose(), () => this.cinematicModeService.dispose()]);
   }
 }

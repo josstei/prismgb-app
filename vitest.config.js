@@ -10,6 +10,9 @@ import { platformAliasMap } from './scripts/lib/workspace-aliases.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const sharedAlias = {
+  // Vite serves these public-directory URLs; tests resolve the same real assets.
+  '/Logo.png?url': `${path.resolve(__dirname, 'assets/Logo.png')}?url`,
+  '/overlay-icons/default.svg?url': `${path.resolve(__dirname, 'assets/overlay-icons/default.svg')}?url`,
   '@main': path.resolve(__dirname, 'src/main'),
   '@renderer': path.resolve(__dirname, 'src/renderer'),
   ...platformAliasMap(__dirname)

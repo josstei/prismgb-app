@@ -22,7 +22,7 @@ describe('applyOptions', () => {
   it('treats an explicit undefined option value as omitted, falling back to the default', () => {
     const instance: Record<string, unknown> = {};
 
-    applyOptions(instance, { debounceMs: 100 }, { debounceMs: undefined });
+    applyOptions<{ debounceMs?: number }>(instance, { debounceMs: 100 }, { debounceMs: undefined });
 
     expect(instance.debounceMs).toBe(100);
   });
@@ -30,7 +30,7 @@ describe('applyOptions', () => {
   it('does not treat null as omitted -- null overrides a non-null default', () => {
     const instance: Record<string, unknown> = {};
 
-    applyOptions(instance, { logger: 'default-logger' }, { logger: null });
+    applyOptions<{ logger: string | null }>(instance, { logger: 'default-logger' }, { logger: null });
 
     expect(instance.logger).toBeNull();
   });

@@ -369,6 +369,23 @@ describe('UIEffects', () => {
   });
 
   describe('dispose', () => {
+    it('starts every cleanup and waits for pending children after a synchronous failure', async () => {
+      const pending = Promise.withResolvers<void>();
+      cursorInstance.dispose.mockImplementation(() => { throw new Error('cursor cleanup failed'); });
+      toolbarInstance.dispose.mockReturnValue(pending.promise);
+      const disposal = Promise.resolve(effects.dispose());
+      const rejected = expect(disposal).rejects.toBeInstanceOf(AggregateError);
+      let settled = false;
+      void disposal.then(() => { settled = true; }, () => { settled = true; });
+
+      expect(controlsInstance.dispose).toHaveBeenCalledOnce();
+      expect(unifiedControllerInstance.dispose).toHaveBeenCalledOnce();
+      await Promise.resolve();
+      expect(settled).toBe(false);
+      pending.resolve();
+      await rejected;
+    });
+
     it('disposes all sub-components', () => {
       effects._buttonFeedback.dispose = vi.fn();
       effects._captureEffects.dispose = vi.fn();
@@ -384,14 +401,14 @@ describe('UIEffects', () => {
       expect(effects.elements).toBeNull();
     });
 
-    it('disposes bodyClassManager if it has dispose method', () => {
+    it('leaves the shared bodyClassManager to the application owner', () => {
       effects._buttonFeedback.dispose = vi.fn();
       effects._captureEffects.dispose = vi.fn();
       mockBodyClassManager.dispose = vi.fn();
 
       effects.dispose();
 
-      expect(mockBodyClassManager.dispose).toHaveBeenCalled();
+      expect(mockBodyClassManager.dispose).not.toHaveBeenCalled();
     });
 
     it('handles bodyClassManager without dispose method', () => {

@@ -8,14 +8,13 @@
  * - Prevents startup distortion through gradual fade-in
  */
 
-import { injectable, inject } from 'inversify';
 import { BaseService, abortableDelay } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import { getErrorMessage } from '@platform/core';
 import type { TypedEventBusLike } from '@platform/events';
 import type { LoggerFactoryLike } from '@platform/core';
+import type { SettingsAccess } from '@renderer/lib/settings.definitions';
 import { computeRms, createEaseInCurve } from './audio-gain.utils.js';
-import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type AudioWarmupResult = {
   ready: boolean;
@@ -39,14 +38,17 @@ type AudioEnergyOptions = {
   signal: AbortSignal;
 };
 
-type SettingsServiceLike = {
-  getNumberSetting(name: string): number;
-};
+type SettingsServiceLike = Pick<SettingsAccess, 'getSetting'>;
 
 const AUDIO_WARMUP_LIFECYCLE = Symbol('audioWarmup');
 const VOLUME_SUBSCRIPTION_LIFECYCLE = Symbol('audioVolumeSubscription');
 
-@injectable()
+type StreamingAudioPipelineServiceDependencies = {
+  eventBus: TypedEventBusLike;
+  loggerFactory: LoggerFactoryLike;
+  settingsService: SettingsServiceLike;
+};
+
 export class StreamingAudioPipelineService extends BaseService {
   private _audioContext: AudioContext | null;
   private _sourceNode: MediaStreamAudioSourceNode | null;
@@ -60,12 +62,13 @@ export class StreamingAudioPipelineService extends BaseService {
   private _targetGain: number;
   private _startPromise: Promise<boolean> | null;
 
-  constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike,
-    @inject(TOKENS.settingsService) private readonly settingsService: SettingsServiceLike
-  ) {
+  private readonly eventBus: TypedEventBusLike;
+  private readonly settingsService: SettingsServiceLike;
+
+  constructor({ eventBus, loggerFactory, settingsService }: StreamingAudioPipelineServiceDependencies) {
     super({ loggerFactory, eventBus }, 'StreamingAudioPipelineService');
+    this.eventBus = eventBus;
+    this.settingsService = settingsService;
 
     this._audioContext = null;
     this._sourceNode = null;
@@ -77,7 +80,7 @@ export class StreamingAudioPipelineService extends BaseService {
     this._isReady = false;
     this._warmupToken = 0;
 
-    this._volume = this.settingsService.getNumberSetting('gameVolume');
+    this._volume = this.settingsService.getSetting('gameVolume');
     this._targetGain = this._volume / 100;
 
     this._startPromise = null;

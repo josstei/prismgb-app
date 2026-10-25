@@ -20,6 +20,7 @@ import {
 
 describe('UIController', () => {
   let controller;
+  let mockDownloadFile;
   let mockElements;
   let mockHost;
   let mockEffects;
@@ -32,6 +33,7 @@ describe('UIController', () => {
   let domBindings;
 
   beforeEach(() => {
+    mockDownloadFile = vi.fn().mockResolvedValue(undefined);
     // Create mock elements
     mockElements = createUIControllerElementsMock();
 
@@ -66,6 +68,7 @@ describe('UIController', () => {
     mockLoggerFactory = createLoggerFactory();
 
     controller = new UIController({
+      downloadFile: mockDownloadFile,
       uiComponentHost: mockHost,
       domBindings,
       uiEffects: mockEffects,
@@ -280,6 +283,28 @@ describe('UIController', () => {
   });
 
   describe('dispose', () => {
+    it('awaits screenshot download registration before releasing UI ownership', async () => {
+      let registered!: () => void;
+      mockDownloadFile.mockImplementation(() => new Promise<void>((resolve) => { registered = resolve; }));
+      const blob = new Blob(['screenshot']);
+      const download = controller.triggerDownload(blob, 'screenshot.png');
+      const disposal = controller.dispose();
+      expect(mockDownloadFile).toHaveBeenCalledWith(blob, 'screenshot.png');
+      expect(mockHost.dispose).not.toHaveBeenCalled();
+      registered();
+      await Promise.all([download, disposal]);
+      expect(mockHost.dispose).toHaveBeenCalledOnce();
+    });
+
+    it('releases components when effect cleanup fails and reports the failure', async () => {
+      mockEffects.dispose.mockRejectedValue(new Error('effect cleanup failed'));
+
+      await expect(controller.dispose()).rejects.toThrow('Runtime disposal failed');
+      expect(mockHost.dispose).toHaveBeenCalledOnce();
+      expect(controller.host).toBeNull();
+      expect(controller.effects).toBeNull();
+    });
+
     it('should dispose effects', async () => {
       const effects = controller.effects;
       await controller.dispose();

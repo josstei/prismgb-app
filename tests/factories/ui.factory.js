@@ -15,7 +15,7 @@ function matchesSelector(el, sel) {
   let isMatch = true;
 
   // 1. Attribute selectors like [data-value="val"] or [data-value]
-  const attrRegex = /\[([a-zA-Z0-9_-]+)(?:=([\"']?)(.*?)\2)?\]/g;
+  const attrRegex = /\[([a-zA-Z0-9_-]+)(?:=(["']?)(.*?)\2)?\]/g;
   let attrMatch;
   let cleanSel = sel;
   while ((attrMatch = attrRegex.exec(sel)) !== null) {
@@ -122,8 +122,8 @@ export function createMockElement(tagName = "div", options = {}) {
       });
       children.length = 0;
 
-      if (v !== "" && typeof document !== 'undefined') {
-        const temp = document.createElement('div');
+      if (v !== "" && typeof globalThis.document !== 'undefined') {
+        const temp = globalThis.document.createElement('div');
         temp.innerHTML = v;
         const tempChildren = Array.from(temp.children);
         tempChildren.forEach(child => {
@@ -428,7 +428,7 @@ export function createSettingsMenuElementsMock(overrides = {}) {
  * implementation rejects the plain-object fakes built by `createMockElement`.
  */
 function createDocumentElement(tagName, { className = '', type } = {}) {
-  const element = document.createElement(tagName);
+  const element = globalThis.document.createElement(tagName);
   if (className) element.className = className;
   if (type) element.type = type;
   return element;
@@ -658,37 +658,19 @@ export function createUISetupControllerMock(overrides = {}) {
   };
 }
 
-export function createPresentationModeControllerMock(overrides = {}) {
+export function createUIEventBridgeControllerMock(overrides = {}) {
   return {
     setStreamingMode: vi.fn(),
-    updateCinematicMode: vi.fn(),
-    updateMinimalistFullscreen: vi.fn(),
     updateFullscreenButton: vi.fn(),
-    updateFullscreenMode: vi.fn(),
     enableControlsAutoHide: vi.fn(),
     disableControlsAutoHide: vi.fn(),
-    ...overrides
-  };
-}
-
-export function createUIEventBridgeControllerMock(overrides = {}) {
-  const { deviceStatus, ...componentOverrides } = overrides;
-
-  return {
-    updateDeviceStatus: vi.fn(),
-    updateOverlayMessage: vi.fn(),
-    showErrorOverlay: vi.fn(),
-    updateStreamInfo: vi.fn(),
     triggerShutterFlash: vi.fn(),
     triggerRecordButtonPop: vi.fn(),
     triggerRecordButtonPress: vi.fn(),
     triggerButtonFeedback: vi.fn(),
     updateRecordingButtonState: vi.fn(),
     setRecordButtonDisabled: vi.fn(),
-    deviceStatus: deviceStatus ?? {
-      setOverlayVisible: vi.fn()
-    },
-    ...componentOverrides
+    ...overrides
   };
 }
 
@@ -872,4 +854,3 @@ export function createUIControllerElementsMock(overrides = {}) {
     ...overrides
   };
 }
-

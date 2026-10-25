@@ -20,8 +20,7 @@ export type GpuVideoRendererSession = {
   setBrightness(value: number): void;
   getTargetDimensions(): { width: number; height: number };
   captureFrame(): Promise<ImageBitmap>;
-  release(): void;
-  terminate(options?: { emitCanvasExpired?: boolean }): void;
+  terminate(): void;
   dispose(): void | Promise<void>;
 };
 
@@ -33,11 +32,11 @@ export type GpuVideoRendererSessionOptions = {
   brightness?: number;
   allowCanvas2D?: boolean;
   createWorker?: () => Worker;
+  signal?: AbortSignal;
   capabilities?: RenderCapabilities;
   onReady?: (event: { backend: RenderBackend }) => void;
   onStats?: (stats: GpuVideoRendererStats) => void;
   onError?: (error: GpuVideoRendererError) => void;
-  onCanvasExpired?: () => void;
   logger?: Pick<Console, 'debug' | 'error' | 'info' | 'warn'>;
 };
 
@@ -63,12 +62,12 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
   private onReadyCb?: (event: { backend: RenderBackend }) => void;
   private onStatsCb?: (stats: GpuVideoRendererStats) => void;
   private onErrorCb?: (error: GpuVideoRendererError) => void;
-  private onCanvasExpiredCb?: () => void;
   private logger: Pick<Console, 'debug' | 'error' | 'info' | 'warn'>;
 
   private pendingCaptureResolve: ((result: ImageBitmap) => void) | null = null;
   private pendingCaptureReject: ((error: Error) => void) | null = null;
-  private isWaitingForCapturedFrame = false;
+  private captureSequence = 0;
+  private pendingCaptureId: number | null = null;
   private captureTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   private messageUnsubscribers: Array<() => void> = [];
@@ -91,7 +90,6 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
     this.onReadyCb = options.onReady;
     this.onStatsCb = options.onStats;
     this.onErrorCb = options.onError;
-    this.onCanvasExpiredCb = options.onCanvasExpired;
     this.logger = options.logger || console;
 
     this.imageBitmapOptions = {
@@ -148,7 +146,6 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
         nativeHeight: this.nativeHeight,
         targetWidth: this.targetWidth,
         targetHeight: this.targetHeight,
-        scaleFactor: this.scaleFactor,
         backend: this.backend as 'webgpu',
         presetId: this.presetId
       };
@@ -156,10 +153,7 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
       this.registerMessageHandlers();
 
       try {
-        const initialized = await this.workerClient.initialize(canvas, config, 5000);
-        if (!initialized) {
-          throw new Error('Worker renderer client initialization returned false');
-        }
+        await this.workerClient.initialize(canvas, config, 5000);
 
         this.workerClient.setBrightness(this.brightness);
       } catch (err: unknown) {
@@ -193,23 +187,20 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
 
       this.workerClient.onFrameRendered(() => {
         this.pendingFrames = Math.max(0, this.pendingFrames - 1);
-        if (this.isWaitingForCapturedFrame) {
-          this.isWaitingForCapturedFrame = false;
-          this.workerClient?.requestCapturedFrame();
-        }
       }),
 
       this.workerClient.onStats((payload) => {
         this.onStatsCb?.({
           fps: payload.fps,
-          frameTime: typeof payload.frameTime === 'string' ? parseFloat(payload.frameTime) : payload.frameTime,
+          frameTime: payload.frameTime,
           gpuTime: payload.gpuTime,
           uploadTime: payload.uploadTime
         });
       }),
 
       this.workerClient.onError((payload) => {
-        if (payload.code === 'DEVICE_LOST' && payload.message?.includes('destroyed')) {
+        if (payload.requestId !== undefined) {
+          if (payload.requestId === this.pendingCaptureId) this.resolvePendingCapture(null, new Error(payload.message));
           return;
         }
         this.logger.error('Render worker error:', payload.message);
@@ -223,6 +214,10 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
       }),
 
       this.workerClient.onCaptureReady((payload) => {
+        if (payload.requestId !== this.pendingCaptureId) {
+          payload.bitmap.close();
+          return;
+        }
         this.resolvePendingCapture(payload.bitmap, null);
       })
     ];
@@ -252,17 +247,24 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
       }
 
       let imageBitmap: ImageBitmap | null = null;
+      this.pendingFrames++;
       try {
         imageBitmap = await createImageBitmap(video, this.imageBitmapOptions);
-        this.pendingFrames++;
-
+        if (!this._isActive || !this.workerClient) {
+          imageBitmap.close();
+          imageBitmap = null;
+          this.pendingFrames = Math.max(0, this.pendingFrames - 1);
+          return;
+        }
         if (this.workerClient.renderFrame(imageBitmap)) {
           imageBitmap = null;
         } else {
           this.pendingFrames = Math.max(0, this.pendingFrames - 1);
           imageBitmap.close();
+          imageBitmap = null;
         }
       } catch (err: unknown) {
+        this.pendingFrames = Math.max(0, this.pendingFrames - 1);
         this.logger.error('Failed to render frame in worker:', err);
         if (imageBitmap) {
           imageBitmap.close();
@@ -285,7 +287,7 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
       this.targetHeight = this.nativeHeight * this.scaleFactor;
 
       if (this.workerClient && this.workerClient.isReady()) {
-        this.workerClient.resize(this.targetWidth, this.targetHeight, this.scaleFactor);
+        this.workerClient.resize(this.targetWidth, this.targetHeight);
       }
     }
   }
@@ -299,7 +301,7 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
       this.localPipeline?.setPreset(preset);
     } else {
       if (this.workerClient && this.workerClient.isReady()) {
-        this.workerClient.setPreset(presetId, preset);
+        this.workerClient.setPreset(preset);
       }
     }
   }
@@ -341,15 +343,18 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
         this.pendingCaptureResolve = resolve;
         this.pendingCaptureReject = reject;
 
-        if (!this.workerClient?.requestCapture()) {
-          this.resolvePendingCapture(null, new Error('GPU renderer not ready'));
+        this.pendingCaptureId = ++this.captureSequence;
+        try {
+          if (!this.workerClient?.requestCapture(this.pendingCaptureId)) {
+            this.resolvePendingCapture(null, new Error('GPU renderer not ready'));
+            return;
+          }
+        } catch (error) {
+          this.resolvePendingCapture(null, error instanceof Error ? error : new Error(String(error)));
           return;
         }
 
-        this.isWaitingForCapturedFrame = true;
-
         this.captureTimeoutId = setTimeout(() => {
-          this.isWaitingForCapturedFrame = false;
           this.resolvePendingCapture(null, new Error('Capture request timed out'));
         }, 1000);
       });
@@ -370,18 +375,10 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
 
     this.pendingCaptureResolve = null;
     this.pendingCaptureReject = null;
+    this.pendingCaptureId = null;
   }
 
-  release(): void {
-    this.pendingFrames = 0;
-    if (this.backend === 'canvas2d') {
-      this.localPipeline?.releaseResources();
-    } else {
-      this.workerClient?.releaseResources();
-    }
-  }
-
-  terminate(options?: { emitCanvasExpired?: boolean }): void {
+  terminate(): void {
     this._isActive = false;
     this.unregisterMessageHandlers();
     this.resolvePendingCapture(null, new Error('Session terminated'));
@@ -398,9 +395,6 @@ class DefaultGpuVideoRendererSession implements GpuVideoRendererSession {
       }
     }
 
-    if (options?.emitCanvasExpired) {
-      this.onCanvasExpiredCb?.();
-    }
   }
 
   dispose(): void | Promise<void> {
@@ -431,6 +425,17 @@ export async function createGpuVideoRendererSession(
 
   const session = new DefaultGpuVideoRendererSession(backend, canUseWebgpu, options);
 
-  await session.initialize(options.canvas, options);
-  return session;
+  const abort = () => session.terminate();
+  options.signal?.addEventListener('abort', abort, { once: true });
+  try {
+    options.signal?.throwIfAborted();
+    await session.initialize(options.canvas, options);
+    options.signal?.throwIfAborted();
+    return session;
+  } catch (error) {
+    session.terminate();
+    throw error;
+  } finally {
+    options.signal?.removeEventListener('abort', abort);
+  }
 }

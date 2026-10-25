@@ -126,6 +126,14 @@ describe('NotesService', () => {
     });
   });
 
+  it('normalizes addressable stored notes without rewriting storage', () => {
+    setStoredNotes([null, 17, { title: 'No id' }, { id: 'old', title: 'Recovered', content: 5 }]);
+    expect(service.getAllNotes()).toEqual([{
+      id: 'old', title: 'Recovered', content: '', gameName: '', createdAt: 0, updatedAt: 0
+    }]);
+    expect(mockStorageService.setItem).toHaveBeenCalledTimes(1);
+  });
+
   describe('getNote', () => {
     beforeEach(() => {
       const storedNotes = [
@@ -547,29 +555,4 @@ describe('NotesService', () => {
     });
   });
 
-  describe('getNotesGroupedByGame', () => {
-    it('should return empty object when no notes exist', () => {
-      const groups = service.getNotesGroupedByGame();
-      expect(groups).toEqual({});
-    });
-
-    it('should group notes by game name', () => {
-      const storedNotes = [
-        { id: 'note_1', gameName: 'Zelda', title: 'Note 1', updatedAt: 1000 },
-        { id: 'note_2', gameName: 'Pokemon', title: 'Note 2', updatedAt: 2000 },
-        { id: 'note_3', gameName: 'Zelda', title: 'Note 3', updatedAt: 3000 },
-        { id: 'note_4', gameName: '', title: 'General Note', updatedAt: 4000 }
-      ];
-      setStoredNotes(storedNotes);
-
-      const groups = service.getNotesGroupedByGame();
-
-      expect(Object.keys(groups)).toContain('Zelda');
-      expect(Object.keys(groups)).toContain('Pokemon');
-      expect(Object.keys(groups)).toContain('');
-      expect(groups['Zelda']).toHaveLength(2);
-      expect(groups['Pokemon']).toHaveLength(1);
-      expect(groups['']).toHaveLength(1);
-    });
-  });
 });

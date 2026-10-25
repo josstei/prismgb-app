@@ -1,7 +1,5 @@
 import { defineConfig } from 'vite';
 import electron from 'vite-plugin-electron';
-import renderer from 'vite-plugin-electron-renderer';
-import { viteStaticCopy } from 'vite-plugin-static-copy';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
@@ -12,20 +10,9 @@ const require = createRequire(import.meta.url);
 const pkg = require('./package.json');
 
 export default defineConfig({
+  // Packaged renderer pages load through file://, including worker chunks.
+  base: './',
   plugins: [
-    // Copy assets and JSON files
-    viteStaticCopy({
-      targets: [
-        {
-          src: 'assets',
-          dest: '.' // Copy to dist/
-        }
-      ],
-      // Watch for changes in dev mode
-      watch: {
-        reloadPageOnChange: true
-      }
-    }),
     electron([
       {
         // Main process entry
@@ -52,9 +39,15 @@ export default defineConfig({
                 const externals = [
                   'electron',
                   'usb',
-                  'eventemitter3'
+                  'eventemitter3',
+                  'electron-updater',
+                  'electron-log',
+                  'electron-trpc'
                 ];
-                return externals.some(ext => id === ext || id.startsWith(ext + '/') || id.includes('node_modules/' + ext));
+                // Match package boundaries before resolution; a prefix match on
+                // "electron" otherwise emits absolute build-machine paths for
+                // electron-updater, electron-log and electron-trpc.
+                return externals.some(ext => id === ext || id.startsWith(ext + '/') || id.includes('node_modules/' + ext + '/'));
               }
             }
           }
@@ -102,11 +95,7 @@ export default defineConfig({
           }
         }
       }
-    ]),
-    renderer({
-      // Enable Node integration in renderer if needed
-      nodeIntegration: false
-    })
+    ])
   ],
 
   // Renderer build config

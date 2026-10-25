@@ -1,3 +1,4 @@
+import * as serviceMocks from '../../../../../factories/index.js';
 /**
  * SettingsCinematicModeService Unit Tests
  */
@@ -6,7 +7,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { SettingsCinematicModeService } from '@renderer/infrastructure/services/settings/settings-cinematic-mode.service';
 import { EventChannels } from '@platform/events';
 import { createAppState } from '../../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../../support/service.harness.js';
 
 describe('SettingsCinematicModeService', () => {
   let service;
@@ -15,12 +16,12 @@ describe('SettingsCinematicModeService', () => {
   let mockLogger;
 
   beforeEach(() => {
-    const h = createInjectableHarness(SettingsCinematicModeService, {
-      overrides: {
-        appState: createAppState({
+    const h = createServiceHarness(SettingsCinematicModeService, {
+      eventBus: serviceMocks.createEventBus(),
+      loggerFactory: serviceMocks.createLoggerFactory(),
+      appState: createAppState({
           initialState: { isCinematicModeEnabled: false }
         })
-      }
     });
     service = h.subject;
     mockLogger = h.logger;

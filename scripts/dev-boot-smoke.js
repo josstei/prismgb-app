@@ -5,7 +5,6 @@
  * Starts `npm run dev` and validates renderer startup output:
  * - waits for `Renderer application started successfully`
  * - fails immediately on renderer error messages
- * - fails on DI container missing-token resolution errors
  * - fails on Vite JSON import-attribute warnings
  *
  * Intended for local preflight and CI release checks.
@@ -24,12 +23,6 @@ const FAILURE_PATTERNS = [
     name: 'renderer-error',
     pattern: /\[Renderer ERROR\]/i,
     reason: 'Renderer error log output'
-  },
-  {
-    name: 'di-resolution',
-    pattern:
-      /\b(?:Missing dependency|Could not resolve|Cannot resolve|ResolutionError|Missing token|No matching bindings found|Ambiguous match found)\b/i,
-    reason: 'DI container token resolution failure'
   },
   {
     name: 'vite-json-import-attribute',

@@ -1,10 +1,24 @@
+import { EventChannels } from '@platform/events';
+import type { EventPayloadMap } from '@platform/events';
+import type { RendererShutdownRequestPayload } from './push-payloads.schemas.js';
+
+/** Main-to-renderer events; requests are defined only by the tRPC router. */
 export const IPC_CHANNELS = {
-  DEVICE: { GET_STATUS: 'device:get-status', CONNECTED: 'device:connected', DISCONNECTED: 'device:disconnected' },
-  SHELL: { OPEN_EXTERNAL: 'shell:open-external' },
-  WINDOW: { SET_FULLSCREEN: 'window:set-fullscreen', IS_FULLSCREEN: 'window:is-fullscreen', ENTER_FULLSCREEN: 'window:enter-fullscreen', LEAVE_FULLSCREEN: 'window:leave-fullscreen', RESIZED: 'window:resized' },
-  UPDATE: { GET_STATUS: 'update:get-status', CHECK: 'update:check', DOWNLOAD: 'update:download', INSTALL: 'update:install', AVAILABLE: 'update:available', NOT_AVAILABLE: 'update:not-available', PROGRESS: 'update:progress', DOWNLOADED: 'update:downloaded', ERROR: 'update:error' },
-  PERFORMANCE: { GET_METRICS: 'performance:get-metrics' },
-  GPU: { GET_POLICY: 'gpu:get-policy' },
-  LOGIN_ITEM: { GET: 'login-item:get', SET: 'login-item:set' },
-  TRANSCODE: { START: 'transcode:start', CANCEL: 'transcode:cancel', GET_STATUS: 'transcode:get-status', PROGRESS: 'transcode:progress', COMPLETED: 'transcode:completed', ERROR: 'transcode:error', CANCELLED: 'transcode:cancelled' }
+  APP: { SHUTDOWN_REQUESTED: 'app:shutdown-requested' },
+  DEVICE: { CONNECTED: EventChannels.DEVICE.CONNECTED, DISCONNECTED: EventChannels.DEVICE.DISCONNECTED },
+  WINDOW: { ENTER_FULLSCREEN: 'window:enter-fullscreen', LEAVE_FULLSCREEN: 'window:leave-fullscreen', RESIZED: 'window:resized' },
+  UPDATE: { AVAILABLE: EventChannels.UPDATE.AVAILABLE, NOT_AVAILABLE: EventChannels.UPDATE.NOT_AVAILABLE, PROGRESS: EventChannels.UPDATE.PROGRESS, DOWNLOADED: EventChannels.UPDATE.DOWNLOADED, ERROR: EventChannels.UPDATE.ERROR },
+  TRANSCODE: { PROGRESS: EventChannels.TRANSCODE.PROGRESS, COMPLETED: EventChannels.TRANSCODE.COMPLETED, ERROR: EventChannels.TRANSCODE.ERROR, CANCELLED: EventChannels.TRANSCODE.CANCELLED }
 } as const;
+
+type PushChannel = { [K in keyof typeof IPC_CHANNELS]: (typeof IPC_CHANNELS)[K][keyof (typeof IPC_CHANNELS)[K]] }[keyof typeof IPC_CHANNELS];
+export type IpcPushPayloadMap = {
+  [K in PushChannel]: K extends keyof EventPayloadMap ? EventPayloadMap[K]
+    : K extends typeof IPC_CHANNELS.APP.SHUTDOWN_REQUESTED ? RendererShutdownRequestPayload : void;
+};
+export type IpcPushArguments<K extends keyof IpcPushPayloadMap> = undefined extends IpcPushPayloadMap[K]
+  ? [channel: K, payload?: IpcPushPayloadMap[K]]
+  : [channel: K, payload: IpcPushPayloadMap[K]];
+export interface IpcPushPublisher {
+  emit<K extends keyof IpcPushPayloadMap>(...args: IpcPushArguments<K>): void;
+}

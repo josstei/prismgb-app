@@ -1,7 +1,8 @@
+import * as serviceMocks from '../../../../factories/index.js';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { app as mockApp } from 'electron';
 import { installProcessEnvMock, installProcessRuntimeMock } from '../../../../support/mocks/runtime-property.installers.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../support/service.harness.js';
 
 type ProcessEnvOverrides = Record<string, string | number | boolean | undefined>;
 type ProcessEnvMock = ReturnType<typeof installProcessEnvMock> & {
@@ -14,7 +15,7 @@ type ProcessRuntimeMockOptions = {
   argv?: string[];
   env?: ProcessEnvOverrides;
 };
-type ProcessRuntimeMockHandle = ReturnType<typeof installProcessRuntimeMock> & {
+type ProcessRuntimeMockHandle = Omit<ReturnType<typeof installProcessRuntimeMock>, 'env' | 'platform' | 'argv'> & {
   cleanup(): void;
   platform?: NodeJS.Platform;
   argv?: string[];
@@ -24,7 +25,6 @@ type ProcessRuntimeEnvMockHandle = ProcessRuntimeMockHandle & {
   env: NodeJS.ProcessEnv;
   setEnv(nextOverrides?: ProcessEnvOverrides): NodeJS.ProcessEnv;
 };
-type LoginItemHarness = ReturnType<typeof createInjectableHarness<LoginItemService>>;
 
 vi.mock('electron', () => ({
   app: {
@@ -67,7 +67,7 @@ describe('process runtime mock installers', () => {
       platform: 'win32',
       argv: ['electron', '.', '--hidden'],
       env: { NODE_ENV: 'development' },
-    }) as ProcessRuntimeEnvMockHandle;
+    }) as unknown as ProcessRuntimeEnvMockHandle;
 
     expect(process.platform).toBe('win32');
     expect(process.argv).toEqual(['electron', '.', '--hidden']);
@@ -102,7 +102,9 @@ describe('LoginItemService', () => {
   beforeEach(() => {
     processRuntimeMocks = [];
 
-    const h: LoginItemHarness = createInjectableHarness(LoginItemService);
+    const h = createServiceHarness(LoginItemService, {
+      loggerFactory: serviceMocks.createLoggerFactory()
+    });
     service = h.subject;
   });
 

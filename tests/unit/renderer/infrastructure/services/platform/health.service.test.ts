@@ -1,3 +1,4 @@
+import * as serviceMocks from '../../../../../factories/index.js';
 /**
  * StreamingHealthService Unit Tests
  */
@@ -5,7 +6,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingHealthService } from '@renderer/infrastructure/services/platform/health.service';
 import { createMockVideo } from '../../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../../support/service.harness.js';
 
 describe('StreamingHealthService', () => {
   let service;
@@ -17,7 +18,9 @@ describe('StreamingHealthService', () => {
 
     mockVideoElement = createMockVideo();
 
-    const h = createInjectableHarness(StreamingHealthService);
+    const h = createServiceHarness(StreamingHealthService, {
+      loggerFactory: serviceMocks.createLoggerFactory()
+    });
     service = h.subject;
     mockLogger = h.logger;
   });

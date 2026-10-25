@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  matchDevice,
-  toDeviceInfo,
+  matchByLabel,
   toDeviceStatusPayload
 } from '@platform/devices';
+import { toDeviceInfo } from '../../../../src/platform/devices/domain/payloads';
 import {
   CHROMATIC_DESCRIPTOR,
   CHROMATIC_SPECS,
@@ -86,12 +86,7 @@ describe('device contract mappers', () => {
   });
 
   it('matches fixture media labels through catalog label patterns', () => {
-    expect(matchDevice({
-      deviceId: CHROMATIC_SPECS.deviceId,
-      groupId: CHROMATIC_SPECS.groupId,
-      kind: 'videoinput',
-      label: CHROMATIC_SPECS.label
-    })).toMatchObject({
+    expect(matchByLabel(CHROMATIC_SPECS.label)).toMatchObject({
       matched: true,
       deviceId: CHROMATIC_DESCRIPTOR.id,
       reason: 'label'

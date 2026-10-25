@@ -45,7 +45,9 @@ npm run dev
 | `npm run build:win` | Build for Windows |
 | `npm run build:mac` | Build for macOS |
 | `npm run build:linux` | Build for Linux |
-| `npm run lint` | ESLint + architecture boundary checks (JS/TS import boundaries) |
+| `npm run lint` | Generated-config freshness, ESLint, and architecture boundary checks |
+| `npm run generate:paths` | Regenerate TypeScript aliases after changing the platform registry |
+| `npm run lint:dead-code` | Check files, exports, types, and dependencies in full and production graphs |
 | `npm run lint:fix` | Auto-fix linting issues + boundary checks |
 | `npm run typecheck:app` | Typecheck app sources using `tsconfig.app.json` |
 | `npm run typecheck` | Run `typecheck:app` + `typecheck:tests` |
@@ -84,7 +86,7 @@ Build artifacts are output to the `release/` directory.
 
 ## Smoke Test
 
-Run after a local build to validate startup behavior:
+Run after a packaged local build to validate actual main/preload/renderer startup and clean shutdown using an isolated temporary profile:
 
 ```bash
 npm run build

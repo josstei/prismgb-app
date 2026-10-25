@@ -1,67 +1,27 @@
-import type { MainServiceContainer } from './application/container.js';
-import { createAppContainer } from './application/container.js';
+import { createMainRuntime, type MainRuntime, type MainRuntimeOptions } from './application/container.js';
 import { MainLogger } from './infrastructure/logging/logger.factory.js';
-import type { AppOrchestrator } from './application/app.orchestrator.js';
-import { TOKENS } from './application/di/tokens.js';
-import type { LoggerLike } from '@platform/core';
 
 export class MainBootstrap {
-  private container: MainServiceContainer | null = null;
-  private orchestrator: AppOrchestrator | null = null;
-  private isInitialized = false;
-  private readonly loggerFactory: MainLogger;
-  private readonly logger: LoggerLike;
+  private runtime: MainRuntime | null = null;
+  private readonly loggerFactory = new MainLogger();
 
-  constructor() {
-    this.loggerFactory = new MainLogger();
-    this.logger = this.loggerFactory.create('MainBootstrap') as LoggerLike;
-  }
+  constructor(private readonly options: MainRuntimeOptions = {}) {}
 
-  async initialize(): Promise<void> {
-    if (this.isInitialized) {
-      this.logger.warn('Main application already initialized');
-      return;
-    }
-
-    this.logger.info('Initializing main application...');
-
-    try {
-      // Create DI container with shared logger factory
-      this.container = await createAppContainer(this.loggerFactory);
-
-      // Resolve and initialize AppOrchestrator
-      this.orchestrator = this.container.get(TOKENS.appOrchestrator);
-      await this.orchestrator.initialize();
-
-      this.isInitialized = true;
-      this.logger.info('Main application initialized successfully');
-    } catch (error) {
-      this.logger.error('Failed to initialize main application:', error);
-      throw error;
-    }
+  initialize(): Promise<void> {
+    this.runtime ??= createMainRuntime(this.loggerFactory, this.options);
+    return this.runtime.initialize();
   }
 
   async cleanup(): Promise<void> {
-    if (!this.isInitialized) {
-      this.logger.info('Main application not initialized; skipping cleanup');
-      return;
-    }
-
-    this.logger.info('Shutting down main application...');
+    const runtime = this.runtime;
     try {
-      if (this.orchestrator) {
-        await this.orchestrator.cleanup();
-      }
-      this.isInitialized = false;
-      this.orchestrator = null;
-      this.container = null;
-    } catch (error) {
-      this.logger.error('Failed during main application cleanup:', error);
-      throw error;
+      await runtime?.dispose();
+    } finally {
+      if (this.runtime === runtime) this.runtime = null;
     }
   }
 
-  getContainer(): MainServiceContainer | null {
-    return this.container;
+  getRuntime(): MainRuntime | null {
+    return this.runtime;
   }
 }

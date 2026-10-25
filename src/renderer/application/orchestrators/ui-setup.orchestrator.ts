@@ -1,43 +1,53 @@
-import { injectable, inject } from 'inversify';
+
 import { BaseOrchestrator } from '@platform/core';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import {
-  createTemplateRefSelector,
   getTemplateAction,
   getTemplateActionTarget
 } from '@platform/ui-base';
 import {
   UIActionDescriptors,
   UIActionEvents,
-  UIActionTargets,
   isUIActionId,
   type UIActionControllerCommand,
   type UIActionDescriptor,
   type UIActionEvent
 } from '@renderer/presentation/primitives/template-ref.utils.js';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+
 import type { LoggerFactoryLike } from '@platform/core';
 import type { TypedEventBusLike } from '@platform/events';
 import type { UIController } from '@renderer/presentation/controller/ui.controller.js';
 import { RendererTemplateDeferredComponentIds } from '@renderer/presentation/primitives/template-dom.contract.js';
 import type { AppState } from '@renderer/application/state/app-state.js';
 
+type UISetupController = Pick<UIController, 'initializeDeferredComponent' | 'toggleSettingsMenu' | 'toggleShaderSelector' | 'toggleNotesPanel'>;
+
 type AppStateLike = Pick<AppState, 'isStreaming'>;
 
 const UI_ACTION_LISTENERS_LIFECYCLE = Symbol('uiSetupActionListenersLifecycle');
 
-@injectable()
+type UISetupOrchestratorDependencies = {
+  appState: AppStateLike;
+  uiController: UISetupController;
+  eventBus: TypedEventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 export class UISetupOrchestrator extends BaseOrchestrator {
   private _uiActionsBound: boolean;
 
-  constructor(
-    @inject(TOKENS.appState) private readonly appState: AppStateLike,
-    @inject(TOKENS.uiController) private readonly uiController: UIController,
-    @inject(TOKENS.eventBus) protected readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.loggerFactory) private readonly loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly appState: AppStateLike;
+  private readonly uiController: UISetupController;
+  protected readonly eventBus: TypedEventBusLike;
+  private readonly loggerFactory: LoggerFactoryLike;
+
+  constructor({ appState, uiController, eventBus, loggerFactory }: UISetupOrchestratorDependencies) {
     super({ loggerFactory, eventBus }, 'UISetupOrchestrator');
+    this.appState = appState;
+    this.uiController = uiController;
+    this.eventBus = eventBus;
+    this.loggerFactory = loggerFactory;
 
     this._uiActionsBound = false;
   }
@@ -61,7 +71,6 @@ export class UISetupOrchestrator extends BaseOrchestrator {
     this.replaceManaged(UI_ACTION_LISTENERS_LIFECYCLE, () => {
       listenerDisposers.splice(0).reverse().forEach((dispose) => dispose());
     });
-    this._warnMissingDeclaredActionTargets(actionRoot);
     this._uiActionsBound = true;
 
     this.logger.info('UI event listeners set up');
@@ -69,18 +78,6 @@ export class UISetupOrchestrator extends BaseOrchestrator {
 
   private _getUiActionRoot(): (ParentNode & EventTarget) {
     return document.body || document;
-  }
-
-  private _warnMissingDeclaredActionTargets(root: ParentNode): void {
-    for (const target of UIActionTargets) {
-      const element = root.querySelector(createTemplateRefSelector(target.ref)) as HTMLElement | null;
-      const declaredAction = getTemplateAction(element);
-      if (declaredAction !== target.action) {
-        this.logger.warn(
-          `UI action metadata drift for ${target.ref}: expected ${target.action}, found ${declaredAction || 'none'}`
-        );
-      }
-    }
   }
 
   private _executeDelegatedUiAction(eventName: UIActionEvent, event: Event, root: ParentNode): void {

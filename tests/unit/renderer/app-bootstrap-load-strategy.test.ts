@@ -25,7 +25,7 @@ const bootstrapSource = readFileSync(
 describe('app-bootstrap container load strategy', () => {
   it('loads the DI container via a static top-level import', () => {
     expect(bootstrapSource).toMatch(
-      /import\s*\{[^}]*\binitializeContainer\b[^}]*\}\s*from\s*['"]\.\/application\/container(?:\.js)?['"]/
+      /import\s*\{[^}]*\bcreateRendererRuntime\b[^}]*\}\s*from\s*['"]\.\/application\/container(?:\.js)?['"]/
     );
   });
 
