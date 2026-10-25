@@ -1,15 +1,15 @@
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { createRequire } from 'node:module';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { TranscodeService } from '@platform/transcode/service';
+import { getFfmpegPath, getFfprobePath } from '../../../../src/platform/transcode/ffmpeg-path.utils.js';
 import { createLoggerFactory } from '../../../factories/index.js';
 
-const require = createRequire(import.meta.url);
-const ffmpeg: string = require('ffmpeg-static');
-const ffprobe: string = require('ffprobe-static').path;
+const binaryEnvironment = { isPackaged: false, resourcesPath: '' };
+const ffmpeg = getFfmpegPath(binaryEnvironment);
+const ffprobe = getFfprobePath(binaryEnvironment);
 
 /** Exercise the actual process, progress parser and output codecs using a tiny generated clip. */
 describe('main transcode media outputs', () => {
@@ -31,7 +31,7 @@ describe('main transcode media outputs', () => {
     service = new TranscodeService({
       pushPublisher: { emit: publish },
       loggerFactory: createLoggerFactory(),
-      environment: { downloadsDir: directory, tempDir: directory, isPackaged: false, resourcesPath: '' }
+      environment: { ...binaryEnvironment, downloadsDir: directory, tempDir: directory }
     });
     await service.initialize();
   });

@@ -11,6 +11,10 @@ This guide covers building PrismGB from source and local development setup.
   - **macOS:** `brew install libusb` (Xcode Command Line Tools required)
   - **Windows:** No additional dependencies required
 
+The real media-output tests require FFprobe. On Linux ARM64, install it with
+`sudo apt-get install ffmpeg`, since `ffprobe-static` does not include that architecture.
+The tests use the application's binary resolver, including `FFPROBE_PATH` and system-path fallbacks.
+
 ## Getting Started
 
 ```bash

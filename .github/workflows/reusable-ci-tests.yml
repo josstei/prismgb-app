@@ -68,6 +68,10 @@ jobs:
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-deps
 
+      # ffprobe-static does not include a Linux ARM64 binary.
+      - name: Install media verification tools
+        run: sudo apt-get install -y ffmpeg
+
       - name: Check native packaging ABI
         run: npm run packaging:check-native-abi
 

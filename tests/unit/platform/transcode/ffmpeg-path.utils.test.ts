@@ -379,6 +379,18 @@ describe('ffmpeg-path.utils (characterization)', () => {
       expect(getFfprobePath()).toBe('/usr/local/bin/ffprobe');
     });
 
+    it('uses system ffprobe on Linux ARM64 when the package exports a missing binary', async () => {
+      const { getFfprobePath } = await loadFfmpegPathUtils({
+        platform: 'linux',
+        arch: 'arm64',
+        requireImpl: () => ({ path: '/mock/node_modules/ffprobe-static/bin/linux/arm64/ffprobe' }),
+        existsSyncImpl: (candidate) => candidate === '/usr/bin/ffprobe',
+        execSyncImpl: (command) => command === 'command -v ffprobe' ? '/usr/bin/ffprobe\n' : ''
+      });
+
+      expect(getFfprobePath()).toBe('/usr/bin/ffprobe');
+    });
+
     it('ignores a system binary result that does not exist on disk', async () => {
       const { getFfmpegPath } = await loadFfmpegPathUtils({
         electronApp: null,
