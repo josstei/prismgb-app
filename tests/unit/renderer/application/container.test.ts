@@ -10,7 +10,7 @@ import { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge.js
 
 function runtime() {
   const unsubscribe = vi.fn();
-  const disconnected = { state: 'disconnected' as const, connected: false, device: null, updatedAt: 0 };
+  const disconnected = { state: 'disconnected' as const, connected: false, device: null };
   return { unsubscribe, runtime: createRendererRuntime({
     loggerFactory: createLoggerFactory(), storageService: createStorageService(),
     deviceStatusPort: {

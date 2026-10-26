@@ -205,3 +205,64 @@ Electron distribution and USB prebuild with `npmRebuild=false`; no production pa
 defaults changed. Physical-device, hardware WebGPU and other-platform limitations
 listed above remain. Generated test reports, fixtures and local builds were removed
 after validation.
+
+## Six additional audit passes, 2026-10-26
+
+Six subsystem reviews compared the prior head, `8e0a6ae`, with production callers,
+ownership and behavior. Each pass implemented supported changes and ran focused
+checks; an independent challenge reviewed the combined result.
+
+1. **Lifecycle and composition:** remove MainBootstrap and the renderer
+   AppOrchestrator forwarding layer. Process composition owns initialization and
+   ordered teardown directly; UISetup owns device presentation events. Cinematic
+   commands belong to the display-mode orchestrator. Renderer-shutdown failure no
+   longer bypasses accepted conversion and download drains. Remove the duplicate
+   cancellation API.
+2. **Contracts:** one typed push table supplies channel names, runtime schemas and
+   payload types. Remove schema barrels and repeated registry dependency fields.
+   Reserve renderer transcode ownership before awaiting startup, replay early replies
+   after STARTED, and require/match job IDs. Remove unused HTML fullscreen handling;
+   native Electron state remains authoritative.
+3. **Presentation:** UIEffects directly owns activity listeners, frame scheduling,
+   streaming timeout and fullscreen activity. Remove three auto-hide wrappers,
+   ReactiveStore, mirrored panel caches and unused controller options. Shared
+   lifecycle ownership manages store resources and transcode toast timing.
+4. **Media:** replace the stateful first-frame health service with a scoped promise
+   owning frame delivery, timeout and cancellation. Publish STARTED after the stream
+   owner enters its started state. Preserve superseding stop ownership and recover
+   recording from synchronous capture errors; stale capture failures cannot restart
+   a stopped recording. Remove redundant capture-pending state.
+5. **Tooling and test support:** share exact Vite aliases across processes. Remove
+   unused browser globals/installers, mock introspection APIs, orphan factories and
+   storage override machinery; reuse Vitest and one MediaRecorder event simulation.
+   Replace the retired bootstrap boundary with the actual composition boundary.
+6. **Independent challenge:** remove last-listener state and global disposal from
+   three browser adapters. Each returned disposer captures its own listener/source.
+   Real DOM/EventTarget tests verify independent cleanup. Cross-review additionally
+   challenged event ordering, transcode ownership, fullscreen and auto-hide behavior.
+
+| Measurement | Prior head | Six passes |
+| --- | ---: | ---: |
+| Production source lines, same extensions as above | 26,561 | 25,512 |
+| Test-support and factory lines | 2,937 | 2,457 |
+| Renderer entry JavaScript | 374,401 bytes | 362,694 bytes |
+| Main JavaScript | 213,451 bytes | 212,192 bytes |
+
+The complete suite passes **1,636 tests across 148 files**. Removed tests exercised
+retired wrappers, fake APIs and delegated calls; replacement regressions run real
+event/DOM paths and cover shutdown failure, conversion races, missing/stale job IDs,
+stream state ordering, old capture failures and independent listener disposal.
+Application/test types, generated paths, architecture lint, strict full/production
+Knip and production build pass. Boundary fixtures retain the previous 19 violations
+and add one violation of the new main-composition rule. No shader mathematics,
+layouts or presets changed; no new runtime-speed claim is made.
+
+All **92 Electron E2E tests** pass against a stable build with fullscreen enabled
+and no retries. An initial run lost the build output during three launches because
+two verification builds overlapped; the complete rerun passed without source changes.
+Real Vite development startup, native ABI checks and Linux packaged readiness/disposal
+also pass. The package used the installed Electron distribution and verified USB
+prebuild with `npmRebuild=false`; normal packaging defaults still rebuild native
+dependencies. Physical hardware, hardware WebGPU image parity and macOS/Windows
+packaging remain unverified here. Local reports, generated fixtures and build outputs
+were removed after verification.

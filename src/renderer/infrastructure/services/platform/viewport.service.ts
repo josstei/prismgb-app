@@ -179,8 +179,8 @@ export class StreamingViewportService extends BaseService {
    * Uses short delay to ensure CSS layout has recalculated after fullscreen change.
    */
   forceResize(): void {
-    this.cancelScheduled(RESIZE_DEBOUNCE_LIFECYCLE);
-    this.cancelScheduled(FORCE_RESIZE_LIFECYCLE);
+    this.cancelManaged(RESIZE_DEBOUNCE_LIFECYCLE);
+    this.cancelManaged(FORCE_RESIZE_LIFECYCLE);
 
     this._forceResizePending = true;
     this._lastDimensions = null;
@@ -198,8 +198,8 @@ export class StreamingViewportService extends BaseService {
    * Cleanup resources
    */
   cleanup(): void {
-    this.cancelScheduled(FORCE_RESIZE_LIFECYCLE);
-    this.cancelScheduled(RESIZE_DEBOUNCE_LIFECYCLE);
+    this.cancelManaged(FORCE_RESIZE_LIFECYCLE);
+    this.cancelManaged(RESIZE_DEBOUNCE_LIFECYCLE);
     this.disposables.cancel(RESIZE_OBSERVER_LIFECYCLE);
 
     if (this._resizeObserver) {

@@ -32,24 +32,7 @@ export function createEventBus({ onSubscribe = null } = {}) {
         if (index !== -1) eventListeners.splice(index, 1);
       });
     }),
-    _getLastEventOfType(eventName) {
-      const call = eventBus.publish.mock.calls.findLast(([event]) => event === eventName);
-      return call ? { event: call[0], data: call[1] } : null;
-    },
-    _wereEventsInOrder(eventNames) {
-      const publishedEvents = eventBus.publish.mock.calls.map(([event]) => event);
-      let lastIndex = -1;
-      for (const name of eventNames) {
-        const index = publishedEvents.indexOf(name, lastIndex + 1);
-        if (index === -1) return false;
-        lastIndex = index;
-      }
-      return true;
-    },
-    _reset() {
-      listeners.clear();
-      vi.clearAllMocks();
-    }
+
   };
 
   return eventBus;

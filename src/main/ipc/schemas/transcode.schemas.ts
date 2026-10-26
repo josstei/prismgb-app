@@ -26,5 +26,3 @@ export const transcodeStartSchema = z
 export const transcodeCancelSchema = z.object({
   jobId: z.string().min(1)
 });
-
-export { transcodeProgressSchema, transcodeCompletedSchema, transcodeErrorSchema, transcodeCancelledSchema } from '@platform/ipc';

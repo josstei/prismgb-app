@@ -74,10 +74,6 @@ export class ManagedLifecycleHost {
     return this.disposables.replace(key, () => clearInterval(handle));
   }
 
-  cancelScheduled(key: DisposableKey): void | Promise<void> {
-    return this.disposables.cancel(key);
-  }
-
   replaceManagedGroup(key: DisposableKey, disposables: readonly Disposable[]): DisposableFunction {
     return this.disposables.replaceGroup(key, disposables);
   }

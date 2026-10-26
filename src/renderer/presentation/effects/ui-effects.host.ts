@@ -1,192 +1,179 @@
-import { CursorAutoHide } from '@renderer/presentation/effects/cursor-auto-hide.effect';
-import { ToolbarAutoHide } from '@renderer/presentation/effects/toolbar-auto-hide.effect';
 import { ButtonFeedback } from '@renderer/presentation/effects/button-feedback.effect';
 import { CaptureEffects } from '@renderer/presentation/effects/capture.effect';
-import { ControlsAutoHide } from '@renderer/presentation/effects/controls-auto-hide.effect';
+import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { TIMING } from '@platform/config';
 import { PresentationComponent, ActivityAutoHideController } from '@platform/ui-base';
 import type { DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils.js';
 
-type UIElements = DomBindingsFlat;
+const CURSOR_LISTENER = Symbol('cursorListener');
+const CURSOR_FRAME = Symbol('cursorActivityFrame');
+const TOOLBAR_LISTENERS = Symbol('toolbarListeners');
+const STREAM_HIDE_TIMER = Symbol('streamHideTimer');
 
-type UIEffectsDependencies = {
-  elements?: UIElements | null;
-};
-
+/** Owns streaming/fullscreen activity and the effects it drives. */
 export class UIEffects extends PresentationComponent {
-  elements: UIElements | null;
-  _buttonFeedback: ButtonFeedback;
-  _captureEffects: CaptureEffects;
-  _cursor: CursorAutoHide;
-  _toolbar: ToolbarAutoHide;
-  _controls: ControlsAutoHide;
-  _unifiedTimer: ActivityAutoHideController;
+  elements: DomBindingsFlat | null;
+  readonly _buttonFeedback: ButtonFeedback;
+  private readonly captureEffects: CaptureEffects;
+  private readonly fullscreenActivity: ActivityAutoHideController;
+  private cursorEnabled = false;
+  private cursorFramePending = false;
+  private toolbar: HTMLElement | null = null;
+  private toolbarHovering = false;
+  private controls: HTMLElement | null = null;
 
-  constructor(dependencies: UIEffectsDependencies = {}) {
+  constructor({ elements }: { elements?: DomBindingsFlat | null } = {}) {
     super();
-
-    const { elements } = dependencies;
     this.elements = elements ?? null;
     this._buttonFeedback = new ButtonFeedback({ elements });
-    this._captureEffects = new CaptureEffects();
-
-    this._cursor = new CursorAutoHide({
-      onActivity: () => this._handleActivity(),
-      onHide: () => {}
-    });
-
-    this._toolbar = new ToolbarAutoHide({
-      onActivity: () => this._handleActivity(),
-      onHide: () => {},
-      onHoverStart: () => this._handleToolbarHoverStart(),
-      onHoverEnd: () => this._handleToolbarHoverEnd()
-    });
-
-    this._controls = new ControlsAutoHide({
-      onShowAll: () => this._showAll(),
-      onHideAll: () => this._hideAll(),
-      onEnable: () => this._unifiedTimer.clearTimer(),
-      onDisable: () => this._handleActivity()
-    });
-
-    this._unifiedTimer = new ActivityAutoHideController({
-      onTimeout: () => this._handleUnifiedTimeout(),
-      shouldStartTimer: () => this._shouldStartUnifiedTimer(),
+    this.captureEffects = new CaptureEffects();
+    this.fullscreenActivity = new ActivityAutoHideController({
+      onActivity: () => this.showAll(),
+      onTimeout: () => this.hideAll(),
+      onEnable: () => this.cancelManaged(STREAM_HIDE_TIMER),
+      onDisable: () => {
+        this.controls?.classList.remove(CSSClasses.FULLSCREEN_HEADER_HIDDEN);
+        this.handleActivity();
+      },
       timeoutMs: TIMING.CURSOR_HIDE_DELAY_MS
     });
-    this._unifiedTimer.enable();
-    this.track(() => this._disposeRuntimeEffects());
+    this.track(this._buttonFeedback);
+    this.track(this.captureEffects);
+    this.track(this.fullscreenActivity);
   }
 
-  setElements(elements: UIElements | null): void {
+  setElements(elements: DomBindingsFlat | null): void {
     this.elements = elements;
     this._buttonFeedback.setElements(elements);
   }
 
-  triggerShutterFlash() {
-    this._captureEffects.triggerShutterFlash();
-  }
-
-  triggerRecordButtonPop() {
-    this._buttonFeedback.triggerRecordButtonPop();
-  }
-
-  triggerRecordButtonPress() {
-    this._buttonFeedback.triggerRecordButtonPress();
-  }
-
-  triggerButtonFeedback(elementKey: string, className: string, duration: number) {
+  triggerShutterFlash(): void { this.captureEffects.triggerShutterFlash(); }
+  triggerRecordButtonPop(): void { this._buttonFeedback.triggerRecordButtonPop(); }
+  triggerRecordButtonPress(): void { this._buttonFeedback.triggerRecordButtonPress(); }
+  triggerButtonFeedback(elementKey: string, className: string, duration: number): void {
     this._buttonFeedback.triggerButtonFeedback(elementKey, className, duration);
   }
-
-  setRecordingButtonState(element: HTMLElement, isActive: boolean) {
+  setRecordingButtonState(element: HTMLElement, isActive: boolean): void {
     this._buttonFeedback.setRecordingButtonState(element, isActive);
   }
 
-  enableCursorAutoHide() {
-    this._cursor.enable();
+  enableCursorAutoHide(): void {
+    if (this.cursorEnabled) return;
+    this.cursorEnabled = true;
+    this.replaceManaged(CURSOR_LISTENER, this.listen(document, 'mousemove', () => {
+      if (this.cursorFramePending) return;
+      this.cursorFramePending = true;
+      this.replaceAnimationFrame(CURSOR_FRAME, () => {
+        this.cursorFramePending = false;
+        this.showCursor();
+        this.handleActivity();
+      });
+    }));
+    this.showCursor();
+    this.handleActivity();
   }
 
-  disableCursorAutoHide() {
-    this._cursor.disable();
-    if (!this._toolbar.isEnabled) {
-      this._unifiedTimer.clearTimer();
-    }
+  disableCursorAutoHide(): void {
+    this.cursorEnabled = false;
+    this.cancelManaged(CURSOR_LISTENER);
+    this.cancelManaged(CURSOR_FRAME);
+    this.cursorFramePending = false;
+    this.showCursor();
+    if (!this.toolbar) this.cancelManaged(STREAM_HIDE_TIMER);
   }
 
-  enableToolbarAutoHide(toolbarElement: HTMLElement) {
-    this._toolbar.enable(toolbarElement);
+  enableToolbarAutoHide(element: HTMLElement | null): void {
+    if (this.toolbar || !element) return;
+    this.toolbar = element;
+    this.toolbarHovering = false;
+    this.replaceManagedGroup(TOOLBAR_LISTENERS, [
+      this.listen(element, 'mouseenter', () => {
+        this.toolbarHovering = true;
+        this.showToolbar();
+        this.cancelManaged(STREAM_HIDE_TIMER);
+        if (this.cursorEnabled) this.showCursor();
+      }),
+      this.listen(element, 'mouseleave', () => {
+        this.toolbarHovering = false;
+        if (!this.isPanelOpen()) this.startStreamTimer();
+      })
+    ]);
+    this.handleActivity();
   }
 
-  disableToolbarAutoHide() {
-    this._toolbar.disable();
-    if (!this._cursor.isEnabled) {
-      this._unifiedTimer.clearTimer();
-    }
+  disableToolbarAutoHide(): void {
+    this.cancelManaged(TOOLBAR_LISTENERS);
+    this.showToolbar();
+    this.toolbar = null;
+    this.toolbarHovering = false;
+    if (!this.cursorEnabled) this.cancelManaged(STREAM_HIDE_TIMER);
   }
 
-  enableControlsAutoHide(controlsElement: HTMLElement) {
-    this._controls.enable(controlsElement);
+  enableControlsAutoHide(element: HTMLElement | null): void {
+    if (!element) return;
+    this.controls = element;
+    this.fullscreenActivity.enable({
+      activityEvents: [
+        { target: document, type: 'mousemove' },
+        { target: document, type: 'pointermove' },
+        { target: document, type: 'mousedown' }
+      ],
+      directEvents: [
+        ...['mouseenter', 'focusin'].map((type) => ({ target: element, type, handler: () => {
+          this.showAll();
+          this.fullscreenActivity.startTimer();
+        } })),
+        ...['mouseleave', 'focusout'].map((type) => ({ target: element, type, handler: () => this.fullscreenActivity.startTimer() }))
+      ],
+      startTimer: true
+    });
   }
 
-  disableControlsAutoHide() {
-    this._controls.disable();
+  disableControlsAutoHide(): void {
+    this.fullscreenActivity.disable();
+    this.controls = null;
   }
 
-  _handleActivity() {
-    if (this._controls.isEnabled) {
-      return;
-    }
-
-    if (this._toolbar.isEnabled) {
-      this._toolbar.show();
-    }
-
-    this._unifiedTimer.startTimer();
+  private handleActivity(): void {
+    if (this.fullscreenActivity.isEnabled) return;
+    this.showToolbar();
+    this.startStreamTimer();
   }
 
-  _handleToolbarHoverStart() {
-    this._unifiedTimer.clearTimer();
-    if (this._cursor.isEnabled) {
-      this._cursor.show();
-    }
+  private startStreamTimer(): void {
+    this.cancelManaged(STREAM_HIDE_TIMER);
+    if (this.fullscreenActivity.isEnabled || this.toolbarHovering || this.isPanelOpen()) return;
+    this.replaceTimeout(STREAM_HIDE_TIMER, () => {
+      if (this.cursorEnabled) document.body.classList.add(CSSClasses.CURSOR_HIDDEN);
+      this.hideToolbar();
+    }, TIMING.CURSOR_HIDE_DELAY_MS);
   }
 
-  _handleToolbarHoverEnd() {
-    if (!this._toolbar.isPanelOpen()) {
-      this._unifiedTimer.startTimer();
-    }
+  private isPanelOpen(): boolean {
+    return !!this.toolbar?.querySelector('.shader-panel.visible, .panel-open');
   }
 
-  _shouldStartUnifiedTimer() {
-    if (this._controls.isEnabled) {
-      return false;
-    }
-    if (this._toolbar.isHovering || this._toolbar.isPanelOpen()) {
-      return false;
-    }
-    return true;
+  private showCursor(): void { document.body.classList.remove(CSSClasses.CURSOR_HIDDEN); }
+  private showToolbar(): void { this.toolbar?.classList.remove(CSSClasses.TOOLBAR_HIDDEN); }
+  private hideToolbar(): void {
+    if (!this.isPanelOpen()) this.toolbar?.classList.add(CSSClasses.TOOLBAR_HIDDEN);
   }
-
-  _handleUnifiedTimeout() {
-    if (this._cursor.isEnabled) {
-      this._cursor.hide();
-    }
-    if (this._toolbar.isEnabled) {
-      this._toolbar.hide();
-    }
+  private showAll(): void {
+    this.controls?.classList.remove(CSSClasses.FULLSCREEN_HEADER_HIDDEN);
+    this.showCursor();
+    this.showToolbar();
   }
-
-  _showAll() {
-    this._cursor.show();
-    if (this._toolbar.isEnabled) {
-      this._toolbar.show();
-    }
-  }
-
-  _hideAll() {
-    if (this._toolbar.isEnabled) {
-      this._toolbar.hide();
-    }
-    this._cursor.hide();
-  }
-
-  private async _disposeRuntimeEffects(): Promise<void> {
-    const results = await Promise.allSettled([
-      this._cursor,
-      this._toolbar,
-      this._controls,
-      this._buttonFeedback,
-      this._captureEffects,
-      this._unifiedTimer
-    ].map(async (effect) => effect.dispose()));
-    const failures = results.filter((result) => result.status === 'rejected').map((result) => result.reason);
-    if (failures.length) throw new AggregateError(failures, 'UI effects disposal failed');
+  private hideAll(): void {
+    this.controls?.classList.add(CSSClasses.FULLSCREEN_HEADER_HIDDEN);
+    this.hideToolbar();
+    document.body.classList.add(CSSClasses.CURSOR_HIDDEN);
   }
 
   override dispose(): void | Promise<void> {
-    const disposed = super.dispose();
+    this.disableCursorAutoHide();
+    this.disableToolbarAutoHide();
+    this.disableControlsAutoHide();
     this.setElements(null);
-    return disposed;
+    return super.dispose();
   }
 }

@@ -416,4 +416,21 @@ describe('appRouter — subscriptions', () => {
     expect(received).toEqual([undefined]);
     subscription.unsubscribe();
   });
+
+  it.each([
+    ['onProgress', 'transcode:progress', { jobId: 'job-1', percent: 50 }],
+    ['onCompleted', 'transcode:completed', { jobId: 'job-1', filePath: '/recording.mp4' }],
+    ['onError', 'transcode:error', { jobId: 'job-1', error: 'Encoding failed' }],
+    ['onCancelled', 'transcode:cancelled', { jobId: 'job-1' }]
+  ] as const)('%s drops uncorrelated pushes and keeps the subscription usable', async (method, channel, valid) => {
+    const observableResult = await caller(context).transcode[method]();
+    const received: unknown[] = [];
+    const subscription = observableResult.subscribe({ next: (value: unknown) => received.push(value) });
+    bridge.emitUnchecked(channel, { ...valid, jobId: undefined });
+    bridge.emitUnchecked(channel, { ...valid, jobId: '' });
+    bridge.emitUnchecked(channel, valid);
+    expect(received).toEqual([valid]);
+    expect(context.logger.warn).toHaveBeenCalledTimes(2);
+    subscription.unsubscribe();
+  });
 });

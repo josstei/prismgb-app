@@ -24,13 +24,11 @@ export {
   installMatchMediaMock,
   installDocumentPropertyMock,
   installDocumentCreateElementMock,
-  installFullscreenDocumentMock,
   installResizeObserverMock,
 } from './installers/dom-window.installer.js';
 
 export {
   installLocalStorageMock,
-  installClipboardMock,
 } from './installers/storage.installer.js';
 
 export {

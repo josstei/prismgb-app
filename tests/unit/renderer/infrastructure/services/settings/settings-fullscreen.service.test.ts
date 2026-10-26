@@ -3,7 +3,7 @@ import * as serviceMocks from '../../../../../factories/index.js';
  * SettingsFullscreenService Unit Tests
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
   trpcClient: (await import('../../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
 }));
@@ -12,7 +12,6 @@ import { SettingsFullscreenService } from '@renderer/infrastructure/services/set
 import { EventChannels } from '@platform/events';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { emitTrpcData, getTrpcUnsubscribe } from '../../../../../support/mocks/trpc-client.mock';
-import { installFullscreenDocumentMock } from '../../../../../support/mocks/browser-api.installers.js';
 import { createServiceHarness } from '../../../../../support/service.harness.js';
 
 describe('SettingsFullscreenService', () => {
@@ -20,9 +19,6 @@ describe('SettingsFullscreenService', () => {
   let mockEventBus;
   let mockLogger;
   let mockLoggerFactory;
-  let mockDocument;
-  let mockDocumentElement;
-  let documentMock;
 
   beforeEach(() => {
 
@@ -33,10 +29,6 @@ describe('SettingsFullscreenService', () => {
       .mockReset()
       .mockResolvedValue(undefined);
 
-    documentMock = installFullscreenDocumentMock();
-    mockDocument = documentMock.document;
-    mockDocumentElement = documentMock.documentElement;
-
     const h = createServiceHarness(SettingsFullscreenService, {
       eventBus: serviceMocks.createEventBus(),
       loggerFactory: serviceMocks.createLoggerFactory()
@@ -44,10 +36,6 @@ describe('SettingsFullscreenService', () => {
     service = h.subject;
     mockLogger = h.logger;
     ({ eventBus: mockEventBus, loggerFactory: mockLoggerFactory } = h.deps);
-  });
-
-  afterEach(() => {
-    documentMock?.cleanup();
   });
 
   describe('constructor', () => {
@@ -58,20 +46,10 @@ describe('SettingsFullscreenService', () => {
 
     it('should initialize internal state', () => {
       expect(service._isFullscreenActive).toBe(false);
-      expect(service._boundHandleFullscreenChange).toBeTypeOf('function');
     });
   });
 
   describe('initialize', () => {
-    it('should add fullscreenchange event listener', () => {
-      service.initialize();
-
-      expect(mockDocument.addEventListener).toHaveBeenCalledWith(
-        'fullscreenchange',
-        service._boundHandleFullscreenChange
-      );
-    });
-
     it('should subscribe to native fullscreen tRPC events', () => {
       service.initialize();
 
@@ -98,10 +76,10 @@ describe('SettingsFullscreenService', () => {
       );
     });
 
-    it('should register document, native, and event-handler lifecycle disposables', () => {
+    it('should own native and event-handler lifecycle disposables', () => {
       service.initialize();
 
-      expect(service.disposables.size).toBe(3);
+      expect(service.disposables.size).toBe(2);
     });
 
     it('should sync fullscreen state via tRPC query', () => {
@@ -114,15 +92,6 @@ describe('SettingsFullscreenService', () => {
   describe('dispose', () => {
     beforeEach(() => {
       service.initialize();
-    });
-
-    it('should remove fullscreenchange event listener', async () => {
-      await service.dispose();
-
-      expect(mockDocument.removeEventListener).toHaveBeenCalledWith(
-        'fullscreenchange',
-        service._boundHandleFullscreenChange
-      );
     });
 
     it('should dispose bridge-owned native fullscreen subscriptions', async () => {
@@ -276,32 +245,6 @@ describe('SettingsFullscreenService', () => {
     });
   });
 
-  describe('_handleFullscreenChange', () => {
-    it('should apply fullscreen state when entering fullscreen', () => {
-      mockDocument.fullscreenElement = mockDocumentElement;
-
-      service._handleFullscreenChange();
-
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.FULLSCREEN_STATE,
-        { active: true }
-      );
-    });
-
-    it('should apply fullscreen state when exiting fullscreen', () => {
-      mockDocument.fullscreenElement = mockDocumentElement;
-      service._handleFullscreenChange();
-
-      mockDocument.fullscreenElement = null;
-      service._handleFullscreenChange();
-
-      expect(mockEventBus.publish).toHaveBeenCalledWith(
-        EventChannels.UI.FULLSCREEN_STATE,
-        { active: false }
-      );
-    });
-  });
-
   describe('_handleNativeFullscreen', () => {
     beforeEach(() => {
       service.initialize();
@@ -385,8 +328,7 @@ describe('SettingsFullscreenService', () => {
       await service.toggleFullscreen();
       expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith({ enabled: true });
 
-      mockDocument.fullscreenElement = mockDocumentElement;
-      service._handleFullscreenChange();
+      emitTrpcData(trpcClient.window.onEnterFullscreen);
 
       expect(service._isFullscreenActive).toBe(true);
       expect(mockEventBus.publish).toHaveBeenCalledWith(
@@ -398,8 +340,7 @@ describe('SettingsFullscreenService', () => {
       await service.toggleFullscreen();
       expect(trpcClient.window.setFullScreen.mutate).toHaveBeenCalledWith({ enabled: false });
 
-      mockDocument.fullscreenElement = null;
-      service._handleFullscreenChange();
+      emitTrpcData(trpcClient.window.onLeaveFullscreen);
 
       expect(service._isFullscreenActive).toBe(false);
       expect(mockEventBus.publish).toHaveBeenCalledWith(

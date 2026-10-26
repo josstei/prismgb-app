@@ -78,19 +78,6 @@ describe('ActivityAutoHideController', () => {
     vi.advanceTimersByTime(1);
     expect(callbacks.onTimeout).toHaveBeenCalledTimes(1);
   });
-  it('does not start timer when shouldStartTimer returns false', () => {
-    const shouldStartTimer = vi.fn(() => false);
-    controller = new ActivityAutoHideController({
-      onTimeout: callbacks.onTimeout,
-      shouldStartTimer,
-      timeoutMs: 1000
-    });
-    controller.enable();
-    controller.startTimer();
-    vi.advanceTimersByTime(2000);
-    expect(shouldStartTimer).toHaveBeenCalledTimes(1);
-    expect(callbacks.onTimeout).not.toHaveBeenCalled();
-  });
   it('does not fire timeout after disable', () => {
     controller = new ActivityAutoHideController({
       onTimeout: callbacks.onTimeout,

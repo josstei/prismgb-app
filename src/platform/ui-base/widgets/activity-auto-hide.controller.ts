@@ -17,15 +17,12 @@ type ActivityAutoHideControllerOptions = {
   onTimeout?: () => void;
   onEnable?: () => void;
   onDisable?: () => void;
-  shouldStartTimer?: () => boolean;
   timeoutMs?: number | null;
 };
 
 type ActivityAutoHideEnableOptions = {
   activityEvents?: AutoHideActivityBinding[];
   directEvents?: AutoHideDirectBinding[];
-  triggerActivity?: boolean;
-  triggerActivityImmediately?: boolean;
   startTimer?: boolean;
 };
 
@@ -40,7 +37,6 @@ export class ActivityAutoHideController extends PresentationComponent {
   private _onTimeout: () => void;
   private _onEnable: () => void;
   private _onDisable: () => void;
-  private _shouldStartTimer: () => boolean;
   private _timeoutMs: number | null;
 
   constructor(options: ActivityAutoHideControllerOptions = {}) {
@@ -50,7 +46,6 @@ export class ActivityAutoHideController extends PresentationComponent {
     this._onTimeout = options.onTimeout || (() => {});
     this._onEnable = options.onEnable || (() => {});
     this._onDisable = options.onDisable || (() => {});
-    this._shouldStartTimer = options.shouldStartTimer || (() => true);
     this._timeoutMs = options.timeoutMs ?? null;
   }
 
@@ -78,13 +73,7 @@ export class ActivityAutoHideController extends PresentationComponent {
 
     this.replaceManagedGroup(ACTIVITY_LISTENER_LIFECYCLE, listenerDisposers);
 
-    if (options.triggerActivityImmediately) {
-      this._onActivity();
-    }
-
-    if (options.triggerActivity) {
-      this.triggerActivity();
-    } else if (options.startTimer) {
+    if (options.startTimer) {
       this.startTimer();
     }
   }
@@ -124,17 +113,9 @@ export class ActivityAutoHideController extends PresentationComponent {
 
     this._clearTimer();
 
-    if (!this._shouldStartTimer()) {
-      return;
-    }
-
     this.replaceTimeout(ACTIVITY_TIMER_LIFECYCLE, () => {
       this._onTimeout();
     }, this._timeoutMs);
-  }
-
-  clearTimer() {
-    this._clearTimer();
   }
 
   private _clearActivityFrame() {

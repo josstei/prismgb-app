@@ -63,11 +63,6 @@ export {
   createStorageService,
 } from './storage.factory.js';
 
-// Orchestrator factories
-export {
-  createOrchestratorMock,
-} from './orchestrator.factory.js';
-
 // AppState factories
 export {
   createAppState,
@@ -76,7 +71,6 @@ export {
 // System factories
 export {
   createCallbackMap,
-  createMediaQueryListMock,
   createCanvasRenderingContextMock,
   createBitmapMock,
   createPreventDefaultEventMock,
@@ -87,8 +81,6 @@ export {
   createSettingsServiceHarness,
   createSettingsServiceMock,
   createNotesServiceMock,
-  createSettingsFullscreenServiceMock,
-  createSettingsCinematicModeServiceMock,
 } from './settings.factory.js';
 
 // Update factories

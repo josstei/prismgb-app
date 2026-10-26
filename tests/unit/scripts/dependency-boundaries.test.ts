@@ -46,6 +46,7 @@ const EXPECTED_VIOLATIONS = [
   'app-to-platform-internals src/renderer/application/platform-internal-relative.ts',
   'gpu-root-not-to-internals src/platform/gpu/index.ts',
   'main-not-to-renderer src/main/infrastructure/window.service.ts',
+  'main-composition-only-from-entry src/main/infrastructure/composition-reach.ts',
   'no-orphans src/renderer/lib/unused.utils.ts',
   'no-unresolvable src/renderer/application/platform-deep-alias.ts',
   'platform-not-to-app src/platform/notes/index.ts',
@@ -89,7 +90,7 @@ describe('source tree structure', () => {
 
   it('classifies every src/main top-level entry', () => {
     expect(listSourceEntries('src/main'))
-      .toEqual(['app-bootstrap.ts', 'application', 'index.ts', 'infrastructure', 'ipc']);
+      .toEqual(['application', 'index.ts', 'infrastructure', 'ipc']);
   });
 
   it('keeps src/platform aligned with the alias registry', () => {

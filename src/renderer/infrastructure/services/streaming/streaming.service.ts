@@ -140,17 +140,16 @@ export class StreamingService extends BaseService {
     }
 
     this._state = StreamState.STARTING;
-    this._operationPromise = this._performStart(deviceId);
+    const operation = this._performStart(deviceId);
+    this._operationPromise = operation;
 
     try {
-      const result = await this._operationPromise as StreamStartResult;
-      this._state = StreamState.STREAMING;
-      return result;
+      return await operation;
     } catch (error) {
       this._state = StreamState.ERROR;
       throw error;
     } finally {
-      this._operationPromise = null;
+      if (this._operationPromise === operation) this._operationPromise = null;
     }
   }
 
@@ -174,6 +173,7 @@ export class StreamingService extends BaseService {
 
       this.logger.info('Stream started successfully');
 
+      this._state = StreamState.STREAMING;
       // Emit event
       this.eventBus.publish(EventChannels.STREAM.STARTED, {
         stream: this.currentStream,
@@ -226,17 +226,18 @@ export class StreamingService extends BaseService {
     }
 
     this._state = StreamState.STOPPING;
-    this._operationPromise = this._performStop();
+    const operation = this._performStop();
+    this._operationPromise = operation;
 
     try {
-      await this._operationPromise;
+      await operation;
       this._state = StreamState.IDLE;
     } catch (error) {
       // Even on error, move to idle (cleanup happened)
       this._state = StreamState.IDLE;
       throw error;
     } finally {
-      this._operationPromise = null;
+      if (this._operationPromise === operation) this._operationPromise = null;
     }
   }
 

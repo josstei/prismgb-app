@@ -16,7 +16,7 @@ import {
 } from '@renderer/presentation/primitives/template-ref.utils.js';
 
 import type { LoggerFactoryLike } from '@platform/core';
-import type { TypedEventBusLike } from '@platform/events';
+import { EventChannels, OnEvent, type TypedEventBusLike, type DeviceEnumerationFailedPayload, type DeviceStatus } from '@platform/events';
 import type { UIController } from '@renderer/presentation/controller/ui.controller.js';
 import type { AppState } from '@renderer/application/state/app-state.js';
 
@@ -51,6 +51,28 @@ export class UISetupOrchestrator extends BaseOrchestrator {
 
   initializeDeferredComponents(): void {
     this.uiController.initializeDeferredComponents();
+  }
+
+  @OnEvent(EventChannels.DEVICE.ENUMERATION_FAILED)
+  private handleDeviceEnumerationFailed(payload: DeviceEnumerationFailedPayload): void {
+    const message = payload.reason === 'webcam_access'
+      ? 'Camera access denied. Please allow camera permissions.'
+      : `Device error: ${payload.error ?? 'Unknown error'}`;
+    this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message, type: 'warning' });
+  }
+
+  @OnEvent(EventChannels.DEVICE.STATUS_CHANGED)
+  private handleDeviceStatusChanged(status: DeviceStatus): void {
+    const connected = status.connected;
+    this.logger.info('Device ' + (connected ? 'CONNECTED' : 'DISCONNECTED'));
+    this.eventBus.publish(EventChannels.UI.DEVICE_STATUS, { status });
+    this.eventBus.publish(EventChannels.UI.OVERLAY_MESSAGE, { deviceConnected: connected });
+    if (connected) {
+      this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Device ready' });
+    } else {
+      this.eventBus.publish(EventChannels.UI.OVERLAY_VISIBLE, { visible: true });
+      this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Device disconnected', type: 'warning' });
+    }
   }
 
   setupUIEventListeners(): void {

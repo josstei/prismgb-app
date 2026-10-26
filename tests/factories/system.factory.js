@@ -12,15 +12,6 @@ export function createCallbackMap(methods = []) {
   return Object.fromEntries(methods.map((method) => [method, vi.fn()]));
 }
 
-export function createMediaQueryListMock(overrides = {}) {
-  return {
-    matches: false,
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-    ...overrides
-  };
-}
-
 export function createCanvasRenderingContextMock(overrides = {}) {
   const {
     drawImage = vi.fn(),
@@ -32,8 +23,6 @@ export function createCanvasRenderingContextMock(overrides = {}) {
     drawImage,
     fillRect,
     clearRect: vi.fn(),
-    drawImageCount: 0,
-    fillRectCount: 0,
     getImageData: vi.fn(),
     putImageData: vi.fn(),
     imageSmoothingEnabled: true,

@@ -13,6 +13,7 @@ import { createGpuVideoRendererSession, detectBrowserGpuCapabilities } from '@pl
 import type { GpuVideoRendererSession } from '@platform/gpu/runtime';
 import { PRESET_POLICY, type RenderCapabilities } from '@platform/gpu';
 import type { SettingsAccess } from '@renderer/lib/settings.definitions';
+import { waitForVideoFrame } from './video-frame.utils';
 
 type DimensionsCallback = (dimensions: Dimensions) => void;
 type CanvasLifecycle = {
@@ -22,15 +23,10 @@ type CanvasLifecycle = {
   recreateCanvas(): Promise<void>;
   cleanup(): void;
 };
-type StreamHealth = {
-  checkStreamHealth(video: HTMLVideoElement, onHealthy: (data: Record<string, unknown>) => void, onTimeout: (data: { reason: string; [key: string]: unknown }) => void, timeoutMs: number): void;
-  cleanup(): void;
-};
 type StreamingRenderServiceDependencies = {
   appState: { isStreaming: boolean };
   streamViewService: { getVideo(): HTMLVideoElement | null; getCanvas(): HTMLCanvasElement | null };
   canvasLifecycleService: CanvasLifecycle;
-  streamHealthService: StreamHealth;
   settingsService: Pick<SettingsAccess, 'getSetting'>;
   eventBus: TypedEventBusLike;
   loggerFactory: LoggerFactoryLike;
@@ -166,17 +162,7 @@ export class StreamingRenderService extends BaseService {
   private waitForHealthyStream(signal: AbortSignal): Promise<void> {
     const video = this.deps.streamViewService.getVideo();
     if (!video) return Promise.reject(new Error('Stream video is unavailable'));
-    return new Promise((resolve, reject) => {
-      const abort = () => { this.deps.streamHealthService.cleanup(); reject(signal.reason); };
-      signal.addEventListener('abort', abort, { once: true });
-      this.deps.streamHealthService.checkStreamHealth(video, () => {
-        signal.removeEventListener('abort', abort);
-        resolve();
-      }, (data) => {
-        signal.removeEventListener('abort', abort);
-        reject(new Error(`No frames received: ${data.reason}`));
-      }, 4000);
-    });
+    return waitForVideoFrame(video, signal);
   }
   isActive(): boolean { return this.session?.isActive ?? false; }
   captureFrame(): Promise<ImageBitmap> {
@@ -213,7 +199,6 @@ export class StreamingRenderService extends BaseService {
   async cleanup(): Promise<void> {
     await this.stopPipeline();
     this.deps.canvasLifecycleService.cleanup();
-    this.deps.streamHealthService.cleanup();
   }
   override async dispose(): Promise<void> { await this.cleanup(); await super.dispose(); }
 }

@@ -106,14 +106,12 @@ function installProcessRuntimeMock(options = {}) {
   if (Object.prototype.hasOwnProperty.call(options, 'platform')) {
     const platformMock = installProcessPlatformMock(options.platform);
     handle.platform = platformMock.platform;
-    handle.setPlatform = platformMock.setValue;
     stack.add(() => platformMock.cleanup());
   }
 
   if (Object.prototype.hasOwnProperty.call(options, 'argv')) {
     const argvMock = installProcessArgvMock(options.argv);
     handle.argv = argvMock.argv;
-    handle.setArgv = argvMock.setValue;
     stack.add(() => argvMock.cleanup());
   }
 
@@ -135,7 +133,5 @@ export {
   createCleanupStack,
   installProcessEnvMock,
   installTargetProperty,
-  installProcessArgvMock,
-  installProcessPlatformMock,
   installProcessRuntimeMock,
 };

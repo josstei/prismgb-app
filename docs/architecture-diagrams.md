@@ -8,12 +8,10 @@ Each `application/container.ts` is an explicit construction function: `createMai
 
 ```mermaid
 flowchart TD
-  MainEntry["main/index.ts"] --> MainBootstrap
-  MainBootstrap --> MainRuntime["createMainRuntime"]
+  MainEntry["main/index.ts"] --> MainRuntime["createMainRuntime"]
   MainRuntime --> MainServices["Window, tray, USB, IPC, update, transcode"]
   RendererEntry["renderer/index.ts"] --> RendererBootstrap
   RendererBootstrap --> RendererRuntime["createRendererRuntime"]
-  RendererRuntime --> RendererApp["Renderer AppOrchestrator"]
   RendererRuntime --> Services["Media, settings, notes, update services"]
   RendererRuntime --> UI["UI bridges, effects and component factories"]
 ```
@@ -66,7 +64,7 @@ flowchart LR
 
 `StreamingRenderService` serializes session transitions, aborts superseded starts, and owns canvas replacement after transfer to a worker. It selects WebGPU when available, falls back to Canvas2D after GPU initialization failure, and uses Canvas2D for performance mode. Preset, brightness, viewport sizing, visibility, and recording state remain coordinated around the active session.
 
-Pass specifications define uniform layouts and derive shader declarations; shader bodies retain the actual rendering algorithms. The worker protocol carries render commands, acknowledgments, errors, statistics, and capture responses. Frame ownership and request correlation must be preserved when extending it.
+Pass specifications define uniform layouts and derive shader declarations; shader bodies retain the actual rendering algorithms. The worker protocol carries render commands, frame completion, errors, and correlated capture responses. Frame ownership and request correlation must be preserved when extending it.
 
 Main transcoding owns active FFmpeg jobs and their temporary input/output artifacts. Successful output is moved to the downloads directory. Normal shutdown waits for accepted jobs; failure cleanup cancels remaining jobs. Completion, failure, cancellation, and application disposal all release temporary artifacts through the same job owner.
 

@@ -1,1 +1,1 @@
-import '@renderer/application/app.orchestrator';
+import '@renderer/application/container';

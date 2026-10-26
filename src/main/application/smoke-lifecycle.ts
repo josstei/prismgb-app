@@ -1,6 +1,6 @@
 type SmokeApplication = {
   initialize(): Promise<void>;
-  cleanup(): Promise<void>;
+  dispose(): Promise<void>;
 };
 
 /** Exercise the normal application lifecycle, including renderer transport readiness. */
@@ -11,7 +11,7 @@ export async function runApplicationSmoke(
 ): Promise<void> {
   let deadline: ReturnType<typeof setTimeout> | undefined;
   let cleanup: Promise<void> | undefined;
-  const cleanOnce = () => cleanup ??= Promise.resolve().then(() => application.cleanup());
+  const cleanOnce = () => cleanup ??= Promise.resolve().then(() => application.dispose());
   const lifecycle = (async () => {
     try {
       await application.initialize();

@@ -1,19 +1,18 @@
 import { signal, computed, type ReadonlySignal } from '@platform/ui-base/reactive';
 import { EventChannels, type TypedEventBusLike } from '@platform/events';
-import { ReactiveStore } from './reactive-store.base.js';
+import { ManagedLifecycleHost } from '@platform/core';
 
 export interface DeviceStatusStoreDependencies {
   eventBus: Pick<TypedEventBusLike, 'subscribe'>;
   initialDeviceConnected: boolean;
 }
 
-export class DeviceStatusStore extends ReactiveStore {
+export class DeviceStatusStore extends ManagedLifecycleHost {
   private readonly _connected = signal(false);
   private readonly _deviceName = signal('—');
   private readonly _overlayVisible = signal(true);
   private readonly _overlayMessage = signal('');
   private readonly _overlayReady = signal(false);
-  private readonly _overlayWaiting = signal(true);
 
   constructor(private readonly dependencies: DeviceStatusStoreDependencies) {
     super();
@@ -43,7 +42,6 @@ export class DeviceStatusStore extends ReactiveStore {
         const deviceConnected = payload?.deviceConnected === true;
         this._overlayMessage.value = '';
         this._overlayReady.value = deviceConnected;
-        this._overlayWaiting.value = !deviceConnected;
       })
     );
 
@@ -68,7 +66,7 @@ export class DeviceStatusStore extends ReactiveStore {
   get deviceName(): ReadonlySignal<string> { return this._deviceName; }
   get overlayMessage(): ReadonlySignal<string> { return this._overlayMessage; }
   get overlayReady(): ReadonlySignal<boolean> { return this._overlayReady; }
-  get overlayWaiting(): ReadonlySignal<boolean> { return this._overlayWaiting; }
+  readonly overlayWaiting = computed(() => !this._overlayReady.value);
 
   // Computed composites for bindings
   readonly statusText = computed(() => this._connected.value ? 'Device Connected' : 'No Device');

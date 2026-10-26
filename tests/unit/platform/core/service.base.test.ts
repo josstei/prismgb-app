@@ -235,7 +235,7 @@ describe('BaseService', () => {
       }
     });
 
-    it('cancelScheduled stops a keyed interval', () => {
+    it('cancelManaged stops a keyed interval', () => {
       vi.useFakeTimers();
       try {
         const service = new BaseService({ loggerFactory: createLoggerFactory() }, 'KeyedService');
@@ -245,7 +245,7 @@ describe('BaseService', () => {
         vi.advanceTimersByTime(100);
         expect(handler).toHaveBeenCalledTimes(2);
 
-        service.cancelScheduled('poll');
+        service.cancelManaged('poll');
         vi.advanceTimersByTime(100);
         expect(handler).toHaveBeenCalledTimes(2);
       } finally {

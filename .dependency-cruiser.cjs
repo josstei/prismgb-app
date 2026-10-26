@@ -131,11 +131,11 @@ module.exports = {
       to: { path: '^src/main/index\\.ts$' }
     },
     {
-      name: 'main-bootstrap-only-from-entry',
+      name: 'main-composition-only-from-entry',
       severity: 'error',
-      comment: 'Only the main entry wires the bootstrap.',
-      from: { path: '^src/', pathNot: ['^src/main/index\\.ts$'] },
-      to: { path: '^src/main/app-bootstrap\\.ts$' }
+      comment: 'Only the main entry constructs the process runtime.',
+      from: { path: '^src/main/', pathNot: ['^src/main/index\\.ts$'] },
+      to: { path: '^src/main/application/container\\.ts$' }
     },
     {
       name: 'platform-not-to-app',

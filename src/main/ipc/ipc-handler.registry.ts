@@ -5,17 +5,8 @@ import { randomUUID } from 'node:crypto';
 import { BaseService, type LoggerFactoryLike } from '@platform/core';
 import { createIPCHandler } from 'electron-trpc/main';
 import { appRouter } from './router.js';
-import type {
-  IpcContext,
-  DeviceConnectionPort,
-  UpdateService,
-  WindowService,
-  LoginItemService,
-  TranscodeService
-} from './trpc.js';
-import type { IpcPushBridge } from './ipc-push.bridge.js';
+import type { IpcContext } from './trpc.js';
 import { TEST_CONTROL_CHANNELS } from './test-control.port.js';
-import type { MainProcessTestControlPort } from './test-control.port.js';
 import { IPC_CHANNELS, type DeviceStatusPayload } from '@platform/ipc';
 import type { RendererShutdownResult } from './schemas/app.schemas.js';
 
@@ -28,17 +19,8 @@ const RENDERER_SHUTDOWN_TIMEOUT_MS = 30_000;
  * torn down on navigation/destroy. Renderer shutdown is acknowledged before main services and
  * this transport are disposed, allowing notes and recording buffers to finish saving.
  */
-type IpcHandlerRegistryDependencies = {
-  deviceConnectionService: DeviceConnectionPort;
-  mainProcessTestControl: MainProcessTestControlPort;
-  updateService: UpdateService;
-  windowService: WindowService;
-  transcodeService: TranscodeService;
-  loginItemService: LoginItemService;
-  ipcPushBridge: IpcPushBridge;
-  loggerFactory: LoggerFactoryLike;
-  onRendererReady: () => void;
-};
+type ContextDependencies = Omit<IpcContext, 'shell' | 'logger' | 'onRendererShutdownComplete'>;
+type IpcHandlerRegistryDependencies = ContextDependencies & { loggerFactory: LoggerFactoryLike };
 
 class IpcHandlerRegistry extends BaseService {
   private handler: ReturnType<typeof createIPCHandler> | null = null;
@@ -54,25 +36,11 @@ class IpcHandlerRegistry extends BaseService {
     timeout: ReturnType<typeof setTimeout>;
   } | null = null;
 
-  private readonly deviceConnectionService: DeviceConnectionPort;
-  private readonly mainProcessTestControl: MainProcessTestControlPort;
-  private readonly updateService: UpdateService;
-  private readonly windowService: WindowService;
-  private readonly transcodeService: TranscodeService;
-  private readonly loginItemService: LoginItemService;
-  private readonly ipcPushBridge: IpcPushBridge;
-  private readonly onRendererReady: () => void;
+  private readonly dependencies: ContextDependencies;
 
-  constructor({ deviceConnectionService, mainProcessTestControl, updateService, windowService, transcodeService, loginItemService, ipcPushBridge, loggerFactory, onRendererReady }: IpcHandlerRegistryDependencies) {
+  constructor({ loggerFactory, ...dependencies }: IpcHandlerRegistryDependencies) {
     super({ loggerFactory }, 'IpcHandlerRegistry');
-    this.deviceConnectionService = deviceConnectionService;
-    this.mainProcessTestControl = mainProcessTestControl;
-    this.updateService = updateService;
-    this.windowService = windowService;
-    this.transcodeService = transcodeService;
-    this.loginItemService = loginItemService;
-    this.ipcPushBridge = ipcPushBridge;
-    this.onRendererReady = onRendererReady;
+    this.dependencies = dependencies;
   }
 
   registerHandlers(): void {
@@ -123,7 +91,7 @@ class IpcHandlerRegistry extends BaseService {
       this.pendingShutdown = { requestId, resolve, reject, timeout };
     });
     try {
-      this.ipcPushBridge.emit(IPC_CHANNELS.APP.SHUTDOWN_REQUESTED, { requestId });
+      this.dependencies.ipcPushBridge.emit(IPC_CHANNELS.APP.SHUTDOWN_REQUESTED, { requestId });
     } catch (error) {
       this.failRendererShutdown(error instanceof Error ? error : new Error(String(error)));
     }
@@ -171,31 +139,25 @@ class IpcHandlerRegistry extends BaseService {
 
   private registerTestControlHandlers(): void {
     ipcMain.on(TEST_CONTROL_CHANNELS.SET_DEVICE_STATUS, (_event, payload: DeviceStatusPayload) => {
-      this.mainProcessTestControl.setDeviceStatusOverride(payload);
+      this.dependencies.mainProcessTestControl.setDeviceStatusOverride(payload);
     });
     ipcMain.on(TEST_CONTROL_CHANNELS.CLEAR_DEVICE_STATUS, () => {
-      this.mainProcessTestControl.setDeviceStatusOverride(null);
+      this.dependencies.mainProcessTestControl.setDeviceStatusOverride(null);
     });
     ipcMain.on(TEST_CONTROL_CHANNELS.EMIT_PUSH, (_event, payload: { channel: string; data?: unknown }) => {
-      this.mainProcessTestControl.emitPush(payload.channel, payload.data);
+      this.dependencies.mainProcessTestControl.emitPush(payload.channel, payload.data);
     });
   }
 
   private createContext(): IpcContext {
     return {
-      deviceConnectionService: this.deviceConnectionService,
-      mainProcessTestControl: this.mainProcessTestControl,
-      updateService: this.updateService,
-      windowService: this.windowService,
-      transcodeService: this.transcodeService,
-      loginItemService: this.loginItemService,
+      ...this.dependencies,
       shell,
       logger: this.logger,
-      ipcPushBridge: this.ipcPushBridge,
       onRendererReady: () => {
         this.rendererReady = true;
         this.rendererFailure = null;
-        this.onRendererReady();
+        this.dependencies.onRendererReady();
       },
       onRendererShutdownComplete: (result) => this.completeRendererShutdown(result)
     };

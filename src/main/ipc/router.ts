@@ -1,35 +1,22 @@
-import { z } from 'zod';
+import type { z } from 'zod';
 import { observable } from '@trpc/server/observable';
-import { IPC_CHANNELS, rendererShutdownRequestSchema, type IpcPushPayloadMap } from '@platform/ipc';
+import { IPC_CHANNELS, ipcPushSchemas, type IpcPushPayloadMap } from '@platform/ipc';
 
 import { router, publicProcedure, rethrowAsTrpcError, type IpcContext } from './trpc.js';
 import { rendererShutdownResultSchema } from './schemas/app.schemas.js';
-import {
-  externalUrlSchema,
-  enabledFlagSchema,
-  localBlobDownloadSchema,
-  transcodeStartSchema,
-  transcodeCancelSchema,
-  deviceInfoSchema,
-  nullableDeviceInfoSchema,
-  updateInfoSchema,
-  updateProgressSchema,
-  updateErrorSchema,
-  transcodeProgressSchema,
-  transcodeCompletedSchema,
-  transcodeErrorSchema,
-  transcodeCancelledSchema,
-  loginItemGetResponseSchema,
-  deviceStatusPayloadSchema
-} from './schemas/index.js';
+import { externalUrlSchema, enabledFlagSchema, localBlobDownloadSchema } from './schemas/common.schemas.js';
+import { transcodeStartSchema, transcodeCancelSchema } from './schemas/transcode.schemas.js';
+import { loginItemGetResponseSchema } from './schemas/login-item.schemas.js';
+import { deviceStatusPayloadSchema } from '@platform/devices';
 
 /** Validate emitted values without tearing down a subscription after a malformed push. */
-function pushSubscription<TChannel extends keyof IpcPushPayloadMap, TSchema extends z.ZodType<IpcPushPayloadMap[TChannel]>>(ctx: IpcContext, channel: TChannel, schema: TSchema, label: string) {
-  return observable<z.output<TSchema>>((emit) => {
+function pushSubscription<TChannel extends keyof IpcPushPayloadMap>(ctx: IpcContext, channel: TChannel) {
+  const schema: z.ZodType<IpcPushPayloadMap[TChannel]> = ipcPushSchemas[channel];
+  return observable<IpcPushPayloadMap[TChannel]>((emit) => {
     const listener = (payload: unknown) => {
       const result = schema.safeParse(payload);
       if (!result.success) {
-        ctx.logger.warn(`Dropping invalid ${label} subscription payload`);
+        ctx.logger.warn(`Dropping invalid ${channel} subscription payload`);
         return;
       }
       emit.next(result.data);
@@ -61,10 +48,10 @@ const deviceRouter = router({
     })
   ),
   onConnected: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.DEVICE.CONNECTED, deviceInfoSchema, 'device-info')
+    pushSubscription(ctx, IPC_CHANNELS.DEVICE.CONNECTED)
   ),
   onDisconnected: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.DEVICE.DISCONNECTED, nullableDeviceInfoSchema, 'nullable-device-info')
+    pushSubscription(ctx, IPC_CHANNELS.DEVICE.DISCONNECTED)
   )
 });
 
@@ -95,13 +82,13 @@ const windowRouter = router({
     }))
   ),
   onEnterFullscreen: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.WINDOW.ENTER_FULLSCREEN, z.void(), 'window-enter-fullscreen')
+    pushSubscription(ctx, IPC_CHANNELS.WINDOW.ENTER_FULLSCREEN)
   ),
   onLeaveFullscreen: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.WINDOW.LEAVE_FULLSCREEN, z.void(), 'window-leave-fullscreen')
+    pushSubscription(ctx, IPC_CHANNELS.WINDOW.LEAVE_FULLSCREEN)
   ),
   onResized: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.WINDOW.RESIZED, z.void(), 'window-resized')
+    pushSubscription(ctx, IPC_CHANNELS.WINDOW.RESIZED)
   )
 });
 
@@ -127,19 +114,19 @@ const updateRouter = router({
     })
   ),
   onAvailable: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.UPDATE.AVAILABLE, updateInfoSchema, 'update-info')
+    pushSubscription(ctx, IPC_CHANNELS.UPDATE.AVAILABLE)
   ),
   onNotAvailable: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.UPDATE.NOT_AVAILABLE, updateInfoSchema, 'update-info')
+    pushSubscription(ctx, IPC_CHANNELS.UPDATE.NOT_AVAILABLE)
   ),
   onProgress: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.UPDATE.PROGRESS, updateProgressSchema, 'update-progress')
+    pushSubscription(ctx, IPC_CHANNELS.UPDATE.PROGRESS)
   ),
   onDownloaded: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.UPDATE.DOWNLOADED, updateInfoSchema, 'update-info')
+    pushSubscription(ctx, IPC_CHANNELS.UPDATE.DOWNLOADED)
   ),
   onError: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.UPDATE.ERROR, updateErrorSchema, 'update-error')
+    pushSubscription(ctx, IPC_CHANNELS.UPDATE.ERROR)
   )
 });
 
@@ -170,16 +157,16 @@ const transcodeRouter = router({
     rethrowAsTrpcError('Failed to cancel transcode', ctx.logger, () => ctx.transcodeService.cancel(input.jobId))
   ),
   onProgress: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.TRANSCODE.PROGRESS, transcodeProgressSchema, 'transcode-progress')
+    pushSubscription(ctx, IPC_CHANNELS.TRANSCODE.PROGRESS)
   ),
   onCompleted: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.TRANSCODE.COMPLETED, transcodeCompletedSchema, 'transcode-completed')
+    pushSubscription(ctx, IPC_CHANNELS.TRANSCODE.COMPLETED)
   ),
   onError: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.TRANSCODE.ERROR, transcodeErrorSchema, 'transcode-error')
+    pushSubscription(ctx, IPC_CHANNELS.TRANSCODE.ERROR)
   ),
   onCancelled: publicProcedure.subscription(({ ctx }) =>
-    pushSubscription(ctx, IPC_CHANNELS.TRANSCODE.CANCELLED, transcodeCancelledSchema, 'transcode-cancelled')
+    pushSubscription(ctx, IPC_CHANNELS.TRANSCODE.CANCELLED)
   )
 });
 
@@ -187,7 +174,7 @@ export const appRouter = router({
   app: router({
     rendererReady: publicProcedure.mutation(({ ctx }) => ctx.onRendererReady()),
     onShutdown: publicProcedure.subscription(({ ctx }) =>
-      pushSubscription(ctx, IPC_CHANNELS.APP.SHUTDOWN_REQUESTED, rendererShutdownRequestSchema, 'renderer-shutdown')
+      pushSubscription(ctx, IPC_CHANNELS.APP.SHUTDOWN_REQUESTED)
     ),
     rendererShutdownComplete: publicProcedure.input(rendererShutdownResultSchema).mutation(({ ctx, input }) =>
       ctx.onRendererShutdownComplete(input)

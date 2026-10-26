@@ -1,17 +1,13 @@
 import type { SettingsAccess } from '@renderer/lib/settings.definitions.js';
 
-import { BaseOrchestrator, disposeInOrder } from '@platform/core';
-import { EventChannels, OnEvent } from '@platform/events';
-import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
+import { BaseOrchestrator } from '@platform/core';
+import { EventChannels, OnEvent, type TypedEventBusLike } from '@platform/events';
+import type { LoggerFactoryLike } from '@platform/core';
+import type { AppState } from '../state/app-state';
 
 type FullscreenServiceLike = {
   initialize(): void;
   enterFullscreen(): void;
-  dispose(): void | Promise<void>;
-};
-
-type CinematicModeServiceLike = {
-  initialize(): void;
   dispose(): void | Promise<void>;
 };
 
@@ -21,59 +17,55 @@ const STARTUP_VISIBILITY_LIFECYCLE = Symbol('settingsDisplayModeStartupVisibilit
 
 type SettingsDisplayModeOrchestratorDependencies = {
   fullscreenService: FullscreenServiceLike;
-  cinematicModeService: CinematicModeServiceLike;
+  appState: Pick<AppState, 'isCinematicModeEnabled' | 'setCinematicMode'>;
   settingsService: SettingsServiceLike;
-  eventBus: EventBusLike;
+  eventBus: TypedEventBusLike;
   loggerFactory: LoggerFactoryLike;
 };
 
 export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
-  private readonly fullscreenService: FullscreenServiceLike;
-  private readonly cinematicModeService: CinematicModeServiceLike;
-  private readonly settingsService: SettingsServiceLike;
-
-  constructor({ fullscreenService, cinematicModeService, settingsService, eventBus, loggerFactory }: SettingsDisplayModeOrchestratorDependencies) {
-    super({ loggerFactory, eventBus }, 'SettingsDisplayModeOrchestrator');
-    this.fullscreenService = fullscreenService;
-    this.cinematicModeService = cinematicModeService;
-    this.settingsService = settingsService;
+  constructor(private readonly dependencies: SettingsDisplayModeOrchestratorDependencies) {
+    super(dependencies, 'SettingsDisplayModeOrchestrator');
   }
 
   /**
    * Initialize the orchestrator - setup fullscreen listeners
    */
   async onInitialize(): Promise<void> {
-    this.fullscreenService.initialize();
-    this.cinematicModeService.initialize();
+    this.dependencies.fullscreenService.initialize();
+  }
+
+  @OnEvent(EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED)
+  private toggleCinematicMode(): void {
+    const { appState, eventBus } = this.dependencies;
+    const enabled = !appState.isCinematicModeEnabled;
+    appState.setCinematicMode(enabled);
+    eventBus.publish(EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED, { enabled });
   }
 
   @OnEvent(EventChannels.SETTINGS.PREFERENCES_LOADED)
   _applyStartupBehaviors(): void {
-    this._clearStartupVisibilityListener();
+    this.cancelManaged(STARTUP_VISIBILITY_LIFECYCLE);
 
-    if (this.settingsService.getSetting('fullscreenOnStartup')) {
+    if (this.dependencies.settingsService.getSetting('fullscreenOnStartup')) {
       if (document.hidden) {
         const onVisible = () => {
           if (document.hidden) {
             return;
           }
 
-          this._clearStartupVisibilityListener();
-          this.fullscreenService.enterFullscreen();
+          this.cancelManaged(STARTUP_VISIBILITY_LIFECYCLE);
+          this.dependencies.fullscreenService.enterFullscreen();
         };
         this.replaceManaged(STARTUP_VISIBILITY_LIFECYCLE, this.listen(document, 'visibilitychange', onVisible));
       } else {
-        this.fullscreenService.enterFullscreen();
+        this.dependencies.fullscreenService.enterFullscreen();
       }
     }
   }
 
-  _clearStartupVisibilityListener(): void {
-    this.cancelManaged(STARTUP_VISIBILITY_LIFECYCLE);
-  }
-
   async onCleanup(): Promise<void> {
-    this._clearStartupVisibilityListener();
-    await disposeInOrder([() => this.fullscreenService.dispose(), () => this.cinematicModeService.dispose()]);
+    this.cancelManaged(STARTUP_VISIBILITY_LIFECYCLE);
+    await this.dependencies.fullscreenService.dispose();
   }
 }

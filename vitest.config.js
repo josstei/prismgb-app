@@ -59,8 +59,7 @@ export default defineConfig({
             'tests/unit/support/**/*.{test,spec}.{js,ts}'
           ],
           setupFiles: [
-            path.resolve(__dirname, 'tests/setup.js'),
-            path.resolve(__dirname, 'tests/support/mocks/node-browser-mocks.setup.js')
+            path.resolve(__dirname, 'tests/setup.js')
           ]
         }
       },
@@ -111,8 +110,7 @@ export default defineConfig({
             'tests/unit/platform/{config,core,devices,events,ipc,notes,transcode,updates}/**/*.{test,spec}.{js,ts}'
           ],
           setupFiles: [
-            path.resolve(__dirname, 'tests/setup.js'),
-            path.resolve(__dirname, 'tests/support/mocks/node-browser-mocks.setup.js')
+            path.resolve(__dirname, 'tests/setup.js')
           ]
         }
       },

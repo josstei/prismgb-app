@@ -185,6 +185,32 @@ describe('StreamingService', () => {
       expect(mockDeviceMediaAcquirer.acquire).toHaveBeenCalledWith(mockTarget);
     });
 
+    it('publishes started only after its owned state is visible to subscribers', async () => {
+      const observed = vi.fn();
+      mockEventBus.subscribe('stream:started', () => observed(service.isStreaming, service.getStream(), service.currentCapabilities));
+      await service.start();
+      expect(observed).toHaveBeenCalledWith(true, mockStream, capabilities);
+      await service.stop();
+    });
+
+    it('joins a stop requested synchronously by a started subscriber', async () => {
+      const released = createDeferred();
+      mockDeviceMediaAcquirer.release.mockReturnValue(released.promise);
+      let stopped: Promise<void> | undefined;
+      mockEventBus.subscribe('stream:started', () => { stopped = service.stop(); });
+      await service.start();
+      expect(service.isStreaming).toBe(false);
+      const joined = service.stop();
+      const settled = vi.fn();
+      void joined.then(settled);
+      await Promise.resolve();
+      expect(settled).not.toHaveBeenCalled();
+      released.resolve();
+      await Promise.all([stopped, joined]);
+      expect(mockDeviceMediaAcquirer.release).toHaveBeenCalledOnce();
+      expect(service.getStream()).toBeNull();
+    });
+
     it('should publish stream:started event with settings, capabilities, and strategy', async () => {
       await service.start('device-1');
 

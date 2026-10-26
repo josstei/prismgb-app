@@ -1,6 +1,6 @@
 import { signal, type ReadonlySignal } from '@platform/ui-base/reactive';
 import { EventChannels, type EventPayloadMap, type TypedEventBusLike } from '@platform/events';
-import { ReactiveStore } from './reactive-store.base.js';
+import { ManagedLifecycleHost } from '@platform/core';
 
 const VALID_TYPES = ['info', 'success', 'warning', 'error'] as const;
 export type StatusNotificationType = (typeof VALID_TYPES)[number];
@@ -10,7 +10,7 @@ export interface StatusNotificationStoreDependencies {
 }
 
 /** Owns status-message reactive state; subscribes the bus → signal (event→state). */
-export class StatusNotificationStore extends ReactiveStore {
+export class StatusNotificationStore extends ManagedLifecycleHost {
   private readonly _message = signal('');
   private readonly _type = signal<StatusNotificationType>('info');
 

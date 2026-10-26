@@ -1,20 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import {
-  externalUrlSchema,
-  enabledFlagSchema,
   transcodeStartSchema,
   transcodeCancelSchema,
-  deviceStatusPayloadSchema,
-  transcodeProgressSchema,
-  transcodeCompletedSchema,
-  transcodeCancelledSchema,
-  deviceInfoSchema,
-  nullableDeviceInfoSchema,
-  updateInfoSchema,
-  updateProgressSchema,
-  updateErrorSchema,
-  loginItemGetResponseSchema
-} from '@main/ipc/schemas/index.js';
+} from '@main/ipc/schemas/transcode.schemas.js';
+import { deviceInfoSchema, nullableDeviceInfoSchema, deviceStatusPayloadSchema } from '@platform/devices';
+import { transcodeProgressSchema, transcodeCompletedSchema, transcodeCancelledSchema, updateInfoSchema, updateProgressSchema, updateErrorSchema } from '../../../../src/platform/ipc/push-payloads.schemas.js';
+import { externalUrlSchema, enabledFlagSchema } from '@main/ipc/schemas/common.schemas.js';
+import { loginItemGetResponseSchema } from '@main/ipc/schemas/login-item.schemas.js';
 import {
   createChromaticDeviceInfoPayload,
   createChromaticDeviceStatusPayload
@@ -112,14 +104,15 @@ describe('IPC subscription payload schemas (defense-in-depth)', () => {
     expect(accepts(transcodeProgressSchema, { percent: 12.5, jobId: 'j' })).toBe(true);
     expect(accepts(transcodeProgressSchema, { jobId: 'j' })).toBe(false);
     expect(accepts(transcodeProgressSchema, { percent: 'x' })).toBe(false);
+    expect(accepts(transcodeProgressSchema, { percent: 50 })).toBe(false);
   });
 
-  it('transcodeCompletedSchema accepts nullable filePath; cancelled accepts optional jobId', () => {
+  it('transcode terminal events require a job ID while retaining nullable completion paths', () => {
     expect(accepts(transcodeCompletedSchema, { jobId: 'j', filePath: null })).toBe(true);
-    expect(accepts(transcodeCompletedSchema, { filePath: '/tmp/out.mp4' })).toBe(true);
+    expect(accepts(transcodeCompletedSchema, { filePath: '/tmp/out.mp4' })).toBe(false);
     expect(accepts(transcodeCompletedSchema, { filePath: 42 })).toBe(false);
     expect(accepts(transcodeCancelledSchema, { jobId: 'j' })).toBe(true);
-    expect(accepts(transcodeCancelledSchema, {})).toBe(true);
+    expect(accepts(transcodeCancelledSchema, {})).toBe(false);
   });
 });
 

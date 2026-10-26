@@ -86,6 +86,7 @@ describe('Main runtime', () => {
     const shutdown = vi.spyOn(IpcHandlerRegistry.prototype, 'shutdownRenderer')
       .mockImplementation(() => new Promise<void>((_resolve, reject) => { rejectShutdown = reject; }));
     const drain = vi.spyOn(TranscodeService.prototype, 'drain').mockResolvedValue();
+    const downloads = vi.spyOn(WindowService.prototype, 'drainDownloads').mockResolvedValue();
     const cleanup = vi.spyOn(DeviceConnectionService.prototype, 'dispose').mockResolvedValue();
     const disposeWindow = vi.spyOn(WindowService.prototype, 'dispose').mockResolvedValue();
     const runtime = createMainRuntime(createLoggerFactory());
@@ -97,10 +98,24 @@ describe('Main runtime', () => {
     const failure = new Error('renderer flush failed');
     rejectShutdown(failure);
     await expect(disposal).rejects.toMatchObject({ errors: [failure] });
-    expect(drain).not.toHaveBeenCalled();
+    expect(drain).toHaveBeenCalledOnce();
+    expect(downloads).toHaveBeenCalledOnce();
     expect(cleanup).toHaveBeenCalledOnce();
     expect(disposeWindow).toHaveBeenCalledOnce();
     expect(runtime.dispose()).toBe(disposal);
+  });
+
+  it('attempts both output drains before releasing main services if recording drain fails', async () => {
+    const failure = new Error('recording output failed');
+    const order: string[] = [];
+    vi.spyOn(IpcHandlerRegistry.prototype, 'shutdownRenderer').mockResolvedValue();
+    vi.spyOn(TranscodeService.prototype, 'drain').mockImplementation(async () => { order.push('recordings'); throw failure; });
+    vi.spyOn(WindowService.prototype, 'drainDownloads').mockImplementation(async () => { order.push('downloads'); });
+    vi.spyOn(DeviceConnectionService.prototype, 'dispose').mockImplementation(async () => { order.push('main'); });
+    const runtime = createMainRuntime(createLoggerFactory());
+
+    await expect(runtime.dispose()).rejects.toMatchObject({ errors: [failure] });
+    expect(order).toEqual(['recordings', 'downloads', 'main']);
   });
 
   it('finishes renderer-accepted recordings before main services close', async () => {

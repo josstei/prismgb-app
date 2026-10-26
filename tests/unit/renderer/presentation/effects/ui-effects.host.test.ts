@@ -1,401 +1,195 @@
-/**
- * UIEffects Unit Tests
- * Coordination/delegation with mocked auto-hide collaborators, plus
- * integrated capture-flash and button-feedback behavior through the
- * real sub-effects.
- */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-
-let cursorInstance;
-let toolbarInstance;
-let controlsInstance;
-let unifiedControllerInstance;
-let cursorOptions;
-let toolbarOptions;
-let controlsOptions;
-let unifiedControllerOptions;
-
-vi.mock('@renderer/presentation/effects/cursor-auto-hide.effect.ts', () => ({
-  CursorAutoHide: vi.fn().mockImplementation(function CursorAutoHideMock(options) {
-    cursorOptions = options;
-    this.enable = vi.fn();
-    this.disable = vi.fn();
-    this.show = vi.fn();
-    this.hide = vi.fn();
-    this.dispose = vi.fn();
-    this.isEnabled = false;
-    cursorInstance = this;
-  })
-}));
-
-vi.mock('@renderer/presentation/effects/toolbar-auto-hide.effect.ts', () => ({
-  ToolbarAutoHide: vi.fn().mockImplementation(function ToolbarAutoHideMock(options) {
-    toolbarOptions = options;
-    this.enable = vi.fn();
-    this.disable = vi.fn();
-    this.show = vi.fn();
-    this.hide = vi.fn();
-    this.dispose = vi.fn();
-    this.isEnabled = false;
-    this.isHovering = false;
-    this.isPanelOpen = vi.fn(() => false);
-    toolbarInstance = this;
-  })
-}));
-
-vi.mock('@renderer/presentation/effects/controls-auto-hide.effect.ts', () => ({
-  ControlsAutoHide: vi.fn().mockImplementation(function ControlsAutoHideMock(options) {
-    controlsOptions = options;
-    this.enable = vi.fn();
-    this.disable = vi.fn();
-    this.dispose = vi.fn();
-    this.isEnabled = false;
-    controlsInstance = this;
-  })
-}));
-
-vi.mock('@platform/ui-base', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@platform/ui-base')>();
-  return {
-    ...actual,
-    ActivityAutoHideController: vi.fn().mockImplementation(function ActivityAutoHideControllerMock(options) {
-      unifiedControllerOptions = options;
-      this.enable = vi.fn();
-      this.disable = vi.fn();
-      this.startTimer = vi.fn();
-      this.clearTimer = vi.fn();
-      this.dispose = vi.fn();
-      this.isEnabled = false;
-      unifiedControllerInstance = this;
-    })
-  };
-});
-
 import { UIEffects } from '@renderer/presentation/effects/ui-effects.host';
+import { CaptureEffects } from '@renderer/presentation/effects/capture.effect';
 import { TIMING } from '@platform/config';
 import { createUIEffectsElementsMock } from '../../../../factories/index.js';
 import { installDocumentCreateElementMock } from '../../../../support/mocks/browser-api.installers.js';
 
+const HIDE_DELAY = TIMING.CURSOR_HIDE_DELAY_MS;
+
 describe('UIEffects', () => {
-  describe('coordination and delegation', () => {
-  let effects;
-  let mockElements;
+  describe('activity and visibility', () => {
+    let effects: UIEffects;
+    let toolbar: HTMLElement;
+    let controls: HTMLElement;
+    const cursorHidden = () => document.body.classList.contains('cursor-hidden');
+    const toolbarHidden = () => toolbar.classList.contains('toolbar-hidden');
+    const controlsHidden = () => controls.classList.contains('fullscreen-hidden');
+    const move = () => {
+      document.dispatchEvent(new MouseEvent('mousemove'));
+      vi.advanceTimersByTime(16);
+    };
+    const enableStreaming = () => {
+      effects.enableToolbarAutoHide(toolbar);
+      effects.enableCursorAutoHide();
+    };
 
-  beforeEach(() => {
-    mockElements = createUIEffectsElementsMock();
-
-    effects = new UIEffects({ elements: mockElements });
-  });
-
-  afterEach(() => {
-    cursorInstance = null;
-    toolbarInstance = null;
-    controlsInstance = null;
-    unifiedControllerInstance = null;
-    cursorOptions = null;
-    toolbarOptions = null;
-    controlsOptions = null;
-    unifiedControllerOptions = null;
-  });
-
-  it('delegates cursor auto-hide enable/disable', () => {
-    effects.enableCursorAutoHide();
-    effects.disableCursorAutoHide();
-
-    expect(cursorInstance.enable).toHaveBeenCalled();
-    expect(cursorInstance.disable).toHaveBeenCalled();
-  });
-
-  it('clears unified timer when disabling cursor and toolbar is inactive', () => {
-    toolbarInstance.isEnabled = false;
-
-    effects.disableCursorAutoHide();
-
-    expect(unifiedControllerInstance.clearTimer).toHaveBeenCalled();
-  });
-
-  it('delegates toolbar auto-hide enable/disable', () => {
-    const toolbar = document.createElement('div');
-
-    effects.enableToolbarAutoHide(toolbar);
-    effects.disableToolbarAutoHide();
-
-    expect(toolbarInstance.enable).toHaveBeenCalledWith(toolbar);
-    expect(toolbarInstance.disable).toHaveBeenCalled();
-  });
-
-  it('clears unified timer when disabling toolbar and cursor is inactive', () => {
-    cursorInstance.isEnabled = false;
-
-    effects.disableToolbarAutoHide();
-
-    expect(unifiedControllerInstance.clearTimer).toHaveBeenCalled();
-  });
-
-  it('delegates controls auto-hide enable/disable', () => {
-    const controls = document.createElement('div');
-
-    effects.enableControlsAutoHide(controls);
-    effects.disableControlsAutoHide();
-
-    expect(controlsInstance.enable).toHaveBeenCalledWith(controls);
-    expect(controlsInstance.disable).toHaveBeenCalled();
-  });
-
-  it('enables unified timer controller on construction', () => {
-    expect(unifiedControllerInstance.enable).toHaveBeenCalled();
-  });
-
-  it('starts unified timer on activity when controls are not managing', () => {
-    toolbarInstance.isEnabled = true;
-    controlsInstance.isEnabled = false;
-
-    cursorOptions.onActivity();
-
-    expect(toolbarInstance.show).toHaveBeenCalled();
-    expect(unifiedControllerInstance.startTimer).toHaveBeenCalled();
-  });
-
-  it('pauses unified timer on toolbar hover start', () => {
-    cursorInstance.isEnabled = true;
-
-    toolbarOptions.onHoverStart();
-
-    expect(unifiedControllerInstance.clearTimer).toHaveBeenCalled();
-    expect(cursorInstance.show).toHaveBeenCalled();
-  });
-
-  it('resumes unified timer on toolbar hover end when panel is closed', () => {
-    toolbarInstance.isPanelOpen.mockReturnValue(false);
-
-    toolbarOptions.onHoverEnd();
-
-    expect(unifiedControllerInstance.startTimer).toHaveBeenCalled();
-  });
-
-  it('clears unified timer when controls auto-hide enables', () => {
-    controlsOptions.onEnable();
-
-    expect(unifiedControllerInstance.clearTimer).toHaveBeenCalled();
-  });
-
-  it('restarts unified timer when controls auto-hide disables', () => {
-    controlsInstance.isEnabled = false;
-    toolbarInstance.isEnabled = false;
-
-    controlsOptions.onDisable();
-
-    expect(unifiedControllerInstance.startTimer).toHaveBeenCalled();
-  });
-
-  describe('delegated capture and button effects', () => {
-    it('delegates setRecordingButtonState with parameters', () => {
-      effects._buttonFeedback.setRecordingButtonState = vi.fn();
-      const element = document.createElement('button');
-
-      effects.setRecordingButtonState(element, true);
-
-      expect(effects._buttonFeedback.setRecordingButtonState).toHaveBeenCalledWith(element, true);
+    beforeEach(() => {
+      vi.useFakeTimers();
+      toolbar = document.createElement('div');
+      controls = document.createElement('div');
+      document.body.append(toolbar, controls);
+      effects = new UIEffects();
     });
-  });
-
-  describe('coordination edge cases', () => {
-    it('does not start unified timer when controls are managing', () => {
-      controlsInstance.isEnabled = true;
-
-      cursorOptions.onActivity();
-
-      expect(unifiedControllerInstance.startTimer).not.toHaveBeenCalled();
+    afterEach(async () => {
+      await effects.dispose();
+      vi.restoreAllMocks();
+      vi.useRealTimers();
+      document.body.innerHTML = '';
+      document.body.classList.remove('cursor-hidden');
     });
 
-    it('does not show cursor on toolbar hover start when cursor is disabled', () => {
-      cursorInstance.isEnabled = false;
-
-      toolbarOptions.onHoverStart();
-
-      expect(unifiedControllerInstance.clearTimer).toHaveBeenCalled();
-      expect(cursorInstance.show).not.toHaveBeenCalled();
+    it('hides cursor and toolbar after inactivity and restarts the delay on mouse activity', () => {
+      enableStreaming();
+      vi.advanceTimersByTime(HIDE_DELAY);
+      expect(cursorHidden()).toBe(true);
+      expect(toolbarHidden()).toBe(true);
+      move();
+      expect(cursorHidden()).toBe(false);
+      expect(toolbarHidden()).toBe(false);
+      vi.advanceTimersByTime(HIDE_DELAY - 1);
+      expect(toolbarHidden()).toBe(false);
+      vi.advanceTimersByTime(1);
+      expect(toolbarHidden()).toBe(true);
     });
 
-    it('does not restart unified timer on toolbar hover end when panel is open', () => {
-      toolbarInstance.isPanelOpen.mockReturnValue(true);
-
-      toolbarOptions.onHoverEnd();
-
-      expect(unifiedControllerInstance.startTimer).not.toHaveBeenCalled();
+    it('coalesces cursor activity into one frame and cancels it when disabled', () => {
+      const requestFrame = vi.spyOn(globalThis, 'requestAnimationFrame');
+      effects.enableCursorAutoHide();
+      document.dispatchEvent(new MouseEvent('mousemove'));
+      document.dispatchEvent(new MouseEvent('mousemove'));
+      expect(requestFrame).toHaveBeenCalledTimes(1);
+      effects.disableCursorAutoHide();
+      vi.runAllTimers();
+      expect(cursorHidden()).toBe(false);
+      expect(vi.getTimerCount()).toBe(0);
     });
 
-    it('does not show toolbar on activity when toolbar is disabled', () => {
-      toolbarInstance.isEnabled = false;
-      controlsInstance.isEnabled = false;
-
-      cursorOptions.onActivity();
-
-      expect(toolbarInstance.show).not.toHaveBeenCalled();
-      expect(unifiedControllerInstance.startTimer).toHaveBeenCalled();
+    it('does not duplicate activity listeners when enabled repeatedly', () => {
+      const listen = vi.spyOn(document, 'addEventListener');
+      effects.enableCursorAutoHide();
+      effects.enableCursorAutoHide();
+      expect(listen.mock.calls.filter(([type]) => type === 'mousemove')).toHaveLength(1);
     });
 
-    it('shouldStartUnifiedTimer returns false when controls are enabled', () => {
-      controlsInstance.isEnabled = true;
-
-      const result = unifiedControllerOptions.shouldStartTimer();
-
-      expect(result).toBe(false);
+    it('keeps the remaining streaming effect active when the other is disabled', () => {
+      enableStreaming();
+      effects.disableCursorAutoHide();
+      vi.advanceTimersByTime(HIDE_DELAY);
+      expect(cursorHidden()).toBe(false);
+      expect(toolbarHidden()).toBe(true);
+      effects.enableCursorAutoHide();
+      effects.disableToolbarAutoHide();
+      expect(toolbarHidden()).toBe(false);
+      vi.advanceTimersByTime(HIDE_DELAY);
+      expect(cursorHidden()).toBe(true);
     });
 
-    it('shouldStartUnifiedTimer returns false when toolbar is hovering', () => {
-      controlsInstance.isEnabled = false;
-      toolbarInstance.isHovering = true;
-
-      const result = unifiedControllerOptions.shouldStartTimer();
-
-      expect(result).toBe(false);
+    it('pauses streaming hide while hovering and resumes after leaving', () => {
+      enableStreaming();
+      toolbar.dispatchEvent(new MouseEvent('mouseenter'));
+      vi.advanceTimersByTime(HIDE_DELAY * 2);
+      expect(toolbarHidden()).toBe(false);
+      expect(cursorHidden()).toBe(false);
+      toolbar.dispatchEvent(new MouseEvent('mouseleave'));
+      vi.advanceTimersByTime(HIDE_DELAY);
+      expect(toolbarHidden()).toBe(true);
+      expect(cursorHidden()).toBe(true);
     });
 
-    it('shouldStartUnifiedTimer returns false when panel is open', () => {
-      controlsInstance.isEnabled = false;
-      toolbarInstance.isHovering = false;
-      toolbarInstance.isPanelOpen.mockReturnValue(true);
-
-      const result = unifiedControllerOptions.shouldStartTimer();
-
-      expect(result).toBe(false);
+    it.each(['shader-panel visible', 'panel-open'])('keeps an open %s visible, including a change before the hide callback', (className) => {
+      enableStreaming();
+      const panel = document.createElement('div');
+      panel.className = className;
+      toolbar.append(panel);
+      vi.advanceTimersByTime(HIDE_DELAY);
+      expect(toolbarHidden()).toBe(false);
+      move();
+      vi.advanceTimersByTime(HIDE_DELAY * 2);
+      expect(cursorHidden()).toBe(false);
+      panel.className = '';
+      move();
+      vi.advanceTimersByTime(HIDE_DELAY);
+      expect(toolbarHidden()).toBe(true);
     });
 
-    it('shouldStartUnifiedTimer returns true when no blocking conditions', () => {
-      controlsInstance.isEnabled = false;
-      toolbarInstance.isHovering = false;
-      toolbarInstance.isPanelOpen.mockReturnValue(false);
-
-      const result = unifiedControllerOptions.shouldStartTimer();
-
-      expect(result).toBe(true);
-    });
-  });
-
-  describe('unified timer timeout behavior', () => {
-    it('hides cursor on timeout when cursor is enabled', () => {
-      cursorInstance.isEnabled = true;
-      toolbarInstance.isEnabled = false;
-
-      unifiedControllerOptions.onTimeout();
-
-      expect(cursorInstance.hide).toHaveBeenCalled();
+    it.each(['mousemove', 'pointermove', 'mousedown'])('fullscreen controls show and reset inactivity on document %s', (type) => {
+      enableStreaming();
+      effects.enableControlsAutoHide(controls);
+      vi.advanceTimersByTime(HIDE_DELAY);
+      expect([controlsHidden(), toolbarHidden(), cursorHidden()]).toEqual([true, true, true]);
+      document.dispatchEvent(new MouseEvent(type));
+      vi.advanceTimersByTime(16);
+      expect([controlsHidden(), toolbarHidden(), cursorHidden()]).toEqual([false, false, false]);
+      vi.advanceTimersByTime(HIDE_DELAY);
+      expect(controlsHidden()).toBe(true);
     });
 
-    it('hides toolbar on timeout when toolbar is enabled', () => {
-      cursorInstance.isEnabled = false;
-      toolbarInstance.isEnabled = true;
-
-      unifiedControllerOptions.onTimeout();
-
-      expect(toolbarInstance.hide).toHaveBeenCalled();
+    it.each(['mouseenter', 'focusin'])('fullscreen controls respond immediately to %s', (type) => {
+      effects.enableControlsAutoHide(controls);
+      vi.advanceTimersByTime(HIDE_DELAY);
+      controls.dispatchEvent(new Event(type));
+      expect(controlsHidden()).toBe(false);
+      expect(cursorHidden()).toBe(false);
+      vi.advanceTimersByTime(HIDE_DELAY);
+      expect(controlsHidden()).toBe(true);
     });
 
-    it('hides both cursor and toolbar on timeout when both enabled', () => {
-      cursorInstance.isEnabled = true;
-      toolbarInstance.isEnabled = true;
-
-      unifiedControllerOptions.onTimeout();
-
-      expect(cursorInstance.hide).toHaveBeenCalled();
-      expect(toolbarInstance.hide).toHaveBeenCalled();
+    it.each(['mouseleave', 'focusout'])('fullscreen controls restart the delay on %s', (type) => {
+      effects.enableControlsAutoHide(controls);
+      vi.advanceTimersByTime(HIDE_DELAY - 100);
+      controls.dispatchEvent(new Event(type));
+      vi.advanceTimersByTime(100);
+      expect(controlsHidden()).toBe(false);
+      vi.advanceTimersByTime(HIDE_DELAY - 100);
+      expect(controlsHidden()).toBe(true);
     });
 
-    it('does not hide cursor when disabled', () => {
-      cursorInstance.isEnabled = false;
-      toolbarInstance.isEnabled = true;
-
-      unifiedControllerOptions.onTimeout();
-
-      expect(cursorInstance.hide).not.toHaveBeenCalled();
+    it('restores the streaming timer when fullscreen controls release ownership', () => {
+      enableStreaming();
+      effects.enableControlsAutoHide(controls);
+      vi.advanceTimersByTime(HIDE_DELAY);
+      effects.disableControlsAutoHide();
+      expect(controlsHidden()).toBe(false);
+      expect(toolbarHidden()).toBe(false);
+      move();
+      vi.advanceTimersByTime(HIDE_DELAY);
+      expect(controlsHidden()).toBe(false);
+      expect(toolbarHidden()).toBe(true);
     });
 
-    it('does not hide toolbar when disabled', () => {
-      cursorInstance.isEnabled = true;
-      toolbarInstance.isEnabled = false;
-
-      unifiedControllerOptions.onTimeout();
-
-      expect(toolbarInstance.hide).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('controls auto-hide showAll/hideAll callbacks', () => {
-    it('showAll shows cursor and toolbar when toolbar is enabled', () => {
-      toolbarInstance.isEnabled = true;
-
-      controlsOptions.onShowAll();
-
-      expect(cursorInstance.show).toHaveBeenCalled();
-      expect(toolbarInstance.show).toHaveBeenCalled();
+    it('cleans listeners and pending work across repeated enable/disable cycles and disposal', async () => {
+      for (let i = 0; i < 3; i++) {
+        enableStreaming();
+        effects.enableControlsAutoHide(controls);
+        move();
+        effects.disableCursorAutoHide();
+        effects.disableToolbarAutoHide();
+        effects.disableControlsAutoHide();
+      }
+      await effects.dispose();
+      document.dispatchEvent(new MouseEvent('mousemove'));
+      toolbar.dispatchEvent(new MouseEvent('mouseenter'));
+      vi.runAllTimers();
+      expect(vi.getTimerCount()).toBe(0);
+      expect([controlsHidden(), toolbarHidden(), cursorHidden()]).toEqual([false, false, false]);
     });
 
-    it('showAll shows cursor but not toolbar when toolbar is disabled', () => {
-      toolbarInstance.isEnabled = false;
-
-      controlsOptions.onShowAll();
-
-      expect(cursorInstance.show).toHaveBeenCalled();
-      expect(toolbarInstance.show).not.toHaveBeenCalled();
-    });
-
-    it('hideAll hides toolbar and cursor when toolbar is enabled', () => {
-      toolbarInstance.isEnabled = true;
-
-      controlsOptions.onHideAll();
-
-      expect(toolbarInstance.hide).toHaveBeenCalled();
-      expect(cursorInstance.hide).toHaveBeenCalled();
-    });
-
-    it('hideAll hides only cursor when toolbar is disabled', () => {
-      toolbarInstance.isEnabled = false;
-
-      controlsOptions.onHideAll();
-
-      expect(toolbarInstance.hide).not.toHaveBeenCalled();
-      expect(cursorInstance.hide).toHaveBeenCalled();
-    });
-  });
-
-  describe('dispose', () => {
-    it('starts every cleanup and waits for pending children after a synchronous failure', async () => {
+    it('waits for asynchronous effect cleanup after another effect fails', async () => {
       const pending = Promise.withResolvers<void>();
-      cursorInstance.dispose.mockImplementation(() => { throw new Error('cursor cleanup failed'); });
-      toolbarInstance.dispose.mockReturnValue(pending.promise);
+      vi.spyOn(CaptureEffects.prototype, 'dispose').mockReturnValue(pending.promise);
+      vi.spyOn(effects._buttonFeedback, 'dispose').mockImplementation(() => { throw new Error('button cleanup failed'); });
       const disposal = Promise.resolve(effects.dispose());
-      const rejected = expect(disposal).rejects.toBeInstanceOf(AggregateError);
+      const rejected = expect(disposal).rejects.toThrow('button cleanup failed');
       let settled = false;
       void disposal.then(() => { settled = true; }, () => { settled = true; });
-
-      expect(controlsInstance.dispose).toHaveBeenCalledOnce();
-      expect(unifiedControllerInstance.dispose).toHaveBeenCalledOnce();
       await Promise.resolve();
       expect(settled).toBe(false);
       pending.resolve();
       await rejected;
+      vi.restoreAllMocks();
     });
-
-    it('disposes all sub-components', () => {
-      effects._buttonFeedback.dispose = vi.fn();
-      effects._captureEffects.dispose = vi.fn();
-
-      effects.dispose();
-
-      expect(cursorInstance.dispose).toHaveBeenCalled();
-      expect(toolbarInstance.dispose).toHaveBeenCalled();
-      expect(controlsInstance.dispose).toHaveBeenCalled();
-      expect(effects._buttonFeedback.dispose).toHaveBeenCalled();
-      expect(effects._captureEffects.dispose).toHaveBeenCalled();
-      expect(unifiedControllerInstance.dispose).toHaveBeenCalled();
-      expect(effects.elements).toBeNull();
-    });
-
-
   });
-});
-
   describe('integrated capture and button effects', () => {
   let uiEffects;
   let mockElements;
@@ -420,7 +214,8 @@ describe('UIEffects', () => {
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await uiEffects.dispose();
     documentMock?.cleanup();
     vi.useRealTimers();
   });

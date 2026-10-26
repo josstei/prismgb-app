@@ -303,9 +303,6 @@ export function createUiComponentHostMock(overrides = {}) {
     touchDeferred,
     dispose,
     _components: componentMap,
-    _setComponent: (id, component) => {
-      componentMap[id] = component;
-    },
     ...hostOverrides
   };
 

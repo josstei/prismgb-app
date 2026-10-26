@@ -1,12 +1,12 @@
 import { signal, type ReadonlySignal } from '@platform/ui-base/reactive';
 import { EventChannels, type TypedEventBusLike } from '@platform/events';
-import { ReactiveStore } from './reactive-store.base.js';
+import { ManagedLifecycleHost } from '@platform/core';
 
 export interface StreamInfoStoreDependencies {
   eventBus: Pick<TypedEventBusLike, 'subscribe'>;
 }
 
-export class StreamInfoStore extends ReactiveStore {
+export class StreamInfoStore extends ManagedLifecycleHost {
   private readonly _resolution = signal<string>('—');
   private readonly _fps = signal<string>('—');
 

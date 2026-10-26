@@ -85,13 +85,9 @@ export function createMainRuntime(loggerFactory: LoggerFactoryLike, options: Mai
       logger.info('Shutting down PrismGB...');
       await disposeInOrder([
         // Keep IPC and transcode alive until renderer-owned edits and captures are flushed.
-        async () => {
-          await ipcHandlerRegistry.shutdownRenderer();
-          await disposeInOrder([
-            () => transcodeService.drain(),
-            () => windowService.drainDownloads()
-          ]);
-        },
+        () => ipcHandlerRegistry.shutdownRenderer(),
+        () => transcodeService.drain(),
+        () => windowService.drainDownloads(),
         () => deviceConnectionService.dispose(),
         () => deviceIntegrationService.dispose(),
         () => updateService.dispose(),

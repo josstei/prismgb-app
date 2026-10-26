@@ -1,6 +1,6 @@
 import { signal, computed, type ReadonlySignal } from '@platform/ui-base/reactive';
 import { EventChannels, type TypedEventBusLike } from '@platform/events';
-import { ReactiveStore } from './reactive-store.base.js';
+import { ManagedLifecycleHost } from '@platform/core';
 
 export interface PresentationModeStoreDependencies {
   eventBus: Pick<TypedEventBusLike, 'subscribe'>;
@@ -8,7 +8,7 @@ export interface PresentationModeStoreDependencies {
 }
 
 /** Derives cinematic and minimalist modes from stream, fullscreen, and preference state. */
-export class PresentationModeStore extends ReactiveStore {
+export class PresentationModeStore extends ManagedLifecycleHost {
   private readonly _streamingActive = signal(false);
   private readonly _fullscreenActive = signal(Boolean(document.fullscreenElement));
   private readonly _minimalistEnabled = signal(false);

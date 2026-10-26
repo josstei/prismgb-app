@@ -12,13 +12,11 @@ import { CaptureService } from '../infrastructure/services/capture/capture.servi
 import { TranscodeService } from '../infrastructure/services/transcode/transcode.service';
 import { CaptureSaveService } from '../infrastructure/services/capture/capture-save.service';
 import { SettingsFullscreenService } from '../infrastructure/services/settings/settings-fullscreen.service';
-import { SettingsCinematicModeService } from '../infrastructure/services/settings/settings-cinematic-mode.service';
 import { UpdateService } from '../infrastructure/services/updates/update.service';
 import { UpdateUiService } from '../infrastructure/services/updates/update-ui.service';
 import { VisibilityAdapter } from '../infrastructure/adapters/visibility.adapter';
 import { UserActivityAdapter } from '../infrastructure/adapters/user-activity.adapter';
 import { ReducedMotionAdapter } from '../infrastructure/adapters/reduced-motion.adapter';
-import { StreamingHealthService } from '../infrastructure/services/platform/health.service';
 import { StreamingViewportService } from '../infrastructure/services/platform/viewport.service';
 import { StreamingOrchestrator } from './orchestrators/streaming.orchestrator';
 import { StreamingAudioOrchestrator } from './orchestrators/streaming-audio.orchestrator';
@@ -26,7 +24,6 @@ import { CaptureOrchestrator } from './orchestrators/capture.orchestrator';
 import { SettingsDisplayModeOrchestrator } from './orchestrators/display-mode.orchestrator';
 import { UISetupOrchestrator } from './orchestrators/ui-setup.orchestrator';
 import { PerformanceStateOrchestrator } from './orchestrators/performance/performance-state.orchestrator';
-import { AppOrchestrator } from './orchestrators/app.orchestrator';
 import { NotesService } from '@platform/notes';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { downloadFile as downloadBlobFile } from '@renderer/lib/file-download.utils.js';
@@ -89,25 +86,22 @@ export function createRendererRuntime(options: RendererRuntimeOptions = {}) {
   const streamViewService = new StreamingViewService({ uiController, loggerFactory });
   const viewportService = new StreamingViewportService({ loggerFactory });
   const canvasLifecycleService = new StreamingCanvasLifecycleService({ streamViewService, viewportService, eventBus, loggerFactory });
-  const streamHealthService = new StreamingHealthService({ loggerFactory });
-  const streamingRenderService = new StreamingRenderService({ appState, streamViewService, canvasLifecycleService, streamHealthService, settingsService, eventBus, loggerFactory });
+  const streamingRenderService = new StreamingRenderService({ appState, streamViewService, canvasLifecycleService, settingsService, eventBus, loggerFactory });
   const gpuRecordingService = new CaptureGpuRecordingService({ streamingRenderService, eventBus, loggerFactory });
   const streamingAudioPipelineService = new StreamingAudioPipelineService({ eventBus, loggerFactory, settingsService });
   const captureService = new CaptureService({ eventBus, loggerFactory });
   const transcodeService = new TranscodeService({ eventBus, loggerFactory });
   const captureSaveService = new CaptureSaveService({ downloadFile, eventBus, settingsService, transcodeService, loggerFactory });
   const fullscreenService = new SettingsFullscreenService({ eventBus, loggerFactory });
-  const cinematicModeService = new SettingsCinematicModeService({ appState, eventBus, loggerFactory });
   const streamingOrchestrator = new StreamingOrchestrator({ streamingService, appState, streamViewService, streamingRenderService, gpuRecordingService, settingsService, eventBus, loggerFactory });
   const streamingAudioOrchestrator = new StreamingAudioOrchestrator({ streamingAudioPipelineService, streamViewService, appState, eventBus, loggerFactory });
   const captureOrchestrator = new CaptureOrchestrator({ captureService, appState, streamViewService, streamingRenderService, gpuRecordingService, transcodeService, captureSaveService, eventBus, loggerFactory });
-  const displayModeOrchestrator = new SettingsDisplayModeOrchestrator({ fullscreenService, cinematicModeService, settingsService, eventBus, loggerFactory });
+  const displayModeOrchestrator = new SettingsDisplayModeOrchestrator({ fullscreenService, appState, settingsService, eventBus, loggerFactory });
   const uiSetupOrchestrator = new UISetupOrchestrator({ appState, uiController, eventBus, loggerFactory });
   const performanceStateOrchestrator = new PerformanceStateOrchestrator({ eventBus, loggerFactory, visibilityAdapter: new VisibilityAdapter(), userActivityAdapter: new UserActivityAdapter(), reducedMotionAdapter: new ReducedMotionAdapter() });
   const uiEventBridge = new UIEventBridge({ eventBus, uiController, loggerFactory });
   const captureUiBridge = new CaptureUIBridge({ eventBus, uiController, loggerFactory });
   const transcodeUiBridge = new TranscodeUIBridge({ eventBus, loggerFactory });
-  const appOrchestrator = new AppOrchestrator({ rendererDeviceRuntime, streamingOrchestrator, streamingAudioOrchestrator, captureOrchestrator, displayModeOrchestrator, settingsService, updateService, updateUiService, uiSetupOrchestrator, performanceStateOrchestrator, eventBus, loggerFactory });
 
   const lifecycle = createApplicationLifecycle(async () => {
     bodyClassManager.bindPresentationMode(presentationModeStore);
@@ -118,9 +112,25 @@ export function createRendererRuntime(options: RendererRuntimeOptions = {}) {
     captureUiBridge.initialize();
     transcodeUiBridge.initialize();
     transcodeService.initialize();
-    await appOrchestrator.initialize();
+    // Bind device presentation before the initial device scan publishes its status.
+    await uiSetupOrchestrator.initialize();
+    await streamingAudioOrchestrator.initialize();
+    await streamingOrchestrator.initialize();
+    await rendererDeviceRuntime.initialize();
+    await captureOrchestrator.initialize();
+    await performanceStateOrchestrator.initialize();
+    await displayModeOrchestrator.initialize();
+    await settingsService.initialize();
+    await updateService.initialize();
+    updateUiService.initialize();
   }, () => disposeInOrder([
-    () => appOrchestrator.cleanup(),
+    () => uiSetupOrchestrator.cleanup(),
+    () => performanceStateOrchestrator.cleanup(),
+    () => displayModeOrchestrator.cleanup(),
+    () => captureOrchestrator.cleanup(),
+    () => streamingOrchestrator.cleanup(),
+    () => streamingAudioOrchestrator.cleanup(),
+    () => rendererDeviceRuntime.cleanup(),
     () => streamingAudioPipelineService.dispose(),
     () => streamingRenderService.dispose(),
     () => captureService.dispose(),
@@ -149,7 +159,10 @@ export function createRendererRuntime(options: RendererRuntimeOptions = {}) {
     initialize: lifecycle.initialize,
     start(): Promise<void> {
       if (closing) return Promise.reject(new Error('Runtime has been disposed'));
-      return starting ??= lifecycle.initialize().then(() => appOrchestrator.start()).catch(async (error: unknown) => {
+      return starting ??= lifecycle.initialize().then(() => {
+        uiSetupOrchestrator.initializeDeferredComponents();
+        uiSetupOrchestrator.setupUIEventListeners();
+      }).catch(async (error: unknown) => {
         closing = true;
         try { await lifecycle.dispose(); } catch { /* Keep the startup error. */ }
         throw error;

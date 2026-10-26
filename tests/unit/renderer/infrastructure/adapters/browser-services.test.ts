@@ -8,7 +8,6 @@ import { BrowserStorageAdapter } from '@renderer/infrastructure/adapters/browser
 import type { LoggerLike } from '@platform/core';
 import { createLogger } from '../../../../factories/index.js';
 import {
-  installClipboardMock,
   installLocalStorageMock,
   installMediaMocks,
   installNavigatorMock
@@ -65,28 +64,6 @@ describe('installMediaMocks', () => {
       mediaMock?.cleanup();
       navigatorMock.cleanup();
     }
-  });
-});
-
-describe('installClipboardMock', () => {
-  it('should install clipboard behavior explicitly and restore the previous descriptor', async () => {
-    const originalClipboard = navigator.clipboard;
-    const clipboardMock = installClipboardMock({ text: 'initial' });
-
-    try {
-      expect(navigator.clipboard).toBe(clipboardMock.clipboard);
-      expect(await navigator.clipboard.readText()).toBe('initial');
-
-      await navigator.clipboard.writeText('updated');
-
-      expect(clipboardMock.writeText).toHaveBeenCalledWith('updated');
-      expect(await navigator.clipboard.readText()).toBe('updated');
-      expect(clipboardMock.getText()).toBe('updated');
-    } finally {
-      clipboardMock.cleanup();
-    }
-
-    expect(navigator.clipboard).toBe(originalClipboard);
   });
 });
 
@@ -223,7 +200,7 @@ describe('BrowserStorageAdapter', () => {
 
     it('should return null and log warning on error', () => {
       const error = new Error('Storage access denied');
-      localStorageMock.setGetItemImplementation(() => { throw error; });
+      localStorageMock.getItem.mockImplementation(() => { throw error; });
 
       const value = service.getItem('testKey');
 
@@ -245,7 +222,7 @@ describe('BrowserStorageAdapter', () => {
 
     it('should attempt cleanup on QuotaExceededError and retry', () => {
       let attempts = 0;
-      localStorageMock.setSetItemImplementation(() => {
+      localStorageMock.setItem.mockImplementation(() => {
         attempts++;
         if (attempts === 1) {
           const error = new Error('Quota exceeded');
@@ -264,7 +241,7 @@ describe('BrowserStorageAdapter', () => {
 
     it('should attempt cleanup on quota error code 22 and retry', () => {
       let attempts = 0;
-      localStorageMock.setSetItemImplementation(() => {
+      localStorageMock.setItem.mockImplementation(() => {
         attempts++;
         if (attempts === 1) {
           const error = Object.assign(new Error('Quota exceeded'), { code: 22 }) as unknown as Error & { code: string };
@@ -280,7 +257,7 @@ describe('BrowserStorageAdapter', () => {
     it('should return false if quota exceeded after cleanup', () => {
       const error = new Error('Quota exceeded');
       error.name = 'QuotaExceededError';
-      localStorageMock.setSetItemImplementation(() => { throw error; });
+      localStorageMock.setItem.mockImplementation(() => { throw error; });
 
       const result = service.setItem('myKey', 'myValue');
 
@@ -292,7 +269,7 @@ describe('BrowserStorageAdapter', () => {
 
     it('should return false and log error for other errors', () => {
       const error = new Error('Unknown storage error');
-      localStorageMock.setSetItemImplementation(() => { throw error; });
+      localStorageMock.setItem.mockImplementation(() => { throw error; });
 
       const result = service.setItem('myKey', 'myValue');
 
@@ -313,7 +290,7 @@ describe('BrowserStorageAdapter', () => {
 
     it('should log warning on error', () => {
       const error = new Error('Remove failed');
-      localStorageMock.setRemoveItemImplementation(() => { throw error; });
+      localStorageMock.removeItem.mockImplementation(() => { throw error; });
 
       service.removeItem('testKey');
 
@@ -357,11 +334,11 @@ describe('BrowserStorageAdapter', () => {
     });
 
     it('should handle null keys gracefully', () => {
-      localStorageMock.setKeyImplementation((index) => {
+      localStorageMock.key.mockImplementation((index) => {
         if (index === 0) return null;
         return 'temp1';
       });
-      localStorageMock.setLengthImplementation(2);
+      vi.spyOn(localStorageMock.localStorage, 'length', 'get').mockReturnValue(2);
 
       expect(() => service._cleanupOldEntries()).not.toThrow();
     });
@@ -369,7 +346,7 @@ describe('BrowserStorageAdapter', () => {
     it('should ignore removal errors', () => {
       storageData['temp1'] = 'value1';
       storageData['temp2'] = 'value2';
-      localStorageMock.setRemoveItemImplementation(() => {
+      localStorageMock.removeItem.mockImplementation(() => {
         throw new Error('Remove failed');
       });
 

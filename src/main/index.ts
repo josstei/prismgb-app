@@ -4,7 +4,8 @@
  */
 
 import { app, BrowserWindow, dialog, Menu, type MenuItemConstructorOptions } from 'electron';
-import { MainBootstrap } from './app-bootstrap.js';
+import { createMainRuntime, type MainRuntime } from './application/container.js';
+import { MainLogger } from './infrastructure/logging/logger.factory.js';
 import { getGpuPolicy, applyChromiumFlags, GPU_ENV_VARS } from './infrastructure/gpu/gpu-policy.js';
 import { runApplicationSmoke } from './application/smoke-lifecycle.js';
 
@@ -82,10 +83,10 @@ if (!app.requestSingleInstanceLock()) {
   else app.quit();
 } else {
   const rendererReady = Promise.withResolvers<void>();
-  const application = new MainBootstrap({ onRendererReady: () => rendererReady.resolve() });
+  let runtime: MainRuntime | null = null;
 
   app.on('second-instance', () => {
-    const win = application.getRuntime()?.windowService.getMainWindow();
+    const win = runtime?.windowService.getMainWindow();
     if (win) {
       if (win.isMinimized()) win.restore();
       win.show();
@@ -98,16 +99,17 @@ if (!app.requestSingleInstanceLock()) {
       Menu.setApplicationMenu(Menu.buildFromTemplate(createMacAppMenu(APP_NAME)));
     }
     try {
+      runtime = createMainRuntime(new MainLogger(), { onRendererReady: () => rendererReady.resolve() });
       if (smokeMode) {
-        await runApplicationSmoke(application, rendererReady.promise);
+        await runApplicationSmoke(runtime, rendererReady.promise);
         console.log('PRISMGB_SMOKE_READY');
         app.exit(0);
         return;
       }
-      await application.initialize();
+      await runtime.initialize();
       app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
-          application.getRuntime()?.windowService.createWindow();
+          runtime?.windowService.createWindow();
         }
       });
     } catch (error) {
@@ -136,7 +138,7 @@ if (!app.requestSingleInstanceLock()) {
     if (quitCleanupComplete) return;
     event.preventDefault();
     app.isQuitting = true;
-    quitCleanupPromise ??= application.cleanup()
+    quitCleanupPromise ??= Promise.resolve(runtime?.dispose())
       .catch((error: unknown) => console.error('Application cleanup failed:', error))
       .finally(() => {
         quitCleanupComplete = true;

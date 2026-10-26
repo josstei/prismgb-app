@@ -176,6 +176,49 @@ describe('CaptureGpuRecordingService', () => {
     expect(mockFrame.close).toHaveBeenCalled();
   });
 
+  it('continues recording after capture throws synchronously during session replacement', async () => {
+    const frame = createRecordingFrameMock();
+    mockGpuRendererService.captureFrame
+      .mockImplementationOnce(() => { throw new Error('No active rendering session'); })
+      .mockResolvedValueOnce(frame);
+    const context = createCanvasRenderingContextMock();
+    const { mockCanvas } = createRecordingCanvasFixture({ context });
+    let frameCallback: (() => Promise<void>) | undefined;
+    const requestAnimationFrame = vi.fn((callback) => { frameCallback = callback; return 1; });
+    installCanvasAndAnimationFrameMocks(mockCanvas, { requestAnimationFrame, cancelAnimationFrame: vi.fn() });
+    await service.start({ stream: createStreamPayloadMock() });
+    await frameCallback!();
+    expect(requestAnimationFrame).toHaveBeenCalledTimes(2);
+    await frameCallback!();
+    expect(context.drawImage).toHaveBeenCalledOnce();
+    expect(frame.close).toHaveBeenCalledOnce();
+    await service.stop();
+  });
+
+  it('does not let a late failed capture from a stopped generation schedule into a new recording', async () => {
+    vi.useFakeTimers();
+    try {
+      const captured = Promise.withResolvers<ImageBitmap>();
+      mockGpuRendererService.captureFrame.mockReturnValueOnce(captured.promise);
+      const { mockCanvas } = createRecordingCanvasFixture();
+      let frameCallback: (() => Promise<void>) | undefined;
+      const requestAnimationFrame = vi.fn((callback) => { frameCallback = callback; return 1; });
+      installCanvasAndAnimationFrameMocks(mockCanvas, { requestAnimationFrame, cancelAnimationFrame: vi.fn() });
+      await service.start({ stream: createStreamPayloadMock() });
+      const rendering = frameCallback!();
+      const stopped = service.stop();
+      await vi.advanceTimersByTimeAsync(500);
+      await stopped;
+      await service.start({ stream: createStreamPayloadMock() });
+      expect(requestAnimationFrame).toHaveBeenCalledTimes(2);
+      captured.reject(new Error('Old worker stopped'));
+      await rendering;
+      expect(requestAnimationFrame).toHaveBeenCalledTimes(2);
+      expect(service.isActive()).toBe(true);
+      await service.stop();
+    } finally { vi.useRealTimers(); }
+  });
+
   it('closes a late captured bitmap exactly once after drain timeout without drawing or scheduling', async () => {
     vi.useFakeTimers();
     try {

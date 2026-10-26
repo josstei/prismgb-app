@@ -48,10 +48,10 @@ describe('ManagedLifecycleHost', () => {
       expect(second).toHaveBeenCalledTimes(1);
     });
 
-    it('cancelScheduled cancels a pending keyed timer', () => {
+    it('cancelManaged cancels a pending keyed timer', () => {
       const handler = vi.fn();
       host.schedule('key', handler, 100);
-      host.cancelScheduled('key');
+      host.cancelManaged('key');
       vi.advanceTimersByTime(100);
       expect(handler).not.toHaveBeenCalled();
     });
@@ -61,7 +61,7 @@ describe('ManagedLifecycleHost', () => {
       host.schedule('key', handler, 100);
       vi.advanceTimersByTime(100);
       expect(handler).toHaveBeenCalledTimes(1);
-      expect(() => host.cancelScheduled('key')).not.toThrow();
+      expect(() => host.cancelManaged('key')).not.toThrow();
       expect(host.disposables.size).toBe(0);
     });
   });

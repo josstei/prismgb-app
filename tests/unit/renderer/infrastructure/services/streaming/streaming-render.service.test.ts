@@ -15,18 +15,17 @@ function fixture() {
   video.cancelVideoFrameCallback = vi.fn();
   let canvas = document.createElement('canvas');
   const lifecycle = { initialize: vi.fn(), handleFullscreenChange: vi.fn(), setupCanvasSize: vi.fn(), recreateCanvas: vi.fn(async () => { canvas = document.createElement('canvas'); }), cleanup: vi.fn() };
-  const health = { checkStreamHealth: vi.fn(), cleanup: vi.fn() };
   const eventBus = createEventBus();
   const settings = { getSetting: vi.fn((key: string) => key === 'globalBrightness' ? 1.2 : 'pixel') as SettingsAccess['getSetting'] };
-  const service = new StreamingRenderService({ appState, streamViewService: { getVideo: () => video, getCanvas: () => canvas }, canvasLifecycleService: lifecycle, streamHealthService: health, settingsService: settings, eventBus, loggerFactory: createLoggerFactory() });
+  const service = new StreamingRenderService({ appState, streamViewService: { getVideo: () => video, getCanvas: () => canvas }, canvasLifecycleService: lifecycle, settingsService: settings, eventBus, loggerFactory: createLoggerFactory() });
   service.initialize();
   const begin = async () => {
     const started = service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
-    await vi.waitFor(() => expect(health.checkStreamHealth).toHaveBeenCalled());
-    health.checkStreamHealth.mock.calls.at(-1)![1]({});
+    await vi.waitFor(() => expect(video.requestVideoFrameCallback).toHaveBeenCalled());
+    vi.mocked(video.requestVideoFrameCallback).mock.calls.at(-1)![0](0, {} as VideoFrameCallbackMetadata);
     await started;
   };
-  return { service, appState, video, lifecycle, health, eventBus, begin, canvas: () => canvas };
+  return { service, appState, video, lifecycle, eventBus, begin, canvas: () => canvas };
 }
 beforeEach(() => { detect.mockResolvedValue(capabilities); createSession.mockImplementation(async (options) => session(options.backend)); });
 afterEach(() => { vi.useRealTimers(); });
@@ -35,7 +34,7 @@ describe('renderer session ownership', () => {
     const { service, begin, video } = fixture();
     await begin();
     expect(createSession).toHaveBeenCalledWith(expect.objectContaining({ backend: 'webgpu', presetId: 'pixel', brightness: 1.2 }));
-    expect(video.requestVideoFrameCallback).toHaveBeenCalledTimes(1);
+    expect(video.requestVideoFrameCallback).toHaveBeenCalledTimes(2);
     expect(service.isActive()).toBe(true);
     await service.cleanup();
   });
@@ -59,7 +58,7 @@ describe('renderer session ownership', () => {
     expect(createSession.mock.calls[1][0].canvas).not.toBe(original);
     expect(createSession.mock.calls[1][0].backend).toBe('canvas2d');
     expect(service.isActive()).toBe(true);
-    expect(video.requestVideoFrameCallback).toHaveBeenCalledTimes(1);
+    expect(video.requestVideoFrameCallback).toHaveBeenCalledTimes(2);
     await service.cleanup();
   });
   it('preserves desired preset and brightness across performance transitions', async () => {
@@ -83,23 +82,23 @@ describe('renderer session ownership', () => {
     await service.cleanup();
   });
   it('stops pending health checks without reporting stale startup success', async () => {
-    const { service, health } = fixture();
+    const { service, video } = fixture();
     const started = service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
     const rejected = expect(started).rejects.toMatchObject({ name: 'AbortError' });
-    await vi.waitFor(() => expect(health.checkStreamHealth).toHaveBeenCalled());
+    await vi.waitFor(() => expect(video.requestVideoFrameCallback).toHaveBeenCalled());
     await service.stopPipeline();
     await rejected;
     expect(createSession).not.toHaveBeenCalled();
-    expect(health.cleanup).toHaveBeenCalled();
+    expect(video.cancelVideoFrameCallback).toHaveBeenCalledWith(1);
   });
   it('terminates a session which finishes initialization after stop', async () => {
     const pending = Promise.withResolvers<ReturnType<typeof session>>();
     createSession.mockReturnValueOnce(pending.promise);
-    const { service, health } = fixture();
+    const { service, video } = fixture();
     const started = service.startPipeline({ nativeResolution: { width: 160, height: 144 } });
     const rejected = expect(started).rejects.toMatchObject({ name: 'AbortError' });
-    await vi.waitFor(() => expect(health.checkStreamHealth).toHaveBeenCalled());
-    health.checkStreamHealth.mock.calls[0][1]({});
+    await vi.waitFor(() => expect(video.requestVideoFrameCallback).toHaveBeenCalled());
+    vi.mocked(video.requestVideoFrameCallback).mock.calls[0][0](0, {} as VideoFrameCallbackMetadata);
     await vi.waitFor(() => expect(createSession).toHaveBeenCalled());
     const stopped = service.stopPipeline();
     const obsolete = session();
@@ -113,9 +112,9 @@ describe('renderer session ownership', () => {
     const { service, begin, video } = fixture();
     await begin();
     service.handlePerformanceStateChanged({ hidden: true });
-    expect(video.cancelVideoFrameCallback).toHaveBeenCalledTimes(1);
+    expect(video.cancelVideoFrameCallback).toHaveBeenCalledTimes(2);
     service.handlePerformanceStateChanged({ hidden: false });
-    expect(video.requestVideoFrameCallback).toHaveBeenCalledTimes(2);
+    expect(video.requestVideoFrameCallback).toHaveBeenCalledTimes(3);
     await service.cleanup();
   });
 });

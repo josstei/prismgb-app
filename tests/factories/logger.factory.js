@@ -21,9 +21,6 @@ export function createLoggerFactory() {
     }),
     _getLogger(name) {
       return loggers.get(name);
-    },
-    _getLoggers() {
-      return new Map(loggers);
     }
   };
 }

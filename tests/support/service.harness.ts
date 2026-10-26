@@ -17,12 +17,10 @@ export function createServiceHarness<TDependencies extends object, TSubject, TMo
     deps,
     get logger(): LoggerMockLike {
       const factory = (deps as { loggerFactory?: {
-        _getLoggers?: () => Map<string, LoggerMockLike>;
         create(name: string): LoggerMockLike;
       } }).loggerFactory;
       if (!factory) throw new Error(`${constructor.name} has no loggerFactory dependency`);
-      const created = factory._getLoggers?.();
-      return created?.size ? created.values().next().value! : factory.create(constructor.name);
+      return factory.create(constructor.name);
     },
     recreate(overrides: Partial<TDependencies> = {}): TSubject {
       Object.assign(deps, overrides);

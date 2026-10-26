@@ -1,112 +1,45 @@
-/**
- * VisibilityAdapter Unit Tests
- */
-
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VisibilityAdapter } from '@renderer/infrastructure/adapters/visibility.adapter.js';
 import { installDocumentPropertyMock } from '../../../../support/mocks/browser-api.installers.js';
 
-function invokeVisibilityListener(listener: EventListenerOrEventListenerObject): void {
-  const event = new Event('visibilitychange');
-  if (typeof listener === 'function') {
-    listener(event);
-    return;
-  }
-
-  listener.handleEvent(event);
-}
-
 describe('VisibilityAdapter', () => {
-  let adapter: VisibilityAdapter;
-  let visibilityChangeListeners: EventListenerOrEventListenerObject[];
-  let hiddenMock: ReturnType<typeof installDocumentPropertyMock>;
+  const adapter = new VisibilityAdapter();
+  let hidden: ReturnType<typeof installDocumentPropertyMock>;
+  let releases: Array<() => void>;
 
   beforeEach(() => {
-    visibilityChangeListeners = [];
-    adapter = new VisibilityAdapter();
-    hiddenMock = installDocumentPropertyMock('hidden', false);
-
-    // Mock document.addEventListener
-    vi.spyOn(document, 'addEventListener').mockImplementation((event, listener) => {
-      if (event === 'visibilitychange') {
-        visibilityChangeListeners.push(listener);
-      }
-    });
-
-    vi.spyOn(document, 'removeEventListener');
+    releases = [];
+    hidden = installDocumentPropertyMock('hidden', false);
   });
-
   afterEach(() => {
-    adapter.dispose();
-    hiddenMock.cleanup();
+    releases.forEach((release) => release());
+    hidden.cleanup();
   });
 
-  describe('isHidden', () => {
-    it('should return false when document is visible', () => {
-      hiddenMock.setValue(false);
-      expect(adapter.isHidden()).toBe(false);
-    });
-
-    it('should return true when document is hidden', () => {
-      hiddenMock.setValue(true);
-      expect(adapter.isHidden()).toBe(true);
-    });
+  it('reads and publishes current document visibility', () => {
+    const callback = vi.fn();
+    releases.push(adapter.onVisibilityChange(callback));
+    expect(adapter.isHidden()).toBe(false);
+    hidden.setValue(true);
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(adapter.isHidden()).toBe(true);
+    expect(callback).toHaveBeenLastCalledWith(true);
+    hidden.setValue(false);
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(callback).toHaveBeenLastCalledWith(false);
   });
 
-  describe('onVisibilityChange', () => {
-    it('should call callback when visibility changes', () => {
-      const callback = vi.fn();
-      adapter.onVisibilityChange(callback);
-
-      // Simulate visibility change
-      hiddenMock.setValue(true);
-      visibilityChangeListeners.forEach((listener) => invokeVisibilityListener(listener));
-
-      expect(callback).toHaveBeenCalledWith(true);
-    });
-
-    it('should return cleanup function', () => {
-      const callback = vi.fn();
-      const cleanup = adapter.onVisibilityChange(callback);
-
-      expect(typeof cleanup).toBe('function');
-    });
-
-    it('should remove listener when cleanup is called', () => {
-      const callback = vi.fn();
-      const cleanup = adapter.onVisibilityChange(callback);
-
-      cleanup();
-
-      expect(document.removeEventListener).toHaveBeenCalledWith(
-        'visibilitychange',
-        expect.any(Function)
-      );
-    });
-  });
-
-  describe('dispose', () => {
-    it('should remove event listener', () => {
-      const callback = vi.fn();
-      adapter.onVisibilityChange(callback);
-
-      adapter.dispose();
-
-      expect(document.removeEventListener).toHaveBeenCalledWith(
-        'visibilitychange',
-        expect.any(Function)
-      );
-    });
-
-    it('should handle multiple dispose calls safely', () => {
-      const callback = vi.fn();
-      adapter.onVisibilityChange(callback);
-
-      adapter.dispose();
-      adapter.dispose();
-
-      // Should not throw
-      expect(true).toBe(true);
-    });
+  it('releases concurrent subscriptions independently and repeatedly', () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const releaseFirst = adapter.onVisibilityChange(first);
+    releases.push(releaseFirst, adapter.onVisibilityChange(second));
+    releaseFirst();
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledOnce();
+    releaseFirst();
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(second).toHaveBeenCalledTimes(2);
   });
 });

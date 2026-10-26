@@ -296,8 +296,8 @@ class UpdateService extends BaseService {
    */
   private stopAutoCheck(): void {
     const wasRunning = this._autoCheckRunning;
-    this.cancelScheduled(INITIAL_UPDATE_CHECK_LIFECYCLE);
-    this.cancelScheduled(PERIODIC_UPDATE_CHECK_LIFECYCLE);
+    this.cancelManaged(INITIAL_UPDATE_CHECK_LIFECYCLE);
+    this.cancelManaged(PERIODIC_UPDATE_CHECK_LIFECYCLE);
     this._autoCheckRunning = false;
     if (wasRunning) {
       this.logger.info('Auto-update check stopped');

@@ -1,21 +1,36 @@
+import { z } from 'zod';
 import { EventChannels } from '@platform/events';
-import type { EventPayloadMap } from '@platform/events';
-import type { RendererShutdownRequestPayload } from './push-payloads.schemas.js';
+import { deviceInfoSchema, nullableDeviceInfoSchema } from '@platform/devices';
+import {
+  rendererShutdownRequestSchema, updateInfoSchema, updateProgressSchema, updateErrorSchema,
+  transcodeProgressSchema, transcodeCompletedSchema, transcodeErrorSchema, transcodeCancelledSchema
+} from './push-payloads.schemas.js';
+
+const push = <const TChannel extends string, TSchema extends z.ZodType>(channel: TChannel, schema: TSchema) => ({ channel, schema });
 
 /** Main-to-renderer events; requests are defined only by the tRPC router. */
-export const IPC_CHANNELS = {
-  APP: { SHUTDOWN_REQUESTED: 'app:shutdown-requested' },
-  DEVICE: { CONNECTED: EventChannels.DEVICE.CONNECTED, DISCONNECTED: EventChannels.DEVICE.DISCONNECTED },
-  WINDOW: { ENTER_FULLSCREEN: 'window:enter-fullscreen', LEAVE_FULLSCREEN: 'window:leave-fullscreen', RESIZED: 'window:resized' },
-  UPDATE: { AVAILABLE: EventChannels.UPDATE.AVAILABLE, NOT_AVAILABLE: EventChannels.UPDATE.NOT_AVAILABLE, PROGRESS: EventChannels.UPDATE.PROGRESS, DOWNLOADED: EventChannels.UPDATE.DOWNLOADED, ERROR: EventChannels.UPDATE.ERROR },
-  TRANSCODE: { PROGRESS: EventChannels.TRANSCODE.PROGRESS, COMPLETED: EventChannels.TRANSCODE.COMPLETED, ERROR: EventChannels.TRANSCODE.ERROR, CANCELLED: EventChannels.TRANSCODE.CANCELLED }
+const definitions = {
+  APP: { SHUTDOWN_REQUESTED: push('app:shutdown-requested', rendererShutdownRequestSchema) },
+  DEVICE: { CONNECTED: push(EventChannels.DEVICE.CONNECTED, deviceInfoSchema), DISCONNECTED: push(EventChannels.DEVICE.DISCONNECTED, nullableDeviceInfoSchema) },
+  WINDOW: { ENTER_FULLSCREEN: push('window:enter-fullscreen', z.void()), LEAVE_FULLSCREEN: push('window:leave-fullscreen', z.void()), RESIZED: push('window:resized', z.void()) },
+  UPDATE: { AVAILABLE: push(EventChannels.UPDATE.AVAILABLE, updateInfoSchema), NOT_AVAILABLE: push(EventChannels.UPDATE.NOT_AVAILABLE, updateInfoSchema), PROGRESS: push(EventChannels.UPDATE.PROGRESS, updateProgressSchema), DOWNLOADED: push(EventChannels.UPDATE.DOWNLOADED, updateInfoSchema), ERROR: push(EventChannels.UPDATE.ERROR, updateErrorSchema) },
+  TRANSCODE: { PROGRESS: push(EventChannels.TRANSCODE.PROGRESS, transcodeProgressSchema), COMPLETED: push(EventChannels.TRANSCODE.COMPLETED, transcodeCompletedSchema), ERROR: push(EventChannels.TRANSCODE.ERROR, transcodeErrorSchema), CANCELLED: push(EventChannels.TRANSCODE.CANCELLED, transcodeCancelledSchema) }
 } as const;
 
-type PushChannel = { [K in keyof typeof IPC_CHANNELS]: (typeof IPC_CHANNELS)[K][keyof (typeof IPC_CHANNELS)[K]] }[keyof typeof IPC_CHANNELS];
-export type IpcPushPayloadMap = {
-  [K in PushChannel]: K extends keyof EventPayloadMap ? EventPayloadMap[K]
-    : K extends typeof IPC_CHANNELS.APP.SHUTDOWN_REQUESTED ? RendererShutdownRequestPayload : void;
-};
+type Definitions = typeof definitions;
+type PushDefinition = { [TGroup in keyof Definitions]: Definitions[TGroup][keyof Definitions[TGroup]] }[keyof Definitions];
+
+export const IPC_CHANNELS = Object.fromEntries(Object.entries(definitions).map(([group, entries]) => [
+  group, Object.fromEntries(Object.entries(entries).map(([name, entry]) => [name, entry.channel]))
+])) as { readonly [TGroup in keyof Definitions]: { readonly [TName in keyof Definitions[TGroup]]: Definitions[TGroup][TName] extends { channel: infer TChannel } ? TChannel : never } };
+
+type PushPayload<TSchema extends z.ZodType> = TSchema extends z.ZodObject
+  ? Pick<z.output<TSchema>, keyof TSchema['shape']> : z.output<TSchema>;
+export type IpcPushPayloadMap = { [TDefinition in PushDefinition as TDefinition['channel']]: PushPayload<TDefinition['schema']> };
+
+export const ipcPushSchemas = Object.fromEntries(Object.values(definitions).flatMap((group) =>
+  Object.values(group).map(({ channel, schema }) => [channel, schema])
+)) as { [TChannel in keyof IpcPushPayloadMap]: z.ZodType<IpcPushPayloadMap[TChannel]> };
 export type IpcPushArguments<K extends keyof IpcPushPayloadMap> = undefined extends IpcPushPayloadMap[K]
   ? [channel: K, payload?: IpcPushPayloadMap[K]]
   : [channel: K, payload: IpcPushPayloadMap[K]];

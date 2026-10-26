@@ -5,8 +5,6 @@ import { createTrpcEventBridge } from '@renderer/infrastructure/services/platfor
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 
-const FULLSCREEN_DOCUMENT_LIFECYCLE = Symbol('settingsFullscreenDocumentLifecycle');
-const FULLSCREEN_NATIVE_LIFECYCLE = Symbol('settingsFullscreenNativeLifecycle');
 
 type SettingsFullscreenServiceDependencies = {
   eventBus: EventBusLike;
@@ -14,7 +12,6 @@ type SettingsFullscreenServiceDependencies = {
 };
 
 class SettingsFullscreenService extends BaseService {
-  private readonly _boundHandleFullscreenChange: () => void;
   private _isFullscreenActive: boolean;
 
   private readonly eventBus: EventBusLike;
@@ -23,22 +20,15 @@ class SettingsFullscreenService extends BaseService {
     super({ loggerFactory, eventBus }, 'SettingsFullscreenService');
     this.eventBus = eventBus;
 
-    this._boundHandleFullscreenChange = this._handleFullscreenChange.bind(this);
     this._isFullscreenActive = false;
   }
 
-  initialize() {
+  protected override onInitialize(): void {
     this.bindEventHandlers();
 
-    this.disposables.cancel(FULLSCREEN_DOCUMENT_LIFECYCLE);
-    document.addEventListener('fullscreenchange', this._boundHandleFullscreenChange);
-    this.disposables.replace(FULLSCREEN_DOCUMENT_LIFECYCLE, () =>
-      document.removeEventListener('fullscreenchange', this._boundHandleFullscreenChange)
-    );
-
-    this.disposables.replace(FULLSCREEN_NATIVE_LIFECYCLE, createTrpcEventBridge('SettingsFullscreenService', [
-      () => trpcClient.window.onEnterFullscreen.subscribe(undefined, { onData: () => this._handleNativeFullscreen(true) }),
-      () => trpcClient.window.onLeaveFullscreen.subscribe(undefined, { onData: () => this._handleNativeFullscreen(false) }),
+    this.track(createTrpcEventBridge('SettingsFullscreenService', [
+      () => trpcClient.window.onEnterFullscreen.subscribe(undefined, { onData: () => this._applyFullscreenState(true) }),
+      () => trpcClient.window.onLeaveFullscreen.subscribe(undefined, { onData: () => this._applyFullscreenState(false) }),
       () => trpcClient.window.onResized.subscribe(undefined, {
         onData: () => {
           this._syncFullscreenState();
@@ -91,14 +81,6 @@ class SettingsFullscreenService extends BaseService {
       this.logger.error('Error exiting fullscreen:', err);
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Could not exit fullscreen', type: 'error' });
     });
-  }
-
-  _handleFullscreenChange() {
-    this._applyFullscreenState(!!document.fullscreenElement);
-  }
-
-  _handleNativeFullscreen(active: boolean) {
-    this._applyFullscreenState(active);
   }
 
   _applyFullscreenState(active: boolean) {

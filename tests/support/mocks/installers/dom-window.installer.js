@@ -108,45 +108,6 @@ export function installDocumentCreateElementMock(options = {}) {
 }
 
 /**
- * Canonical fullscreen document installer.
- */
-export function installFullscreenDocumentMock(options = {}) {
-  const requestFullscreen = options.requestFullscreen ?? vi.fn().mockResolvedValue(undefined);
-  const documentElement = options.documentElement ?? {
-    requestFullscreen,
-  };
-  const body = options.body ?? {
-    classList: {
-      add: vi.fn(),
-      remove: vi.fn(),
-    },
-  };
-  const exitFullscreen = options.exitFullscreen ?? vi.fn().mockResolvedValue(undefined);
-  const addEventListener = options.addEventListener ?? vi.fn();
-  const removeEventListener = options.removeEventListener ?? vi.fn();
-  const documentMock = options.document ?? {
-    fullscreenElement: options.fullscreenElement ?? null,
-    documentElement,
-    exitFullscreen,
-    addEventListener,
-    removeEventListener,
-    body,
-  };
-  const stack = installTargetProperty(globalThis, 'document', documentMock);
-
-  return {
-    ...stack,
-    document: documentMock,
-    documentElement,
-    body,
-    requestFullscreen,
-    exitFullscreen,
-    addEventListener,
-    removeEventListener,
-  };
-}
-
-/**
  * Canonical ResizeObserver installer.
  */
 export function installResizeObserverMock() {
