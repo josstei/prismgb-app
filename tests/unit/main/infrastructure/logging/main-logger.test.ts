@@ -4,13 +4,6 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { LoggerLike } from '@platform/core';
-import { installProcessEnvMock } from '../../../../support/mocks/runtime-property.installers.js';
-
-type ProcessEnvOverrides = Record<string, string | number | boolean | undefined>;
-type ProcessEnvMock = ReturnType<typeof installProcessEnvMock> & {
-  cleanup(): void;
-  setEnv(nextOverrides?: ProcessEnvOverrides): NodeJS.ProcessEnv;
-};
 
 const scopedLogger: LoggerLike = { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 
@@ -28,22 +21,16 @@ import log from 'electron-log/main';
 import { MainLogger } from '@main/infrastructure/logging/logger.factory.js';
 
 describe('MainLogger', () => {
-  let envMock: ProcessEnvMock;
-
   beforeEach(() => {
-    log.transports.console.level = undefined;
-    log.transports.file.level = undefined;
-    log.transports.file.resolvePathFn = undefined;
-    envMock = installProcessEnvMock({
-      NODE_ENV: 'development',
-      LOG_LEVEL: undefined,
-      LOG_FILE: undefined,
-      LOG_DIR: undefined
-    }) as ProcessEnvMock;
+    Reflect.deleteProperty(log.transports.console, 'level');
+    Reflect.deleteProperty(log.transports.file, 'level');
+    Reflect.deleteProperty(log.transports.file, 'resolvePathFn');
+    vi.stubEnv('NODE_ENV', 'development');
+    ['LOG_LEVEL', 'LOG_FILE', 'LOG_DIR'].forEach((name) => vi.stubEnv(name, undefined));
   });
 
   afterEach(() => {
-    envMock.cleanup();
+    vi.unstubAllEnvs();
   });
 
   describe('transport configuration', () => {
@@ -55,7 +42,7 @@ describe('MainLogger', () => {
     });
 
     it('uses info level and enables file logging in production', () => {
-      envMock.setEnv({ NODE_ENV: 'production' });
+      vi.stubEnv('NODE_ENV', 'production');
 
       new MainLogger();
 
@@ -64,7 +51,7 @@ describe('MainLogger', () => {
     });
 
     it('respects the LOG_LEVEL env var', () => {
-      envMock.setEnv({ LOG_LEVEL: 'warn' });
+      vi.stubEnv('LOG_LEVEL', 'warn');
 
       new MainLogger();
 
@@ -72,7 +59,7 @@ describe('MainLogger', () => {
     });
 
     it('enables file logging in development when LOG_FILE is set', () => {
-      envMock.setEnv({ LOG_FILE: 'true' });
+      vi.stubEnv('LOG_FILE', 'true');
 
       new MainLogger();
 
@@ -80,7 +67,8 @@ describe('MainLogger', () => {
     });
 
     it('routes the log file into LOG_DIR when provided', () => {
-      envMock.setEnv({ NODE_ENV: 'production', LOG_DIR: '/custom/log/dir' });
+      vi.stubEnv('NODE_ENV', 'production');
+      vi.stubEnv('LOG_DIR', '/custom/log/dir');
 
       new MainLogger();
 

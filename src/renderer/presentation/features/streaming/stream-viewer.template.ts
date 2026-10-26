@@ -1,3 +1,4 @@
+import { actionAttribute } from '@renderer/presentation/primitives/template-ref.utils.js';
 /**
  * Stream Viewer Template
  *
@@ -11,7 +12,7 @@ import { createFullscreenControlsTemplate } from '@renderer/presentation/feature
 
 export function createOverlayTemplate(): string {
   return `
-    <div class="stream-overlay" id="streamOverlay" data-ref="streamOverlay" data-action="stream.start">
+    <div class="stream-overlay" id="streamOverlay" data-ref="streamOverlay" ${actionAttribute('stream.start')}>
       <!-- Floating Particles -->
       <div class="overlay-particles" aria-hidden="true">
         <span class="particle particle-1"></span>
@@ -48,8 +49,8 @@ export function createOverlayTemplate(): string {
 export default function createStreamViewerTemplate(): string {
   return `
     <div class="stream-container" id="streamContainer" data-ref="streamContainer">
-      <video id="streamVideo" data-ref="streamVideo" data-action="stream.stop" autoplay playsinline></video>
-      <canvas id="streamCanvas" data-ref="streamCanvas" data-action="stream.stop" class="pixelated"></canvas>
+      <video id="streamVideo" data-ref="streamVideo" ${actionAttribute('stream.stop')} autoplay playsinline></video>
+      <canvas id="streamCanvas" data-ref="streamCanvas" ${actionAttribute('stream.stop')} class="pixelated"></canvas>
       ${createOverlayTemplate()}
       ${createToolbarTemplate()}
       ${createFullscreenControlsTemplate()}

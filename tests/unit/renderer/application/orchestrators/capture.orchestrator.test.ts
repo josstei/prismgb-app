@@ -1,18 +1,25 @@
+import { createAppState } from '../../../../factories/app-state.factory.js';
+import { createBitmapMock } from '../../../../factories/system.factory.js';
+import {
+  createStreamingViewServiceMock,
+  createStreamingViewElementsMock
+} from '../../../../factories/streaming-pipeline.factory.js';
+import { createStreamPayloadMock } from '../../../../factories/stream.factory.js';
+import {
+  createTranscodeServiceMock,
+  createCaptureServiceMock,
+  createCaptureGpuRecordingServiceMock,
+  createCaptureSaveServiceMock
+} from '../../../../factories/capture.factory.js';
+import { createEventBus } from '../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../factories/logger.factory.js';
 /**
  * CaptureOrchestrator Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CaptureOrchestrator } from '@renderer/application/orchestrators/capture.orchestrator';
-import {
-  createAppState,
-  createBitmapMock,
-  createStreamingViewServiceMock,
-  createStreamingViewElementsMock,
-  createStreamPayloadMock,
-  createTranscodeServiceMock
-} from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../support/service.harness.js';
 
 describe('CaptureOrchestrator', () => {
   let orchestrator;
@@ -45,22 +52,21 @@ describe('CaptureOrchestrator', () => {
     });
     streamViewService._elements = mockStreamingViewElements;
 
-    const h = createInjectableHarness(CaptureOrchestrator, {
-      overrides: {
-        appState,
-        streamViewService,
-        streamingRenderService: {
+    const h = createServiceHarness(CaptureOrchestrator, {
+      captureService: createCaptureServiceMock(),
+      gpuRecordingService: createCaptureGpuRecordingServiceMock(),
+      captureSaveService: createCaptureSaveServiceMock(),
+      eventBus: createEventBus(),
+      loggerFactory: createLoggerFactory(),
+      appState,
+      streamViewService,
+      streamingRenderService: {
           isActive: vi.fn(() => false),
-          captureFrame: vi.fn(),
-          getTargetDimensions: vi.fn(() => ({ width: 640, height: 576 })),
-          isCanvasTransferred: vi.fn(() => false),
-          resize: vi.fn(),
-          resetCanvasState: vi.fn()
+          captureFrame: vi.fn()
         },
-        transcodeService: createTranscodeServiceMock({
+      transcodeService: createTranscodeServiceMock({
           isTranscoding: vi.fn(() => false)
         })
-      }
     });
     orchestrator = h.subject;
     mockLogger = h.logger;
@@ -207,13 +213,21 @@ describe('CaptureOrchestrator', () => {
       expect(mockCaptureService.startRecording).not.toHaveBeenCalled();
     });
 
-    it('should stop recording when getRecordingState returns true', async () => {
+    it('should stop recording when recording is active', async () => {
       mockCaptureService.isRecording = false;
-      mockCaptureService.getRecordingState.mockReturnValue(true);
+      mockCaptureService.isRecording = true;
 
       await orchestrator.toggleRecording();
 
       expect(mockCaptureService.stopRecording).toHaveBeenCalled();
+    });
+
+    it('rolls back the GPU recording stream if the recorder cannot start', async () => {
+      mockAppState.currentStream = createStreamPayloadMock();
+      mockStreamingRenderService.isActive.mockReturnValue(true);
+      mockCaptureService.startRecording.mockRejectedValueOnce(new Error('recorder unavailable'));
+      await orchestrator.toggleRecording();
+      expect(mockCaptureGpuRecordingService.stop).toHaveBeenCalledTimes(1);
     });
 
     it('should show error on failure', async () => {
@@ -277,7 +291,7 @@ describe('CaptureOrchestrator', () => {
 
     it('should not stop recording when stream stops if not recording', async () => {
       mockCaptureService.isRecording = false;
-      mockCaptureService.getRecordingState.mockReturnValue(false);
+      mockCaptureService.isRecording = false;
 
       const streamStoppedHandler = mockEventBus.subscribe.mock.calls.find(
         call => call[0] === 'stream:stopped'
@@ -289,9 +303,9 @@ describe('CaptureOrchestrator', () => {
       expect(mockCaptureService.stopRecording).not.toHaveBeenCalled();
     });
 
-    it('should stop recording when stream stops using getRecordingState', async () => {
+    it('should stop recording when stream stops using recording state', async () => {
       mockCaptureService.isRecording = false;
-      mockCaptureService.getRecordingState.mockReturnValue(true);
+      mockCaptureService.isRecording = true;
 
       const streamStoppedHandler = mockEventBus.subscribe.mock.calls.find(
         call => call[0] === 'stream:stopped'
@@ -327,8 +341,41 @@ describe('CaptureOrchestrator', () => {
   });
 
   describe('onCleanup', () => {
+    it('waits for an in-flight screenshot before removing its save bridge', async () => {
+      await orchestrator.initialize();
+      mockAppState.setStreaming(true);
+      const captured = Promise.withResolvers<void>();
+      mockCaptureService.takeScreenshot.mockReturnValue(captured.promise);
+      const screenshot = orchestrator.takeScreenshot();
+      await vi.waitFor(() => expect(mockCaptureService.takeScreenshot).toHaveBeenCalledOnce());
+      const cleaned = vi.fn();
+      const cleanup = orchestrator.cleanup().then(cleaned);
+      await Promise.resolve();
+      expect(cleaned).not.toHaveBeenCalled();
+      expect(orchestrator.disposables.size).toBe(5);
+      await orchestrator.takeScreenshot();
+      expect(mockCaptureService.takeScreenshot).toHaveBeenCalledOnce();
+      captured.resolve();
+      await Promise.all([screenshot, cleanup]);
+      expect(cleaned).toHaveBeenCalledOnce();
+    });
+
+    it('keeps save subscriptions alive while an already-stopping recording drains', async () => {
+      await orchestrator.initialize();
+      mockCaptureService.isRecording = false;
+      const stopped = Promise.withResolvers<void>();
+      mockCaptureService.stopRecording.mockReturnValue(stopped.promise);
+
+      const cleanup = orchestrator.cleanup();
+      await vi.waitFor(() => expect(mockCaptureService.stopRecording).toHaveBeenCalledOnce());
+      expect(orchestrator.disposables.size).toBe(5);
+      stopped.resolve();
+      await cleanup;
+      expect(orchestrator.disposables.size).toBe(0);
+    });
+
     it('should stop recording if active', async () => {
-      mockCaptureService.getRecordingState.mockReturnValue(true);
+      mockCaptureService.isRecording = true;
 
       await orchestrator.onCleanup();
 
@@ -336,7 +383,7 @@ describe('CaptureOrchestrator', () => {
     });
 
     it('should handle stopRecording error', async () => {
-      mockCaptureService.getRecordingState.mockReturnValue(true);
+      mockCaptureService.isRecording = true;
       mockCaptureService.stopRecording.mockRejectedValue(new Error('Stop failed'));
 
       await orchestrator.onCleanup();

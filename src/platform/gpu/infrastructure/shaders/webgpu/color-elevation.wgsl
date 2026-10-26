@@ -11,18 +11,6 @@
  * - Brightness and contrast controls
  */
 
-// Uniform buffer for color parameters
-struct ColorUniforms {
-  gamma: f32,               // Gamma correction (0.8 - 1.2, lower = brighter)
-  saturation: f32,          // Saturation multiplier (0.5 - 1.5)
-  greenBias: f32,           // GBC green tint amount (0.0 - 0.1)
-  brightness: f32,          // Brightness multiplier (0.8 - 1.2)
-  contrast: f32,            // Contrast multiplier (0.8 - 1.3)
-  _padding1: f32,           // Alignment padding
-  _padding2: f32,
-  _padding3: f32
-}
-
 @group(0) @binding(0) var<uniform> uniforms: ColorUniforms;
 @group(0) @binding(1) var inputTex: texture_2d<f32>;
 @group(0) @binding(2) var linearSampler: sampler;

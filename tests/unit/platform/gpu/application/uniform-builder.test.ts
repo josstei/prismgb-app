@@ -34,6 +34,7 @@ describe('buildUniforms', () => {
     expect(uniforms.upscale.scaleFactor).toBe(4);
     expect(uniforms.upscale.inputSize).toEqual([160, 144]);
     expect(uniforms.upscale.outputSize).toEqual([640, 576]);
+    expect(uniforms.unsharp.scaleFactor).toBe(4);
     expect(uniforms.color.greenBias).toBe(0.03);
     expect(uniforms.unsharp.enabled).toBe(false);
     expect(uniforms.color.enabled).toBe(true);
@@ -74,21 +75,6 @@ describe('buildUniforms', () => {
     expect(uniforms.crt.enabled).toBe(false);
   });
 
-  it('should include scaleFactor in unsharp uniforms', () => {
-    const preset = getPreset('true-color')!;
-
-    const uniforms = buildUniforms({
-      preset,
-      nativeWidth: 160,
-      nativeHeight: 144,
-      outputWidth: 640,
-      outputHeight: 576,
-      brightness: 1.0
-    });
-
-    expect(uniforms.unsharp.scaleFactor).toBe(4);
-  });
-
   it('should include scaleFactor and resolution in crt uniforms', () => {
     const preset = getPreset('vintage')!;
 
@@ -104,22 +90,7 @@ describe('buildUniforms', () => {
     expect(uniforms.crt.scaleFactor).toBe(4);
     expect(uniforms.crt.resolution).toEqual([640, 576]);
     expect(uniforms.crt.enabled).toBe(true);
-  });
-
-  it('should include enabled flags from preset', () => {
-    const preset = getPreset('vintage')!;
-
-    const uniforms = buildUniforms({
-      preset,
-      nativeWidth: 160,
-      nativeHeight: 144,
-      outputWidth: 640,
-      outputHeight: 576,
-      brightness: 1.0
-    });
-
     expect(uniforms.unsharp.enabled).toBe(false);
     expect(uniforms.color.enabled).toBe(true);
-    expect(uniforms.crt.enabled).toBe(true);
   });
 });

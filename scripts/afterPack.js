@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { spawn, execFile } from 'child_process';
+import { Arch } from 'builder-util';
 
 const KEEP_LOCALES = new Set(['en-US']);
 
@@ -15,15 +16,6 @@ const FFMPEG_BINARIES = ['ffmpeg', 'ffprobe'];
 const BUNDLE_LIBRARIES = [
   { versioned: 'libz.so.1', unversioned: 'libz.so' },
 ];
-
-// electron-builder Arch enum values
-const Arch = {
-  ia32: 0,
-  x64: 1,
-  armv7l: 2,
-  arm64: 3,
-  universal: 4,
-};
 
 // Search paths for system libraries by architecture (keyed by Arch enum value)
 const LIB_SEARCH_PATHS = {
@@ -302,6 +294,7 @@ async function signFfmpegBinaries(appOutDir, platform, arch) {
   }
 }
 
+/** @public Electron Builder invokes the package.json afterPack hook. */
 export default async function afterPack(context) {
   await pruneLocales(context.appOutDir);
 
@@ -315,7 +308,7 @@ export default async function afterPack(context) {
   if (platform === 'linux') {
     const executableName = context.packager.executableName;
 
-    // Bundle required system libraries to usr/lib (AppImage-compatible location)
+    // Bundle required system libraries next to Electron for its $ORIGIN lookup.
     await bundleSystemLibraries(context.appOutDir, context.arch);
 
     // Create wrapper script that sets LD_LIBRARY_PATH.

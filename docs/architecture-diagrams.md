@@ -1,271 +1,104 @@
-# Architecture Diagrams
+# Architecture and Ownership
 
-<!-- Source: src/main/application/container.ts, src/main/infrastructure/devices/device-integration.service.ts, src/main/ipc/router.ts, src/renderer/application/di/tokens.ts, src/renderer/application/di/presentation.module.ts, src/renderer/infrastructure/services/devices/device-runtime.service.ts, src/renderer/infrastructure/services/streaming/device-media-acquirer.service.ts, src/platform/devices/index.ts, src/platform/devices/runtime.ts -->
+PrismGB separates the Electron main process, preload bridge, browser renderer, and GPU worker. Public platform entrypoints are declared in `scripts/lib/workspace-aliases.mjs`; dependency-cruiser enforces process and module boundaries.
 
-These diagrams provide focused, review-friendly views of the application's core orchestration and service boundaries.
+## Process Composition and Lifecycle
 
-Related docs:
-- `docs/feature-map.md`
-- `docs/naming-conventions.md`
+Each `application/container.ts` is an explicit construction function: `createMainRuntime` or `createRendererRuntime`. Dependencies are typed objects passed directly to constructors. The runtime owns initialization and disposal; services own their individual listeners, timers, and resources.
 
-Legend
-- Solid edges: direct dependency (constructor injection).
-- Dashed labeled edges: indirect communication via EventBus.
-- Dashed unlabeled edges: error/cleanup or retry flow.
-- Dotted labeled edges: package data, contract, or static helper usage.
-- IPC edges are labeled explicitly.
+```mermaid
+flowchart TD
+  MainEntry["main/index.ts"] --> MainRuntime["createMainRuntime"]
+  MainRuntime --> MainServices["Window, tray, USB, IPC, update, transcode"]
+  RendererEntry["renderer/index.ts"] --> RendererRuntime["createRendererRuntime"]
+  RendererRuntime --> Services["Media, settings, notes, update services"]
+  RendererRuntime --> UI["UI bridges, effects and component factories"]
+```
 
-## Renderer DI Composition
+`createApplicationLifecycle` shares concurrent initialization and disposal promises. A failed initialization rolls back the constructed runtime once. `disposeInOrder` attempts each registered disposer even if another fails. A new startup constructs a fresh runtime and ownership graph.
+
+Renderer UI factories preserve deferred construction in `UiComponentHost`. The renderer runtime establishes UI bridges before application initialization, then starts deferred components and input listeners. It disposes components before the notes service so pending edits can flush. Main composition passes Electron capabilities directly to platform services, including the typed push publisher, update-install callback, and transcode directories.
+
+The renderer subscribes to shutdown requests before reporting readiness. During shutdown, main keeps IPC and the window alive, sends a request with a correlation ID, and waits for the renderer's typed acknowledgement. Renderer cleanup flushes pending notes and finishes recording/rendering cleanup before acknowledging. Main then waits for accepted conversions and registered downloads to finish before tearing down services, IPC, and the window. A missing or failed acknowledgement still attempts the output drains and tears down remaining owners; packaged smoke reports failure.
+
+## Device and Streaming Flow
 
 ```mermaid
 flowchart LR
-  Container["application/container.ts"]
-  Tokens["di/tokens.ts"]
-  InfraMod["di/infrastructure.module.ts"]
-  AppMod["di/application.module.ts"]
-  PresMod["di/presentation.module.ts"]
-  DeviceRuntime[RendererDeviceRuntime]
-  MediaAcquirer[DeviceMediaAcquirer]
-  StreamingService[StreamingService]
-  CaptureServices[Capture services]
-  PresentationBridges[Presentation bridges]
-  Orchestrators[App orchestrators]
-
-  Container --> InfraMod
-  Container --> AppMod
-  Container --> PresMod
-  Tokens -. token identities .-> InfraMod
-  Tokens -. token identities .-> AppMod
-  Tokens -. token identities .-> PresMod
-  InfraMod --> DeviceRuntime
-  InfraMod --> MediaAcquirer
-  InfraMod --> StreamingService
-  InfraMod --> CaptureServices
-  PresMod --> PresentationBridges
-  AppMod --> Orchestrators
+  USB["USB monitor"] --> Connection["DeviceConnectionService"]
+  Connection --> Integration["DeviceIntegrationService"]
+  Integration --> Tray["Tray and window state"]
+  Integration --> Push["IpcPushBridge"]
+  Push --> Router["tRPC subscriptions"]
+  Router --> Port["TrpcDeviceStatusPort"]
+  Port --> Devices["RendererDeviceRuntime"]
+  Devices --> Streaming["StreamingService"]
+  Browser["Browser media devices"] --> Acquirer["DeviceMediaAcquirer"]
+  Acquirer --> Streaming
+  Streaming --> StreamEvents["Typed stream events"]
+  StreamEvents --> Orchestrator["StreamingOrchestrator"]
+  Orchestrator --> Render["StreamingRenderService"]
 ```
 
-## Streaming and Device Selection
+The device catalog defines USB matching, media constraints, native dimensions, and fixtures. Main owns USB status; renderer owns browser media selection. `DeviceIntegrationService` publishes device changes directly and performs tray/window side effects. Window ownership does not act as a general IPC transport.
+
+Renderer event names and payload types are declared together in `event.manifest.ts`. `EventChannels`, event payload maps, and subscription types derive from that declaration. The event bus and `@OnEvent` subscriptions remain explicit renderer coordination tools; they do not require constructor metadata.
+
+## Rendering and Capture
 
 ```mermaid
 flowchart LR
-  subgraph RENDERER[Renderer]
-    UISetupOrchestrator[UISetupOrchestrator]
-    StreamingOrchestrator[StreamingOrchestrator]
-    StreamingService[StreamingService]
-    RendererDeviceRuntime[RendererDeviceRuntime]
-    DeviceMediaAcquirer[DeviceMediaAcquirer]
-    TrpcDeviceStatusPort[TrpcDeviceStatusPort]
-    BrowserMediaDevicesPort[BrowserMediaDevicesPort]
-    StorageDevicePreferenceStore[StorageDevicePreferenceStore]
-    DeviceCatalog[DeviceCatalog]
-    UIEventBridge[UIEventBridge]
-  end
-
-  UISetupOrchestrator -. "ui:stream-start/stop-requested" .-> StreamingOrchestrator
-  StreamingOrchestrator --> StreamingService
-  StreamingOrchestrator -. "ui:streaming-mode, ui:stream-info" .-> UIEventBridge
-  StreamingService --> RendererDeviceRuntime
-  StreamingService --> DeviceMediaAcquirer
-  StreamingService -. "matchByLabel helper" .-> DeviceCatalog
-  RendererDeviceRuntime --> TrpcDeviceStatusPort
-  RendererDeviceRuntime --> BrowserMediaDevicesPort
-  RendererDeviceRuntime --> StorageDevicePreferenceStore
-  RendererDeviceRuntime -. "selection descriptors" .-> DeviceCatalog
-  DeviceMediaAcquirer --> BrowserMediaDevicesPort
-  DeviceMediaAcquirer -. "descriptor argument" .-> DeviceCatalog
+  Render["StreamingRenderService"] --> Session["GpuVideoRendererSession"]
+  Session --> Worker["WorkerRendererClient / worker service"]
+  Worker --> WebGPU["WebGPU pipeline"]
+  Session --> Canvas["Local Canvas2D pipeline"]
+  Specs["Typed pass specifications"] --> Uniforms["Uniform packing and WGSL declarations"]
+  Uniforms --> WebGPU
+  Capture["CaptureOrchestrator"] --> Recording["GPU frame capture / MediaRecorder"]
+  Recording --> Save["CaptureSaveService"]
+  Save --> WebM["Direct WebM download"]
+  Save --> Transcode["tRPC transcode request"]
+  Transcode --> FFmpeg["Main FFmpeg job"]
 ```
 
-## Capture and GPU Recording
+`StreamingRenderService` serializes session transitions, aborts superseded starts, and owns canvas replacement after transfer to a worker. It selects WebGPU when available, falls back to Canvas2D after GPU initialization failure, and uses Canvas2D for performance mode. Preset, brightness, viewport sizing, visibility, and recording state remain coordinated around the active session.
+
+Pass specifications define uniform layouts and derive shader declarations; shader bodies retain the actual rendering algorithms. The worker protocol carries render commands, frame completion, errors, and correlated capture responses. Frame ownership and request correlation must be preserved when extending it.
+
+Main transcoding owns active FFmpeg jobs and their temporary input/output artifacts. Successful output is moved to the downloads directory. Normal shutdown waits for accepted jobs; failure cleanup cancels remaining jobs. Completion, failure, cancellation, and application disposal all release temporary artifacts through the same job owner.
+
+Before clicking a download anchor, renderer capture code registers its blob URL through the typed `expectDownload` request. Main tracks that registration through Electron's download completion, including downloads that start after renderer cleanup acknowledges. This registration lets shutdown wait for pending file writes without guessing when a browser download will begin.
+
+## Cross-Process Contracts
 
 ```mermaid
 flowchart LR
-  subgraph RENDERER[Renderer]
-    CaptureOrchestrator[CaptureOrchestrator]
-    CaptureService[CaptureService]
-    CaptureSaveService[CaptureSaveService]
-    CaptureGpuRecordingService[CaptureGpuRecordingService]
-  end
-
-  CaptureOrchestrator --> CaptureService
-  CaptureOrchestrator --> CaptureSaveService
-  CaptureOrchestrator --> CaptureGpuRecordingService
+  Client["Renderer tRPC client"] <-->|"electronTRPC"| Preload["Preload bridge"]
+  Preload <--> Router["Main tRPC router"]
+  Router --> Services["Main service capabilities"]
+  Services --> Publisher["Typed IpcPushPublisher"]
+  Publisher --> Push["IpcPushBridge"]
+  Push --> Subscriptions["Validated tRPC subscriptions"]
+  Subscriptions --> Client
 ```
 
-## Recording Transcode Flow
+The router is the source of request names and inputs/outputs. Zod validates process-boundary payloads, and shared DTOs infer types from their schemas. `IPC_CHANNELS` contains only main-to-renderer push events, with `IpcPushPayloadMap` defining their payloads. Subscriptions validate emitted values and drop malformed pushes without ending the subscription.
 
-```mermaid
-flowchart LR
-  subgraph RENDERER[Renderer]
-    CaptureSaveService[CaptureSaveService]
-    TranscodeServiceRenderer["TranscodeService (Renderer)"]
-    TrpcClient[Renderer tRPC client]
-    TranscodeUIBridge[TranscodeUIBridge]
-    TranscodeProgressStore[TranscodeProgressStore]
-    TranscodeToast[TranscodeToastComponent]
-  end
+The renderer imports the router only as a type through its infrastructure layer. Preload exposes the small `electronTRPC` transport contract; renderer code does not receive general Node or Electron APIs. The package import patch and inlined preload adapter remain required by the currently pinned transport/build combination.
 
-  subgraph MAIN[Main Process]
-    AppRouter["appRouter (tRPC)"]
-    TranscodeServiceMain["TranscodeService (Main)"]
-    WindowService[WindowService]
-    IpcPushBridge[IpcPushBridge]
-    FFmpeg[ffmpeg/ffprobe]
-  end
+## Settings, Presentation, and Notes
 
-  CaptureSaveService --> TranscodeServiceRenderer
-  TranscodeServiceRenderer -- "transcode.start/cancel/status" --> TrpcClient
-  TrpcClient --> AppRouter
-  AppRouter --> TranscodeServiceMain
-  TranscodeServiceMain --> FFmpeg
-  TranscodeServiceMain --> WindowService
-  WindowService -- IPC push --> IpcPushBridge
-  AppRouter --> IpcPushBridge
-  IpcPushBridge -- "progress/completed/error/cancelled" --> AppRouter
-  AppRouter -- "transcode subscriptions" --> TrpcClient
-  TrpcClient --> TranscodeServiceRenderer
-  TranscodeServiceRenderer -. "transcode:* events" .-> TranscodeUIBridge
-  TranscodeServiceRenderer -. "transcode:* events" .-> TranscodeProgressStore
-  TranscodeProgressStore --> TranscodeToast
-  TranscodeUIBridge -. "ui:record-button enabled/disabled" .-> TranscodeToast
-```
+Typed definitions in `settings.definitions.ts` supply keys, defaults, validation, event relationships, and control metadata. `SettingsService` exposes setting-specific values. Existing stored keys and representations remain compatible; login-item state comes from its operating-system service.
 
-## Performance and Metrics
+`PresentationModeStore` owns derived viewing state. `BodyClassManager` binds that state and performance state to DOM classes. UI bridges route notifications to components; reusable controllers own widget interactions and accessibility behavior.
 
-```mermaid
-flowchart LR
-  subgraph RENDERER[Renderer]
-    AppOrchestrator[AppOrchestrator]
-    PerformanceAnimationOrchestrator[PerformanceAnimationOrchestrator]
-    PerformanceStateOrchestrator[PerformanceStateOrchestrator]
-    PerformanceMetricsOrchestrator[PerformanceMetricsOrchestrator]
-    PerformanceAnimationService[PerformanceAnimationService]
-    PerformanceStateService[PerformanceStateService]
-    PerformanceMetricsService[PerformanceMetricsService]
-  end
+`NotesService.updateNote` owns note mutations and persistence. The notes panel owns its child components and flushes pending edits during disposal. Search returns matching notes, while the list view owns their grouped rendering.
 
-  AppOrchestrator --> PerformanceAnimationOrchestrator
-  AppOrchestrator --> PerformanceStateOrchestrator
-  AppOrchestrator --> PerformanceMetricsOrchestrator
-  PerformanceAnimationOrchestrator --> PerformanceAnimationService
-  PerformanceStateOrchestrator --> PerformanceStateService
-  PerformanceMetricsOrchestrator --> PerformanceMetricsService
-```
+## Verification and Build Ownership
 
-## Main Process IPC and Core Services
-
-```mermaid
-flowchart LR
-  subgraph MAIN[Main Process]
-    AppOrchestrator["AppOrchestrator (Main)"]
-    IpcHandlerRegistry[IpcHandlerRegistry]
-    AppRouter["appRouter (tRPC)"]
-    IpcPushBridge[IpcPushBridge]
-    WindowService[WindowService]
-    TrayService[TrayService]
-    EventBus[EventBus]
-    DeviceIntegrationService[DeviceIntegrationService]
-    DeviceConnectionService[DeviceConnectionService]
-    UpdateBridge[UpdateBridge]
-    UpdateServiceMain[UpdateServiceMain]
-    TranscodeServiceMain[TranscodeServiceMain]
-    UsbMonitor[node-usb]
-    DeviceCatalog[DeviceCatalog]
-    AutoUpdater[electron-updater]
-    FFmpeg[ffmpeg-static]
-  end
-
-  AppOrchestrator --> IpcHandlerRegistry
-  AppOrchestrator --> DeviceConnectionService
-  AppOrchestrator --> DeviceIntegrationService
-  AppOrchestrator --> TrayService
-  AppOrchestrator --> UpdateBridge
-
-  IpcHandlerRegistry --> AppRouter
-  IpcHandlerRegistry --> IpcPushBridge
-  AppRouter --> DeviceConnectionService
-  IpcHandlerRegistry --> UpdateServiceMain
-  IpcHandlerRegistry --> TranscodeServiceMain
-  DeviceIntegrationService --> DeviceConnectionService
-  DeviceIntegrationService --> TrayService
-  DeviceIntegrationService --> WindowService
-  DeviceIntegrationService --> EventBus
-  DeviceIntegrationService -. "launch policy lookup" .-> DeviceCatalog
-  WindowService --> IpcPushBridge
-  DeviceConnectionService --> UsbMonitor
-  DeviceConnectionService -. "USB matcher data" .-> DeviceCatalog
-  UpdateServiceMain --> AutoUpdater
-  TranscodeServiceMain --> FFmpeg
-```
-
-## UI Event Flow
-
-```mermaid
-flowchart LR
-  subgraph RENDERER[Renderer]
-    UISetupOrchestrator[UISetupOrchestrator]
-    StreamingOrchestrator[StreamingOrchestrator]
-    CaptureOrchestrator[CaptureOrchestrator]
-    UIEventBridge[UIEventBridge]
-  end
-
-  UISetupOrchestrator -. "ui:stream/capture/fullscreen requests" .-> StreamingOrchestrator
-  UISetupOrchestrator -. "ui:screenshot/recording requests" .-> CaptureOrchestrator
-  StreamingOrchestrator -. "ui:streaming-mode, ui:status-message" .-> UIEventBridge
-  CaptureOrchestrator -. "ui:shutter-flash, ui:recording-state" .-> UIEventBridge
-```
-
-## Cross-Process Device, Update, and Transcode Channels
-
-```mermaid
-flowchart LR
-  subgraph MAIN[Main Process]
-    DeviceConnectionService[DeviceConnectionService]
-    DeviceIntegrationService[DeviceIntegrationService]
-    WindowService[WindowService]
-    IpcPushBridge[IpcPushBridge]
-    AppRouter["appRouter (tRPC)"]
-    UpdateBridge[UpdateBridge]
-    TranscodeService[TranscodeService]
-  end
-
-  subgraph RENDERER[Renderer]
-    TrpcClient[Renderer tRPC client]
-    RendererDeviceRuntime[RendererDeviceRuntime]
-    DeviceMediaAcquirer[DeviceMediaAcquirer]
-    StreamingService[StreamingService]
-    UIService["UIService / UI Components"]
-    TranscodeServiceRenderer["TranscodeService (Renderer)"]
-  end
-
-  DeviceIntegrationService --> DeviceConnectionService
-  DeviceIntegrationService -- "device connected/disconnected" --> WindowService
-  WindowService -- IPC push --> IpcPushBridge
-  TrpcClient -- "device.getStatus / refreshStatus / subscriptions" --> AppRouter
-  AppRouter --> DeviceConnectionService
-  AppRouter --> IpcPushBridge
-  IpcPushBridge -- "subscription payloads" --> AppRouter
-  AppRouter -- "device subscription data" --> TrpcClient
-  TrpcClient --> RendererDeviceRuntime
-  StreamingService --> RendererDeviceRuntime
-  StreamingService --> DeviceMediaAcquirer
-  RendererDeviceRuntime -. "device status events" .-> UIService
-  UpdateBridge -- update push --> WindowService
-  TranscodeService -- transcode push --> WindowService
-  TrpcClient -- "update/transcode subscriptions" --> AppRouter
-  AppRouter -- "update/transcode data" --> TrpcClient
-  TrpcClient --> UIService
-  TranscodeServiceRenderer -- "transcode.start/cancel/status" --> TrpcClient
-```
-
-## Notes
-
-- `@platform/devices` root exports the manifest-backed catalog, contracts, matchers, and payload helpers used across processes.
-- `@platform/devices/runtime` is main-process only and exports `DeviceConnectionService`.
-- `RendererDeviceRuntime` owns renderer device state, media enumeration, stored media-device IDs, and browser `devicechange` refreshes.
-- `DeviceMediaAcquirer` owns `getUserMedia` constraint construction, fallback attempts, stream metadata, and stream release.
-- IPC edges are separated into their own diagram so cross-process boundaries are obvious.
-- State owners are called out where they influence lifecycle (start/stop, error/retry).
-- Process-first layout: renderer code lives under `src/renderer`, main process under `src/main`, preload under `src/preload`.
-- Shared timing constants live in `src/platform/config/timing.config.ts` (imported via `@platform/config`); infrastructure code should not pull timing values from presentation config.
-- `src/core` has been retired and removed; the `@core` alias is not configured in vite or vitest, so `@core/` imports will fail at build time.
+- The platform alias registry drives resolver configuration and generated TypeScript paths; `check:generated` rejects stale output.
+- Knip checks files, exports, types, and dependencies twice: across the complete graph, then production alone. Only declared testkit surfaces are excluded from production, so test imports cannot hide unused runtime APIs.
+- Dependency-boundary tests invoke dependency-cruiser's API against intentional invalid fixtures.
+- CI runs the full Vitest suite once per selected platform and reuses its Linux Vite build for Playwright.
+- Packaged smoke starts the normal main/preload/renderer path with a temporary profile. It requires renderer readiness, the shutdown request/acknowledgement, conversion/download drains, and completed main cleanup before emitting its success marker and exiting zero. Missing readiness or acknowledgement, timeout, signal termination, or cleanup failure fails the check.
+- Vite's `assets` public directory owns renderer static assets; file URLs use a relative base. Packaging-only icons and entitlements live in `build-resources`, so the renderer does not ship unused ICO, ICNS or signing metadata. Packaging hooks retain native-library, signing, and AppImage compatibility responsibilities.

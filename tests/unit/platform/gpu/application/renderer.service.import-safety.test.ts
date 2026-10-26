@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createMockCanvas } from '@platform/gpu/testkit';
 
 vi.mock('../../../../../src/platform/gpu/infrastructure/capabilities.browser', () => {
@@ -10,12 +10,6 @@ vi.mock('../../../../../src/platform/gpu/infrastructure/webgpu.driver', () => {
 });
 
 describe('createGpuRenderer import safety', () => {
-  beforeEach(() => {
-    vi.stubGlobal('performance', {
-      now: vi.fn(() => 0)
-    });
-  });
-
   it('does not import browser capability or accelerated backend modules through the public runtime path', async () => {
     const { createGpuVideoRendererSession } = await import('@platform/gpu/runtime');
     const canvas = createMockCanvas(160, 144, {
@@ -29,19 +23,11 @@ describe('createGpuRenderer import safety', () => {
     const session = await createGpuVideoRendererSession({
       canvas,
       nativeResolution: { width: 160, height: 144 },
-      preferredBackend: 'canvas2d',
-      allowCanvas2D: true,
-      capabilities: {
-        webgpu: false,
-        offscreenCanvas: false,
-        transferControlToOffscreen: false,
-        preferredBackend: 'canvas2d',
-        maxTextureSize: 4096
-      }
+      backend: 'canvas2d'
     });
 
     expect(session.isActive).toBe(true);
 
-    await session.dispose();
+    session.terminate();
   });
 });

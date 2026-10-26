@@ -28,83 +28,76 @@ function createTestUserDataDir() {
   return tempDir;
 }
 
+/** Launch the built application against a caller-owned profile. */
+export function launchTestApp(userDataDir) {
+  return electron.launch({
+    args: [
+      path.join(projectRoot, 'dist/main/index.js'),
+      '--test-mode',
+      `--user-data-dir=${userDataDir}`,
+      // GPU flags for headless/CI environments
+      '--disable-gpu',
+      '--disable-software-rasterizer',
+      '--in-process-gpu',
+      '--no-sandbox',
+      '--disable-dev-shm-usage',
+    ],
+    env: {
+      ...process.env,
+      NODE_ENV: 'test',
+      ELECTRON_IS_DEV: '0',
+      // Force software rendering
+      LIBGL_ALWAYS_SOFTWARE: '1',
+      // Disable auto-updater in tests
+      DISABLE_AUTO_UPDATER: 'true',
+      // Disable crash reporter
+      DISABLE_CRASH_REPORTER: 'true',
+      // Disable tray icon in tests (may not exist in dist)
+      DISABLE_TRAY: 'true',
+      // Enable explicit main-process test-control IPC port for device fixtures
+      PRISMGB_E2E_TEST_CONTROL: '1',
+    },
+    timeout: 30000,
+  });
+}
+
+/** Close normally, retaining a bounded and observable failure path. */
+async function closeTestApp(app, child) {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    if (child.exitCode !== 0) throw new Error('Electron exited unexpectedly: ' + (child.signalCode ?? child.exitCode));
+    return;
+  }
+  let timeout;
+  try {
+    await Promise.race([
+      app.close(),
+      new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error('Electron close timed out')), 5000);
+      }),
+    ]);
+  } catch (error) {
+    try { child.kill('SIGKILL'); } catch { /* Preserve the original close failure. */ }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 /**
  * Extended test fixtures with Electron app support
  */
 export const test = base.extend({
-  /**
-   * Electron app instance fixture
-   * Launches the built app with test-mode flags.
-   *
-   * Readiness is gated on `app.firstWindow()`, never `app.evaluate(() => app.whenReady())`.
-   * The main window is created inside the `app.whenReady().then(...)` boot chain, so a
-   * resolved `firstWindow()` already implies `whenReady()` completed — and it does so
-   * without a main-process `evaluate` round-trip, which races the first window's initial
-   * navigation and intermittently throws "Execution context was destroyed".
-   */
+  // Each journey owns a fresh profile and real application. Window readiness is
+  // awaited by the window fixture, avoiding a second firstWindow round-trip.
   electronApp: async ({}, use) => {
     const userDataDir = createTestUserDataDir();
-
-    // Launch Electron with test flags
-    const app = await electron.launch({
-      args: [
-        path.join(projectRoot, 'dist/main/index.js'),
-        '--test-mode',
-        `--user-data-dir=${userDataDir}`,
-        // GPU flags for headless/CI environments
-        '--disable-gpu',
-        '--disable-software-rasterizer',
-        '--in-process-gpu',
-        '--no-sandbox',
-        '--disable-dev-shm-usage',
-      ],
-      env: {
-        ...process.env,
-        NODE_ENV: 'test',
-        ELECTRON_IS_DEV: '0',
-        // Force software rendering
-        LIBGL_ALWAYS_SOFTWARE: '1',
-        // Disable auto-updater in tests
-        DISABLE_AUTO_UPDATER: 'true',
-        // Disable crash reporter
-        DISABLE_CRASH_REPORTER: 'true',
-        // Disable tray icon in tests (may not exist in dist)
-        DISABLE_TRAY: 'true',
-        // Enable explicit main-process test-control IPC port for device fixtures
-        PRISMGB_E2E_TEST_CONTROL: '1',
-      },
-      timeout: 30000,
-    });
-
-    // Wait for app to be ready
-    await app.firstWindow();
-
-    // Provide the app to the test
-    await use(app);
-
-    // Cleanup after test - force close with timeout
     try {
-      await Promise.race([
-        app.close(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Close timeout')), 5000)
-        ),
-      ]);
-    } catch {
-      // Force kill if close times out
-      try {
-        const pid = await app.evaluate(({ process }) => process.pid);
-        process.kill(pid, 'SIGKILL');
-      } catch {
-        // Ignore kill errors
-      }
-    }
-
-    // Remove temp user data directory
-    try {
+      const app = await launchTestApp(userDataDir);
+      const child = app.process();
+      try { await use(app); }
+      finally { await closeTestApp(app, child); }
+    } finally {
       fs.rmSync(userDataDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
     }
   },
 
@@ -140,8 +133,8 @@ export const test = base.extend({
     await use(new SettingsMenuPage(window));
   },
 
-  streamPage: async ({ window }, use) => {
-    await use(new StreamPage(window));
+  streamPage: async ({ window, electronApp }, use) => {
+    await use(new StreamPage(window, electronApp));
   },
 
   chromaticDevice: async ({ electronApp, window }, use) => {
@@ -158,76 +151,3 @@ export const test = base.extend({
  * Re-export expect for convenience
  */
 export { expect } from '@playwright/test';
-
-/**
- * Helper to wait for app initialization
- * Waits for key DOM elements to be present AND event listeners to be attached
- *
- * @param {import('@playwright/test').Page} page - Playwright page
- * @param {Object} options - Wait options
- */
-export async function waitForAppReady(page, options = {}) {
-  await new AppShellPage(page).waitForReady(options);
-}
-
-/**
- * Helper to take a named screenshot
- *
- * @param {import('@playwright/test').Page} page - Playwright page
- * @param {string} name - Screenshot name
- * @param {Object} options - Screenshot options
- */
-export async function takeScreenshot(page, name, options = {}) {
-  const screenshotPath = path.join(projectRoot, 'tests/e2e/screenshots', `${name}.png`);
-
-  // Ensure screenshots directory exists
-  const screenshotsDir = path.dirname(screenshotPath);
-  if (!fs.existsSync(screenshotsDir)) {
-    fs.mkdirSync(screenshotsDir, { recursive: true });
-  }
-
-  await page.screenshot({
-    path: screenshotPath,
-    fullPage: options.fullPage ?? false,
-    ...options,
-  });
-
-  return screenshotPath;
-}
-
-/**
- * Helper to evaluate code in Electron main process
- *
- * @param {import('@playwright/test').ElectronApplication} app - Electron app
- * @param {Function} fn - Function to evaluate
- * @param {...any} args - Arguments to pass to the function
- */
-export async function evaluateInMain(app, fn, ...args) {
-  return app.evaluate(fn, ...args);
-}
-
-/**
- * Helper to get app info from main process
- *
- * @param {import('@playwright/test').ElectronApplication} app - Electron app
- * @returns {Promise<Object>} App info
- */
-export async function getAppInfo(app) {
-  return app.evaluate(async ({ app: electronApp }) => ({
-    name: electronApp.getName(),
-    version: electronApp.getVersion(),
-    locale: electronApp.getLocale(),
-    paths: {
-      userData: electronApp.getPath('userData'),
-      temp: electronApp.getPath('temp'),
-      logs: electronApp.getPath('logs'),
-    },
-  }));
-}
-
-export {
-  clearTestDeviceStatus,
-  injectDeviceConnectedEvent,
-  injectDeviceDisconnectedEvent,
-  setTestDeviceStatus,
-} from '../helpers/device-ipc.helper.js';

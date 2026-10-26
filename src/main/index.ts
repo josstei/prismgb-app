@@ -1,12 +1,13 @@
 /**
  * Main Entry Point
- * Initializes the application using dependency injection
+ * Composes the application and owns Electron process lifecycle
  */
 
 import { app, BrowserWindow, dialog, Menu, type MenuItemConstructorOptions } from 'electron';
-import { MainBootstrap } from './app-bootstrap.js';
+import { createMainRuntime, type MainRuntime } from './application/container.js';
+import { MainLogger } from './infrastructure/logging/logger.factory.js';
 import { getGpuPolicy, applyChromiumFlags, GPU_ENV_VARS } from './infrastructure/gpu/gpu-policy.js';
-import { TOKENS } from './application/di/tokens.js';
+import { runApplicationSmoke } from './application/smoke-lifecycle.js';
 
 const APP_NAME = 'PrismGB';
 
@@ -63,135 +64,85 @@ if (process.platform === 'darwin') {
   });
 }
 
-// =================================================================
-// SMOKE TEST MODE
-// Exit cleanly after startup for CI/CD validation
-// =================================================================
-if (process.argv.includes('--smoke-test')) {
-  app.whenReady().then(() => {
-    console.log('Smoke test: Electron app ready');
-    console.log('Smoke test: Main process initialized');
+const smokeMode = process.argv.includes('--smoke-test');
 
-    // Give the app a moment to fully initialize
-    setTimeout(() => {
-      console.log('Smoke test: Exiting cleanly');
-      app.exit(0);
-    }, 5000);
-  });
+// GPU flags must be applied before Electron becomes ready in every launch mode.
+if (process.env[GPU_ENV_VARS.DISABLE_GPU] === '1') {
+  app.disableHardwareAcceleration();
+}
+const gpuPolicy = getGpuPolicy();
+applyChromiumFlags(app, gpuPolicy);
+if (gpuPolicy.reason) {
+  console.log(`[GPU Policy] WebGPU disabled: ${gpuPolicy.reason}`);
+}
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=128');
 
-  app.on('window-all-closed', () => {
-    // Don't quit on window close in smoke test mode
-  });
+if (!app.requestSingleInstanceLock()) {
+  console.log('Another instance is already running. Exiting.');
+  if (smokeMode) app.exit(1);
+  else app.quit();
 } else {
-  // =================================================================
-  // NORMAL APPLICATION MODE
-  // =================================================================
+  const rendererReady = Promise.withResolvers<void>();
+  let runtime: MainRuntime | null = null;
 
-  // Hardware acceleration is enabled by default for better performance.
-  // Users with GPU driver issues can disable it via environment variable:
-  //   PRISMGB_DISABLE_GPU=1 prismgb
-  if (process.env[GPU_ENV_VARS.DISABLE_GPU] === '1') {
-    app.disableHardwareAcceleration();
-  }
+  app.on('second-instance', () => {
+    const win = runtime?.windowService.getMainWindow();
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+    }
+  });
 
-  // Apply platform-aware GPU flags (must be before app.whenReady)
-  // Addresses ARM64 Linux Vulkan driver issues by disabling WebGPU probing
-  const gpuPolicy = getGpuPolicy();
-  applyChromiumFlags(app, gpuPolicy);
-  if (gpuPolicy.reason) {
-    console.log(`[GPU Policy] WebGPU disabled: ${gpuPolicy.reason}`);
-  }
-
-  // Limit main process V8 heap size for memory efficiency
-  // Main process doesn't need large heap - most work happens in renderer
-  app.commandLine.appendSwitch('js-flags', '--max-old-space-size=128');
-
-  // =================================================================
-  // SINGLE INSTANCE LOCK
-  // Prevent multiple instances of the app from running simultaneously
-  // =================================================================
-  const gotTheLock = app.requestSingleInstanceLock();
-
-  if (!gotTheLock) {
-    console.log('Another instance is already running. Exiting.');
-    app.quit();
-  } else {
-    // Create application instance
-    const application = new MainBootstrap();
-
-    // Handle second instance launch - focus existing window
-    app.on('second-instance', () => {
-      const container = application.getContainer();
-      if (container) {
-        const windowService = container.get(TOKENS.windowService);
-        const win = windowService?.getMainWindow();
-        if (win) {
-          if (win.isMinimized()) win.restore();
-          win.show();
-          win.focus();
-        }
-      }
-    });
-
-    // App lifecycle events
-    app.whenReady().then(async () => {
-      // Set macOS application menu with correct app name
-      if (process.platform === 'darwin') {
-        const macMenu = Menu.buildFromTemplate(createMacAppMenu(APP_NAME));
-        Menu.setApplicationMenu(macMenu);
-      }
-
-      try {
-        await application.initialize();
-      } catch (error) {
-        console.error('Application initialization failed:', error);
-        dialog.showErrorBox(
-          'Initialization Error',
-          `${APP_NAME} failed to start: ${error instanceof Error ? error.message : String(error)}`
-        );
-        app.quit();
+  app.whenReady().then(async () => {
+    if (process.platform === 'darwin') {
+      Menu.setApplicationMenu(Menu.buildFromTemplate(createMacAppMenu(APP_NAME)));
+    }
+    try {
+      runtime = createMainRuntime(new MainLogger(), { onRendererReady: () => rendererReady.resolve() });
+      if (smokeMode) {
+        await runApplicationSmoke(runtime, rendererReady.promise);
+        console.log('PRISMGB_SMOKE_READY');
+        app.exit(0);
         return;
       }
-
-      // macOS: recreate window when dock icon clicked
+      await runtime.initialize();
       app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
-          const container = application.getContainer();
-          if (container) {
-            const windowService = container.get(TOKENS.windowService);
-            windowService.createWindow();
-          }
+          runtime?.windowService.createWindow();
         }
       });
-    });
-
-    // Keep app running in background via system tray when all windows close
-    // This allows USB device monitoring to continue
-    app.on('window-all-closed', () => {
-      // Intentionally empty - app stays running in tray
-    });
-
-    let quitCleanupPromise: Promise<void> | null = null;
-    let quitCleanupComplete = false;
-
-    app.on('before-quit', (event) => {
-      if (quitCleanupComplete) {
+    } catch (error) {
+      console.error('Application initialization failed:', error);
+      if (smokeMode) {
+        app.exit(1);
         return;
       }
+      dialog.showErrorBox(
+        'Initialization Error',
+        `${APP_NAME} failed to start: ${error instanceof Error ? error.message : String(error)}`
+      );
+      app.quit();
+    }
+  }).catch((error: unknown) => {
+    console.error('Electron startup failed:', error);
+    app.exit(1);
+  });
 
-      event.preventDefault();
-      app.isQuitting = true;
+  // USB monitoring continues in the tray when the final window closes.
+  app.on('window-all-closed', () => {});
 
-      if (!quitCleanupPromise) {
-        quitCleanupPromise = application.cleanup()
-          .catch((error: unknown) => {
-            console.error('Application cleanup failed:', error);
-          })
-          .finally(() => {
-            quitCleanupComplete = true;
-            app.quit();
-          });
-      }
-    });
-  }
+  let quitCleanupPromise: Promise<void> | null = null;
+  let quitCleanupComplete = false;
+  app.on('before-quit', (event) => {
+    if (quitCleanupComplete) return;
+    event.preventDefault();
+    app.isQuitting = true;
+    quitCleanupPromise ??= Promise.resolve(runtime?.dispose())
+      .catch((error: unknown) => console.error('Application cleanup failed:', error))
+      .finally(() => {
+        quitCleanupComplete = true;
+        app.quit();
+      });
+  });
 }

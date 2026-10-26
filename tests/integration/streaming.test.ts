@@ -1,345 +1,176 @@
-/**
- * Streaming Pipeline Integration Tests
- *
- * Tests the complete streaming flow from device connection
- * through stream acquisition to canvas rendering.
- */
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DeviceCatalog, getDeviceAcquisitionProfile, getDeviceStreamProfile } from '@platform/devices';
+import { EventChannels, PlatformEventBus } from '@platform/events';
+import { AppState } from '@renderer/application/state/app-state';
+import { StreamingOrchestrator } from '@renderer/application/orchestrators/streaming.orchestrator';
+import { BrowserMediaDevicesPort } from '@renderer/infrastructure/services/devices/browser-media-devices.port';
+import { DeviceMediaAcquirer } from '@renderer/infrastructure/services/streaming/device-media-acquirer.service';
+import { StreamingService } from '@renderer/infrastructure/services/streaming/streaming.service';
+import { StreamingViewService } from '@renderer/infrastructure/services/streaming/streaming-view.service';
+import { createManifestMediaEnvironment } from '../devices/media.testkit';
+import { createLoggerFactory } from '../factories/logger.factory.js';
+import { createDeferred } from '../support/deferred.testkit';
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createUIController } from '../factories/index.js';
-import { createEventBus, createAppState } from '../factories/index.js';
-import {
-  CHROMATIC_SPECS,
-  createManifestMediaEnvironment,
-  createMediaDeviceInfo,
-} from '../devices/media.testkit.ts';
-import type { ManifestMediaEnvironment } from '../devices/media.testkit.ts';
-import { installDocumentPropertyMock } from '../support/mocks/browser-api.installers.js';
+async function createStreamingFixture() {
+  const media = createManifestMediaEnvironment({ connected: true }).install();
+  const loggerFactory = createLoggerFactory();
+  const eventBus = new PlatformEventBus({ loggerFactory });
+  const descriptor = DeviceCatalog.default();
+  const runtime = {
+    isConnected: true,
+    resolveStreamingTarget: async () => ({
+      videoDevice: media.videoDevice,
+      audioDevice: media.audioDevice,
+      descriptor,
+      profile: getDeviceStreamProfile(descriptor),
+      acquisition: getDeviceAcquisitionProfile(descriptor)
+    })
+  };
+  const acquirer = new DeviceMediaAcquirer({
+    mediaDevicesPort: new BrowserMediaDevicesPort(navigator.mediaDevices), loggerFactory
+  });
+  const streaming = new StreamingService({ rendererDeviceRuntime: runtime, deviceMediaAcquirer: acquirer, eventBus, loggerFactory });
+  const appState = new AppState({ streamingService: streaming, rendererDeviceRuntime: runtime });
+  const video = document.createElement('video');
+  // Happy DOM only accepts its own MediaStream class; acquisition uses the
+  // browser-port stream double so track lifecycle remains controllable here.
+  Object.defineProperty(video, 'srcObject', { value: null, writable: true });
+  const elements = { streamVideo: video, streamCanvas: document.createElement('canvas') };
+  const view = new StreamingViewService({ uiController: {
+    elements, setStreamCanvas: (canvas) => { elements.streamCanvas = canvas; }
+  }, loggerFactory });
+  const rendering = {
+    initialize: vi.fn(), handlePerformanceStateChanged: vi.fn(), handleFullscreenChange: vi.fn(),
+    handleRenderPresetChanged: vi.fn(), handlePerformanceModeChanged: vi.fn(async () => {}),
+    startPipeline: vi.fn(async () => {}), stopPipeline: vi.fn(async () => {}), cleanup: vi.fn(async () => {})
+  };
+  const recording = { isActive: vi.fn(() => false), stop: vi.fn(async () => {}) };
+  const orchestrator = new StreamingOrchestrator({
+    streamingService: streaming, appState, streamViewService: view, streamingRenderService: rendering,
+    gpuRecordingService: recording, settingsService: { getSetting: () => false }, eventBus, loggerFactory
+  });
+  const subscriptions: Array<() => void> = [];
+  await orchestrator.initialize();
+  return { media, eventBus, streaming, appState, video, rendering, recording, subscriptions, orchestrator,
+    async dispose() {
+      await streaming.dispose();
+      await orchestrator.dispose();
+      await view.dispose();
+      await acquirer.dispose();
+      subscriptions.forEach((unsubscribe) => unsubscribe());
+      media.cleanup();
+      expect(eventBus.emitter.eventNames()).toEqual([]);
+    }
+  };
+}
 
-type EventBus = ReturnType<typeof createEventBus>;
-type AppState = ReturnType<typeof createAppState>;
-type UIController = ReturnType<typeof createUIController>;
+describe('streaming service and orchestrator integration', () => {
+  let fixture: Awaited<ReturnType<typeof createStreamingFixture>>;
+  beforeEach(async () => { fixture = await createStreamingFixture(); });
+  afterEach(async () => { await fixture.dispose(); });
 
-describe('Streaming Pipeline Integration', () => {
-  let mediaEnvironment: ManifestMediaEnvironment;
-
-  beforeEach(() => {
-    mediaEnvironment = createManifestMediaEnvironment({ connected: true }).install();
+  it('quits during a pending native permission request and closes a later granted stream', async () => {
+    const media = navigator.mediaDevices;
+    const late = await media.getUserMedia({ video: { deviceId: { exact: fixture.media.videoDevice.deviceId } }, audio: false });
+    const permission = Promise.withResolvers<MediaStream>();
+    const getUserMedia = vi.spyOn(media, 'getUserMedia').mockReturnValueOnce(permission.promise);
+    const errorFeedback = vi.fn();
+    fixture.subscriptions.push(fixture.eventBus.subscribe(EventChannels.UI.OVERLAY_ERROR, errorFeedback));
+    const starting = fixture.eventBus.publishAsync(EventChannels.UI.STREAM_START_REQUESTED);
+    await vi.waitFor(() => expect(getUserMedia).toHaveBeenCalledOnce());
+    await fixture.orchestrator.dispose();
+    await starting;
+    permission.resolve(late);
+    await vi.waitFor(() => expect(late.getTracks().every((track) => track.readyState === 'ended')).toBe(true));
+    expect(fixture.appState.isStreaming).toBe(false);
+    expect(fixture.video.srcObject).toBeNull();
+    expect(fixture.rendering.startPipeline).not.toHaveBeenCalled();
+    expect(errorFeedback).not.toHaveBeenCalled();
   });
 
-  afterEach(() => {
-    mediaEnvironment.cleanup();
+  it('routes UI requests through acquisition, paired audio, DOM attachment and render startup', async () => {
+    const modeChanged = vi.fn();
+    fixture.subscriptions.push(fixture.eventBus.subscribe(EventChannels.UI.STREAMING_MODE, modeChanged));
+
+    await fixture.eventBus.publishAsync(EventChannels.UI.STREAM_START_REQUESTED);
+
+    const stream = fixture.streaming.getStream()!;
+    expect(fixture.appState.isStreaming).toBe(true);
+    expect(fixture.appState.currentStream).toBe(stream);
+    expect(fixture.video.srcObject).toBe(stream);
+    expect(fixture.video.muted).toBe(true);
+    expect(stream.getAudioTracks()).toHaveLength(1);
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith(expect.objectContaining({
+      audio: expect.objectContaining({ deviceId: { exact: fixture.media.audioDevice.deviceId } }),
+      video: expect.objectContaining({ deviceId: { exact: fixture.media.videoDevice.deviceId } })
+    }));
+    expect(fixture.rendering.startPipeline).toHaveBeenCalledWith(expect.objectContaining({
+      nativeResolution: { width: 160, height: 144 }, hasAudio: true
+    }));
+    expect(modeChanged).toHaveBeenCalledWith({ enabled: true });
+
+    await fixture.eventBus.publishAsync(EventChannels.UI.STREAM_STOP_REQUESTED);
+    expect(fixture.appState.isStreaming).toBe(false);
+    expect(fixture.video.srcObject).toBeNull();
+    expect(stream.getTracks().every((track) => track.readyState === 'ended')).toBe(true);
+    expect(modeChanged).toHaveBeenLastCalledWith({ enabled: false });
   });
 
-  describe('Device Detection Flow', () => {
-    it('should detect Chromatic device via mediaDevices API', async () => {
-      const devices = await navigator.mediaDevices.enumerateDevices();
+  it('keeps stop pending until recording drains before releasing rendering and the video', async () => {
+    await fixture.eventBus.publishAsync(EventChannels.UI.STREAM_START_REQUESTED);
+    const drain = createDeferred();
+    fixture.recording.isActive.mockReturnValue(true);
+    fixture.recording.stop.mockReturnValue(drain.promise);
+    const settled = vi.fn();
 
-      expect(devices).toContainEqual(expect.objectContaining({
-        label: 'Chromatic',
-        kind: 'videoinput',
-      }));
-    });
-
-    it('should emit device change events', async () => {
-      const changeHandler = vi.fn();
-      navigator.mediaDevices.addEventListener('devicechange', changeHandler);
-
-      mediaEnvironment.addMediaDevice(createMediaDeviceInfo({
-        deviceId: 'second-device',
-        label: 'Second Camera',
-      }));
-
-      expect(changeHandler).toHaveBeenCalled();
-    });
-
-    it('should clear stale device change listeners when reinstalling mediaDevices mock', () => {
-      const staleHandler = vi.fn();
-      navigator.mediaDevices.addEventListener('devicechange', staleHandler);
-
-      mediaEnvironment.install();
-
-      const currentHandler = vi.fn();
-      navigator.mediaDevices.addEventListener('devicechange', currentHandler);
-      mediaEnvironment.addMediaDevice(createMediaDeviceInfo({
-        deviceId: 'second-device',
-        label: 'Second Camera',
-      }));
-
-      expect(staleHandler).not.toHaveBeenCalled();
-      expect(currentHandler).toHaveBeenCalledTimes(1);
-    });
-
-    it('should handle device disconnection', async () => {
-      const changeHandler = vi.fn();
-      navigator.mediaDevices.addEventListener('devicechange', changeHandler);
-
-      mediaEnvironment.disconnect();
-
-      const devices = await navigator.mediaDevices.enumerateDevices();
-
-      expect(changeHandler).toHaveBeenCalled();
-      expect(devices).toHaveLength(0);
-    });
+    const stopping = fixture.eventBus.publishAsync(EventChannels.UI.STREAM_STOP_REQUESTED).then(settled);
+    try {
+      await vi.waitFor(() => expect(fixture.recording.stop).toHaveBeenCalledOnce());
+      expect(settled).not.toHaveBeenCalled();
+      expect(fixture.rendering.stopPipeline).not.toHaveBeenCalled();
+      expect(fixture.video.srcObject).not.toBeNull();
+    } finally {
+      drain.resolve();
+      await stopping;
+    }
+    expect(fixture.rendering.stopPipeline).toHaveBeenCalledOnce();
+    expect(fixture.video.srcObject).toBeNull();
+    expect(settled).toHaveBeenCalledOnce();
   });
 
-  describe('Stream Acquisition Flow', () => {
-    it('should acquire stream from Chromatic device', async () => {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          deviceId: { exact: mediaEnvironment.videoDevice.deviceId },
-          width: { exact: CHROMATIC_SPECS.nativeWidth },
-          height: { exact: CHROMATIC_SPECS.nativeHeight },
-        },
-      });
+  it('propagates an ended video track to stream cleanup and UI error feedback', async () => {
+    const errorFeedback = vi.fn();
+    fixture.subscriptions.push(fixture.eventBus.subscribe(EventChannels.UI.OVERLAY_ERROR, errorFeedback));
+    await fixture.eventBus.publishAsync(EventChannels.UI.STREAM_START_REQUESTED);
+    const stream = fixture.streaming.getStream()!;
+    const stopped = createDeferred();
+    fixture.subscriptions.push(fixture.eventBus.subscribe<{ enabled: boolean }>(EventChannels.UI.STREAMING_MODE, ({ enabled }) => {
+      if (!enabled) stopped.resolve();
+    }));
 
-      expect(stream).toBeDefined();
-      expect(stream.getVideoTracks()).toHaveLength(1);
+    stream.getVideoTracks()[0].dispatchEvent(new Event('ended'));
 
-      const track = stream.getVideoTracks()[0];
-      const settings = track.getSettings();
-
-      expect(settings.width).toBe(CHROMATIC_SPECS.nativeWidth);
-      expect(settings.height).toBe(CHROMATIC_SPECS.nativeHeight);
-    });
-
-    it('should fail when device is disconnected', async () => {
-      mediaEnvironment.disconnect();
-
-      await expect(
-        navigator.mediaDevices.getUserMedia({
-          video: { deviceId: { exact: mediaEnvironment.videoDevice.deviceId } },
-        })
-      ).rejects.toThrow('Requested device not found');
-    });
-
-    it('should get stream with default constraints', async () => {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-
-      expect(stream).toBeDefined();
-      expect(stream.active).toBe(true);
-    });
+    await stopped.promise;
+    expect(fixture.streaming.isActive()).toBe(false);
+    expect(fixture.video.srcObject).toBeNull();
+    expect(fixture.rendering.stopPipeline).toHaveBeenCalledOnce();
+    expect(errorFeedback).toHaveBeenCalledWith({ message: 'Device disconnected or powered off' });
   });
 
-  describe('Event Flow Integration', () => {
-    it('should publish stream events in correct order', async () => {
-      const eventOrder: string[] = [];
-      const eventBus: EventBus = createEventBus();
+  it('reports acquisition failure through the real event chain and supports a fresh retry', async () => {
+    const errorFeedback = vi.fn();
+    fixture.subscriptions.push(fixture.eventBus.subscribe(EventChannels.UI.OVERLAY_ERROR, errorFeedback));
+    fixture.media.disconnect();
 
-      eventBus.subscribe('stream:starting', () => eventOrder.push('starting'));
-      eventBus.subscribe('stream:started', () => eventOrder.push('started'));
-      eventBus.subscribe('stream:stopped', () => eventOrder.push('stopped'));
+    await fixture.eventBus.publishAsync(EventChannels.UI.STREAM_START_REQUESTED);
+    expect(fixture.appState.isStreaming).toBe(false);
+    expect(fixture.video.srcObject).toBeNull();
+    expect(fixture.rendering.startPipeline).not.toHaveBeenCalled();
+    expect(errorFeedback).toHaveBeenCalledWith({ message: expect.stringContaining('Stream acquisition failed') });
 
-      // Simulate stream lifecycle
-      eventBus.publish('stream:starting', { deviceId: 'test' });
-      eventBus.publish('stream:started', { stream: {}, capabilities: {} });
-      eventBus.publish('stream:stopped', {});
-
-      expect(eventOrder).toEqual(['starting', 'started', 'stopped']);
-    });
-
-    it('should handle device events triggering stream events', async () => {
-      const events: string[] = [];
-      const eventBus: EventBus = createEventBus();
-
-      eventBus.subscribe('device:connected', () => events.push('device:connected'));
-      eventBus.subscribe('device:disconnected', () => events.push('device:disconnected'));
-      eventBus.subscribe('stream:stopped', () => events.push('stream:stopped'));
-
-      // Simulate device connection
-      eventBus.publish('device:connected', { deviceId: 'chromatic' });
-
-      // Simulate device disconnection triggering stream stop
-      eventBus.publish('device:disconnected', { deviceId: 'chromatic' });
-      eventBus.publish('stream:stopped', {});
-
-      expect(events).toContain('device:connected');
-      expect(events).toContain('device:disconnected');
-      expect(events).toContain('stream:stopped');
-    });
-  });
-
-  describe('State Management Integration', () => {
-    it('should update app state during stream lifecycle', () => {
-      const appState: AppState = createAppState();
-
-      // Initial state
-      expect(appState.isStreaming).toBe(false);
-
-      // Start streaming
-      appState.setStreaming(true);
-
-      expect(appState.isStreaming).toBe(true);
-
-      // Stop streaming
-      appState.setStreaming(false);
-
-      expect(appState.isStreaming).toBe(false);
-    });
-  });
-
-  describe('Canvas Rendering Integration', () => {
-    it('should setup canvas with correct dimensions', () => {
-      const uiController: UIController = createUIController();
-      const canvas = uiController.elements.streamCanvas;
-
-      canvas.width = 640;
-      canvas.height = 576;
-
-      expect(canvas.width).toBe(640);
-      expect(canvas.height).toBe(576);
-    });
-
-    it('should get 2D context with correct options', () => {
-      const uiController: UIController = createUIController();
-      const canvas = uiController.elements.streamCanvas;
-
-      canvas.getContext('2d', {
-        alpha: false,
-        desynchronized: true,
-        willReadFrequently: false,
-      });
-
-      expect(canvas.getContext).toHaveBeenCalledWith('2d', {
-        alpha: false,
-        desynchronized: true,
-        willReadFrequently: false,
-      });
-    });
-  });
-
-  describe('Full Pipeline Simulation', () => {
-    it('should complete full stream start/stop cycle', async () => {
-      const eventBus: EventBus = createEventBus();
-      const appState: AppState = createAppState();
-      const events: Array<{ type: string; data?: unknown }> = [];
-
-      // Subscribe to all events
-      eventBus.subscribe('device:connected', (d) => events.push({ type: 'device:connected', data: d }));
-      eventBus.subscribe('stream:started', (d) => events.push({ type: 'stream:started', data: d }));
-      eventBus.subscribe('stream:stopped', () => events.push({ type: 'stream:stopped' }));
-
-      // 1. Device connects
-      eventBus.publish('device:connected', { deviceId: mediaEnvironment.videoDevice.deviceId });
-
-      // 2. Acquire stream
-      const stream = await mediaEnvironment.createStream();
-      expect(stream).toBeDefined();
-
-      // 3. Start streaming
-      appState.setStreaming(true);
-      eventBus.publish('stream:started', {
-        stream,
-        capabilities: mediaEnvironment.getCapabilities(),
-      });
-
-      expect(appState.isStreaming).toBe(true);
-      expect(events.some(e => e.type === 'stream:started')).toBe(true);
-
-      // 4. Stop streaming
-      mediaEnvironment.stopStreams();
-      appState.setStreaming(false);
-      eventBus.publish('stream:stopped');
-
-      expect(appState.isStreaming).toBe(false);
-      expect(events.some(e => e.type === 'stream:stopped')).toBe(true);
-    });
-
-    it('should handle visibility change during streaming', async () => {
-      const appState: AppState = createAppState();
-      appState.setStreaming(true);
-
-      // Simulate tab hidden
-      const wasRendering = appState.isStreaming && !document.hidden;
-      expect(wasRendering).toBe(true);
-
-      // Simulate visibility change
-      const hiddenMock = installDocumentPropertyMock('hidden', true);
-      try {
-        // Should pause rendering
-        const shouldRender = appState.isStreaming && !document.hidden;
-        expect(shouldRender).toBe(false);
-
-        // Restore visibility
-        hiddenMock.setValue(false);
-
-        // Should resume rendering
-        const shouldRenderAgain = appState.isStreaming && !document.hidden;
-        expect(shouldRenderAgain).toBe(true);
-      } finally {
-        hiddenMock.cleanup();
-      }
-    });
-  });
-
-  describe('Error Handling Integration', () => {
-    it('should handle stream acquisition failure gracefully', async () => {
-      const eventBus: EventBus = createEventBus();
-      let errorReceived: { message: string; name: string } | null = null;
-
-      eventBus.subscribe('stream:error', (error) => {
-        errorReceived = error;
-      });
-
-      // Disconnect device before stream acquisition
-      mediaEnvironment.disconnect();
-
-      try {
-        await navigator.mediaDevices.getUserMedia({
-          video: { deviceId: { exact: mediaEnvironment.videoDevice.deviceId } },
-        });
-      } catch (error) {
-        const streamError = error instanceof Error ? error : new Error(String(error));
-        eventBus.publish('stream:error', { message: streamError.message, name: streamError.name });
-      }
-
-      expect(errorReceived).toBeDefined();
-      expect(errorReceived.name).toBe('NotFoundError');
-    });
-
-    it('should clean up on unexpected disconnection', async () => {
-      const appState: AppState = createAppState();
-      const eventBus: EventBus = createEventBus();
-
-      // Start streaming
-      const stream = await mediaEnvironment.createStream();
-      appState.setStreaming(true);
-
-      // Simulate unexpected disconnection
-      mediaEnvironment.disconnect();
-
-      // Handle disconnection
-      if (!mediaEnvironment.snapshot().connected && appState.isStreaming) {
-        appState.setStreaming(false);
-        eventBus.publish('stream:stopped');
-        eventBus.publish('device:disconnected-during-session');
-      }
-
-      expect(appState.isStreaming).toBe(false);
-    });
-  });
-
-});
-
-describe('Manifest Media Environment Accuracy', () => {
-  it('should match real Chromatic specifications', () => {
-    const environment: ManifestMediaEnvironment = createManifestMediaEnvironment();
-    const caps = environment.getCapabilities();
-
-    expect(caps.nativeResolution.width).toBe(160);
-    expect(caps.nativeResolution.height).toBe(144);
-    expect(caps.canvasResolution.scale).toBe(4);
-    expect(caps.deviceName).toBe('Chromatic');
-  });
-
-  it('should provide accurate stream settings', async () => {
-    const environment: ManifestMediaEnvironment = createManifestMediaEnvironment();
-    const stream = await environment.createStream();
-    const track = stream.getVideoTracks()[0];
-    const settings = track.getSettings();
-
-    expect(settings.width).toBe(160);
-    expect(settings.height).toBe(144);
-    expect(settings.frameRate).toBe(60);
+    fixture.media.connect();
+    await fixture.eventBus.publishAsync(EventChannels.UI.STREAM_START_REQUESTED);
+    expect(fixture.appState.isStreaming).toBe(true);
+    expect(fixture.video.srcObject).toBe(fixture.streaming.getStream());
   });
 });

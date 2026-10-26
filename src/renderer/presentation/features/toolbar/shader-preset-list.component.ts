@@ -1,3 +1,4 @@
+import type { SettingsAccess } from '@renderer/lib/settings.definitions.js';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresentationComponent, bindClass, computed } from '@platform/ui-base';
 import { signal } from '@platform/ui-base/reactive';
@@ -9,11 +10,7 @@ import type { LoggerLike } from '@platform/core';
 type UiShaderPreset = ReturnType<typeof getUiPresets>[number];
 const presetOptionListenersKey = Symbol('shader-preset-option-listeners');
 
-export interface ShaderPresetSettingsService {
-  getStringSetting(name: string): string;
-  getBooleanSetting(name: string): boolean;
-  setSetting(name: string, value: unknown): boolean | Promise<boolean>;
-}
+export type ShaderPresetSettingsService = Pick<SettingsAccess, 'getSetting' | 'setSetting'>;
 
 export interface ShaderPresetListComponentOptions {
   settingsService: ShaderPresetSettingsService;
@@ -27,19 +24,21 @@ export interface ShaderPresetListElements {
 }
 
 class ShaderPresetListComponent extends PresentationComponent {
-  declare settingsService: ShaderPresetSettingsService;
-  declare eventBus: TypedEventBusLike;
-  declare logger: LoggerLike | null | undefined;
-  declare optionsContainer: HTMLElement | null | undefined;
-  declare unavailableMessage: HTMLElement | null | undefined;
-  declare currentPresetId: string | null;
+  settingsService: ShaderPresetSettingsService;
+  eventBus: TypedEventBusLike;
+  logger: LoggerLike | null | undefined;
+  optionsContainer: HTMLElement | null | undefined;
+  unavailableMessage: HTMLElement | null | undefined;
+  currentPresetId: string | null;
 
   private readonly _performanceModeEnabled = signal(false);
 
   constructor(options: ShaderPresetListComponentOptions) {
     super();
 
-    this.applyOptions<ShaderPresetListComponentOptions>({}, options);
+    this.settingsService = options.settingsService;
+    this.eventBus = options.eventBus;
+    this.logger = options.logger;
 
     this.optionsContainer = null;
     this.unavailableMessage = null;
@@ -49,7 +48,8 @@ class ShaderPresetListComponent extends PresentationComponent {
 
   initialize(options: ShaderPresetListElements): void {
     void this.dispose();
-    this.applyOptions<ShaderPresetListElements>({}, options);
+    this.optionsContainer = options.optionsContainer;
+    this.unavailableMessage = options.unavailableMessage;
 
     if (!this.optionsContainer || !this.unavailableMessage) {
       this.logger?.warn('Shader preset list elements not found');
@@ -66,11 +66,11 @@ class ShaderPresetListComponent extends PresentationComponent {
   }
 
   _loadCurrentPreset(): void {
-    this.currentPresetId = resolvePreset(this.settingsService.getStringSetting('renderPreset')).id;
+    this.currentPresetId = resolvePreset(this.settingsService.getSetting('renderPreset')).id;
   }
 
   _loadPerformanceModeState(): void {
-    this._performanceModeEnabled.value = this.settingsService.getBooleanSetting('performanceMode');
+    this._performanceModeEnabled.value = this.settingsService.getSetting('performanceMode');
   }
 
   _bindVisibility(): void {

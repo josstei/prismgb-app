@@ -2,13 +2,12 @@
  * Window Factory
  *
  * Creates mock Electron BrowserWindow, Tray, and window-service instances for testing.
- * Extracted from tests/factories/index.js as part of the factory-split refactor.
  */
 
 import { vi } from 'vitest';
 
 /**
- * @typedef {import('@main/infrastructure/window.service').WindowService} WindowService
+ * @typedef {import('@main/infrastructure/window/window.service').WindowService} WindowService
  */
 
 /**
@@ -95,4 +94,3 @@ export function createWindowServiceElectronMock(overrides = {}) {
     }
   };
 }
-

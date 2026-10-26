@@ -11,6 +11,10 @@ This guide covers building PrismGB from source and local development setup.
   - **macOS:** `brew install libusb` (Xcode Command Line Tools required)
   - **Windows:** No additional dependencies required
 
+The real media-output tests require FFprobe. On Linux ARM64, install it with
+`sudo apt-get install ffmpeg`, since `ffprobe-static` does not include that architecture.
+The tests use the application's binary resolver, including `FFPROBE_PATH` and system-path fallbacks.
+
 ## Getting Started
 
 ```bash
@@ -41,11 +45,13 @@ npm run dev
 | `npm run preview` | Preview the renderer build |
 | `npm run start` | Launch Electron from `dist/` output |
 | `npm run build` | Build and package for current platform |
-| `npm run build:vite` | Build renderer bundle only |
+| `npm run build:vite` | Build main, preload, and renderer bundles without packaging |
 | `npm run build:win` | Build for Windows |
 | `npm run build:mac` | Build for macOS |
 | `npm run build:linux` | Build for Linux |
-| `npm run lint` | ESLint + architecture boundary checks (JS/TS import boundaries) |
+| `npm run lint` | Generated-config freshness, ESLint, and architecture boundary checks |
+| `npm run generate:paths` | Regenerate TypeScript aliases after changing the platform registry |
+| `npm run lint:dead-code` | Check files, exports, types, and dependencies in full and production graphs |
 | `npm run lint:fix` | Auto-fix linting issues + boundary checks |
 | `npm run typecheck:app` | Typecheck app sources using `tsconfig.app.json` |
 | `npm run typecheck` | Run `typecheck:app` + `typecheck:tests` |
@@ -58,6 +64,8 @@ npm run dev
 | `npm run test:coverage` | Run tests with coverage report |
 | `npm run test:smoke` | Run smoke test against built app |
 | `npm run generate-icons` | Regenerate app icons |
+| `npm run clean:generated` | Remove test reports, caches, and generated E2E fixtures |
+| `npm run clean:build` | Remove application bundles and packaged output |
 
 ## Building for Distribution
 
@@ -82,9 +90,13 @@ Build artifacts are output to the `release/` directory.
 - `dist/` contains the renderer, main, and preload bundles.
 - `release/` contains packaged application artifacts.
 
+Use `npm run clean:generated -- --dry-run` to inspect disposable test output before
+removing it. Build output is cleaned separately with `npm run clean:build`.
+Both commands preserve source files and committed generated configuration.
+
 ## Smoke Test
 
-Run after a local build to validate startup behavior:
+Run after a packaged local build to validate actual main/preload/renderer startup and clean shutdown using an isolated temporary profile:
 
 ```bash
 npm run build

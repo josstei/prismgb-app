@@ -1,80 +1,75 @@
 import type { LoggerFactoryLike, LoggerLike } from '@platform/core';
-import type { StatusNotificationComponent } from '@renderer/presentation/shared/status-notification.component.js';
-import type { DeviceStatusComponent } from '@renderer/presentation/shared/device-status.component.js';
-import type { StreamingControlsComponent } from '@renderer/presentation/features/streaming/streaming-controls.component.js';
-import type { TranscodeToastComponent } from '@renderer/presentation/features/transcode/transcode-toast.component.js';
-import type { SettingsMenuComponent } from '@renderer/presentation/features/settings/settings-menu.component.js';
-import type { ShaderSelectorComponent } from '@renderer/presentation/features/toolbar/shader-selector.component.js';
-import type { NotesPanelComponent } from '@renderer/presentation/features/notes/notes-panel.component.js';
-
-export interface RendererUiComponentInstanceMap {
-  statusNotificationComponent: StatusNotificationComponent;
-  deviceStatusComponent: DeviceStatusComponent;
-  streamControlsComponent: StreamingControlsComponent;
-  transcodeToastComponent: TranscodeToastComponent;
-  settingsMenuComponent: SettingsMenuComponent;
-  shaderSelectorComponent: ShaderSelectorComponent;
-  notesPanelComponent: NotesPanelComponent;
-}
-
-export type UiComponentTokenResolver = <TInstance>(token: unknown) => TInstance;
-
-type UiComponentTokenMap<TComponentMap> = Readonly<Record<keyof TComponentMap, unknown>>;
+type UiComponentRegistry<TComponentMap> = {
+  readonly [TId in keyof TComponentMap]: {
+    readonly deferred: boolean;
+    create(own: (component: TComponentMap[TId]) => TComponentMap[TId]): TComponentMap[TId];
+  };
+};
 
 interface DisposableComponent {
   dispose(): void | Promise<void>;
 }
 
-function hasDisposer(component: unknown): component is DisposableComponent {
-  return (
-    typeof component === 'object' &&
-    component !== null &&
-    typeof (component as DisposableComponent).dispose === 'function'
-  );
-}
-
 /**
- * Lazily resolves and caches UI components by id through an injected,
- * framework-agnostic resolver, tracking resolution order so `dispose()` can
+ * Lazily creates and caches UI components from typed factories, tracking resolution order so `dispose()` can
  * unwind components in the reverse order they were constructed.
  */
-export class UiComponentHost<TComponentMap extends object> {
+export class UiComponentHost<TComponentMap extends { [TId in keyof TComponentMap]: DisposableComponent }> {
   private readonly _resolved = new Map<keyof TComponentMap, TComponentMap[keyof TComponentMap]>();
   private readonly _resolutionOrder: (keyof TComponentMap)[] = [];
   private readonly _logger: LoggerLike | undefined;
+  private disposal: Promise<void> | null = null;
 
   constructor(
-    private readonly _resolve: UiComponentTokenResolver,
-    private readonly _coreTokens: Partial<UiComponentTokenMap<TComponentMap>>,
-    private readonly _allTokens: UiComponentTokenMap<TComponentMap>,
+    private readonly registry: UiComponentRegistry<TComponentMap>,
     loggerFactory?: LoggerFactoryLike | null
   ) {
     this._logger = loggerFactory?.create('UiComponentHost');
   }
 
   get<TId extends keyof TComponentMap>(id: TId): TComponentMap[TId] {
+    if (this.disposal) throw new Error('UI component host has been disposed');
     if (!this._resolved.has(id)) {
-      this._resolved.set(id, this._resolve<TComponentMap[TId]>(this._allTokens[id]));
-      this._resolutionOrder.push(id);
+      // A factory can establish ownership before mounting so partial initialization rolls back.
+      const own = (component: TComponentMap[TId]): TComponentMap[TId] => {
+        if (!this._resolved.has(id)) {
+          this._resolved.set(id, component);
+          this._resolutionOrder.push(id);
+        }
+        return component;
+      };
+      own(this.registry[id].create(own));
     }
     return this._resolved.get(id) as TComponentMap[TId];
   }
 
   touchCore(): void {
-    (Object.keys(this._coreTokens) as (keyof TComponentMap)[]).forEach((id) => this.get(id));
+    this.touchPhase(false);
   }
 
-  resolvedIds(): readonly string[] {
-    return this._resolutionOrder.map(String);
+  touchDeferred(): void {
+    this.touchPhase(true);
   }
 
-  async dispose(): Promise<void> {
+  private touchPhase(deferred: boolean): void {
+    for (const id of Object.keys(this.registry) as (keyof TComponentMap)[]) {
+      if (this.registry[id].deferred === deferred) this.get(id);
+    }
+  }
+
+  dispose(): Promise<void> {
+    return this.disposal ??= this.disposeComponents();
+  }
+
+  private async disposeComponents(): Promise<void> {
+    const errors: unknown[] = [];
     for (const id of [...this._resolutionOrder].reverse()) {
       const component = this._resolved.get(id);
-      if (hasDisposer(component)) {
+      if (component) {
         try {
           await component.dispose();
         } catch (error) {
+          errors.push(error);
           this._logger?.error(`Error disposing component: ${String(id)}`, error);
         }
       }
@@ -82,5 +77,6 @@ export class UiComponentHost<TComponentMap extends object> {
 
     this._resolved.clear();
     this._resolutionOrder.length = 0;
+    if (errors.length > 0) throw new AggregateError(errors, 'UI component disposal failed');
   }
 }

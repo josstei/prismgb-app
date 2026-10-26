@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
+import { createMediaRecorderMock } from '../../../factories/capture.factory.js';
 import { createCleanupStack, installTargetProperty } from '../runtime-property.installers.js';
-import { installProperty } from './install-property.helper.js';
 
 /**
  * Canonical mediaDevices installer with media stream helpers.
@@ -13,7 +13,6 @@ export function installMediaMocks(options = {}) {
     stream = { getTracks: () => [] },
     enumerateDevices,
     getUserMedia,
-    getSupportedConstraints,
     addEventListener,
     removeEventListener,
   } = options;
@@ -36,12 +35,6 @@ export function installMediaMocks(options = {}) {
       }
       return undefined;
     }),
-    getSupportedConstraints: vi.fn(() => {
-      if (typeof getSupportedConstraints === 'function') {
-        return getSupportedConstraints();
-      }
-      return getSupportedConstraints ?? {};
-    }),
     removeEventListener: vi.fn((event, listener) => {
       if (event === 'devicechange') {
         const idx = deviceChangeListeners.indexOf(listener);
@@ -54,7 +47,6 @@ export function installMediaMocks(options = {}) {
       }
       return undefined;
     }),
-    _deviceChangeListeners: deviceChangeListeners,
   };
 
   const mockMediaDevices = {
@@ -84,184 +76,35 @@ export function installMediaMocks(options = {}) {
     stack.add(() => mediaDevicesStack.cleanup());
   }
 
-  const NavigatorMediaStream = class {
-    constructor(tracks = []) {
-      this.id = `mock-stream-${Math.random().toString(16).slice(2)}`;
-      this._tracks = tracks;
-      this.active = true;
-    }
-
-    getTracks() {
-      return this._tracks;
-    }
-
-    getVideoTracks() {
-      return this._tracks.filter((track) => track.kind === 'video');
-    }
-
-    getAudioTracks() {
-      return this._tracks.filter((track) => track.kind === 'audio');
-    }
-
-    addTrack(track) {
-      this._tracks.push(track);
-    }
-
-    removeTrack(track) {
-      const index = this._tracks.indexOf(track);
-      if (index > -1) {
-        this._tracks.splice(index, 1);
-      }
-    }
-  };
-
-  const NavigatorMediaStreamTrack = class {
-    constructor(kind = 'video') {
-      this.id = `mock-track-${Math.random().toString(16).slice(2)}`;
-      this.kind = kind;
-      this.readyState = 'live';
-      this.enabled = true;
-      this.muted = false;
-      this._settings = {};
-      this._capabilities = {};
-    }
-
-    getSettings() {
-      return this._settings;
-    }
-
-    getCapabilities() {
-      return this._capabilities;
-    }
-
-    applyConstraints() {
-      return Promise.resolve();
-    }
-
-    stop() {
-      this.readyState = 'ended';
-    }
-
-    clone() {
-      const cloned = new NavigatorMediaStreamTrack(this.kind);
-      cloned._settings = { ...this._settings };
-      cloned._capabilities = { ...this._capabilities };
-      return cloned;
-    }
-  };
-
-  const mediaStreamStack = installProperty(globalThis, 'MediaStream', NavigatorMediaStream);
-  const mediaStreamTrackStack = installProperty(globalThis, 'MediaStreamTrack', NavigatorMediaStreamTrack);
-  stack.add(() => {
-    mediaStreamStack.cleanup();
-    mediaStreamTrackStack.cleanup();
-  });
 
   return {
     ...stack,
     mediaDevices: installedMediaDevices,
-    NavigatorMediaStream,
-    NavigatorMediaStreamTrack,
   };
 }
 
 /**
  * Canonical MediaRecorder installer for recording-service tests.
  */
-export function installMediaRecorderMock(options = {}) {
-  const isTypeSupported = options.isTypeSupported ?? vi.fn(() => true);
-  const MockMediaRecorder = options.MediaRecorderClass ?? class MockMediaRecorder {
-    static isTypeSupported = isTypeSupported;
+export function installMediaRecorderMock() {
+  class MockMediaRecorder {
+    static isTypeSupported = vi.fn(() => true);
 
-    constructor(stream, recorderOptions) {
-      this.stream = stream;
-      this.options = recorderOptions;
-      this.state = 'inactive';
-      this._listeners = {};
-      this._ondataavailable = null;
-      this._onerror = null;
-      this._onstop = null;
-
-      this.addEventListener = vi.fn((event, cb) => {
-        if (!this._listeners[event]) this._listeners[event] = [];
-        this._listeners[event].push(cb);
-      });
-
-      this.removeEventListener = vi.fn((event, cb) => {
-        if (this._listeners[event]) {
-          this._listeners[event] = this._listeners[event].filter(l => l !== cb);
-        }
-      });
-
-      this.dispatchEvent = vi.fn((eventObj) => {
-        const type = eventObj.type;
-        const listeners = this._listeners[type] || [];
-        listeners.forEach(l => l(eventObj));
-      });
-
-      Object.defineProperty(this, 'ondataavailable', {
-        get() {
-          return (event) => {
-            const list = this._listeners['dataavailable'] || [];
-            list.forEach(l => l(event));
-            if (this._ondataavailable) this._ondataavailable(event);
-          };
-        },
-        set(cb) {
-          this._ondataavailable = cb;
-        },
-        configurable: true
-      });
-
-      Object.defineProperty(this, 'onerror', {
-        get() {
-          return (event) => {
-            const list = this._listeners['error'] || [];
-            list.forEach(l => l(event));
-            if (this._onerror) this._onerror(event);
-          };
-        },
-        set(cb) {
-          this._onerror = cb;
-        },
-        configurable: true
-      });
-
-      Object.defineProperty(this, 'onstop', {
-        get() {
-          return (event) => {
-            const list = this._listeners['stop'] || [];
-            list.forEach(l => l(event));
-            if (this._onstop) this._onstop(event);
-          };
-        },
-        set(cb) {
-          this._onstop = cb;
-        },
-        configurable: true
-      });
-
-      this.start = vi.fn(() => {
-        this.state = 'recording';
-      });
-      this.stop = vi.fn(() => {
+    constructor(stream, options) {
+      Object.defineProperties(this, Object.getOwnPropertyDescriptors(
+        createMediaRecorderMock({ stream, options, state: 'inactive' })
+      ));
+      this.start.mockImplementation(() => { this.state = 'recording'; });
+      this.stop.mockImplementation(() => {
         this.state = 'inactive';
         this.dispatchEvent({ type: 'stop' });
       });
-      this.requestData = vi.fn();
     }
-  };
-
-  if (!MockMediaRecorder.isTypeSupported) {
-    MockMediaRecorder.isTypeSupported = isTypeSupported;
   }
-
-  const stack = installProperty(globalThis, 'MediaRecorder', MockMediaRecorder);
-
   return {
-    ...stack,
+    ...installTargetProperty(globalThis, 'MediaRecorder', MockMediaRecorder),
     MediaRecorder: MockMediaRecorder,
-    isTypeSupported: MockMediaRecorder.isTypeSupported,
+    isTypeSupported: MockMediaRecorder.isTypeSupported
   };
 }
 

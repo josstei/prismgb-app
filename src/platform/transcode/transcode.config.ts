@@ -1,5 +1,3 @@
-import type { TranscodeFormat } from '@platform/ipc';
-
 type TranscodeFormatConfig = Readonly<{
   extension: string;
   mimeType: string;
@@ -45,19 +43,13 @@ const FORMAT_MOV: TranscodeFormatConfig = Object.freeze({
   ]
 });
 
-export const TranscodeState = Object.freeze({
-  IDLE: 'idle',
-  TRANSCODING: 'transcoding',
-  COMPLETED: 'completed',
-  CANCELLED: 'cancelled',
-  ERROR: 'error'
-} as const);
-
-const TRANSCODE_FORMATS: Readonly<Record<TranscodeFormat, TranscodeFormatConfig>> = Object.freeze({
+const TRANSCODE_FORMATS = Object.freeze({
   webm: FORMAT_WEBM,
   mp4: FORMAT_MP4,
   mov: FORMAT_MOV
 });
+
+export type TranscodeFormat = keyof typeof TRANSCODE_FORMATS;
 
 export const TRANSCODE_CONFIG = Object.freeze({
   formats: TRANSCODE_FORMATS,

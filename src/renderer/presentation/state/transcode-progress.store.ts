@@ -1,8 +1,8 @@
 import { signal, computed, type ReadonlySignal } from '@platform/ui-base/reactive';
-import { EventChannels } from '@platform/events';
-import type { EventBusLike } from '@platform/core';
-import { ReactiveStore } from './reactive-store.base.js';
+import { EventChannels, type EventPayloadMap, type TypedEventBusLike } from '@platform/events';
+import { ManagedLifecycleHost } from '@platform/core';
 
+const HIDE_TIMER = Symbol('transcodeToastHide');
 const SUCCESS_HIDE_DELAY_MS = 1200;
 const ERROR_HIDE_DELAY_MS = 2000;
 const SUCCESS_LABEL = '✓';
@@ -11,7 +11,7 @@ const ERROR_LABEL = '✗';
 export type TranscodePhase = 'idle' | 'transcoding' | 'success' | 'error';
 
 export interface TranscodeProgressStoreDependencies {
-  eventBus: EventBusLike;
+  eventBus: Pick<TypedEventBusLike, 'subscribe'>;
 }
 
 /**
@@ -19,13 +19,10 @@ export interface TranscodeProgressStoreDependencies {
  * drives phase/progress/label signals, including the timed auto-hide after success/error.
  * The component binds to the exposed signals; no imperative DOM writes live here.
  */
-export class TranscodeProgressStore extends ReactiveStore {
+export class TranscodeProgressStore extends ManagedLifecycleHost {
   private readonly _phase = signal<TranscodePhase>('idle');
   private readonly _progress = signal(0);
   private readonly _label = signal('');
-
-  private _hideTimer: ReturnType<typeof setTimeout> | null = null;
-  private _disposed = false;
 
   readonly transcoding = computed(() => this._phase.value === 'transcoding');
   readonly succeeded = computed(() => this._phase.value === 'success');
@@ -37,7 +34,7 @@ export class TranscodeProgressStore extends ReactiveStore {
 
     const bus = this.dependencies.eventBus;
     this.track(bus.subscribe(EventChannels.TRANSCODE.STARTED, () => this.start()));
-    this.track(bus.subscribe(EventChannels.TRANSCODE.PROGRESS, (payload: unknown) => this.advance(payload)));
+    this.track(bus.subscribe(EventChannels.TRANSCODE.PROGRESS, (payload) => this.advance(payload)));
     this.track(bus.subscribe(EventChannels.TRANSCODE.COMPLETED, () => this.complete()));
     this.track(bus.subscribe(EventChannels.TRANSCODE.ERROR, () => this.fail()));
     this.track(bus.subscribe(EventChannels.TRANSCODE.CANCELLED, () => this.hide()));
@@ -62,13 +59,10 @@ export class TranscodeProgressStore extends ReactiveStore {
     this._label.value = '';
   }
 
-  private advance(payload: unknown): void {
+  private advance(payload: EventPayloadMap[typeof EventChannels.TRANSCODE.PROGRESS]): void {
     if (this._phase.value !== 'transcoding') return;
-    const percent =
-      typeof payload === 'object' && payload !== null
-        ? (payload as { percent?: number }).percent ?? -1
-        : -1;
-    if (percent <= 0) return;
+    const percent = payload?.percent ?? -1;
+    if (!Number.isFinite(percent) || percent <= 0) return;
     const clamped = Math.min(100, Math.max(0, Math.round(percent)));
     this._progress.value = clamped;
     this._label.value = `${clamped}%`;
@@ -94,24 +88,10 @@ export class TranscodeProgressStore extends ReactiveStore {
   }
 
   private scheduleHide(delayMs: number): void {
-    this.clearHideTimer();
-    this._hideTimer = setTimeout(() => {
-      this._hideTimer = null;
-      if (this._disposed) return;
-      this.hide();
-    }, delayMs);
+    this.schedule(HIDE_TIMER, () => this.hide(), delayMs);
   }
 
   private clearHideTimer(): void {
-    if (this._hideTimer !== null) {
-      clearTimeout(this._hideTimer);
-      this._hideTimer = null;
-    }
-  }
-
-  override dispose(): void | Promise<void> {
-    this._disposed = true;
-    this.clearHideTimer();
-    return super.dispose();
+    this.cancelManaged(HIDE_TIMER);
   }
 }

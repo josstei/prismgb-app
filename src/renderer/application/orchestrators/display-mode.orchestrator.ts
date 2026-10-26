@@ -1,8 +1,9 @@
-import { injectable, inject } from 'inversify';
+import type { SettingsAccess } from '@renderer/lib/settings.definitions.js';
+
 import { BaseOrchestrator } from '@platform/core';
-import { EventChannels, OnEvent } from '@platform/events';
-import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import { EventChannels, OnEvent, type TypedEventBusLike } from '@platform/events';
+import type { LoggerFactoryLike } from '@platform/core';
+import type { AppState } from '../state/app-state';
 
 type FullscreenServiceLike = {
   initialize(): void;
@@ -10,65 +11,61 @@ type FullscreenServiceLike = {
   dispose(): void | Promise<void>;
 };
 
-type CinematicModeServiceLike = {
-  initialize(): void;
-  dispose(): void | Promise<void>;
-};
-
-type SettingsServiceLike = {
-  getBooleanSetting(name: string): boolean;
-};
+type SettingsServiceLike = Pick<SettingsAccess, 'getSetting'>;
 
 const STARTUP_VISIBILITY_LIFECYCLE = Symbol('settingsDisplayModeStartupVisibilityLifecycle');
 
-@injectable()
+type SettingsDisplayModeOrchestratorDependencies = {
+  fullscreenService: FullscreenServiceLike;
+  appState: Pick<AppState, 'isCinematicModeEnabled' | 'setCinematicMode'>;
+  settingsService: SettingsServiceLike;
+  eventBus: TypedEventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 export class SettingsDisplayModeOrchestrator extends BaseOrchestrator {
-  constructor(
-    @inject(TOKENS.fullscreenService) private readonly fullscreenService: FullscreenServiceLike,
-    @inject(TOKENS.cinematicModeService) private readonly cinematicModeService: CinematicModeServiceLike,
-    @inject(TOKENS.settingsService) private readonly settingsService: SettingsServiceLike,
-    @inject(TOKENS.eventBus) eventBus: EventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
-    super({ loggerFactory, eventBus }, 'SettingsDisplayModeOrchestrator');
+  constructor(private readonly dependencies: SettingsDisplayModeOrchestratorDependencies) {
+    super(dependencies, 'SettingsDisplayModeOrchestrator');
   }
 
   /**
    * Initialize the orchestrator - setup fullscreen listeners
    */
   async onInitialize(): Promise<void> {
-    this.fullscreenService.initialize();
-    this.cinematicModeService.initialize();
+    this.dependencies.fullscreenService.initialize();
+  }
+
+  @OnEvent(EventChannels.UI.CINEMATIC_TOGGLE_REQUESTED)
+  private toggleCinematicMode(): void {
+    const { appState, eventBus } = this.dependencies;
+    const enabled = !appState.isCinematicModeEnabled;
+    appState.setCinematicMode(enabled);
+    eventBus.publish(EventChannels.SETTINGS.CINEMATIC_MODE_CHANGED, { enabled });
   }
 
   @OnEvent(EventChannels.SETTINGS.PREFERENCES_LOADED)
   _applyStartupBehaviors(): void {
-    this._clearStartupVisibilityListener();
+    this.cancelManaged(STARTUP_VISIBILITY_LIFECYCLE);
 
-    if (this.settingsService.getBooleanSetting('fullscreenOnStartup')) {
+    if (this.dependencies.settingsService.getSetting('fullscreenOnStartup')) {
       if (document.hidden) {
         const onVisible = () => {
           if (document.hidden) {
             return;
           }
 
-          this._clearStartupVisibilityListener();
-          this.fullscreenService.enterFullscreen();
+          this.cancelManaged(STARTUP_VISIBILITY_LIFECYCLE);
+          this.dependencies.fullscreenService.enterFullscreen();
         };
         this.replaceManaged(STARTUP_VISIBILITY_LIFECYCLE, this.listen(document, 'visibilitychange', onVisible));
       } else {
-        this.fullscreenService.enterFullscreen();
+        this.dependencies.fullscreenService.enterFullscreen();
       }
     }
   }
 
-  _clearStartupVisibilityListener(): void {
-    this.cancelManaged(STARTUP_VISIBILITY_LIFECYCLE);
-  }
-
   async onCleanup(): Promise<void> {
-    this._clearStartupVisibilityListener();
-    await this.fullscreenService.dispose();
-    await this.cinematicModeService.dispose();
+    this.cancelManaged(STARTUP_VISIBILITY_LIFECYCLE);
+    await this.dependencies.fullscreenService.dispose();
   }
 }

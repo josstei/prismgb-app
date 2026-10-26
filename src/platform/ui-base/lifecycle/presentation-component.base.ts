@@ -1,12 +1,9 @@
 import {
   ManagedLifecycleHost,
-  type Disposable,
-  type DisposableBag,
   type DisposableFunction,
   type DisposableKey,
   type EventTargetLike
 } from '@platform/core';
-import { applyOptions as assignOptions } from './apply-options.utils.js';
 
 
 export type PresentationLifecycleToken = {
@@ -14,9 +11,7 @@ export type PresentationLifecycleToken = {
   dispose(): void | Promise<void>;
 };
 
-export class PresentationComponent {
-  private readonly _lifecycle = new ManagedLifecycleHost();
-  readonly disposables: DisposableBag = this._lifecycle.disposables;
+export class PresentationComponent extends ManagedLifecycleHost {
 
   protected listen(
     target: EventTargetLike | null,
@@ -30,34 +25,10 @@ export class PresentationComponent {
 
     if (options === undefined) {
       target.addEventListener(type, handler);
-      return this._lifecycle.track(() => target.removeEventListener(type, handler));
+      return this.track(() => target.removeEventListener(type, handler));
     }
 
-    return this._lifecycle.subscribeEvent(target, type, handler, options);
-  }
-
-  protected timeout(handler: () => void, delay: number, ...args: unknown[]): DisposableFunction {
-    return this._lifecycle.timeout<unknown[]>(handler, delay, ...args);
-  }
-
-  protected observe(observer: { disconnect(): void }): DisposableFunction {
-    return this._lifecycle.observe(observer);
-  }
-
-  protected track(disposable: Disposable): DisposableFunction {
-    return this._lifecycle.track(disposable);
-  }
-
-  protected replaceManaged(key: DisposableKey, disposable: Disposable): DisposableFunction {
-    return this._lifecycle.replaceManaged(key, disposable);
-  }
-
-  protected cancelManaged(key: DisposableKey): void | Promise<void> {
-    return this._lifecycle.cancelManaged(key);
-  }
-
-  protected replaceManagedGroup(key: DisposableKey, disposables: readonly Disposable[]): DisposableFunction {
-    return this._lifecycle.replaceManagedGroup(key, disposables);
+    return this.subscribeEvent(target, type, handler, options);
   }
 
   protected createLifecycleToken(key: DisposableKey): PresentationLifecycleToken {
@@ -78,7 +49,7 @@ export class PresentationComponent {
     delay: number,
     ...args: unknown[]
   ): DisposableFunction {
-    return this._lifecycle.schedule(key, handler, delay, ...args);
+    return this.schedule(key, handler, delay, ...args);
   }
 
   protected replaceAnimationFrame(key: DisposableKey, handler: FrameRequestCallback): DisposableFunction {
@@ -109,13 +80,12 @@ export class PresentationComponent {
     });
   }
 
-  protected applyOptions<TOptions extends object>(defaults: Partial<TOptions>, options: TOptions): void {
-    assignOptions(this, defaults, options);
-  }
-
   protected onDisposeError(_error: unknown): void {}
 
-  dispose(): void | Promise<void> {
-    return this._lifecycle.dispose().catch((error) => this.onDisposeError(error));
+  override dispose(): void | Promise<void> {
+    return this.disposables.clear().catch((error) => {
+      this.onDisposeError(error);
+      throw error;
+    });
   }
 }

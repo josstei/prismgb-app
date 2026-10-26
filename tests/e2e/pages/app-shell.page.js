@@ -50,45 +50,11 @@ export class AppShellPage {
   async waitForReady(options = {}) {
     const { timeout = 40000 } = options;
 
-    await this.page.waitForSelector(AppSelectors.streamContainer, { timeout, state: 'visible' });
-    await this.page.waitForSelector(AppSelectors.statusIndicator, { timeout, state: 'attached' });
-    await this.page.waitForSelector(AppSelectors.settingsButton, { timeout, state: 'attached' });
-    await this.page.waitForSelector(AppSelectors.header, { timeout, state: 'visible' });
-    await this.page.waitForFunction(
-      () => document.body.dataset.prismgbAppStarted === 'true',
-      undefined,
-      { timeout }
-    );
-    await this.page.waitForFunction(
-      () => {
-        const btn = document.getElementById('settingsBtn');
-        return btn && btn.hasAttribute('aria-expanded');
-      },
-      undefined,
-      { timeout }
-    );
+    await expect(this.page.locator('body')).toHaveAttribute('data-prismgb-app-started', 'true', { timeout });
   }
 
   async expectSettingsExpanded(expanded) {
     await expect(this.settingsButton).toHaveAttribute('aria-expanded', String(expanded));
   }
 
-  async isFullscreen() {
-    return this.page.evaluate(() => document.fullscreenElement !== null);
-  }
-
-  async toggleFullscreenButton() {
-    await this.fullscreenButton.click({ force: true });
-    await this.page.waitForTimeout(500);
-  }
-
-  async pressEscape() {
-    await this.page.keyboard.press('Escape');
-    await this.page.waitForTimeout(500);
-  }
-
-  async pressF11() {
-    await this.page.keyboard.press('F11');
-    await this.page.waitForTimeout(500);
-  }
 }

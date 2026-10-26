@@ -2,7 +2,7 @@ import { getErrorMessage, type LoggerLike, type StorageServiceLike } from '@plat
 
 export interface BrowserStorageAdapterOptions {
   logger?: LoggerLike;
-  protectedKeys?: string[];
+  protectedKeys?: readonly string[];
 }
 
 function isStorageQuotaError(error: unknown): boolean {
@@ -22,7 +22,7 @@ function isStorageQuotaError(error: unknown): boolean {
  */
 export class BrowserStorageAdapter implements StorageServiceLike {
   private readonly logger: LoggerLike;
-  private readonly protectedKeys: string[];
+  private readonly protectedKeys: readonly string[];
 
   constructor(options: BrowserStorageAdapterOptions = {}) {
     this.logger = options.logger || console;

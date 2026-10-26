@@ -24,26 +24,22 @@ export interface NotesResizeHandlerComponentOptions {
 
 export interface NotesResizeHandlerInitializeOptions {
   listToggle?: HTMLElement | null;
-  panelElement?: HTMLElement | null;
   panelContent?: HTMLElement | null;
   listWrapper?: HTMLElement | null;
-  onToggle?: ((isVisible: boolean) => void) | null;
 }
 
 class NotesResizeHandlerComponent extends PresentationComponent {
-  declare logger: LoggerLike | null | undefined;
-  declare isListVisible: boolean;
-  declare _isDragging: boolean;
-  declare _dragStartX: number;
-  declare _dragStartWidth: number;
-  declare _customListWidth: number;
-  declare _dragFramePending: boolean;
-  declare _dragBodyStyleSnapshot: BodyStyleSnapshot | null;
-  declare listToggle: HTMLElement | null | undefined;
-  declare panelElement: HTMLElement | null | undefined;
-  declare _contentElement: HTMLElement | null;
-  declare _listWrapperElement: HTMLElement | null;
-  declare onToggle: ((isVisible: boolean) => void) | null | undefined;
+  logger: LoggerLike | null | undefined;
+  isListVisible: boolean;
+  _isDragging: boolean;
+  _dragStartX: number;
+  _dragStartWidth: number;
+  _customListWidth: number;
+  _dragFramePending: boolean;
+  _dragBodyStyleSnapshot: BodyStyleSnapshot | null;
+  listToggle: HTMLElement | null | undefined;
+  _contentElement: HTMLElement | null;
+  _listWrapperElement: HTMLElement | null;
 
   constructor({ logger }: NotesResizeHandlerComponentOptions) {
     super();
@@ -56,20 +52,17 @@ class NotesResizeHandlerComponent extends PresentationComponent {
     this._dragFramePending = false;
     this._dragBodyStyleSnapshot = null;
     this.listToggle = null;
-    this.panelElement = null;
     this._contentElement = null;
     this._listWrapperElement = null;
   }
 
-  initialize({ listToggle, panelElement, panelContent, listWrapper, onToggle }: NotesResizeHandlerInitializeOptions): void {
+  initialize({ listToggle, panelContent, listWrapper }: NotesResizeHandlerInitializeOptions): void {
     this.cancelManaged(LIST_TOGGLE_SETUP_LIFECYCLE);
     this._cleanupDragListeners();
     this._cancelDragFrame();
     this._cleanupDragVisualState();
     this._isDragging = false;
     this.listToggle = listToggle;
-    this.panelElement = panelElement;
-    this.onToggle = onToggle;
     this._contentElement = panelContent || null;
     this._listWrapperElement = listWrapper || null;
 
@@ -79,19 +72,6 @@ class NotesResizeHandlerComponent extends PresentationComponent {
     }
 
     this._setupListToggle();
-  }
-
-  isVisible(): boolean {
-    return this.isListVisible;
-  }
-
-  setListWidth(width: number): void {
-    this._customListWidth = width;
-    this._setListWidth(width);
-  }
-
-  getListWidth(): number {
-    return this._getListWidth();
   }
 
   _setupListToggle(): void {
@@ -182,7 +162,6 @@ class NotesResizeHandlerComponent extends PresentationComponent {
       this.listToggle?.setAttribute('aria-expanded', 'false');
     }
 
-    this.onToggle?.(this.isListVisible);
   }
 
   _getListWidth(): number {
@@ -236,10 +215,8 @@ class NotesResizeHandlerComponent extends PresentationComponent {
     this._dragBodyStyleSnapshot = null;
     const disposed = super.dispose();
     this.listToggle = null;
-    this.panelElement = null;
     this._contentElement = null;
     this._listWrapperElement = null;
-    this.onToggle = null;
     this.logger = null;
     this.isListVisible = true;
     this._customListWidth = LIST_WIDTH_DEFAULT;

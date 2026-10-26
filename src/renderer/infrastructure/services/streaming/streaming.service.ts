@@ -12,7 +12,6 @@
  * - 'stream:error' - Stream error occurred
  */
 
-import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import { getErrorMessage } from '@platform/core';
@@ -28,7 +27,6 @@ import type {
   DeviceStreamCapabilities
 } from './device-media-acquirer.service.js';
 import type { DeviceStreamingTarget } from '../devices/device-runtime.service.js';
-import { TOKENS } from '@renderer/application/di/tokens.js';
 
 const StreamState = {
   IDLE: 'idle',
@@ -57,7 +55,7 @@ type StreamStartResult = {
 type StreamOperationPromise = Promise<StreamStartResult | void>;
 
 type RendererDeviceRuntimeLike = {
-  resolveStreamingTarget(deviceId?: string | null): Promise<DeviceStreamingTarget>;
+  resolveStreamingTarget(deviceId?: string | null, signal?: AbortSignal): Promise<DeviceStreamingTarget>;
 };
 
 function toSettingsPayload(
@@ -72,23 +70,33 @@ function toSettingsPayload(
   );
 }
 
-@injectable()
+type StreamingServiceDependencies = {
+  rendererDeviceRuntime: RendererDeviceRuntimeLike;
+  deviceMediaAcquirer: Pick<DeviceMediaAcquirer, 'acquire' | 'release'>;
+  eventBus: TypedEventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 export class StreamingService extends BaseService {
   private readonly _trackMonitor: StreamTrackMonitor;
 
   private _state: StreamLifecycleState;
   private _operationPromise: StreamOperationPromise | null;
+  private startAbort: AbortController | null = null;
+  private closed = false;
   currentStream: MediaStream | null;
   currentDevice: MediaDeviceInfo | null;
   currentCapabilities: DeviceStreamCapabilities | null;
 
-  constructor(
-    @inject(TOKENS.rendererDeviceRuntime) private readonly rendererDeviceRuntime: RendererDeviceRuntimeLike,
-    @inject(TOKENS.deviceMediaAcquirer) private readonly deviceMediaAcquirer: DeviceMediaAcquirer,
-    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly rendererDeviceRuntime: RendererDeviceRuntimeLike;
+  private readonly deviceMediaAcquirer: Pick<DeviceMediaAcquirer, 'acquire' | 'release'>;
+  private readonly eventBus: TypedEventBusLike;
+
+  constructor({ rendererDeviceRuntime, deviceMediaAcquirer, eventBus, loggerFactory }: StreamingServiceDependencies) {
     super({ loggerFactory, eventBus }, 'StreamingService');
+    this.rendererDeviceRuntime = rendererDeviceRuntime;
+    this.deviceMediaAcquirer = deviceMediaAcquirer;
+    this.eventBus = eventBus;
 
     this._trackMonitor = new StreamTrackMonitor(this.logger);
     // State machine
@@ -106,6 +114,7 @@ export class StreamingService extends BaseService {
   }
 
   async start(deviceId: string | null = null): Promise<StreamStartResult> {
+    if (this.closed) throw new DOMException('Streaming service has been disposed', 'AbortError');
     // If already starting, return the existing operation
     if (this._state === StreamState.STARTING && this._operationPromise) {
       this.logger.debug('Start already in progress, reusing promise');
@@ -116,11 +125,13 @@ export class StreamingService extends BaseService {
     if (this._state === StreamState.STOPPING && this._operationPromise) {
       this.logger.debug('Waiting for stop to complete before starting');
       await this._operationPromise;
+      return this.start(deviceId);
     }
 
     // If already streaming, stop first
     if (this._state === StreamState.STREAMING) {
       await this.stop();
+      return this.start(deviceId);
     }
 
     // Check if we can transition to starting
@@ -132,26 +143,38 @@ export class StreamingService extends BaseService {
     if (this._state === StreamState.ERROR) {
       await this._cleanupPartialState();
     }
+    if (this.closed) throw new DOMException('Streaming service has been disposed', 'AbortError');
 
     this._state = StreamState.STARTING;
-    this._operationPromise = this._performStart(deviceId);
+    const abort = new AbortController();
+    this.startAbort = abort;
+    const deferred = Promise.withResolvers<StreamStartResult>();
+    const cancel = () => deferred.reject(abort.signal.reason);
+    abort.signal.addEventListener('abort', cancel, { once: true });
+    const operation = deferred.promise.finally(() => abort.signal.removeEventListener('abort', cancel));
+    this._operationPromise = operation;
+    void this._performStart(deviceId, abort.signal).then(deferred.resolve, deferred.reject);
 
     try {
-      const result = await this._operationPromise as StreamStartResult;
-      this._state = StreamState.STREAMING;
-      return result;
+      return await operation;
     } catch (error) {
-      this._state = StreamState.ERROR;
+      if (this._operationPromise === operation) this._state = abort.signal.aborted ? StreamState.IDLE : StreamState.ERROR;
       throw error;
     } finally {
-      this._operationPromise = null;
+      if (this._operationPromise === operation) this._operationPromise = null;
+      if (this.startAbort === abort) this.startAbort = null;
     }
   }
 
-  private async _performStart(deviceId: string | null): Promise<StreamStartResult> {
+  private async _performStart(deviceId: string | null, signal: AbortSignal): Promise<StreamStartResult> {
     try {
-      const target = await this.rendererDeviceRuntime.resolveStreamingTarget(deviceId);
-      const acquisition = await this.deviceMediaAcquirer.acquire(target);
+      const target = await this.rendererDeviceRuntime.resolveStreamingTarget(deviceId, signal);
+      signal.throwIfAborted();
+      const acquisition = await this.deviceMediaAcquirer.acquire(target, signal);
+      if (signal.aborted) {
+        await this.deviceMediaAcquirer.release(acquisition.stream);
+        signal.throwIfAborted();
+      }
 
       this.currentStream = acquisition.stream;
       this.currentDevice = target.videoDevice;
@@ -168,6 +191,7 @@ export class StreamingService extends BaseService {
 
       this.logger.info('Stream started successfully');
 
+      this._state = StreamState.STREAMING;
       // Emit event
       this.eventBus.publish(EventChannels.STREAM.STARTED, {
         stream: this.currentStream,
@@ -185,6 +209,7 @@ export class StreamingService extends BaseService {
         strategy: acquisition.strategy
       };
     } catch (error) {
+      signal.throwIfAborted();
       this.logger.error('Failed to start stream:', error);
       this.eventBus.publish(EventChannels.STREAM.ERROR, {
         error,
@@ -203,34 +228,31 @@ export class StreamingService extends BaseService {
       return this._operationPromise as Promise<void>;
     }
 
-    // If starting, wait for it to complete first, then stop
-    if (this._state === StreamState.STARTING && this._operationPromise) {
-      this.logger.debug('Waiting for start to complete before stopping');
-      try {
-        await this._operationPromise;
-      } catch (error) {
-        this.logger.warn('Start operation failed during stop, continuing with cleanup:', getErrorMessage(error));
-      }
-    }
-
     // Nothing to stop if idle or already in error
     if (this._state === StreamState.IDLE) {
       this.logger.debug('Not streaming, nothing to stop');
       return;
     }
 
+    const pendingStart = this._state === StreamState.STARTING ? this._operationPromise : null;
+    if (pendingStart) this.startAbort?.abort();
     this._state = StreamState.STOPPING;
-    this._operationPromise = this._performStop();
+    const operation = Promise.resolve().then(async () => {
+      // Join logical cancellation, never an unresolved browser permission prompt.
+      if (pendingStart) await pendingStart.catch(() => undefined);
+      await this._performStop();
+    });
+    this._operationPromise = operation;
 
     try {
-      await this._operationPromise;
+      await operation;
       this._state = StreamState.IDLE;
     } catch (error) {
       // Even on error, move to idle (cleanup happened)
       this._state = StreamState.IDLE;
       throw error;
     } finally {
-      this._operationPromise = null;
+      if (this._operationPromise === operation) this._operationPromise = null;
     }
   }
 
@@ -331,6 +353,7 @@ export class StreamingService extends BaseService {
    * Called during application shutdown
    */
   async dispose(): Promise<void> {
+    this.closed = true;
     await this.stop();
     await super.dispose();
     this.logger.info('StreamingService disposed');

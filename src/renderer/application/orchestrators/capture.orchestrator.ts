@@ -1,22 +1,20 @@
-import { injectable, inject } from 'inversify';
+
 import { BaseOrchestrator } from '@platform/core';
 import { EventChannels, OnEvent } from '@platform/events';
 import type { LoggerFactoryLike } from '@platform/core';
 import type { RecordingErrorPayload, RecordingReadyPayload, TypedEventBusLike } from '@platform/events';
 import { getErrorMessage } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+
 import { isStreamingCapabilities } from '@renderer/infrastructure/services/streaming/streaming.contract.js';
 import type {
   GpuRecordingStartOptions
 } from '@renderer/infrastructure/services/streaming/streaming.contract.js';
 import type { AppState } from '@renderer/application/state/app-state.js';
 
-
 type CaptureSource = HTMLCanvasElement | HTMLVideoElement | ImageBitmap;
 
 type CaptureServiceLike = {
   isRecording: boolean;
-  getRecordingState(): boolean;
   takeScreenshot(source: CaptureSource): Promise<unknown>;
   startRecording(stream: MediaStream): Promise<void>;
   stopRecording(): Promise<void>;
@@ -34,8 +32,6 @@ type GpuRecordingServiceLike = {
   stop(): Promise<void>;
 };
 
-
-
 type TranscodeServiceLike = {
   isTranscoding(): boolean;
 };
@@ -43,7 +39,6 @@ type TranscodeServiceLike = {
 type SaveRecordingResult = {
   success?: boolean;
   transcoded?: boolean;
-  [key: string]: unknown;
 };
 
 type CaptureSaveServiceLike = {
@@ -54,28 +49,55 @@ type CaptureSaveServiceLike = {
   ): Promise<SaveRecordingResult>;
 };
 
-@injectable()
+type CaptureOrchestratorDependencies = {
+  captureService: CaptureServiceLike;
+  appState: AppStateLike;
+  streamViewService: StreamViewServiceLike;
+  streamingRenderService: Pick<import('@renderer/infrastructure/services/streaming/streaming.contract').GpuRendererServiceLike, 'isActive' | 'captureFrame'>;
+  gpuRecordingService: GpuRecordingServiceLike;
+  transcodeService: TranscodeServiceLike;
+  captureSaveService: CaptureSaveServiceLike;
+  eventBus: TypedEventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 export class CaptureOrchestrator extends BaseOrchestrator {
   private _recordingInterrupted: boolean;
+  private readonly screenshots = new Set<Promise<void>>();
+  private closing = false;
 
-  constructor(
-    @inject(TOKENS.captureService) private readonly captureService: CaptureServiceLike,
-    @inject(TOKENS.appState) private readonly appState: AppStateLike,
-    @inject(TOKENS.streamViewService) private readonly streamViewService: StreamViewServiceLike,
-    @inject(TOKENS.streamingRenderService) private readonly streamingRenderService: any,
-    @inject(TOKENS.gpuRecordingService) private readonly gpuRecordingService: GpuRecordingServiceLike,
-    @inject(TOKENS.transcodeService) private readonly transcodeService: TranscodeServiceLike,
-    @inject(TOKENS.captureSaveService) private readonly captureSaveService: CaptureSaveServiceLike,
-    @inject(TOKENS.eventBus) protected readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly captureService: CaptureServiceLike;
+  private readonly appState: AppStateLike;
+  private readonly streamViewService: StreamViewServiceLike;
+  private readonly streamingRenderService: Pick<import('@renderer/infrastructure/services/streaming/streaming.contract').GpuRendererServiceLike, 'isActive' | 'captureFrame'>;
+  private readonly gpuRecordingService: GpuRecordingServiceLike;
+  private readonly transcodeService: TranscodeServiceLike;
+  private readonly captureSaveService: CaptureSaveServiceLike;
+  protected readonly eventBus: TypedEventBusLike;
+
+  constructor({ captureService, appState, streamViewService, streamingRenderService, gpuRecordingService, transcodeService, captureSaveService, eventBus, loggerFactory }: CaptureOrchestratorDependencies) {
     super({ loggerFactory, eventBus }, 'CaptureOrchestrator');
+    this.captureService = captureService;
+    this.appState = appState;
+    this.streamViewService = streamViewService;
+    this.streamingRenderService = streamingRenderService;
+    this.gpuRecordingService = gpuRecordingService;
+    this.transcodeService = transcodeService;
+    this.captureSaveService = captureSaveService;
+    this.eventBus = eventBus;
 
     this._recordingInterrupted = false;
   }
 
   @OnEvent(EventChannels.UI.SCREENSHOT_REQUESTED)
-  async takeScreenshot(): Promise<void> {
+  takeScreenshot(): Promise<void> {
+    if (this.closing) return Promise.resolve();
+    const screenshot = this.captureScreenshot();
+    this.screenshots.add(screenshot);
+    return screenshot.finally(() => this.screenshots.delete(screenshot));
+  }
+
+  private async captureScreenshot(): Promise<void> {
     if (!this.appState.isStreaming) {
       this.logger.warn('Cannot take screenshot - not streaming');
       return;
@@ -160,7 +182,7 @@ export class CaptureOrchestrator extends BaseOrchestrator {
   }
 
   _isRecordingActive(): boolean {
-    return this.captureService.isRecording || Boolean(this.captureService.getRecordingState());
+    return this.captureService.isRecording;
   }
 
   /**
@@ -177,7 +199,12 @@ export class CaptureOrchestrator extends BaseOrchestrator {
       frameRate
     });
 
-    await this.captureService.startRecording(recordingStream);
+    try {
+      await this.captureService.startRecording(recordingStream);
+    } catch (error) {
+      await this.gpuRecordingService.stop();
+      throw error;
+    }
   }
 
   /**
@@ -262,15 +289,12 @@ export class CaptureOrchestrator extends BaseOrchestrator {
    * Cleanup resources
    */
   async onCleanup(): Promise<void> {
+    this.closing = true;
     if (this._isRecordingActive()) {
-      try {
-        this._recordingInterrupted = true;
-        await this._stopRecording();
-      } catch (error) {
-        this.logger.error('Error stopping recording during cleanup:', getErrorMessage(error, 'Failed to stop recording'));
-      }
-    } else {
-      await this.gpuRecordingService.stop();
+      this._recordingInterrupted = true;
     }
+    // stopRecording also joins a stop already in progress. Keep RECORDING_READY
+    // subscribed until its final data and asynchronous save have completed.
+    await Promise.all([...this.screenshots, this._stopRecording()]);
   }
 }

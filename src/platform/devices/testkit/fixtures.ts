@@ -3,21 +3,17 @@ import {
   getDeviceStreamProfile
 } from '../domain/catalog.js';
 import { deepFreeze } from '@platform/core';
-import {
-  toDeviceInfo,
-  toDeviceInfoPayload
-} from '../domain/payloads.js';
+import { toDeviceInfo } from '../domain/payloads.js';
 import type {
   DeviceDescriptor,
-  DeviceFixtureFrameData,
-  DeviceFixtureProfile,
-  DeviceFixtureTrackSettings,
   DeviceId,
   DeviceInfoPayload,
   DeviceStatusPayload,
-  ObservedMediaDevice,
   ObservedUsbDevice
 } from '../domain/types.js';
+import type {
+  DeviceFixtureFrameData, DeviceFixtureProfile, DeviceFixtureTrackSettings, ObservedMediaDevice
+} from './types.js';
 
 type FixtureSource = DeviceId | DeviceDescriptor | undefined;
 
@@ -75,7 +71,7 @@ export function getDeviceFixtureProfile(source?: FixtureSource): DeviceFixturePr
     manufacturer: descriptor.manufacturer,
     serialNumber: 'MOCK-001'
   };
-  const deviceInfoPayload = toDeviceInfoPayload(toDeviceInfo(descriptor, usbDeviceInfo));
+  const deviceInfoPayload = toDeviceInfo(descriptor, usbDeviceInfo);
   const videoDevice: ObservedMediaDevice = {
     deviceId: fixture.videoDeviceId,
     groupId: fixture.groupId,

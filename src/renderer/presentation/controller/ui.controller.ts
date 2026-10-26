@@ -1,11 +1,7 @@
-import type { LoggerFactoryLike, LoggerLike } from '@platform/core';
-import { downloadFile } from '@renderer/lib/file-download.utils';
+import { disposeInOrder, type LoggerFactoryLike, type LoggerLike } from '@platform/core';
 import type { DomBindings, DomBindingsFlat } from '@renderer/presentation/primitives/dom-bindings.utils.js';
-import type { RendererTemplateDeferredComponentId } from '@renderer/presentation/primitives/template-dom.contract.js';
-import type {
-  UiComponentHost,
-  RendererUiComponentInstanceMap
-} from '@renderer/presentation/controller/ui-component.host.js';
+import type { UiComponentHost } from '@renderer/presentation/controller/ui-component.host.js';
+import type { RendererUiComponentInstanceMap } from '@renderer/presentation/controller/ui-component.registry.js';
 
 interface UIEffectsLike {
   triggerShutterFlash(): void;
@@ -25,6 +21,7 @@ interface UIEffectsLike {
 export type UIControllerElements = DomBindingsFlat;
 
 export interface UIControllerDependencies {
+  downloadFile(blob: Blob, filename: string): Promise<void>;
   uiComponentHost?: UiComponentHost<RendererUiComponentInstanceMap> | null;
   domBindings?: DomBindings | null;
   uiEffects?: UIEffectsLike | null;
@@ -32,15 +29,18 @@ export interface UIControllerDependencies {
 }
 
 class UIController {
+  private readonly downloadFile: UIControllerDependencies['downloadFile'];
+  private readonly pendingDownloads = new Set<Promise<void>>();
   declare host: UiComponentHost<RendererUiComponentInstanceMap> | null | undefined;
   declare effects: UIEffectsLike | null | undefined;
   declare logger: LoggerLike | null;
   declare elements: UIControllerElements;
   declare dom: DomBindings;
 
-  constructor(dependencies: UIControllerDependencies = {}) {
-    const { uiComponentHost, domBindings, uiEffects, loggerFactory } = dependencies;
+  constructor(dependencies: UIControllerDependencies) {
+    const { downloadFile, uiComponentHost, domBindings, uiEffects, loggerFactory } = dependencies;
 
+    this.downloadFile = downloadFile;
     this.host = uiComponentHost;
     this.dom = domBindings as DomBindings;
     this.effects = uiEffects;
@@ -56,8 +56,8 @@ class UIController {
     this.host?.touchCore();
   }
 
-  initializeDeferredComponent<TId extends RendererTemplateDeferredComponentId>(id: TId): void {
-    this.host?.get(id);
+  initializeDeferredComponents(): void {
+    this.host?.touchDeferred();
   }
 
   toggleSettingsMenu(): void {
@@ -145,8 +145,12 @@ class UIController {
     }
   }
 
-  triggerDownload(blob: Blob, filename: string): void {
-    downloadFile(blob, filename);
+  triggerDownload(blob: Blob, filename: string): Promise<void> {
+    const pending = this.downloadFile(blob, filename);
+    this.pendingDownloads.add(pending);
+    const release = () => { this.pendingDownloads.delete(pending); };
+    void pending.then(release, release);
+    return pending;
   }
 
   async dispose(): Promise<void> {
@@ -154,8 +158,11 @@ class UIController {
     const host = this.host;
     this.effects = null;
     this.host = null;
-    await effects?.dispose();
-    await host?.dispose();
+    await disposeInOrder([
+      () => disposeInOrder([...this.pendingDownloads].map((pending) => () => pending)),
+      () => effects?.dispose(),
+      () => host?.dispose()
+    ]);
   }
 }
 

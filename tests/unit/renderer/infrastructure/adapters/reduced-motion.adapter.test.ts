@@ -1,124 +1,59 @@
-/**
- * ReducedMotionAdapter Unit Tests
- */
-
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ReducedMotionAdapter } from '@renderer/infrastructure/adapters/reduced-motion.adapter.js';
 import { installMatchMediaMock } from '../../../../support/mocks/browser-api.installers.js';
-import { createMediaQueryListMock } from '../../../../factories/index.js';
-
-type MediaQueryListMock = ReturnType<typeof createMediaQueryListMock> & {
-  addEventListener?: ReturnType<typeof vi.fn>;
-  removeEventListener?: ReturnType<typeof vi.fn>;
-};
 
 describe('ReducedMotionAdapter', () => {
-  let adapter: ReducedMotionAdapter;
-  let mockMediaQuery: MediaQueryListMock;
-  let matchMediaMock: ReturnType<typeof installMatchMediaMock>;
-
+  const adapter = new ReducedMotionAdapter();
+  let query: EventTarget & { matches: boolean };
+  let matchMedia: ReturnType<typeof installMatchMediaMock>;
+  let releases: Array<() => void>;
   beforeEach(() => {
-    adapter = new ReducedMotionAdapter();
-
-    mockMediaQuery = createMediaQueryListMock();
-
-    matchMediaMock = installMatchMediaMock({ mediaQuery: mockMediaQuery });
+    query = Object.assign(new EventTarget(), { matches: false });
+    matchMedia = installMatchMediaMock({ mediaQuery: query });
+    releases = [];
   });
-
   afterEach(() => {
-    adapter.dispose();
-    matchMediaMock?.cleanup();
+    releases.forEach((release) => release());
+    matchMedia.cleanup();
   });
 
-  describe('prefersReducedMotion', () => {
-    it('should return false when reduced motion is not preferred', () => {
-      mockMediaQuery.matches = false;
-      expect(adapter.prefersReducedMotion()).toBe(false);
-    });
-
-    it('should return true when reduced motion is preferred', () => {
-      mockMediaQuery.matches = true;
-      expect(adapter.prefersReducedMotion()).toBe(true);
-    });
-
-    it('should call matchMedia with correct query', () => {
-      adapter.prefersReducedMotion();
-      expect(matchMediaMock.matchMedia).toHaveBeenCalledWith('(prefers-reduced-motion: reduce)');
-    });
+  it('reads and observes the reduced-motion preference', () => {
+    const callback = vi.fn();
+    expect(adapter.prefersReducedMotion()).toBe(false);
+    releases.push(adapter.onChange(callback));
+    query.matches = true;
+    query.dispatchEvent(Object.assign(new Event('change'), { matches: true }));
+    expect(adapter.prefersReducedMotion()).toBe(true);
+    expect(callback).toHaveBeenCalledWith(true);
+    expect(matchMedia.matchMedia).toHaveBeenCalledWith('(prefers-reduced-motion: reduce)');
   });
 
-  describe('onChange', () => {
-    it('should call callback when preference changes (modern addEventListener)', () => {
-      const callback = vi.fn();
-      adapter.onChange(callback);
-
-      // Simulate change event
-      const changeHandler = mockMediaQuery.addEventListener?.mock.calls[0][1] as (event: Pick<MediaQueryListEvent, 'matches'>) => void;
-      changeHandler({ matches: true });
-
-      expect(callback).toHaveBeenCalledWith(true);
-    });
-
-    it('should use addEventListener if available', () => {
-      const callback = vi.fn();
-      adapter.onChange(callback);
-
-      expect(mockMediaQuery.addEventListener).toHaveBeenCalledWith('change', expect.any(Function));
-    });
-
-    it('should return cleanup function', () => {
-      const callback = vi.fn();
-      const cleanup = adapter.onChange(callback);
-
-      expect(typeof cleanup).toBe('function');
-    });
-
-    it('should remove listener when cleanup is called (modern)', () => {
-      const callback = vi.fn();
-      const cleanup = adapter.onChange(callback);
-
-      cleanup();
-
-      expect(mockMediaQuery.removeEventListener).toHaveBeenCalledWith(
-        'change',
-        expect.any(Function)
-      );
-    });
-
-    it('should return a no-op cleanup when change events are unavailable', () => {
-      delete mockMediaQuery.addEventListener;
-      delete mockMediaQuery.removeEventListener;
-
-      const callback = vi.fn();
-      const cleanup = adapter.onChange(callback);
-
-      expect(() => cleanup()).not.toThrow();
-      expect(callback).not.toHaveBeenCalled();
-    });
+  it('releases concurrent subscriptions independently and repeatedly', () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const releaseFirst = adapter.onChange(first);
+    releases.push(releaseFirst, adapter.onChange(second));
+    releaseFirst();
+    query.dispatchEvent(Object.assign(new Event('change'), { matches: true }));
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledOnce();
+    releaseFirst();
+    query.dispatchEvent(Object.assign(new Event('change'), { matches: false }));
+    expect(second).toHaveBeenCalledTimes(2);
   });
 
-  describe('dispose', () => {
-    it('should remove event listener (modern)', () => {
-      const callback = vi.fn();
-      adapter.onChange(callback);
-
-      adapter.dispose();
-
-      expect(mockMediaQuery.removeEventListener).toHaveBeenCalledWith(
-        'change',
-        expect.any(Function)
-      );
-    });
-
-    it('should handle multiple dispose calls safely', () => {
-      const callback = vi.fn();
-      adapter.onChange(callback);
-
-      adapter.dispose();
-      adapter.dispose();
-
-      // Should not throw
-      expect(true).toBe(true);
-    });
+  it('cleans up the original query when later subscriptions use another source', () => {
+    const firstQuery = query;
+    const first = vi.fn();
+    const second = vi.fn();
+    const releaseFirst = adapter.onChange(first);
+    query = Object.assign(new EventTarget(), { matches: true });
+    matchMedia.matchMedia.mockReturnValue(query);
+    releases.push(releaseFirst, adapter.onChange(second));
+    releaseFirst();
+    firstQuery.dispatchEvent(Object.assign(new Event('change'), { matches: true }));
+    query.dispatchEvent(Object.assign(new Event('change'), { matches: false }));
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledWith(false);
   });
 });

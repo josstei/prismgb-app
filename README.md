@@ -279,65 +279,31 @@ The timestamp is local time, and `mmm` is milliseconds.
 
 ## Architecture
 
-PrismGB uses a modern **three-process Electron architecture** with clean separation of concerns:
+PrismGB separates Electron main-process services from the browser renderer through a small preload bridge. Each process builds its dependencies with an explicit typed runtime factory.
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              Main Process                                │
-│  ┌─────────────────┐ ┌─────────────────────┐ ┌───────────────────────┐ │
-│  │ DeviceConnection │ │DeviceIntegrationSvc │ │  IPC Handler Registry │ │
-│  │  USB reconcile   │ │tray/window side fx  │ │  tRPC router + push   │ │
-│  └─────────────────┘ └─────────────────────┘ └───────────────────────┘ │
-│  ┌─────────────┐ ┌─────────────┐ ┌───────────────────────────────────┐  │
-│  │   Window    │ │   Update    │ │         Transcode Service         │  │
-│  │  Service    │ │  Service    │ │          FFmpeg jobs              │  │
-│  └─────────────┘ └─────────────┘ └───────────────────────────────────┘  │
-└────────────────────────────────┬────────────────────────────────────────┘
-                                 │ electron-trpc IPC + push subscriptions
-┌────────────────────────────────┴────────────────────────────────────────┐
-│                            Preload Script                                │
-│                 exposes electronTRPC only, no Node.js                    │
-└────────────────────────────────┬────────────────────────────────────────┘
-                                 │
-┌────────────────────────────────┴────────────────────────────────────────┐
-│                           Renderer Process                               │
-│  ┌─────────────────────────────────────────────────────────────────────┐│
-│  │                      Streaming Orchestrator                          ││
-│  │  ┌───────────────┐ ┌───────────────────┐ ┌───────────────────────┐  ││
-│  │  │   Streaming   │ │  Render Pipeline  │ │    GPU Render Loop    │  ││
-│  │  │    Service    │ │  (4-pass shader)  │ │       (WebGPU)        │  ││
-│  │  └───────────────┘ └───────────────────┘ └───────────────────────┘  ││
-│  │  ┌────────────────────┐ ┌────────────────────────────────────────┐  ││
-│  │  │RendererDeviceRuntime│ │ DeviceMediaAcquirer + platform ports │  ││
-│  │  └────────────────────┘ └────────────────────────────────────────┘  ││
-│  └─────────────────────────────────────────────────────────────────────┘│
-│  ┌─────────────────────────────────────────────────────────────────────┐│
-│  │                       Capture Orchestrator                           ││
-│  │  ┌───────────────┐ ┌───────────────────┐ ┌───────────────────────┐  ││
-│  │  │   Capture     │ │   GPU Recording   │ │    Save Service       │  ││
-│  │  │   Service     │ │     Service       │ │  (format routing)     │  ││
-│  │  └───────────────┘ └───────────────────┘ └───────────────────────┘  ││
-│  └─────────────────────────────────────────────────────────────────────┘│
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────────┐│
-│  │ Device UI    │ │   Settings   │ │    Notes     │ │      Update      ││
-│  │ state stores │ │   Service    │ │   Service    │ │     Service      ││
-│  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────────┘│
-│  ┌─────────────────────────────────────────────────────────────────────┐│
-│  │                          UI Layer                                    ││
-│  │   Shell • Toolbar • Settings Menu • Notes Panel • Status Strip      ││
-│  └─────────────────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+  Renderer["Renderer: UI, media capture, settings and notes"]
+  Preload["Preload: electronTRPC bridge"]
+  Main["Main: USB, windows, updates and FFmpeg"]
+  Worker["WebGPU worker"]
+  Renderer <-->|"typed tRPC requests and subscriptions"| Preload
+  Preload <--> Main
+  Renderer -->|"frames and render commands"| Worker
 ```
 
 ### Key Patterns
 
 | Pattern | Description |
 |---------|-------------|
-| **Orchestrator** | Coordinates services and manages state machines |
-| **Service** | Single-responsibility business logic with event emission |
-| **DI Container** | Runtime dependency-injection container (both processes) |
-| **Event Bus** | EventEmitter3 for cross-service communication |
-| **IPC Bridges** | Translate between main/renderer process boundaries |
+| **Runtime composition** | Typed dependency objects and explicit construction in each process; runtimes own initialization and disposal |
+| **Orchestrator** | Coordinates services and application workflows |
+| **Service** | Owns a domain operation or state |
+| **Typed events** | A declaration ties renderer event names to payload types |
+| **IPC** | tRPC owns request contracts; a typed push publisher feeds subscriptions |
+| **Rendering session** | One owner handles WebGPU/Canvas2D transitions, canvas replacement, and cancellation |
+
+See [architecture diagrams](docs/architecture-diagrams.md) for lifecycle and data flows, and [the feature map](docs/feature-map.md) for extension points.
 
 ### GPU Rendering Pipeline
 
@@ -354,13 +320,13 @@ The 4-pass shader pipeline processes each frame:
 |----------|------------|
 | **Framework** | Electron v41 |
 | **Build Tool** | Vite v7.3 |
-| **Runtime** | Node.js v22 LTS |
+| **Development runtime** | Node.js 22.12+; CI uses Node.js 24 |
 | **GPU Rendering** | WebGPU, Canvas2D |
 | **Audio** | Web Audio API |
 | **Recording** | MediaRecorder API |
 | **Transcoding** | FFmpeg/FFprobe (static binaries) |
 | **USB** | node-usb, libusb |
-| **DI** | Runtime DI container |
+| **Composition** | Typed TypeScript runtime factories |
 | **Logging** | electron-log |
 | **Testing** | Vitest, Playwright |
 

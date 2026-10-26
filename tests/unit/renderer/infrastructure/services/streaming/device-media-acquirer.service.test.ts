@@ -1,3 +1,5 @@
+import { createCaptureStreamMock, createMediaTrackMock } from '../../../../../factories/stream.factory.js';
+import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   DeviceCatalog,
@@ -5,11 +7,7 @@ import {
   getDeviceStreamProfile
 } from '@platform/devices';
 import { DeviceMediaAcquirer } from '@renderer/infrastructure/services/streaming/device-media-acquirer.service';
-import {
-  createCaptureStreamMock,
-  createMediaTrackMock
-} from '../../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../../support/service.harness.js';
 import {
   CHROMATIC_AUDIO_DEVICE_INFO,
   CHROMATIC_VIDEO_DEVICE_INFO
@@ -52,9 +50,10 @@ function createAcquirer() {
     getUserMedia: vi.fn(async () => createActiveStream()),
     subscribeDeviceChange: vi.fn()
   };
-  const h = createInjectableHarness(DeviceMediaAcquirer, {
-    overrides: { mediaDevicesPort }
-  });
+  const h = createServiceHarness(DeviceMediaAcquirer, {
+      loggerFactory: createLoggerFactory(),
+      mediaDevicesPort
+    });
   const acquirer = h.subject;
   const { loggerFactory } = h.deps;
 
@@ -145,17 +144,40 @@ describe('DeviceMediaAcquirer', () => {
     expect(audioTrack.stop).toHaveBeenCalledTimes(1);
   });
 
-  it('returns stream track diagnostics', () => {
-    const { acquirer } = createAcquirer();
-    const stream = createActiveStream();
-
-    expect(acquirer.getStreamInfo(stream)).toEqual(expect.objectContaining({
-      id: 'stream-1',
-      active: true,
-      tracks: expect.arrayContaining([
-        expect.objectContaining({ kind: 'video' }),
-        expect.objectContaining({ kind: 'audio' })
-      ])
-    }));
+  it.each(['grant', 'reject'])('disposes without waiting for permission and owns a late %s', async (outcome) => {
+    const { acquirer, mediaDevicesPort, target } = createAcquirer();
+    const permission = Promise.withResolvers<MediaStream>();
+    mediaDevicesPort.getUserMedia.mockReturnValueOnce(permission.promise);
+    const acquired = expect(acquirer.acquire(target)).rejects.toMatchObject({ name: 'AbortError' });
+    await acquirer.dispose();
+    await acquired;
+    expect(mediaDevicesPort.getUserMedia).toHaveBeenCalledOnce();
+    if (outcome === 'grant') {
+      const stream = createActiveStream();
+      permission.resolve(stream);
+      await vi.waitFor(() => stream.getTracks().forEach((track) => expect(track.stop).toHaveBeenCalledOnce()));
+    } else {
+      permission.reject(new Error('Permission denied after shutdown'));
+      await Promise.resolve();
+    }
+    await expect(acquirer.acquire(target)).rejects.toMatchObject({ name: 'AbortError' });
+    expect(mediaDevicesPort.getUserMedia).toHaveBeenCalledOnce();
   });
+
+  it('cancels one permission request without closing a replacement acquisition', async () => {
+    const { acquirer, mediaDevicesPort, target } = createAcquirer();
+    const permission = Promise.withResolvers<MediaStream>();
+    const abort = new AbortController();
+    mediaDevicesPort.getUserMedia.mockReturnValueOnce(permission.promise);
+    const cancelled = expect(acquirer.acquire(target, abort.signal)).rejects.toMatchObject({ name: 'AbortError' });
+    abort.abort();
+    await cancelled;
+    const replacement = await acquirer.acquire(target);
+    const old = createActiveStream('cancelled');
+    permission.resolve(old);
+    await vi.waitFor(() => old.getTracks().forEach((track) => expect(track.stop).toHaveBeenCalledOnce()));
+    replacement.stream.getTracks().forEach((track) => expect(track.stop).not.toHaveBeenCalled());
+    await acquirer.dispose();
+  });
+
 });

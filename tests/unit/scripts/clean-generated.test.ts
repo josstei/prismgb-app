@@ -1,132 +1,77 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import {
-  BUILD_OUTPUT_ARTIFACT_PATHS,
-  BUILD_OUTPUT_PATHS,
-  cleanBuildOutputs,
-  cleanGeneratedOutputs,
-  GENERATED_ARTIFACT_PATHS,
-  GENERATED_PATHS,
-  getArtifactOwnership
-} from '../../../scripts/clean-generated.js';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanGeneratedOutputs } from '../../../scripts/clean-generated.js';
 
-function createWorkspace(): string {
-  const prefix = path.join(os.tmpdir(), 'prismgb-clean-generated-');
-  return fs.mkdtempSync(prefix);
-}
+describe('generated output cleanup', () => {
+  let workspace: string;
 
-function createFile(root: string, relativePath: string): void {
-  const fullPath = path.join(root, relativePath);
-  fs.mkdirSync(fullPath, { recursive: true });
-  fs.writeFileSync(path.join(fullPath, 'artifact.txt'), 'generated');
-}
-
-function cleanup(root: string): void {
-  if (fs.existsSync(root)) {
-    fs.rmSync(root, { recursive: true, force: true });
+  function writeArtifact(relativePath: string): void {
+    const fullPath = path.join(workspace, relativePath);
+    fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+    fs.writeFileSync(fullPath, 'artifact');
   }
-}
-
-describe('clean-generated script', () => {
-  let workspace: ReturnType<typeof createWorkspace>;
 
   beforeEach(() => {
-    workspace = createWorkspace();
+    workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'prismgb-clean-generated-'));
+    writeArtifact('src/renderer/index.ts');
+    writeArtifact('tsconfig.paths.generated.json');
+    writeArtifact('dist/main/index.js');
+    writeArtifact('release/PrismGB.AppImage');
+    writeArtifact('artifacts/coverage/index.html');
+    writeArtifact('tests/e2e/.generated/main.cjs');
+    writeArtifact('test-results/.last-run.json');
   });
 
   afterEach(() => {
-    cleanup(workspace);
+    vi.restoreAllMocks();
+    fs.rmSync(workspace, { recursive: true, force: true });
   });
 
-  it('removes configured generated artifact directories and marks ownership', () => {
-    expect(GENERATED_PATHS).not.toContain('tests/coverage');
-    expect(GENERATED_PATHS).not.toEqual(expect.arrayContaining(BUILD_OUTPUT_PATHS));
-
-    GENERATED_ARTIFACT_PATHS.forEach((entry) => {
-      createFile(workspace, entry.path);
-    });
-    BUILD_OUTPUT_PATHS.forEach((relativePath) => {
-      createFile(workspace, relativePath);
-    });
-
+  it('removes disposable test output while preserving source, committed generated files and builds', () => {
     const result = cleanGeneratedOutputs({ root: workspace });
 
-    for (const entry of GENERATED_ARTIFACT_PATHS) {
-      expect(fs.existsSync(path.join(workspace, entry.path))).toBe(false);
-      const summary = result.deleted.find((item) => item.target === entry.path);
-      expect(summary).toMatchObject({
-        target: entry.path,
-        owner: entry.owner,
-        removed: true,
-        failed: false
-      });
+    expect(result).toEqual({
+      deleted: ['artifacts', 'test-results', 'tests/e2e/.generated'],
+      skipped: []
+    });
+    for (const target of result.deleted) {
+      expect(fs.existsSync(path.join(workspace, target))).toBe(false);
     }
-
-    for (const relativePath of BUILD_OUTPUT_PATHS) {
-      expect(fs.existsSync(path.join(workspace, relativePath))).toBe(true);
+    for (const target of ['src/renderer/index.ts', 'tsconfig.paths.generated.json', 'dist/main/index.js', 'release/PrismGB.AppImage']) {
+      expect(fs.existsSync(path.join(workspace, target))).toBe(true);
     }
   });
 
-  it('removes configured build output directories through the build cleanup path', () => {
-    BUILD_OUTPUT_ARTIFACT_PATHS.forEach((entry) => {
-      createFile(workspace, entry.path);
+  it('cleans builds separately from test output', () => {
+    expect(cleanGeneratedOutputs({ root: workspace, build: true })).toEqual({
+      deleted: ['dist', 'release'], skipped: []
     });
-    GENERATED_PATHS.forEach((relativePath) => {
-      createFile(workspace, relativePath);
-    });
-
-    const result = cleanBuildOutputs({ root: workspace });
-
-    for (const entry of BUILD_OUTPUT_ARTIFACT_PATHS) {
-      expect(fs.existsSync(path.join(workspace, entry.path))).toBe(false);
-      expect(result.deleted).toContainEqual(
-        expect.objectContaining({
-          target: entry.path,
-          owner: entry.owner,
-          removed: true,
-          failed: false
-        })
-      );
-    }
-
-    for (const relativePath of GENERATED_PATHS) {
-      expect(fs.existsSync(path.join(workspace, relativePath))).toBe(true);
-    }
+    expect(fs.existsSync(path.join(workspace, 'dist'))).toBe(false);
+    expect(fs.existsSync(path.join(workspace, 'release'))).toBe(false);
+    expect(fs.existsSync(path.join(workspace, 'artifacts/coverage/index.html'))).toBe(true);
   });
 
-  it('does not delete generated artifacts in dry-run mode', () => {
-    GENERATED_PATHS.forEach((entry) => {
-      createFile(workspace, entry);
-    });
-
+  it('reports dry-run targets without removing them', () => {
     const result = cleanGeneratedOutputs({ root: workspace, dryRun: true });
-
-    expect(result.deleted).toHaveLength(GENERATED_PATHS.length);
-    for (const relativePath of GENERATED_PATHS) {
-      expect(fs.existsSync(path.join(workspace, relativePath))).toBe(true);
-      expect(getArtifactOwnership(relativePath)).toBeTruthy();
+    expect(result.deleted).toHaveLength(3);
+    for (const target of result.deleted) {
+      expect(fs.existsSync(path.join(workspace, target))).toBe(true);
     }
   });
 
-  it('supports custom cleanup paths scoped to an alternate root', () => {
-    createFile(workspace, '.custom-artifacts');
-    createFile(workspace, 'artifacts');
-
-    const customPaths = ['artifacts', '.custom-artifacts'];
-    const result = cleanGeneratedOutputs({
-      root: workspace,
-      paths: customPaths
+  it('reports deletion failures and continues cleaning independent outputs', () => {
+    const remove = fs.rmSync;
+    const failure = new Error('permission denied');
+    vi.spyOn(fs, 'rmSync').mockImplementation((target, options) => {
+      if (target === path.join(workspace, 'artifacts')) throw failure;
+      return remove(target, options);
     });
 
-    expect(fs.existsSync(path.join(workspace, 'artifacts'))).toBe(false);
-    expect(fs.existsSync(path.join(workspace, '.custom-artifacts'))).toBe(false);
-    expect(result.deleted).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ target: 'artifacts', owner: 'Generated repository artifacts' }),
-        expect.objectContaining({ target: '.custom-artifacts', owner: 'custom-path' })
-      ])
-    );
+    expect(cleanGeneratedOutputs({ root: workspace })).toEqual({
+      deleted: ['test-results', 'tests/e2e/.generated'],
+      skipped: [{ target: 'artifacts', error: failure }]
+    });
   });
 });

@@ -4,7 +4,9 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ShaderSliderControlsComponent } from '@renderer/presentation/features/toolbar/shader-slider-controls.component.js';
-import { createEventBus, createLogger, createSettingsServiceMock } from '../../../../../factories/index.js';
+import { createEventBus } from '../../../../../factories/event-bus.factory.js';
+import { createLogger } from '../../../../../factories/logger.factory.js';
+import { createSettingsServiceMock } from '../../../../../factories/settings.factory.js';
 import { EventChannels } from '@platform/events';
 
 describe('ShaderSliderControlsComponent', () => {
@@ -110,7 +112,7 @@ describe('ShaderSliderControlsComponent', () => {
         streamVideo
       });
 
-      expect(mockSettingsService.getNumberSetting).toHaveBeenCalledWith('globalBrightness');
+      expect(mockSettingsService.getSetting).toHaveBeenCalledWith('globalBrightness');
       expect(brightnessSlider.value).toBe('50'); // brightnessToSlider(1.0) = 50
     });
 
@@ -124,7 +126,7 @@ describe('ShaderSliderControlsComponent', () => {
         streamVideo
       });
 
-      expect(mockSettingsService.getNumberSetting).toHaveBeenCalledWith('gameVolume');
+      expect(mockSettingsService.getSetting).toHaveBeenCalledWith('gameVolume');
       expect(volumeSlider.value).toBe('70');
     });
 

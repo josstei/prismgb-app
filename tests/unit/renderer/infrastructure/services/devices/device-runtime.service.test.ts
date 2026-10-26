@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EventChannels } from '@platform/events';
 import { RendererDeviceRuntime } from '@renderer/infrastructure/services/devices/device-runtime.service';
-import { createEventBus, createLoggerFactory } from '../../../../../factories/index.js';
+import { createEventBus } from '../../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
 import type { DeviceStatus } from '@platform/devices';
 import {
   CHROMATIC_SPECS,
@@ -13,15 +14,13 @@ import { createDeferred } from '../../../../../support/deferred.testkit.js';
 const connectedStatus: DeviceStatus = {
   state: 'connected',
   connected: true,
-  device: createChromaticDeviceInfoPayload(),
-  updatedAt: 1
+  device: createChromaticDeviceInfoPayload()
 };
 
 const disconnectedStatus: DeviceStatus = {
   state: 'disconnected',
   connected: false,
-  device: null,
-  updatedAt: 2
+  device: null
 };
 
 function createMediaDevice(overrides: Partial<MediaDeviceInfo> = {}): MediaDeviceInfo {
@@ -85,14 +84,7 @@ function createRuntime(options: {
     readStoredDeviceIds: vi.fn(() => options.storedDeviceIds ?? []),
     storeDeviceId: vi.fn()
   };
-  const runtime = new RendererDeviceRuntime(
-    statusPort,
-    mediaDevicesPort,
-    devicePreferenceStore,
-    eventBus,
-    loggerFactory,
-    () => 100
-  );
+  const runtime = new RendererDeviceRuntime({ deviceStatusPort: statusPort, mediaDevicesPort: mediaDevicesPort, devicePreferenceStore: devicePreferenceStore, eventBus: eventBus, loggerFactory: loggerFactory });
 
   return {
     runtime,
@@ -116,10 +108,7 @@ describe('RendererDeviceRuntime', () => {
     expect(statusPort.getStatus).toHaveBeenCalledTimes(1);
     expect(statusPort.refreshStatus).not.toHaveBeenCalled();
     expect(mediaDevicesPort.enumerateDevices).toHaveBeenCalledTimes(1);
-    expect(runtime.getStatus()).toEqual(connectedStatus);
     expect(runtime.isConnected).toBe(true);
-    expect(runtime.selectedDeviceId).toBe(CHROMATIC_SPECS.deviceId);
-    expect(runtime.snapshot().supportedDevices).toHaveLength(1);
     expect(devicePreferenceStore.storeDeviceId).toHaveBeenCalledWith(CHROMATIC_SPECS.deviceId, CHROMATIC_SPECS.id);
     expect(eventBus.publish).toHaveBeenCalledWith(EventChannels.DEVICE.STATUS_CHANGED, connectedStatus);
     expect(eventBus.publish).toHaveBeenCalledWith(
@@ -150,26 +139,13 @@ describe('RendererDeviceRuntime', () => {
     emitDeviceChange();
 
     expect(statusPort.refreshStatus).not.toHaveBeenCalled();
-    expect(runtime.getStatus().state).toBe('unknown');
+    expect(runtime.isConnected).toBe(false);
 
     await runtime.initialize();
 
     expect(statusPort.subscribe).toHaveBeenCalledTimes(2);
     expect(mediaDevicesPort.subscribeDeviceChange).toHaveBeenCalledTimes(2);
-    expect(runtime.getStatus()).toEqual(connectedStatus);
     expect(runtime.isConnected).toBe(true);
-  });
-
-  it('uses the manual refresh port for explicit refreshStatus calls', async () => {
-    const { runtime, statusPort } = createRuntime();
-    await runtime.initialize();
-    statusPort.refreshStatus.mockResolvedValue(disconnectedStatus);
-
-    const status = await runtime.refreshStatus();
-
-    expect(status).toEqual(disconnectedStatus);
-    expect(statusPort.refreshStatus).toHaveBeenCalledTimes(1);
-    expect(runtime.isConnected).toBe(false);
   });
 
   it('updates from pushed status without calling manual refresh', async () => {
@@ -178,9 +154,30 @@ describe('RendererDeviceRuntime', () => {
     statusPort.refreshStatus.mockClear();
 
     emitStatus(disconnectedStatus);
-    await vi.waitFor(() => expect(runtime.getStatus()).toEqual(disconnectedStatus));
+    await vi.waitFor(() => expect(runtime.isConnected).toBe(false));
 
     expect(statusPort.refreshStatus).not.toHaveBeenCalled();
+  });
+
+  it('releases the first subscription when the second registration fails, then retries', async () => {
+    const { runtime, mediaDevicesPort, statusUnsubscribe } = createRuntime();
+    mediaDevicesPort.subscribeDeviceChange.mockImplementationOnce(() => { throw new Error('listener failed'); });
+    await expect(runtime.initialize()).rejects.toThrow('listener failed');
+    expect(statusUnsubscribe).toHaveBeenCalledOnce();
+    await runtime.initialize();
+    expect(runtime.isConnected).toBe(true);
+    await runtime.dispose();
+    expect(statusUnsubscribe).toHaveBeenCalledTimes(2);
+  });
+
+  it('finishes all startup rollback and preserves the query failure if an unsubscribe throws', async () => {
+    const { runtime, statusPort, statusUnsubscribe, deviceChangeUnsubscribe } = createRuntime();
+    statusPort.getStatus.mockRejectedValueOnce(new Error('query failed'));
+    deviceChangeUnsubscribe.mockImplementationOnce(() => { throw new Error('unsubscribe failed'); });
+    await expect(runtime.initialize()).rejects.toThrow('query failed');
+    expect(statusUnsubscribe).toHaveBeenCalledOnce();
+    expect(deviceChangeUnsubscribe).toHaveBeenCalledOnce();
+    expect(runtime.isConnected).toBe(false);
   });
 
   it('refreshes through the manual reconciliation path after browser devicechange', async () => {
@@ -189,7 +186,7 @@ describe('RendererDeviceRuntime', () => {
     statusPort.refreshStatus.mockResolvedValue(disconnectedStatus);
 
     emitDeviceChange();
-    await vi.waitFor(() => expect(runtime.getStatus()).toEqual(disconnectedStatus));
+    await vi.waitFor(() => expect(runtime.isConnected).toBe(false));
 
     expect(statusPort.refreshStatus).toHaveBeenCalledTimes(1);
   });
@@ -214,7 +211,6 @@ describe('RendererDeviceRuntime', () => {
       'video-only-simple',
       'video-only-minimal'
     ]);
-    expect(runtime.selectedDeviceId).toBe('selected-camera');
     expect(devicePreferenceStore.storeDeviceId).toHaveBeenCalledWith('selected-camera', CHROMATIC_SPECS.id);
   });
 
@@ -294,6 +290,52 @@ describe('RendererDeviceRuntime', () => {
     await expect(runtime.resolveStreamingTarget()).rejects.toThrow('No supported device found');
   });
 
+  it('cannot commit an old target after cancellation while its paired-audio query is pending', async () => {
+    const first = createMediaDevice({ deviceId: 'camera-one' });
+    const second = createMediaDevice({ deviceId: 'camera-two' });
+    const { runtime, mediaDevicesPort, devicePreferenceStore } = createRuntime({ devices: [first, second] });
+    await runtime.initialize();
+    const pendingAudio = createDeferred<MediaDeviceInfo[]>();
+    mediaDevicesPort.enumerateDevices
+      .mockResolvedValueOnce([first, second])
+      .mockImplementationOnce(() => pendingAudio.promise);
+    const abort = new AbortController();
+    const oldTarget = runtime.resolveStreamingTarget(first.deviceId, abort.signal);
+    const cancelled = expect(oldTarget).rejects.toMatchObject({ name: 'AbortError' });
+    await vi.waitFor(() => expect(mediaDevicesPort.enumerateDevices).toHaveBeenCalledTimes(3));
+    abort.abort();
+    const current = await runtime.resolveStreamingTarget(second.deviceId);
+    expect(current.videoDevice).toBe(second);
+    devicePreferenceStore.storeDeviceId.mockClear();
+    pendingAudio.resolve([first, second]);
+    await cancelled;
+    expect(devicePreferenceStore.storeDeviceId).not.toHaveBeenCalled();
+  });
+
+  it('stops a late permission-probe stream without refreshing or selecting after cancellation', async () => {
+    const hidden = createMediaDevice({ label: '' });
+    const current = createMediaDevice({ deviceId: 'current-camera' });
+    const { runtime, mediaDevicesPort, devicePreferenceStore } = createRuntime({ devices: [hidden] });
+    const { stream, track } = createPermissionStream();
+    const permission = createDeferred<MediaStream>();
+    mediaDevicesPort.getUserMedia.mockReturnValueOnce(permission.promise);
+    const abort = new AbortController();
+    const oldTarget = runtime.resolveStreamingTarget(null, abort.signal);
+    const cancelled = expect(oldTarget).rejects.toMatchObject({ name: 'AbortError' });
+    await vi.waitFor(() => expect(mediaDevicesPort.getUserMedia).toHaveBeenCalledOnce());
+    abort.abort();
+    mediaDevicesPort.enumerateDevices.mockResolvedValue([current]);
+    const target = await runtime.resolveStreamingTarget(current.deviceId);
+    expect(target.videoDevice).toBe(current);
+    const enumerations = mediaDevicesPort.enumerateDevices.mock.calls.length;
+    devicePreferenceStore.storeDeviceId.mockClear();
+    permission.resolve(stream);
+    await cancelled;
+    expect(track.stop).toHaveBeenCalledOnce();
+    expect(mediaDevicesPort.enumerateDevices).toHaveBeenCalledTimes(enumerations);
+    expect(devicePreferenceStore.storeDeviceId).not.toHaveBeenCalled();
+  });
+
   it('publishes disconnected-during-session when a connected runtime receives a disconnected push', async () => {
     const { runtime, eventBus, emitStatus } = createRuntime();
     await runtime.initialize();
@@ -325,7 +367,7 @@ describe('RendererDeviceRuntime', () => {
     statusPort.refreshStatus.mockResolvedValue(disconnectedStatus);
     mediaDevicesPort.enumerateDevices.mockImplementationOnce(() => pendingEnumeration.promise);
 
-    const refreshPromise = runtime.refresh('manual-refresh');
+    emitDeviceChange();
     await vi.waitFor(() => expect(statusPort.refreshStatus).toHaveBeenCalledTimes(1));
 
     const disposePromise = runtime.dispose();
@@ -337,13 +379,75 @@ describe('RendererDeviceRuntime', () => {
     emitDeviceChange();
     pendingEnumeration.resolve([createMediaDevice({ deviceId: 'late-camera' })]);
 
-    await expect(refreshPromise).resolves.toEqual(expect.objectContaining({ status: connectedStatus }));
     await expect(disposePromise).resolves.toBeUndefined();
 
-    expect(runtime.getStatus()).toEqual(connectedStatus);
+    expect(runtime.isConnected).toBe(true);
     expect(statusPort.refreshStatus).toHaveBeenCalledTimes(1);
     expect(devicePreferenceStore.storeDeviceId).not.toHaveBeenCalled();
     expect(eventBus.publish).not.toHaveBeenCalledWith(EventChannels.DEVICE.STATUS_CHANGED, disconnectedStatus);
-    expect(runtime.selectedDeviceId).toBe(CHROMATIC_SPECS.deviceId);
+  });
+
+  it('reconciles a status push received while the initial query is pending', async () => {
+    const { runtime, statusPort, eventBus, emitStatus } = createRuntime();
+    const status = createDeferred<DeviceStatus>();
+    statusPort.getStatus.mockReturnValueOnce(status.promise);
+    const initialized = runtime.initialize();
+    await vi.waitFor(() => expect(statusPort.getStatus).toHaveBeenCalledOnce());
+    emitStatus(disconnectedStatus);
+    status.resolve(connectedStatus);
+    await initialized;
+    expect(runtime.isConnected).toBe(false);
+    expect(eventBus.publish).toHaveBeenLastCalledWith(EventChannels.DEVICE.DISCONNECTED_DURING_SESSION);
+    expect(statusPort.refreshStatus).not.toHaveBeenCalled();
+  });
+
+  it('reconciles browser changes received while the initial query is pending', async () => {
+    const { runtime, statusPort, emitDeviceChange } = createRuntime();
+    const status = createDeferred<DeviceStatus>();
+    statusPort.getStatus.mockReturnValueOnce(status.promise);
+    statusPort.refreshStatus.mockResolvedValue(disconnectedStatus);
+    const initialized = runtime.initialize();
+    await vi.waitFor(() => expect(statusPort.getStatus).toHaveBeenCalledOnce());
+    emitDeviceChange();
+    status.resolve(connectedStatus);
+    await initialized;
+    expect(statusPort.refreshStatus).toHaveBeenCalledOnce();
+    expect(runtime.isConnected).toBe(false);
+  });
+
+  it('discards queued startup events after initialization fails', async () => {
+    const { runtime, statusPort, eventBus, emitStatus } = createRuntime();
+    const status = createDeferred<DeviceStatus>();
+    statusPort.getStatus.mockReturnValueOnce(status.promise);
+    const initialized = runtime.initialize();
+    const failure = expect(initialized).rejects.toThrow('query failed');
+    await vi.waitFor(() => expect(statusPort.getStatus).toHaveBeenCalledOnce());
+    emitStatus(connectedStatus);
+    status.reject(new Error('query failed'));
+    await failure;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(runtime.isConnected).toBe(false);
+    expect(eventBus.publish).not.toHaveBeenCalled();
+    await runtime.initialize();
+    expect(runtime.isConnected).toBe(true);
+  });
+
+  it('announces a reconnected device even when another supported camera remains present', async () => {
+    const first = createMediaDevice({ deviceId: 'camera-one' });
+    const second = createMediaDevice({ deviceId: 'camera-two' });
+    const { runtime, mediaDevicesPort, devicePreferenceStore, eventBus, emitDeviceChange } = createRuntime({ devices: [first, second] });
+    await runtime.initialize();
+
+    mediaDevicesPort.enumerateDevices.mockResolvedValue([second]);
+    emitDeviceChange();
+    await vi.waitFor(() => expect(devicePreferenceStore.storeDeviceId).toHaveBeenLastCalledWith(second.deviceId, CHROMATIC_SPECS.id));
+    eventBus.publish.mockClear();
+
+    mediaDevicesPort.enumerateDevices.mockResolvedValue([first, second]);
+    emitDeviceChange();
+    await vi.waitFor(() => expect(eventBus.publish).toHaveBeenCalledWith(
+      EventChannels.DEVICE.SUPPORTED_DEVICE_AVAILABLE,
+      { device: first, videoDevices: [first, second] }
+    ));
   });
 });

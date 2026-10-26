@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import { createCleanupStack } from '../runtime-property.installers.js';
+import { createCleanupStack, installTargetProperty } from '../runtime-property.installers.js';
 
 /**
  * Canonical canvas and drawing context installer.
@@ -28,8 +28,6 @@ export function installCanvasMocks(options = {}) {
   };
 
   const originalGetContext = HTMLCanvasElement.prototype.getContext;
-  const originalToBlob = HTMLCanvasElement.prototype.toBlob;
-  const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
 
   const mockGetContext = vi.fn((type) => {
     if (type === '2d') {
@@ -60,55 +58,14 @@ export function installCanvasMocks(options = {}) {
     return `data:${type};base64,mockImageData${String(quality)}`;
   });
 
-  Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
-    configurable: true,
-    writable: true,
-    value: mockGetContext,
-  });
-
-  Object.defineProperty(HTMLCanvasElement.prototype, 'toBlob', {
-    configurable: true,
-    writable: true,
-    value: mockToBlob,
-  });
-
-  Object.defineProperty(HTMLCanvasElement.prototype, 'toDataURL', {
-    configurable: true,
-    writable: true,
-    value: mockToDataURL,
-  });
-
-  stack.add(() => {
-    if (typeof originalGetContext === 'undefined') {
-      delete HTMLCanvasElement.prototype.getContext;
-    } else {
-      Object.defineProperty(HTMLCanvasElement.prototype, 'getContext', {
-        configurable: true,
-        writable: true,
-        value: originalGetContext,
-      });
-    }
-
-    if (typeof originalToBlob === 'undefined') {
-      delete HTMLCanvasElement.prototype.toBlob;
-    } else {
-      Object.defineProperty(HTMLCanvasElement.prototype, 'toBlob', {
-        configurable: true,
-        writable: true,
-        value: originalToBlob,
-      });
-    }
-
-    if (typeof originalToDataURL === 'undefined') {
-      delete HTMLCanvasElement.prototype.toDataURL;
-    } else {
-      Object.defineProperty(HTMLCanvasElement.prototype, 'toDataURL', {
-        configurable: true,
-        writable: true,
-        value: originalToDataURL,
-      });
-    }
-  });
+  for (const [name, mock] of Object.entries({
+    getContext: mockGetContext,
+    toBlob: mockToBlob,
+    toDataURL: mockToDataURL
+  })) {
+    const property = installTargetProperty(HTMLCanvasElement.prototype, name, mock);
+    stack.add(() => property.cleanup());
+  }
 
   return {
     ...stack,

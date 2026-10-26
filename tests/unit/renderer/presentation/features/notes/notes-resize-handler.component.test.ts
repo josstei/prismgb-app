@@ -4,10 +4,9 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { NotesResizeHandlerComponent } from '@renderer/presentation/features/notes/notes-resize-handler.component.js';
-import { createLogger } from '../../../../../factories/index.js';
+import { createLogger } from '../../../../../factories/logger.factory.js';
 import { installAnimationFrameMock } from '../../../../../support/mocks/browser-api.installers.js';
 
-type ToggleCallback = (isVisible: boolean) => void;
 type ClientXTouch = Pick<Touch, 'clientX'>;
 
 const createClientXTouch = (clientX: number): ClientXTouch => ({ clientX });
@@ -38,34 +37,27 @@ describe('NotesResizeHandlerComponent', () => {
     it('should create component with default state', () => {
       expect(component.isListVisible).toBe(true);
       expect(component.listToggle).toBeNull();
-      expect(component.panelElement).toBeNull();
     });
   });
 
   describe('initialize', () => {
     it('should set up toggle when elements are provided', () => {
       const listToggle = document.createElement('button');
-      const panelElement = document.createElement('div');
       const panelContent = document.createElement('div');
       const listWrapper = document.createElement('div');
 
       component.initialize({
         listToggle,
-        panelElement,
         panelContent,
         listWrapper,
-        onToggle: vi.fn()
       });
 
       expect(component.listToggle).toBe(listToggle);
-      expect(component.panelElement).toBe(panelElement);
     });
 
     it('should warn when list toggle element is missing', () => {
       component.initialize({
         listToggle: null,
-        panelElement: document.createElement('div'),
-        onToggle: vi.fn()
       });
 
       expect(mockLogger.warn).toHaveBeenCalledWith('List toggle element not found');
@@ -75,8 +67,6 @@ describe('NotesResizeHandlerComponent', () => {
       const comp = new NotesResizeHandlerComponent({ logger: undefined });
       expect(() => comp.initialize({
         listToggle: null,
-        panelElement: null,
-        onToggle: vi.fn()
       })).not.toThrow();
       comp.dispose();
     });
@@ -85,10 +75,8 @@ describe('NotesResizeHandlerComponent', () => {
       const listToggle = document.createElement('button');
       component.initialize({
         listToggle,
-        panelElement: document.createElement('div'),
         panelContent: null,
         listWrapper: null,
-        onToggle: vi.fn()
       });
 
       expect(component._contentElement).toBeNull();
@@ -96,65 +84,18 @@ describe('NotesResizeHandlerComponent', () => {
     });
   });
 
-  describe('isVisible', () => {
-    it('should return true by default', () => {
-      expect(component.isVisible()).toBe(true);
-    });
-
-    it('should reflect toggled state', () => {
-      component.isListVisible = false;
-      expect(component.isVisible()).toBe(false);
-    });
-  });
-
-  describe('setListWidth', () => {
-    it('should set width via CSS custom property', () => {
-      const contentElement = document.createElement('div');
-      component._contentElement = contentElement;
-
-      component.setListWidth(150);
-
-      expect(contentElement.style.getPropertyValue('--notes-list-width')).toBe('150px');
-      expect(component._customListWidth).toBe(150);
-    });
-
-    it('should not throw when content element is null', () => {
-      component._contentElement = null;
-      expect(() => component.setListWidth(150)).not.toThrow();
-    });
-  });
-
-  describe('getListWidth', () => {
-    it('should return default width when list wrapper is null', () => {
-      component._listWrapperElement = null;
-      expect(component.getListWidth()).toBe(130);
-    });
-
-    it('should return offsetWidth when list wrapper exists', () => {
-      const wrapper = document.createElement('div');
-      Object.defineProperty(wrapper, 'offsetWidth', { value: 180 });
-      component._listWrapperElement = wrapper;
-
-      expect(component.getListWidth()).toBe(180);
-    });
-  });
-
   describe('click-to-toggle (no drag)', () => {
     let listToggle: HTMLButtonElement;
     let panelContent: HTMLDivElement;
-    let onToggle: ToggleCallback;
 
     beforeEach(() => {
       listToggle = document.createElement('button');
       panelContent = document.createElement('div');
-      onToggle = vi.fn<ToggleCallback>();
 
       component.initialize({
         listToggle,
-        panelElement: document.createElement('div'),
         panelContent,
         listWrapper: document.createElement('div'),
-        onToggle
       });
     });
 
@@ -166,7 +107,6 @@ describe('NotesResizeHandlerComponent', () => {
 
       expect(component.isListVisible).toBe(false);
       expect(panelContent.classList.contains('notes-list-collapsed')).toBe(true);
-      expect(onToggle).toHaveBeenCalledWith(false);
     });
 
     it('should expand list on click when collapsed', () => {
@@ -178,7 +118,6 @@ describe('NotesResizeHandlerComponent', () => {
 
       expect(component.isListVisible).toBe(true);
       expect(panelContent.classList.contains('notes-list-collapsed')).toBe(false);
-      expect(onToggle).toHaveBeenCalledWith(true);
     });
 
     it('should set aria-expanded attribute on toggle', () => {
@@ -200,13 +139,7 @@ describe('NotesResizeHandlerComponent', () => {
       expect(component.isListVisible).toBe(false);
     });
 
-    it('should handle toggle without onToggle callback', () => {
-      component.onToggle = null;
-      component.isListVisible = true;
 
-      listToggle.dispatchEvent(new MouseEvent('mousedown', { clientX: 100 }));
-      expect(() => document.dispatchEvent(new MouseEvent('mouseup'))).not.toThrow();
-    });
   });
 
   describe('drag-to-resize', () => {
@@ -219,10 +152,8 @@ describe('NotesResizeHandlerComponent', () => {
 
       component.initialize({
         listToggle,
-        panelElement: document.createElement('div'),
         panelContent,
         listWrapper: document.createElement('div'),
-        onToggle: vi.fn()
       });
     });
 
@@ -300,10 +231,8 @@ describe('NotesResizeHandlerComponent', () => {
       listToggle = document.createElement('button');
       component.initialize({
         listToggle,
-        panelElement: document.createElement('div'),
         panelContent: document.createElement('div'),
         listWrapper: document.createElement('div'),
-        onToggle: vi.fn()
       });
     });
 
@@ -341,10 +270,8 @@ describe('NotesResizeHandlerComponent', () => {
       const listToggle = document.createElement('button');
       component.initialize({
         listToggle,
-        panelElement: document.createElement('div'),
         panelContent: document.createElement('div'),
         listWrapper: document.createElement('div'),
-        onToggle: vi.fn()
       });
 
       listToggle.dispatchEvent(new MouseEvent('mousedown', { clientX: 100 }));
@@ -363,10 +290,8 @@ describe('NotesResizeHandlerComponent', () => {
       const listToggle = document.createElement('button');
       component.initialize({
         listToggle,
-        panelElement: document.createElement('div'),
         panelContent: document.createElement('div'),
         listWrapper: document.createElement('div'),
-        onToggle: vi.fn()
       });
 
       listToggle.dispatchEvent(new MouseEvent('mousedown', { clientX: 100 }));
@@ -382,10 +307,8 @@ describe('NotesResizeHandlerComponent', () => {
       document.body.style.userSelect = 'text';
       component.initialize({
         listToggle,
-        panelElement: document.createElement('div'),
         panelContent: document.createElement('div'),
         listWrapper: document.createElement('div'),
-        onToggle: vi.fn()
       });
 
       listToggle.dispatchEvent(new MouseEvent('mousedown', { clientX: 100 }));
@@ -410,10 +333,8 @@ describe('NotesResizeHandlerComponent', () => {
       expect(component.isListVisible).toBe(true);
       expect(component._isDragging).toBe(false);
       expect(component._dragFramePending).toBe(false);
-      expect(component.panelElement).toBeNull();
       expect(component._contentElement).toBeNull();
       expect(component._listWrapperElement).toBeNull();
-      expect(component.onToggle).toBeNull();
       expect(component.logger).toBeNull();
     });
   });

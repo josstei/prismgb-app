@@ -1,6 +1,6 @@
 import { ManagedLifecycleHost } from './managed-lifecycle-host.js';
 import { getEventHandlerBindings } from './event-decorator.js';
-import type { DisposableBag, DisposableFunction, DisposableKey } from './disposable-bag.js';
+import type { DisposableFunction } from './disposable-bag.js';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -18,7 +18,6 @@ export interface EventPublisherLike {
 export interface EventBusLike extends EventPublisherLike {
   publishAsync?(event: string, payload?: unknown): Promise<void>;
   subscribe(event: string, handler: (...args: unknown[]) => void | Promise<void>): DisposableFunction;
-  unsubscribe?(event: string, handler: (...args: unknown[]) => void): void;
 }
 
 export interface LoggerFactoryLike {
@@ -31,37 +30,28 @@ export interface StorageServiceLike {
   removeItem(key: string): void;
 }
 
-function isEventBusLike(value: unknown): value is EventBusLike {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as { subscribe?: unknown }).subscribe === 'function'
-  );
+export interface LifecycleDependencies {
+  eventBus?: EventBusLike | null;
+  loggerFactory?: LoggerFactoryLike | null;
 }
 
-export class BaseService {
+export class BaseService extends ManagedLifecycleHost {
   protected logger!: LoggerLike;
-  readonly disposables: DisposableBag;
-  private readonly _lifecycle: ManagedLifecycleHost;
   protected _initialized: boolean;
+  private _initialization: Promise<void> | null = null;
+  private _initializationGeneration = 0;
   private readonly _eventBus: EventBusLike | null;
   private readonly _serviceName: string;
 
-  constructor(dependencies: object, serviceName: string | null = null) {
+  constructor({ loggerFactory, eventBus }: LifecycleDependencies, serviceName: string | null = null) {
+    super();
     const name = serviceName || this.constructor.name;
-    const dependencyMap = dependencies as Record<string, unknown>;
-
-    Object.assign(this, dependencyMap);
-
-    const loggerFactory = dependencyMap.loggerFactory as LoggerFactoryLike | undefined;
     if (loggerFactory) {
       this.logger = loggerFactory.create(name);
     }
 
-    this._lifecycle = new ManagedLifecycleHost();
-    this.disposables = this._lifecycle.disposables;
     this._initialized = false;
-    this._eventBus = isEventBusLike(dependencyMap.eventBus) ? dependencyMap.eventBus : null;
+    this._eventBus = eventBus ?? null;
     this._serviceName = name;
   }
 
@@ -71,14 +61,22 @@ export class BaseService {
       return;
     }
 
+    if (this._initialization) return this._initialization;
+    const generation = this._initializationGeneration;
     const result = this.onInitialize();
     if (result instanceof Promise) {
-      return result.then(() => {
-        this._initialized = true;
-      });
+      this._initialization = result.then(() => {
+        if (generation === this._initializationGeneration) this._initialized = true;
+      }).catch(async (error: unknown) => {
+        await this.disposables.clear().catch((cleanupError: unknown) => {
+          this.logger?.error(`${this._serviceName} initialization rollback failed`, cleanupError);
+        });
+        throw error;
+      }).finally(() => { this._initialization = null; });
+      return this._initialization;
     }
 
-    this._initialized = true;
+    if (generation === this._initializationGeneration) this._initialized = true;
   }
 
   protected onInitialize(): void | Promise<void> {}
@@ -101,45 +99,9 @@ export class BaseService {
     }
   }
 
-  timeout<TArgs extends unknown[]>(
-    handler: (...args: TArgs) => void,
-    delay: number,
-    ...args: TArgs
-  ): DisposableFunction {
-    return this._lifecycle.timeout(handler, delay, ...args);
-  }
-
-  interval<TArgs extends unknown[]>(
-    handler: (...args: TArgs) => void,
-    delay: number,
-    ...args: TArgs
-  ): DisposableFunction {
-    return this._lifecycle.interval(handler, delay, ...args);
-  }
-
-  schedule<TArgs extends unknown[]>(
-    key: DisposableKey,
-    handler: (...args: TArgs) => void,
-    delay: number,
-    ...args: TArgs
-  ): DisposableFunction {
-    return this._lifecycle.schedule(key, handler, delay, ...args);
-  }
-
-  scheduleInterval<TArgs extends unknown[]>(
-    key: DisposableKey,
-    handler: (...args: TArgs) => void,
-    delay: number,
-    ...args: TArgs
-  ): DisposableFunction {
-    return this._lifecycle.scheduleInterval(key, handler, delay, ...args);
-  }
-
-  cancelScheduled(key: DisposableKey): void | Promise<void> {
-    return this._lifecycle.cancelScheduled(key);
-  }
-
-  dispose(): void | Promise<void> {
-    return this._lifecycle.dispose();
+  override dispose(): void | Promise<void> {
+    this._initializationGeneration++;
+    this._initialized = false;
+    return super.dispose();
   }
 }

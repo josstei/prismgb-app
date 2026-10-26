@@ -8,7 +8,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { CinematicToggleComponent } from '@renderer/presentation/features/toolbar/cinematic-toggle.component.js';
 import { signal } from '@platform/ui-base/reactive';
-import { createEventBus, createLogger } from '../../../../../factories/index.js';
+import { createEventBus } from '../../../../../factories/event-bus.factory.js';
+import { createLogger } from '../../../../../factories/logger.factory.js';
 import { EventChannels } from '@platform/events';
 
 describe('CinematicToggleComponent', () => {

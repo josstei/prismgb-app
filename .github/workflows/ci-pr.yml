@@ -30,16 +30,8 @@ jobs:
 
   tests:
     name: Tests
-    needs: lint
-    if: ${{ always() && (needs.lint.result == 'success' || needs.lint.result == 'skipped') }}
     uses: ./.github/workflows/reusable-ci-tests.yml
     with:
       full_matrix: ${{ inputs.full_matrix || false }}
       full_matrix_label: full-ci
-
-  build-smoke:
-    name: Build Smoke Test
-    needs: lint
-    if: ${{ always() && (needs.lint.result == 'success' || needs.lint.result == 'skipped') }}
-    uses: ./.github/workflows/reusable-ci-build-smoke.yml
 

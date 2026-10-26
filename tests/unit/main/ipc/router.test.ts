@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { appRouter } from '@main/ipc/router.js';
 import { IpcPushBridge } from '@main/ipc/ipc-push.bridge.js';
+import { TRPCError } from '@trpc/server';
+import { rethrowAsTrpcError } from '@main/ipc/trpc.js';
 import type { IpcContext } from '@main/ipc/trpc.js';
 import {
   createChromaticDeviceInfoPayload,
@@ -14,14 +16,12 @@ function createContext(overrides: Partial<Record<string, unknown>> = {}) {
       getStatus: vi.fn(() => ({
         state: 'connected',
         connected: true,
-        device: createChromaticDeviceInfoPayload(),
-        updatedAt: 12345
+        device: createChromaticDeviceInfoPayload()
       })),
       reconcileDeviceStatus: vi.fn(async () => ({
         state: 'connected',
         connected: true,
-        device: createChromaticDeviceInfoPayload(),
-        updatedAt: 12346
+        device: createChromaticDeviceInfoPayload()
       }))
     },
     mainProcessTestControl: {
@@ -35,17 +35,20 @@ function createContext(overrides: Partial<Record<string, unknown>> = {}) {
       installUpdate: vi.fn(),
       getStatus: vi.fn(() => ({ state: 'idle' }))
     },
-    windowService: { setFullScreen: vi.fn(), isFullScreen: vi.fn(() => true) },
+    windowService: {
+      setFullScreen: vi.fn(), isFullScreen: vi.fn(() => true),
+      expectDownload: vi.fn(), cancelDownload: vi.fn()
+    },
     transcodeService: {
-      transcode: vi.fn(async () => ({ success: true, jobId: 'job-1' })),
-      cancel: vi.fn(() => ({ success: true })),
-      getStatus: vi.fn(() => ({ success: true }))
+      transcode: vi.fn(async () => ({ jobId: 'job-1' })),
+      cancel: vi.fn(),
     },
     loginItemService: { isEnabled: vi.fn(() => true), setEnabled: vi.fn() },
-    app: { getAppMetrics: vi.fn(() => []) },
     shell: { openExternal: vi.fn(async () => undefined) },
     logger,
     ipcPushBridge: new IpcPushBridge(),
+    onRendererReady: vi.fn(),
+    onRendererShutdownComplete: vi.fn(),
     ...overrides
   };
   return context as unknown as IpcContext;
@@ -56,6 +59,20 @@ function caller(context: IpcContext) {
 }
 
 describe('appRouter — queries / mutations', () => {
+  it('app.rendererReady notifies the runtime after renderer startup', async () => {
+    const context = createContext();
+    await caller(context).app.rendererReady();
+    expect(context.onRendererReady).toHaveBeenCalledOnce();
+  });
+
+  it('app.rendererShutdownComplete validates and forwards the matching cleanup result', async () => {
+    const context = createContext();
+    const result = { requestId: 'shutdown-1', error: 'note save failed' };
+    await caller(context).app.rendererShutdownComplete(result);
+    expect(context.onRendererShutdownComplete).toHaveBeenCalledWith(result);
+    await expect(caller(context).app.rendererShutdownComplete({ requestId: '' })).rejects.toThrow();
+  });
+
   it('device.getStatus maps canonical device status to the payload-only response', async () => {
     const context = createContext();
     const result = await caller(context).device.getStatus();
@@ -191,6 +208,21 @@ describe('appRouter — queries / mutations', () => {
     expect(context.windowService.setFullScreen).toHaveBeenCalledWith(true);
   });
 
+  it.each(['expectDownload', 'cancelDownload'] as const)('window.%s forwards a local blob URL', async (operation) => {
+    const context = createContext();
+    const url = 'blob:null/9e09f080-5555-4444-9999-19b0467d5fce';
+    await caller(context).window[operation]({ url });
+    expect(context.windowService[operation]).toHaveBeenCalledWith(url);
+  });
+
+  it.each(['expectDownload', 'cancelDownload'] as const)('window.%s rejects remote and malformed download registrations', async (operation) => {
+    const context = createContext();
+    for (const url of ['https://example.com/video.webm', 'file:///tmp/video.webm', 'data:video/webm;base64,AA==', 'not a URL', `blob:null/${'a'.repeat(4096)}`]) {
+      await expect(caller(context).window[operation]({ url })).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    }
+    expect(context.windowService[operation]).not.toHaveBeenCalled();
+  });
+
   it('window.setFullScreen forwards enabled: false to the window service (falsy flag survives the boxed input)', async () => {
     const context = createContext();
     await expect(caller(context).window.setFullScreen({ enabled: false })).resolves.toBeUndefined();
@@ -239,39 +271,6 @@ describe('appRouter — queries / mutations', () => {
     });
   });
 
-  it('performance.getProcessMetrics returns the payload-only metrics snapshot', async () => {
-    const context = createContext({
-      app: {
-        getAppMetrics: vi.fn(() => [
-          { type: 'Renderer', pid: 1, memory: { workingSetSize: 2048, peakWorkingSetSize: 4096 }, cpu: { percentCPUUsage: 5 } }
-        ])
-      }
-    });
-
-    const result = await caller(context).performance.getProcessMetrics();
-    expect(result).toMatchObject({
-      totalKB: 2048,
-      processCount: 1,
-      processes: [{ type: 'Renderer', pid: 1, memoryKB: 2048 }]
-    });
-    expect(result).not.toHaveProperty('success');
-  });
-
-  it('performance.getProcessMetrics rethrows a thrown handler error', async () => {
-    const context = createContext({
-      app: {
-        getAppMetrics: vi.fn(() => {
-          throw new Error('metrics exploded');
-        })
-      }
-    });
-
-    await expect(caller(context).performance.getProcessMetrics()).rejects.toMatchObject({
-      code: 'INTERNAL_SERVER_ERROR',
-      message: 'metrics exploded'
-    });
-  });
-
   it('transcode.start rejects an unsupported format at the input boundary', async () => {
     const context = createContext();
     await expect(
@@ -279,13 +278,12 @@ describe('appRouter — queries / mutations', () => {
     ).rejects.toThrow();
   });
 
-  it('transcode.start passes a Buffer + interrupted flag through to the service for a valid input', async () => {
+  it('transcode.start passes a Buffer through to the service for a valid input', async () => {
     const context = createContext();
     await caller(context).transcode.start({ inputBuffer: new ArrayBuffer(8), format: 'mp4' } as never);
     const passed = (context.transcodeService.transcode as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(Buffer.isBuffer(passed.inputBuffer)).toBe(true);
     expect(passed.format).toBe('mp4');
-    expect(passed.interrupted).toBe(false);
   });
 
   it('transcode.start returns the payload-only shape on service success', async () => {
@@ -297,9 +295,8 @@ describe('appRouter — queries / mutations', () => {
   it('transcode.start rethrows an INTERNAL_SERVER_ERROR TRPCError when the service reports a business failure', async () => {
     const context = createContext({
       transcodeService: {
-        transcode: vi.fn(async () => ({ success: false, error: 'Unsupported format' })),
-        cancel: vi.fn(() => ({ success: true })),
-        getStatus: vi.fn(() => ({ success: true }))
+        transcode: vi.fn(async () => { throw new Error('Unsupported format'); }),
+        cancel: vi.fn(),
       }
     });
 
@@ -314,8 +311,7 @@ describe('appRouter — queries / mutations', () => {
         transcode: vi.fn(async () => {
           throw new Error('ffmpeg crashed');
         }),
-        cancel: vi.fn(() => ({ success: true })),
-        getStatus: vi.fn(() => ({ success: true }))
+        cancel: vi.fn(),
       }
     });
 
@@ -332,43 +328,14 @@ describe('appRouter — queries / mutations', () => {
   it('transcode.cancel rethrows an INTERNAL_SERVER_ERROR TRPCError when the service reports a business failure', async () => {
     const context = createContext({
       transcodeService: {
-        transcode: vi.fn(async () => ({ success: true, jobId: 'job-1' })),
-        cancel: vi.fn(() => ({ success: false, error: 'Job not found or already completed' })),
-        getStatus: vi.fn(() => ({ success: true }))
+        transcode: vi.fn(async () => ({ jobId: 'job-1' })),
+        cancel: vi.fn(() => { throw new Error('Job not found or already completed'); }),
       }
     });
 
     await expect(caller(context).transcode.cancel({ jobId: 'job-1' })).rejects.toMatchObject({
       code: 'INTERNAL_SERVER_ERROR',
       message: 'Job not found or already completed'
-    });
-  });
-
-  it('transcode.getStatus returns the payload-only jobs shape on service success', async () => {
-    const job = { id: 'job-1', state: 'running', progress: 50, outputPath: null, error: null, startTime: 1 };
-    const context = createContext({
-      transcodeService: {
-        transcode: vi.fn(async () => ({ success: true, jobId: 'job-1' })),
-        cancel: vi.fn(() => ({ success: true })),
-        getStatus: vi.fn(() => ({ success: true, jobs: [job] }))
-      }
-    });
-
-    await expect(caller(context).transcode.getStatus()).resolves.toEqual({ jobs: [job] });
-  });
-
-  it('transcode.getStatus rethrows an INTERNAL_SERVER_ERROR TRPCError when the service reports a business failure', async () => {
-    const context = createContext({
-      transcodeService: {
-        transcode: vi.fn(async () => ({ success: true, jobId: 'job-1' })),
-        cancel: vi.fn(() => ({ success: true })),
-        getStatus: vi.fn(() => ({ success: false, error: 'Status unavailable' }))
-      }
-    });
-
-    await expect(caller(context).transcode.getStatus()).rejects.toMatchObject({
-      code: 'INTERNAL_SERVER_ERROR',
-      message: 'Status unavailable'
     });
   });
 
@@ -429,10 +396,10 @@ describe('appRouter — subscriptions', () => {
 
     const validDevice = createChromaticDeviceInfoPayload();
 
-    bridge.emit('device:connected', validDevice);
-    bridge.emit('device:connected', { vendorId: 'not-a-number' });
-    bridge.emit('device:connected', { ...validDevice, extra: true });
-    bridge.emit('device:connected', { ...validDevice, serialNumber: 'MOCK-002' });
+    bridge.emitUnchecked('device:connected', validDevice);
+    bridge.emitUnchecked('device:connected', { vendorId: 'not-a-number' });
+    bridge.emitUnchecked('device:connected', { ...validDevice, extra: true });
+    bridge.emitUnchecked('device:connected', { ...validDevice, serialNumber: 'MOCK-002' });
 
     expect(received).toEqual([
       validDevice,
@@ -446,9 +413,138 @@ describe('appRouter — subscriptions', () => {
     const received: unknown[] = [];
     const subscription = observableResult.subscribe({ next: (value: unknown) => received.push(value) });
 
-    bridge.emit('window:enter-fullscreen');
+    bridge.emitUnchecked('window:enter-fullscreen');
 
     expect(received).toEqual([undefined]);
     subscription.unsubscribe();
+  });
+
+  it.each([
+    ['onProgress', 'transcode:progress', { jobId: 'job-1', percent: 50 }],
+    ['onCompleted', 'transcode:completed', { jobId: 'job-1', filePath: '/recording.mp4' }],
+    ['onError', 'transcode:error', { jobId: 'job-1', error: 'Encoding failed' }],
+    ['onCancelled', 'transcode:cancelled', { jobId: 'job-1' }]
+  ] as const)('%s drops uncorrelated pushes and keeps the subscription usable', async (method, channel, valid) => {
+    const observableResult = await caller(context).transcode[method]();
+    const received: unknown[] = [];
+    const subscription = observableResult.subscribe({ next: (value: unknown) => received.push(value) });
+    bridge.emitUnchecked(channel, { ...valid, jobId: undefined });
+    bridge.emitUnchecked(channel, { ...valid, jobId: '' });
+    bridge.emitUnchecked(channel, valid);
+    expect(received).toEqual([valid]);
+    expect(context.logger.warn).toHaveBeenCalledTimes(2);
+    subscription.unsubscribe();
+  });
+});
+
+
+describe('IpcPushBridge', () => {
+  it('delivers an emitted payload to a registered listener', () => {
+    const bridge = new IpcPushBridge();
+    const listener = vi.fn();
+    bridge.on('device:connected', listener);
+
+    bridge.emitUnchecked('device:connected', { vendorId: 1234 });
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith({ vendorId: 1234 });
+  });
+
+  it('delivers an undefined payload for void channels', () => {
+    const bridge = new IpcPushBridge();
+    const listener = vi.fn();
+    bridge.on('window:enter-fullscreen', listener);
+
+    bridge.emitUnchecked('window:enter-fullscreen');
+
+    expect(listener).toHaveBeenCalledWith(undefined);
+  });
+
+  it('fans out to multiple listeners on the same channel', () => {
+    const bridge = new IpcPushBridge();
+    const a = vi.fn();
+    const b = vi.fn();
+    bridge.on('transcode:progress', a);
+    bridge.on('transcode:progress', b);
+
+    bridge.emitUnchecked('transcode:progress', { percent: 50 });
+
+    expect(a).toHaveBeenCalledWith({ percent: 50 });
+    expect(b).toHaveBeenCalledWith({ percent: 50 });
+  });
+
+  it('stops delivering after a listener is removed', () => {
+    const bridge = new IpcPushBridge();
+    const listener = vi.fn();
+    bridge.on('transcode:completed', listener);
+    bridge.off('transcode:completed', listener);
+
+    bridge.emitUnchecked('transcode:completed', { jobId: 'j' });
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('does not cross-deliver between channels', () => {
+    const bridge = new IpcPushBridge();
+    const listener = vi.fn();
+    bridge.on('device:connected', listener);
+
+    bridge.emitUnchecked('device:disconnected', null);
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('rethrowAsTrpcError', () => {
+  it('returns the run result unchanged on success', async () => {
+    const logger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const result = await rethrowAsTrpcError('Failed to do thing', logger, () => ({ value: 42 }));
+    expect(result).toEqual({ value: 42 });
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('awaits an async run function and returns its resolved value', async () => {
+    const logger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const result = await rethrowAsTrpcError('Failed to do thing', logger, async () => ({ value: 'async' }));
+    expect(result).toEqual({ value: 'async' });
+  });
+
+  it('logs the label with the original error and throws an INTERNAL_SERVER_ERROR TRPCError carrying the original message', async () => {
+    const logger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const thrown = new Error('usb exploded');
+
+    await expect(
+      rethrowAsTrpcError('Failed to get device status', logger, () => {
+        throw thrown;
+      })
+    ).rejects.toMatchObject({ code: 'INTERNAL_SERVER_ERROR', message: 'usb exploded' });
+
+    expect(logger.error).toHaveBeenCalledWith('Failed to get device status', thrown);
+  });
+
+  it('throws a real TRPCError instance', async () => {
+    const logger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+    let caught: unknown;
+    try {
+      await rethrowAsTrpcError('Failed', logger, () => {
+        throw new Error('boom');
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(TRPCError);
+  });
+
+  it('falls back to a generic message when the thrown value has no message', async () => {
+    const logger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+    await expect(
+      rethrowAsTrpcError('Failed', logger, () => {
+        throw { code: 'ENOENT' };
+      })
+    ).rejects.toMatchObject({ code: 'INTERNAL_SERVER_ERROR', message: 'Unknown error' });
   });
 });

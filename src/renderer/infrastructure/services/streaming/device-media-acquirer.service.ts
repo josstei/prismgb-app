@@ -1,4 +1,4 @@
-import { injectable, inject } from 'inversify';
+
 import { BaseService, getErrorMessage } from '@platform/core';
 import type { LoggerFactoryLike } from '@platform/core';
 import type {
@@ -8,7 +8,6 @@ import type {
 } from '@platform/devices';
 import type { MediaDevicesPort } from '../devices/browser-media-devices.port.js';
 import type { DeviceStreamingTarget } from '../devices/device-runtime.service.js';
-import { TOKENS } from '@renderer/application/di/tokens.js';
 
 export interface DeviceStreamCapabilities extends DeviceStreamProfile {
   hasAudio: boolean;
@@ -20,31 +19,25 @@ export interface DeviceMediaAcquireResult {
   capabilities: DeviceStreamCapabilities;
 }
 
-type TrackInfo = {
-  kind: string;
-  label: string;
-  enabled: boolean;
-  muted: boolean;
-  readyState: string;
-  settings: MediaTrackSettings;
+type DeviceMediaAcquirerDependencies = {
+  mediaDevicesPort: MediaDevicesPort;
+  loggerFactory: LoggerFactoryLike;
 };
 
-function getTrackSettings(track: MediaStreamTrack): MediaTrackSettings {
-  return typeof track.getSettings === 'function' ? track.getSettings() : {};
-}
-
-@injectable()
 export class DeviceMediaAcquirer extends BaseService {
   private readonly activeStreams = new Set<MediaStream>();
+  private readonly lifetime = new AbortController();
 
-  constructor(
-    @inject(TOKENS.mediaDevicesPort) private readonly mediaDevicesPort: MediaDevicesPort,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly mediaDevicesPort: MediaDevicesPort;
+
+  constructor({ mediaDevicesPort, loggerFactory }: DeviceMediaAcquirerDependencies) {
     super({ loggerFactory }, 'DeviceMediaAcquirer');
+    this.mediaDevicesPort = mediaDevicesPort;
   }
 
-  async acquire(target: DeviceStreamingTarget): Promise<DeviceMediaAcquireResult> {
+  async acquire(target: DeviceStreamingTarget, requestSignal?: AbortSignal): Promise<DeviceMediaAcquireResult> {
+    const signal = requestSignal ? AbortSignal.any([this.lifetime.signal, requestSignal]) : this.lifetime.signal;
+    signal.throwIfAborted();
     if (!target.videoDevice.deviceId) {
       throw new Error('DeviceMediaAcquirer.acquire requires a media device ID');
     }
@@ -61,13 +54,14 @@ export class DeviceMediaAcquirer extends BaseService {
       try {
         this.logger.info(`Attempting stream acquisition with strategy: ${attempt.strategy}`);
         this.logger.debug('Media constraints:', constraints);
-        const stream = await this.acquireStream(constraints);
+        const stream = await this.acquireStream(constraints, signal);
         return {
           stream,
           strategy: attempt.strategy,
           capabilities: this.getCapabilities(target.profile, hasAudioDevice)
         };
       } catch (error) {
+        signal.throwIfAborted();
         lastError = error;
         this.logger.warn(`Stream acquisition strategy failed (${attempt.strategy}):`, getErrorMessage(error));
       }
@@ -95,28 +89,8 @@ export class DeviceMediaAcquirer extends BaseService {
     this.activeStreams.delete(stream);
   }
 
-  getStreamInfo(stream: MediaStream): Record<string, unknown> | null {
-    if (!stream) {
-      return null;
-    }
-
-    const tracks: TrackInfo[] = stream.getTracks().map((track) => ({
-      kind: track.kind,
-      label: track.label,
-      enabled: track.enabled,
-      muted: track.muted,
-      readyState: track.readyState,
-      settings: getTrackSettings(track)
-    }));
-
-    return {
-      id: stream.id,
-      active: stream.active,
-      tracks
-    };
-  }
-
   override async dispose(): Promise<void> {
+    this.lifetime.abort();
     const streams = [...this.activeStreams];
     await Promise.allSettled(streams.map((stream) => this.release(stream)));
     await super.dispose();
@@ -147,14 +121,30 @@ export class DeviceMediaAcquirer extends BaseService {
     };
   }
 
-  private async acquireStream(constraints: MediaStreamConstraints): Promise<MediaStream> {
-    const stream = await this.mediaDevicesPort.getUserMedia(constraints);
-    if (!stream?.getTracks || stream.getTracks().length === 0) {
-      throw new Error('Invalid stream: no tracks available');
-    }
-
-    this.activeStreams.add(stream);
-    return stream;
+  private acquireStream(constraints: MediaStreamConstraints, signal: AbortSignal): Promise<MediaStream> {
+    return new Promise((resolve, reject) => {
+      const abort = () => reject(signal.reason);
+      signal.addEventListener('abort', abort, { once: true });
+      // Native getUserMedia cannot be cancelled. Logical cancellation releases
+      // the caller immediately; a later permission grant still has an owner.
+      const acquire = async () => {
+        try {
+          signal.throwIfAborted();
+          const stream = await this.mediaDevicesPort.getUserMedia(constraints);
+          if (signal.aborted) { await this.release(stream); return; }
+          if (!stream?.getTracks || stream.getTracks().length === 0) {
+            throw new Error('Invalid stream: no tracks available');
+          }
+          this.activeStreams.add(stream);
+          resolve(stream);
+        } catch (error) {
+          reject(error);
+        } finally {
+          signal.removeEventListener('abort', abort);
+        }
+      };
+      void acquire();
+    });
   }
 
   private getCapabilities(

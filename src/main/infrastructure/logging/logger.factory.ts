@@ -5,7 +5,7 @@ import type { LoggerLike, LoggerFactoryLike, LogLevel } from '@platform/core';
 /**
  * electron-log-backed logger factory for the main process. Configures the
  * shared console/file transports once from the environment (NODE_ENV,
- * LOG_LEVEL, LOG_FILE, LOG_DIR) and hands out scoped loggers per DI context.
+ * LOG_LEVEL, LOG_FILE, LOG_DIR) and hands out scoped loggers for each service.
  */
 export class MainLogger implements LoggerFactoryLike {
   constructor() {

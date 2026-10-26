@@ -1,82 +1,20 @@
-import { EventChannels } from '@platform/events';
-import { DisposableBag, type EventBusLike } from '@platform/core';
-import { signal, type Signal, type ReadonlySignal } from '@platform/ui-base/reactive';
+import type { StreamingCapabilities } from '@platform/events';
+import { signal, type ReadonlySignal } from '@platform/ui-base/reactive';
 
-interface StreamingServiceLike {
-  readonly isStreaming: boolean;
-  readonly currentCapabilities: unknown;
-  getStream(): MediaStream | null;
+interface AppStateDependencies {
+  streamingService: {
+    readonly isStreaming: boolean;
+    readonly currentCapabilities: StreamingCapabilities | null;
+    getStream(): MediaStream | null;
+  };
+  rendererDeviceRuntime: { readonly isConnected: boolean };
 }
 
-interface RendererDeviceRuntimeLike {
-  readonly isConnected: boolean;
-}
-
-type AppStateDependencies = {
-  streamingService?: StreamingServiceLike;
-  rendererDeviceRuntime?: RendererDeviceRuntimeLike;
-  eventBus?: EventBusLike;
-};
-
-/**
- * Decision record: AppState is a plain signal holder outside the
- * BaseService/@OnEvent recipe — it is factory-bound in the container and
- * manages its subscriptions through its own DisposableBag.
- */
-class AppState {
-  streamingService: StreamingServiceLike | undefined;
-  rendererDeviceRuntime: RendererDeviceRuntimeLike | undefined;
-  eventBus: EventBusLike | undefined;
-
+/** Read live media state from its owners; own only the cinematic preference. */
+export class AppState {
   private readonly _isCinematicModeEnabled = signal(true);
-  readonly _streamCache = signal<MediaStream | null>(null);
-  readonly _capabilitiesCache = signal<unknown>(null);
-  private readonly _isStreamingSignal: Signal<boolean>;
-  private readonly _deviceConnectedSignal: Signal<boolean>;
-  private readonly _bag = new DisposableBag();
 
-  constructor(dependencies: AppStateDependencies = {}) {
-    const { streamingService, rendererDeviceRuntime, eventBus } = dependencies;
-
-    this.streamingService = streamingService;
-    this.rendererDeviceRuntime = rendererDeviceRuntime;
-    this.eventBus = eventBus;
-
-    this._isStreamingSignal = signal(streamingService?.isStreaming ?? false);
-    this._deviceConnectedSignal = signal(rendererDeviceRuntime?.isConnected ?? false);
-
-    if (this.eventBus) {
-      this._setupEventSubscriptions();
-    }
-  }
-
-  _setupEventSubscriptions() {
-    this._bag.add(
-      this.eventBus!.subscribe(EventChannels.STREAM.STARTED, (...args: unknown[]) => {
-        const data = args[0] as { stream: MediaStream; capabilities: unknown };
-        this._streamCache.value = data?.stream ?? null;
-        this._capabilitiesCache.value = data?.capabilities ?? null;
-        this._isStreamingSignal.value = true;
-      })
-    );
-
-    this._bag.add(
-      this.eventBus!.subscribe(EventChannels.STREAM.STOPPED, () => {
-        this._streamCache.value = null;
-        this._capabilitiesCache.value = null;
-        this._isStreamingSignal.value = false;
-      })
-    );
-
-    this._bag.add(
-      this.eventBus!.subscribe(EventChannels.DEVICE.STATUS_CHANGED, (...args: unknown[]) => {
-        const data = args[0] as { connected: boolean };
-        if (data && typeof data.connected === 'boolean') {
-          this._deviceConnectedSignal.value = data.connected;
-        }
-      })
-    );
-  }
+  constructor(private readonly dependencies: AppStateDependencies) {}
 
   get isCinematicModeEnabled(): boolean {
     return this._isCinematicModeEnabled.value;
@@ -86,47 +24,23 @@ class AppState {
     return this._isCinematicModeEnabled;
   }
 
-  get isStreaming() {
-    return this.streamingService?.isStreaming ?? false;
+  get isStreaming(): boolean {
+    return this.dependencies.streamingService.isStreaming;
   }
 
-  get isStreamingSignal(): ReadonlySignal<boolean> {
-    return this._isStreamingSignal;
+  get deviceConnected(): boolean {
+    return this.dependencies.rendererDeviceRuntime.isConnected;
   }
 
-  get deviceConnected() {
-    return this.rendererDeviceRuntime?.isConnected ?? false;
+  get currentStream(): MediaStream | null {
+    return this.dependencies.streamingService.getStream();
   }
 
-  get deviceConnectedSignal(): ReadonlySignal<boolean> {
-    return this._deviceConnectedSignal;
+  get currentCapabilities(): StreamingCapabilities | null {
+    return this.dependencies.streamingService.currentCapabilities;
   }
 
-  get currentStream() {
-    return this._streamCache.value ?? this.streamingService?.getStream?.() ?? null;
-  }
-
-  get streamSignal(): ReadonlySignal<MediaStream | null> {
-    return this._streamCache;
-  }
-
-  get currentCapabilities() {
-    return this._capabilitiesCache.value ?? this.streamingService?.currentCapabilities ?? null;
-  }
-
-  get capabilitiesSignal(): ReadonlySignal<unknown> {
-    return this._capabilitiesCache;
-  }
-
-  setCinematicMode(enabled: boolean) {
+  setCinematicMode(enabled: boolean): void {
     this._isCinematicModeEnabled.value = enabled;
   }
-
-  dispose() {
-    this._bag.dispose();
-    this._streamCache.value = null;
-    this._capabilitiesCache.value = null;
-  }
 }
-
-export { AppState };

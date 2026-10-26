@@ -1,58 +1,35 @@
 import pkg from 'electron-updater';
 const { autoUpdater } = pkg;
 import type { UpdateInfo, ProgressInfo } from 'electron-updater';
-import { BaseService, getElectronApp } from '@platform/core';
-import type { LoggerFactoryLike as LoggerFactory, EventBusLike } from '@platform/core';
-import { MainEventChannels } from '@platform/events';
+import { BaseService } from '@platform/core';
+import type { LoggerFactoryLike as LoggerFactory } from '@platform/core';
 import { IPC_CHANNELS } from '@platform/ipc';
+import type { IpcPushPublisher, IpcPushPayloadMap, IpcPushArguments, UpdateCheckPayload, UpdateStatusPayload } from '@platform/ipc';
 import { UpdateState, type UpdateStateValue } from '@platform/config';
-
-type UpdateStateType = UpdateStateValue;
 
 const INITIAL_UPDATE_CHECK_LIFECYCLE = Symbol('initialUpdateCheck');
 const PERIODIC_UPDATE_CHECK_LIFECYCLE = Symbol('periodicUpdateCheck');
-
-
-
-interface WindowService {
-  send(channel: string, data: unknown): void;
-}
-
 interface Config {
   isDevelopment?: boolean;
   version?: string;
 }
 
 interface UpdateServiceDependencies {
-  windowService: WindowService;
-  eventBus: EventBusLike;
+  pushPublisher: IpcPushPublisher;
+  prepareInstall: () => void;
   loggerFactory: LoggerFactory;
   config: Config;
-}
-
-interface UpdateCheckResult {
-  updateAvailable: boolean;
-  updateInfo?: UpdateInfo;
-  skipped?: boolean;
-  reason?: string;
-}
-
-interface UpdateStatus {
-  state: UpdateStateType;
-  updateInfo: UpdateInfo | null;
-  downloadProgress: ProgressInfo | null;
-  error: string | null;
 }
 
 type AutoUpdaterEventName = Parameters<typeof autoUpdater.on>[0];
 type AutoUpdaterListener = Parameters<typeof autoUpdater.on>[1];
 
 class UpdateService extends BaseService {
-  private readonly windowService: WindowService;
-  protected readonly eventBus: EventBusLike;
+  private readonly pushPublisher: IpcPushPublisher;
+  private readonly prepareInstall: () => void;
   private readonly config: Config;
 
-  state: UpdateStateType;
+  state: UpdateStateValue;
   updateInfo: UpdateInfo | null;
   downloadProgress: ProgressInfo | null;
   error: Error | null;
@@ -62,8 +39,8 @@ class UpdateService extends BaseService {
   constructor(dependencies: UpdateServiceDependencies) {
     super(dependencies, 'UpdateService');
 
-    this.windowService = dependencies.windowService;
-    this.eventBus = dependencies.eventBus;
+    this.pushPublisher = dependencies.pushPublisher;
+    this.prepareInstall = dependencies.prepareInstall;
     this.config = dependencies.config;
 
     this.state = UpdateState.IDLE;
@@ -118,20 +95,20 @@ class UpdateService extends BaseService {
   private _setupEventListeners(): void {
     this._listenToAutoUpdater('checking-for-update', () => {
       this.logger.info('Checking for updates...');
-      this._setState(UpdateState.CHECKING);
+      this.state = UpdateState.CHECKING;
     });
 
     this._listenToAutoUpdater('update-available', (info: UpdateInfo) => {
       this.logger.info('Update available', { version: info.version });
       this.updateInfo = info;
-      this._setState(UpdateState.AVAILABLE);
+      this.state = UpdateState.AVAILABLE;
       this._notifyRenderer(IPC_CHANNELS.UPDATE.AVAILABLE, info);
     });
 
     this._listenToAutoUpdater('update-not-available', (info: UpdateInfo) => {
       this.logger.info('No updates available', { version: info.version });
       this.updateInfo = info;
-      this._setState(UpdateState.NOT_AVAILABLE);
+      this.state = UpdateState.NOT_AVAILABLE;
       this._notifyRenderer(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, info);
     });
 
@@ -148,14 +125,14 @@ class UpdateService extends BaseService {
     this._listenToAutoUpdater('update-downloaded', (info: UpdateInfo) => {
       this.logger.info('Update downloaded', { version: info.version });
       this.updateInfo = info;
-      this._setState(UpdateState.DOWNLOADED);
+      this.state = UpdateState.DOWNLOADED;
       this._notifyRenderer(IPC_CHANNELS.UPDATE.DOWNLOADED, info);
     });
 
     this._listenToAutoUpdater('error', (error: Error) => {
-      if (this._isPlatformNotFoundError(error)) {
+      if (this._isPlatformNotFoundMessage(error.message)) {
         this.logger.info('No updates available for this platform');
-        this._setState(UpdateState.NOT_AVAILABLE);
+        this.state = UpdateState.NOT_AVAILABLE;
         this._notifyRenderer(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, {
           version: this.config.version,
           reason: 'platform-not-supported'
@@ -165,7 +142,7 @@ class UpdateService extends BaseService {
 
       this.logger.error('Update error', error);
       this.error = error;
-      this._setState(UpdateState.ERROR);
+      this.state = UpdateState.ERROR;
       this._notifyRenderer(IPC_CHANNELS.UPDATE.ERROR, { message: error.message });
     });
   }
@@ -178,36 +155,13 @@ class UpdateService extends BaseService {
   }
 
   /**
-   * Check if error is a platform manifest not found (404)
-   * This happens when running on a platform that wasn't published in a release
-   * @param error - The error from autoUpdater
-   * @returns True if this is a platform-not-found error
-   * @private
-   */
-  private _isPlatformNotFoundError(error: Error): boolean {
-    const message = error?.message || '';
-    return this._isPlatformNotFoundMessage(message);
-  }
-
-  /**
    * Check if a message indicates platform manifest not found
    * @param message - The message to check
    * @returns True if this is a platform-not-found message
    * @private
    */
-  _isPlatformNotFoundMessage(message: string | null | undefined): boolean {
+  private _isPlatformNotFoundMessage(message: string | null | undefined): boolean {
     return /Cannot find latest(?:-[^/\s]+)?\.yml/.test(message || '');
-  }
-
-  /**
-   * Update internal state and publish event
-   * @param newState - New state value
-   * @private
-   */
-  _setState(newState: UpdateStateType): void {
-    const oldState = this.state;
-    this.state = newState;
-    this.eventBus.publish(MainEventChannels.UPDATE.STATE_CHANGED, { oldState, newState });
   }
 
   /**
@@ -216,27 +170,24 @@ class UpdateService extends BaseService {
    * @param data - Data to send
    * @private
    */
-  _notifyRenderer(channel: string, data: unknown): void {
+  private _notifyRenderer<K extends keyof IpcPushPayloadMap>(...args: IpcPushArguments<K>): void {
     try {
-      this.windowService.send(channel, data);
+      this.pushPublisher.emit<K>(...args);
     } catch (error) {
-      this.logger.warn('Failed to notify renderer', { channel, error: (error as Error).message });
+      this.logger.warn('Failed to notify renderer', { channel: args[0], error: (error as Error).message });
     }
   }
 
   /**
    * Check for updates
-   * @param options - Check options
-   * @param options.force - Force check even if already downloaded/downloading
    * @returns Update check result
    */
-  async checkForUpdates({ force = false }: { force?: boolean } = {}): Promise<UpdateCheckResult> {
+  async checkForUpdates(): Promise<UpdateCheckPayload> {
     if (!this._initialized) {
       throw new Error('UpdateService not initialized');
     }
 
-    // Skip if already downloaded or downloading (unless forced by user)
-    if (!force && (this.state === UpdateState.DOWNLOADED || this.state === UpdateState.DOWNLOADING)) {
+    if (this.state === UpdateState.DOWNLOADED || this.state === UpdateState.DOWNLOADING) {
       this.logger.info('Skipping update check - update already in progress or downloaded');
       return { updateAvailable: true, updateInfo: this.updateInfo || undefined, skipped: true };
     }
@@ -244,7 +195,7 @@ class UpdateService extends BaseService {
     // Skip in development mode
     if (this.config.isDevelopment) {
       this.logger.info('Skipping update check in development mode');
-      this._setState(UpdateState.NOT_AVAILABLE);
+      this.state = UpdateState.NOT_AVAILABLE;
       this._notifyRenderer(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, { version: this.config.version, reason: 'development' });
       return { updateAvailable: false, reason: 'development' };
     }
@@ -252,12 +203,17 @@ class UpdateService extends BaseService {
     try {
       this.logger.info('Checking for updates...');
       const result = await autoUpdater.checkForUpdates();
+      if (!result) {
+        this.state = UpdateState.NOT_AVAILABLE;
+        this._notifyRenderer(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, { version: this.config.version, reason: 'update-check-disabled' });
+        return { updateAvailable: false, reason: 'update-check-disabled' };
+      }
       return {
-        updateAvailable: result?.updateInfo?.version !== this.config.version,
-        updateInfo: result?.updateInfo
+        updateAvailable: result.updateInfo.version !== this.config.version,
+        updateInfo: result.updateInfo
       };
     } catch (error) {
-      if (this._isPlatformNotFoundError(error as Error)) {
+      if (this._isPlatformNotFoundMessage((error as Error)?.message)) {
         return { updateAvailable: false, reason: 'platform-not-supported' };
       }
       this.logger.error('Failed to check for updates', error as Error);
@@ -276,7 +232,7 @@ class UpdateService extends BaseService {
 
     if (this.state === UpdateState.DOWNLOADED) {
       this.logger.info('Update already downloaded');
-      this._notifyRenderer(IPC_CHANNELS.UPDATE.DOWNLOADED, this.updateInfo);
+      if (this.updateInfo) this._notifyRenderer(IPC_CHANNELS.UPDATE.DOWNLOADED, this.updateInfo);
       return;
     }
 
@@ -286,11 +242,11 @@ class UpdateService extends BaseService {
 
     try {
       this.logger.info('Downloading update...');
-      this._setState(UpdateState.DOWNLOADING);
+      this.state = UpdateState.DOWNLOADING;
       await autoUpdater.downloadUpdate();
     } catch (error) {
       this.logger.error('Failed to download update', error as Error);
-      this._setState(UpdateState.ERROR);
+      this.state = UpdateState.ERROR;
       this.error = error as Error;
       throw error;
     }
@@ -309,10 +265,7 @@ class UpdateService extends BaseService {
     }
 
     this.logger.info('Installing update and restarting...');
-    const electronApp = getElectronApp();
-    if (electronApp) {
-      electronApp.isQuitting = true;
-    }
+    this.prepareInstall();
     autoUpdater.quitAndInstall(false, true);
   }
 
@@ -346,10 +299,10 @@ class UpdateService extends BaseService {
   /**
    * Stop automatic update checking
    */
-  stopAutoCheck(): void {
+  private stopAutoCheck(): void {
     const wasRunning = this._autoCheckRunning;
-    this.cancelScheduled(INITIAL_UPDATE_CHECK_LIFECYCLE);
-    this.cancelScheduled(PERIODIC_UPDATE_CHECK_LIFECYCLE);
+    this.cancelManaged(INITIAL_UPDATE_CHECK_LIFECYCLE);
+    this.cancelManaged(PERIODIC_UPDATE_CHECK_LIFECYCLE);
     this._autoCheckRunning = false;
     if (wasRunning) {
       this.logger.info('Auto-update check stopped');
@@ -360,7 +313,7 @@ class UpdateService extends BaseService {
    * Get current update status
    * @returns Current status object
    */
-  getStatus(): UpdateStatus {
+  getStatus(): UpdateStatusPayload {
     return {
       state: this.state,
       updateInfo: this.updateInfo,

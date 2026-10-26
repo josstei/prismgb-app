@@ -1,6 +1,6 @@
-import type { EventBusLike, LoggerFactoryLike, LoggerLike } from '@platform/core';
+import type { LoggerFactoryLike, LoggerLike } from '@platform/core';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import { EventChannels } from '@platform/events';
+import { EventChannels, type TypedEventBusLike, type EventPayloadMap } from '@platform/events';
 import { UpdateState } from '@platform/config';
 import type { UpdateStateValue } from '@platform/config';
 import {
@@ -14,22 +14,11 @@ import {
 } from '@platform/ui-base';
 import { signal } from '@platform/ui-base/reactive';
 
-type UpdateInfo = {
-  version?: string;
-};
-
-type UpdateStatus = {
-  state: UpdateStateValue;
-  updateInfo?: UpdateInfo | null;
-};
-
-type UpdateProgress = {
-  percent?: number;
-};
+type UpdateStatus = EventPayloadMap[typeof EventChannels.UPDATE.STATE_CHANGED];
 
 const updateStateValues = new Set<string>(Object.values(UpdateState));
 
-function isUpdateStatus(status: unknown): status is UpdateStatus {
+function isUpdateStatus(status: unknown): status is UpdateStatus & { state: UpdateStateValue } {
   if (typeof status !== 'object' || status === null) {
     return false;
   }
@@ -137,7 +126,7 @@ function createEmptyUpdateSectionElements(): CachedUpdateSectionElements {
 
 export interface UpdateSectionComponentOptions {
   updateService: UpdateServiceLike;
-  eventBus: EventBusLike;
+  eventBus: TypedEventBusLike;
   loggerFactory?: LoggerFactoryLike | null;
 }
 
@@ -148,7 +137,7 @@ export interface UpdateSectionComponentOptions {
  */
 class UpdateSectionComponent extends PresentationComponent {
   private readonly updateService: UpdateServiceLike;
-  private readonly eventBus: EventBusLike;
+  private readonly eventBus: TypedEventBusLike;
   private readonly logger: LoggerLike;
   private _initialized: boolean;
   elements: CachedUpdateSectionElements;
@@ -274,8 +263,7 @@ class UpdateSectionComponent extends PresentationComponent {
       this.eventBus.subscribe(
         EventChannels.UPDATE.PROGRESS,
         (progress) => {
-          const payload = progress as UpdateProgress | null | undefined;
-          if (payload) this._progressPercent.value = payload.percent || 0;
+          if (progress) this._progressPercent.value = progress.percent || 0;
         }
       )
     );

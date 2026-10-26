@@ -5,7 +5,6 @@ import type {
   DeviceAcquisitionProfile,
   DeviceBehaviorPolicy,
   DeviceCanvasResolution,
-  DeviceCatalogApi,
   DeviceConstraintMap,
   DeviceDescriptor,
   DeviceFixtureDescriptor,
@@ -13,7 +12,6 @@ import type {
   DeviceMediaAudioProfile,
   DeviceMediaFallbackStrategy,
   DeviceMediaProfile,
-  DeviceNativeResolution,
   DeviceResolution,
   DeviceStreamProfile
 } from './types.js';
@@ -323,11 +321,7 @@ export function getDeviceAcquisitionProfile(idOrDescriptor?: DeviceId | DeviceDe
   });
 }
 
-export const DeviceCatalog: DeviceCatalogApi = Object.freeze<DeviceCatalogApi>({
-  all() {
-    return DEVICE_DESCRIPTORS;
-  },
-
+export const DeviceCatalog = Object.freeze({
   enabled() {
     return ENABLED_DEVICE_DESCRIPTORS;
   },
@@ -346,16 +340,5 @@ export const DeviceCatalog: DeviceCatalogApi = Object.freeze<DeviceCatalogApi>({
       width: descriptor.display.nativeWidth,
       height: descriptor.display.nativeHeight
     };
-  },
-
-  streamProfile(id?: DeviceId) {
-    return getDeviceStreamProfile(id);
-  },
-
-  acquisitionProfile(id?: DeviceId) {
-    return getDeviceAcquisitionProfile(id);
   }
 });
-
-export const DEFAULT_DEVICE_ID: DeviceId = DeviceCatalog.default().id;
-export const DEFAULT_NATIVE_RESOLUTION: DeviceNativeResolution = Object.freeze(DeviceCatalog.nativeResolution());

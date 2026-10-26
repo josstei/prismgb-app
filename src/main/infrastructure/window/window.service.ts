@@ -4,10 +4,10 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import { uiConfig } from '@platform/config';
 import { IPC_CHANNELS } from '@platform/ipc';
-import { injectable, inject } from 'inversify';
-import { BaseService, type LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@main/application/di/tokens.js';
-import type { IpcPushBridge } from '@main/ipc/ipc-push.bridge.js';
+
+import { BaseService, DisposableBag, type LoggerFactoryLike } from '@platform/core';
+
+import type { IpcPushPublisher } from '@platform/ipc';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const { WINDOW_CONFIG } = uiConfig;
@@ -21,6 +21,13 @@ type ConsoleMessageListener = (
 ) => void;
 
 type DownloadHandler = (event: Event, item: DownloadItem) => void;
+type ExpectedDownload = {
+  promise: Promise<void>;
+  resolve(): void;
+  reject(error: Error): void;
+  timeout: ReturnType<typeof setTimeout>;
+};
+const DOWNLOAD_START_TIMEOUT_MS = 5000;
 
 type FullscreenListener = () => void;
 
@@ -28,31 +35,24 @@ interface CreateWindowOptions {
   hidden?: boolean;
 }
 
-const WINDOW_DOWNLOAD_LIFECYCLE = Symbol('windowDownload');
-const WINDOW_CONSOLE_LIFECYCLE = Symbol('windowConsole');
-const WINDOW_READY_TO_SHOW_LIFECYCLE = Symbol('windowReadyToShow');
-const WINDOW_ENTER_FULLSCREEN_LIFECYCLE = Symbol('windowEnterFullscreen');
-const WINDOW_LEAVE_FULLSCREEN_LIFECYCLE = Symbol('windowLeaveFullscreen');
-const WINDOW_RESIZED_LIFECYCLE = Symbol('windowResized');
-const WINDOW_CLOSE_LIFECYCLE = Symbol('windowClose');
-const WINDOW_CLOSED_LIFECYCLE = Symbol('windowClosed');
-
-type CleanupWindowListenersOptions = {
-  includeCloseListener?: boolean;
-  includeClosedListener?: boolean;
+type WindowServiceDependencies = {
+  ipcPushBridge: IpcPushPublisher;
+  loggerFactory: LoggerFactoryLike;
 };
 
-@injectable()
 class WindowService extends BaseService {
 
   private mainWindow: BrowserWindow | null = null;
+  private windowDisposables: DisposableBag | null = null;
   private _isHiddenLaunch: boolean = false;
+  private readonly pendingDownloads = new Set<Promise<void>>();
+  private readonly expectedDownloads = new Map<string, ExpectedDownload>();
 
-  constructor(
-    @inject(TOKENS.ipcPushBridge) private readonly ipcPushBridge: IpcPushBridge,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly ipcPushBridge: IpcPushPublisher;
+
+  constructor({ ipcPushBridge, loggerFactory }: WindowServiceDependencies) {
     super({ loggerFactory }, 'WindowService');
+    this.ipcPushBridge = ipcPushBridge;
   }
 
   createWindow(options: CreateWindowOptions = {}): BrowserWindow {
@@ -94,6 +94,8 @@ class WindowService extends BaseService {
       show: false // Don't show until ready
     });
     const mainWindow = this.mainWindow;
+    const windowDisposables = this.windowDisposables = new DisposableBag();
+    const session = mainWindow.webContents.session;
 
     const downloadHandler: DownloadHandler = (event: Event, item: DownloadItem) => {
       const downloadsPath = app.getPath('downloads');
@@ -114,21 +116,34 @@ class WindowService extends BaseService {
       }
 
       this.logger.info(`Auto-saving download: ${filename} to ${downloadsPath}`);
-      item.setSavePath(savePath);
-
-      item.once('done', (event: Event, state: string) => {
+      const url = item.getURL();
+      const expected = this.expectedDownloads.get(url);
+      if (expected) {
+        clearTimeout(expected.timeout);
+        this.expectedDownloads.delete(url);
+      }
+      const completed = expected ?? Promise.withResolvers<void>();
+      void completed.promise.catch(() => {});
+      this.pendingDownloads.add(completed.promise);
+      item.once('done', (_event: Event, state: string) => {
         if (state === 'completed') {
+          this.pendingDownloads.delete(completed.promise);
+          completed.resolve();
           this.logger.info(`Download completed: ${savePath}`);
         } else {
+          completed.reject(new Error(`Download failed: ${state}`));
           this.logger.warn(`Download failed: ${state}`);
         }
       });
+      try {
+        item.setSavePath(savePath);
+      } catch (error) {
+        event.preventDefault();
+        completed.reject(error instanceof Error ? error : new Error(String(error)));
+      }
     };
-    mainWindow.webContents.session.on('will-download', downloadHandler);
-    this.disposables.replace(WINDOW_DOWNLOAD_LIFECYCLE, () => {
-      if (mainWindow.isDestroyed()) return;
-      mainWindow.webContents.session.off('will-download', downloadHandler);
-    });
+    session.on('will-download', downloadHandler);
+    windowDisposables.add(() => { session.off('will-download', downloadHandler); });
 
     if (isDev) {
       this.mainWindow.loadURL('http://127.0.0.1:3000/src/renderer/index.html');
@@ -140,7 +155,7 @@ class WindowService extends BaseService {
 
     if (isDev) {
       const consoleMessageListener: ConsoleMessageListener = (
-        event: Event,
+        _event: Event,
         level: number,
         message: string,
         _line: number,
@@ -150,7 +165,7 @@ class WindowService extends BaseService {
         console.log(`[Renderer ${levels[level] || level}] ${message}`);
       };
       mainWindow.webContents.on('console-message', consoleMessageListener);
-      this.disposables.replace(WINDOW_CONSOLE_LIFECYCLE, () => {
+      windowDisposables.add(() => {
         if (mainWindow.isDestroyed()) return;
         mainWindow.webContents.off('console-message', consoleMessageListener);
       });
@@ -164,29 +179,29 @@ class WindowService extends BaseService {
       }
     };
     mainWindow.once('ready-to-show', readyToShowListener);
-    this.disposables.replace(WINDOW_READY_TO_SHOW_LIFECYCLE, () => {
+    windowDisposables.add(() => {
       mainWindow.off('ready-to-show', readyToShowListener);
     });
 
     const enterFullscreenListener: FullscreenListener = () => {
-      this.send(IPC_CHANNELS.WINDOW.ENTER_FULLSCREEN);
+      this.ipcPushBridge.emit(IPC_CHANNELS.WINDOW.ENTER_FULLSCREEN);
     };
     const leaveFullscreenListener: FullscreenListener = () => {
-      this.send(IPC_CHANNELS.WINDOW.LEAVE_FULLSCREEN);
+      this.ipcPushBridge.emit(IPC_CHANNELS.WINDOW.LEAVE_FULLSCREEN);
     };
     const resizedListener = () => {
-      this.send(IPC_CHANNELS.WINDOW.RESIZED);
+      this.ipcPushBridge.emit(IPC_CHANNELS.WINDOW.RESIZED);
     };
     mainWindow.on('enter-full-screen', enterFullscreenListener);
-    this.disposables.replace(WINDOW_ENTER_FULLSCREEN_LIFECYCLE, () => {
+    windowDisposables.add(() => {
       mainWindow.off('enter-full-screen', enterFullscreenListener);
     });
     mainWindow.on('leave-full-screen', leaveFullscreenListener);
-    this.disposables.replace(WINDOW_LEAVE_FULLSCREEN_LIFECYCLE, () => {
+    windowDisposables.add(() => {
       mainWindow.off('leave-full-screen', leaveFullscreenListener);
     });
     mainWindow.on('resized', resizedListener);
-    this.disposables.replace(WINDOW_RESIZED_LIFECYCLE, () => {
+    windowDisposables.add(() => {
       mainWindow.off('resized', resizedListener);
     });
 
@@ -197,25 +212,19 @@ class WindowService extends BaseService {
         return;
       }
 
-      this._cleanupWindowListeners({
-        includeCloseListener: false,
-        includeClosedListener: false
-      });
     };
     mainWindow.on('close', closeListener);
-    this.disposables.replace(WINDOW_CLOSE_LIFECYCLE, () => {
+    windowDisposables.add(() => {
       mainWindow.off('close', closeListener);
     });
 
     const closedListener = () => {
-      this._cleanupWindowListeners({
-        includeCloseListener: true,
-        includeClosedListener: true
-      });
+      if (this.mainWindow !== mainWindow) return;
+      this.releaseWindowListeners();
       this.mainWindow = null;
     };
     mainWindow.on('closed', closedListener);
-    this.disposables.replace(WINDOW_CLOSED_LIFECYCLE, () => {
+    windowDisposables.add(() => {
       mainWindow.off('closed', closedListener);
     });
 
@@ -250,7 +259,45 @@ class WindowService extends BaseService {
     }
   }
 
+  expectDownload(url: string): void {
+    if (this.expectedDownloads.has(url)) throw new Error('Download already registered');
+    const completed = Promise.withResolvers<void>();
+    // Missing-start failures remain observable by drain without becoming an
+    // unhandled rejection if the renderer continues running before shutdown.
+    void completed.promise.catch(() => {});
+    const timeout = setTimeout(() => {
+      this.expectedDownloads.delete(url);
+      this.logger.error('Registered download did not start');
+      completed.reject(new Error('Registered download did not start'));
+    }, DOWNLOAD_START_TIMEOUT_MS);
+    this.expectedDownloads.set(url, { ...completed, timeout });
+    this.pendingDownloads.add(completed.promise);
+  }
+
+  cancelDownload(url: string): void {
+    const expected = this.expectedDownloads.get(url);
+    if (!expected) return;
+    clearTimeout(expected.timeout);
+    this.expectedDownloads.delete(url);
+    this.pendingDownloads.delete(expected.promise);
+    expected.resolve();
+  }
+
+  async drainDownloads(): Promise<void> {
+    const failures: unknown[] = [];
+    while (this.pendingDownloads.size > 0) {
+      const pending = [...this.pendingDownloads];
+      const results = await Promise.allSettled(pending);
+      pending.forEach((download) => this.pendingDownloads.delete(download));
+      for (const result of results) {
+        if (result.status === 'rejected') failures.push(result.reason);
+      }
+    }
+    if (failures.length) throw new AggregateError(failures, 'Downloads failed to save');
+  }
+
   destroyWindow(): void {
+    this.releaseWindowListeners();
     if (!this.mainWindow || this.mainWindow.isDestroyed()) {
       this.mainWindow = null;
       return;
@@ -258,13 +305,7 @@ class WindowService extends BaseService {
 
     this.logger.info('Destroying main window safely');
 
-    // 1. Clean up listeners while the window is still alive
-    this._cleanupWindowListeners({
-      includeCloseListener: true,
-      includeClosedListener: true
-    });
-
-    // 2. Close DevTools if open
+    // Close DevTools while the window is still alive.
     try {
       if (this.mainWindow.webContents && !this.mainWindow.webContents.isDestroyed() && this.mainWindow.webContents.isDevToolsOpened()) {
         this.mainWindow.webContents.closeDevTools();
@@ -274,7 +315,6 @@ class WindowService extends BaseService {
       this.logger.error('Error closing DevTools during window destroy:', error);
     }
 
-    // 3. Destroy window
     try {
       this.mainWindow.destroy();
       this.logger.debug('Destroyed main window');
@@ -302,44 +342,15 @@ class WindowService extends BaseService {
     return false;
   }
 
-  send(channel: string, ...args: unknown[]): void {
-    this.ipcPushBridge.emit(channel, args[0]);
-  }
-
-  private _cleanupWindowListeners({
-    includeCloseListener = true,
-    includeClosedListener = false
-  }: CleanupWindowListenersOptions = {}): void {
-    const lifecycles = [
-      WINDOW_READY_TO_SHOW_LIFECYCLE,
-      WINDOW_CONSOLE_LIFECYCLE,
-      WINDOW_DOWNLOAD_LIFECYCLE,
-      WINDOW_ENTER_FULLSCREEN_LIFECYCLE,
-      WINDOW_LEAVE_FULLSCREEN_LIFECYCLE,
-      WINDOW_RESIZED_LIFECYCLE
-    ];
-
-    if (includeCloseListener) {
-      lifecycles.push(WINDOW_CLOSE_LIFECYCLE);
-    }
-    if (includeClosedListener) {
-      lifecycles.push(WINDOW_CLOSED_LIFECYCLE);
-    }
-
-    for (const key of lifecycles) {
-      try {
-        this.disposables.cancel(key);
-      } catch (error) {
-        this.logger.error(`Error cancelling window lifecycle listener for key ${String(key)}:`, error);
-      }
-    }
+  private releaseWindowListeners(): void {
+    const resources = this.windowDisposables;
+    this.windowDisposables = null;
+    void resources?.clear().catch((error) => this.logger.error('Failed to release window listeners', error));
   }
 
   override dispose(): void | Promise<void> {
-    this._cleanupWindowListeners({
-      includeCloseListener: true,
-      includeClosedListener: true
-    });
+    for (const url of this.expectedDownloads.keys()) this.cancelDownload(url);
+    this.destroyWindow();
     return super.dispose();
   }
 }

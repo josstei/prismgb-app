@@ -1,1 +1,1 @@
-import '@main/application/session.orchestrator';
+import '@main/application/container';

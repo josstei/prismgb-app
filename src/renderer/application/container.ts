@@ -1,75 +1,179 @@
-import { Container, type ServiceIdentifier } from 'inversify';
-import { TOKENS, type TokenKey } from './di/tokens.js';
-import { infrastructureModule } from './di/infrastructure.module.js';
-import { applicationModule } from './di/application.module.js';
-import { presentationModule } from './di/presentation.module.js';
+import { ConsoleLoggerFactory } from '@platform/core';
+import { PlatformEventBus } from '@platform/events';
+import { RendererDeviceRuntime } from '../infrastructure/services/devices/device-runtime.service';
+import { DeviceMediaAcquirer } from '../infrastructure/services/streaming/device-media-acquirer.service';
+import { StreamingService } from '../infrastructure/services/streaming/streaming.service';
+import { StreamingViewService } from '../infrastructure/services/streaming/streaming-view.service';
+import { StreamingRenderService } from '../infrastructure/services/streaming/streaming-render.service';
+import { CaptureGpuRecordingService } from '../infrastructure/services/gpu/gpu-recording.service';
+import { SettingsService } from '../infrastructure/services/settings/settings.service';
+import { StreamingAudioPipelineService } from '../infrastructure/services/streaming/audio-pipeline.service';
+import { CaptureService } from '../infrastructure/services/capture/capture.service';
+import { TranscodeService } from '../infrastructure/services/transcode/transcode.service';
+import { CaptureSaveService } from '../infrastructure/services/capture/capture-save.service';
+import { SettingsFullscreenService } from '../infrastructure/services/settings/settings-fullscreen.service';
+import { UpdateService } from '../infrastructure/services/updates/update.service';
+import { VisibilityAdapter } from '../infrastructure/adapters/visibility.adapter';
+import { UserActivityAdapter } from '../infrastructure/adapters/user-activity.adapter';
+import { ReducedMotionAdapter } from '../infrastructure/adapters/reduced-motion.adapter';
+import { StreamingViewportService } from '../infrastructure/services/platform/viewport.service';
+import { StreamingOrchestrator } from './orchestrators/streaming.orchestrator';
+import { StreamingAudioOrchestrator } from './orchestrators/streaming-audio.orchestrator';
+import { CaptureOrchestrator } from './orchestrators/capture.orchestrator';
+import { SettingsDisplayModeOrchestrator } from './orchestrators/display-mode.orchestrator';
+import { UISetupOrchestrator } from './orchestrators/ui-setup.orchestrator';
+import { PerformanceStateOrchestrator } from './orchestrators/performance/performance-state.orchestrator';
+import { NotesService } from '@platform/notes';
+import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
+import { downloadFile as downloadBlobFile } from '@renderer/lib/file-download.utils.js';
+import { PROTECTED_STORAGE_KEYS } from '@renderer/lib/storage-keys.config.js';
+import { BodyClassManager } from '../presentation/effects/body-class.effect';
+import { CaptureUIBridge } from '../presentation/bridges/capture-ui.bridge';
+import { TranscodeUIBridge } from '../presentation/bridges/transcode-ui.bridge';
+import { UIEventBridge } from '../presentation/bridges/ui-event.bridge';
+import { UIEffects } from '../presentation/effects/ui-effects.host';
+import { AppState } from './state/app-state';
+import { PresentationModeStore } from '../presentation/state/presentation-mode.store';
+import { createDomBindings } from '../presentation/primitives/dom-bindings.utils';
+import { BrowserStorageAdapter } from '../infrastructure/adapters/browser-storage.adapter';
+import { BrowserMediaDevicesPort } from '../infrastructure/services/devices/browser-media-devices.port';
+import { StorageDevicePreferenceStore } from '../infrastructure/services/devices/storage-device-preference.store';
+import { TrpcDeviceStatusPort } from '../infrastructure/services/devices/trpc-device-status.port';
+import { createApplicationLifecycle, disposeInOrder, type LoggerFactoryLike, type StorageServiceLike } from '@platform/core';
 import { StreamingCanvasLifecycleService } from '../infrastructure/services/streaming/canvas-lifecycle.service.js';
-import {
-  UiComponentHost,
-  type RendererUiComponentInstanceMap
-} from '../presentation/controller/ui-component.host.js';
-import { RendererTemplateCoreComponentIds } from '../presentation/primitives/template-dom.contract.js';
-import { applyBindingOverrides } from '@platform/core';
+import { UiComponentHost } from '../presentation/controller/ui-component.host.js';
+import { createRendererUiComponents } from '../presentation/controller/ui-component.registry.js';
+import { UIController } from '../presentation/controller/ui.controller.js';
 
-export type RendererServiceContainer = Container;
-
-const ALL_COMPONENT_TOKEN_MAP: Record<keyof RendererUiComponentInstanceMap, ServiceIdentifier> = {
-  statusNotificationComponent: TOKENS.statusNotificationComponent,
-  deviceStatusComponent: TOKENS.deviceStatusComponent,
-  streamControlsComponent: TOKENS.streamControlsComponent,
-  transcodeToastComponent: TOKENS.transcodeToastComponent,
-  settingsMenuComponent: TOKENS.settingsMenuComponent,
-  shaderSelectorComponent: TOKENS.shaderSelectorComponent,
-  notesPanelComponent: TOKENS.notesPanelComponent
-};
-
-const CORE_COMPONENT_TOKEN_MAP: Partial<Record<keyof RendererUiComponentInstanceMap, ServiceIdentifier>> =
-  Object.fromEntries(
-    RendererTemplateCoreComponentIds.map((id) => [id, ALL_COMPONENT_TOKEN_MAP[id]])
-  );
-
-/**
- * Build a renderer DI container wired onto inversify: layer binding modules
- * register every token's construction, `canvasLifecycleService` binds here so
- * its lazy read of `streamingRenderService` can close over this container and
- * break their circular dependency, then overrides replace bindings for tests.
- * No code generation — the binding modules are the source of truth.
- */
-export function createRendererContainer(overrides: Partial<Record<TokenKey, unknown>> = {}): RendererServiceContainer {
-  const container = new Container({ defaultScope: 'Singleton' });
-  container.load(infrastructureModule, applicationModule, presentationModule);
-
-  container.bind(TOKENS.canvasLifecycleService).toDynamicValue(() => new StreamingCanvasLifecycleService({
-    streamViewService: container.get(TOKENS.streamViewService),
-    viewportService: container.get(TOKENS.viewportService),
-    eventBus: container.get(TOKENS.eventBus),
-    loggerFactory: container.get(TOKENS.loggerFactory),
-    get streamingRenderService() {
-      return container.get(TOKENS.streamingRenderService);
-    }
-  })).inSingletonScope();
-
-  container.bind(TOKENS.uiComponentHost).toDynamicValue(() => new UiComponentHost<RendererUiComponentInstanceMap>(
-    <TInstance>(token: unknown): TInstance => container.get(token as ServiceIdentifier<TInstance>),
-    CORE_COMPONENT_TOKEN_MAP,
-    ALL_COMPONENT_TOKEN_MAP,
-    container.get(TOKENS.loggerFactory)
-  )).inSingletonScope();
-
-  applyBindingOverrides(container, TOKENS, overrides);
-
-  return container;
+export interface RendererRuntimeOptions {
+  loggerFactory?: LoggerFactoryLike;
+  storageService?: StorageServiceLike;
+  deviceStatusPort?: ConstructorParameters<typeof RendererDeviceRuntime>[0]['deviceStatusPort'];
+  mediaDevicesPort?: ConstructorParameters<typeof RendererDeviceRuntime>[0]['mediaDevicesPort'];
+  devicePreferenceStore?: ConstructorParameters<typeof RendererDeviceRuntime>[0]['devicePreferenceStore'];
 }
 
-let container: RendererServiceContainer | null = null;
+/** Process-local typed composition; component factories preserve deferred UI construction. */
+export function createRendererRuntime(options: RendererRuntimeOptions = {}) {
+  const downloadFile = (blob: Blob, filename: string) => downloadBlobFile(blob, filename, {
+    expect: (url) => trpcClient.window.expectDownload.mutate({ url }),
+    cancel: (url) => trpcClient.window.cancelDownload.mutate({ url })
+  });
+  const loggerFactory = options.loggerFactory ?? new ConsoleLoggerFactory();
+  const eventBus = new PlatformEventBus({ loggerFactory });
+  const storageService = options.storageService ?? new BrowserStorageAdapter({ protectedKeys: PROTECTED_STORAGE_KEYS });
+  const deviceStatusPort = options.deviceStatusPort ?? new TrpcDeviceStatusPort(trpcClient, loggerFactory.create('TrpcDeviceStatusPort'));
+  const mediaDevicesPort = options.mediaDevicesPort ?? new BrowserMediaDevicesPort(undefined, loggerFactory.create('BrowserMediaDevicesPort'));
+  const devicePreferenceStore = options.devicePreferenceStore ?? new StorageDevicePreferenceStore(storageService, loggerFactory.create('StorageDevicePreferenceStore'));
+  const rendererDeviceRuntime = new RendererDeviceRuntime({ deviceStatusPort, mediaDevicesPort, devicePreferenceStore, eventBus, loggerFactory });
+  const deviceMediaAcquirer = new DeviceMediaAcquirer({ mediaDevicesPort, loggerFactory });
+  const streamingService = new StreamingService({ rendererDeviceRuntime, deviceMediaAcquirer, eventBus, loggerFactory });
+  const appState = new AppState({ streamingService, rendererDeviceRuntime });
+  const settingsService = new SettingsService({ eventBus, loggerFactory, storageService });
+  const updateService = new UpdateService({ eventBus, loggerFactory });
+  const notesService = new NotesService({ eventBus, storageService, loggerFactory });
+  const presentationModeStore = new PresentationModeStore({ eventBus, cinematicEnabled: appState.cinematicModeSignal });
+  const bodyClassManager = new BodyClassManager();
+  const domBindings = createDomBindings(document);
+  const uiEffects = new UIEffects();
+  const uiComponentHost = new UiComponentHost(createRendererUiComponents({
+    dom: domBindings, eventBus, loggerFactory, settingsService, notesService, updateService,
+    appState, bodyClassManager, initialDeviceConnected: rendererDeviceRuntime.isConnected
+  }), loggerFactory);
+  const uiController = new UIController({ downloadFile, uiComponentHost, domBindings, uiEffects, loggerFactory });
+  const streamViewService = new StreamingViewService({ uiController, loggerFactory });
+  const viewportService = new StreamingViewportService({ loggerFactory });
+  const canvasLifecycleService = new StreamingCanvasLifecycleService({ streamViewService, viewportService, eventBus, loggerFactory });
+  const streamingRenderService = new StreamingRenderService({ appState, streamViewService, canvasLifecycleService, settingsService, eventBus, loggerFactory });
+  const gpuRecordingService = new CaptureGpuRecordingService({ streamingRenderService, eventBus, loggerFactory });
+  const streamingAudioPipelineService = new StreamingAudioPipelineService({ eventBus, loggerFactory, settingsService });
+  const captureService = new CaptureService({ eventBus, loggerFactory });
+  const transcodeService = new TranscodeService({ eventBus, loggerFactory });
+  const captureSaveService = new CaptureSaveService({ downloadFile, eventBus, settingsService, transcodeService, loggerFactory });
+  const fullscreenService = new SettingsFullscreenService({ eventBus, loggerFactory });
+  const streamingOrchestrator = new StreamingOrchestrator({ streamingService, appState, streamViewService, streamingRenderService, gpuRecordingService, settingsService, eventBus, loggerFactory });
+  const streamingAudioOrchestrator = new StreamingAudioOrchestrator({ streamingAudioPipelineService, streamViewService, appState, eventBus, loggerFactory });
+  const captureOrchestrator = new CaptureOrchestrator({ captureService, appState, streamViewService, streamingRenderService, gpuRecordingService, transcodeService, captureSaveService, eventBus, loggerFactory });
+  const displayModeOrchestrator = new SettingsDisplayModeOrchestrator({ fullscreenService, appState, settingsService, eventBus, loggerFactory });
+  const uiSetupOrchestrator = new UISetupOrchestrator({ appState, uiController, eventBus, loggerFactory });
+  const performanceStateOrchestrator = new PerformanceStateOrchestrator({ appState, eventBus, loggerFactory, visibilityAdapter: new VisibilityAdapter(), userActivityAdapter: new UserActivityAdapter(), reducedMotionAdapter: new ReducedMotionAdapter() });
+  const uiEventBridge = new UIEventBridge({ eventBus, uiController, loggerFactory });
+  const captureUiBridge = new CaptureUIBridge({ eventBus, uiController, loggerFactory });
+  const transcodeUiBridge = new TranscodeUIBridge({ eventBus, loggerFactory });
 
-export function initializeContainer(): RendererServiceContainer {
-  if (container) {
-    console.warn('Container already initialized');
-    return container;
-  }
-
-  container = createRendererContainer();
-  console.log('DI Container initialized with domain services');
-  return container;
+  const lifecycle = createApplicationLifecycle(async () => {
+    bodyClassManager.bindPresentationMode(presentationModeStore);
+    bodyClassManager.bindPerformanceState(eventBus);
+    uiEffects.setElements(uiController.elements);
+    uiController.initializeComponents();
+    uiEventBridge.initialize();
+    captureUiBridge.initialize();
+    transcodeUiBridge.initialize();
+    transcodeService.initialize();
+    // Bind device presentation before the initial device scan publishes its status.
+    await uiSetupOrchestrator.initialize();
+    await streamingAudioOrchestrator.initialize();
+    await streamingOrchestrator.initialize();
+    await rendererDeviceRuntime.initialize();
+    await captureOrchestrator.initialize();
+    await performanceStateOrchestrator.initialize();
+    await displayModeOrchestrator.initialize();
+    await settingsService.initialize();
+    await updateService.initialize();
+  }, () => disposeInOrder([
+    () => uiSetupOrchestrator.cleanup(),
+    () => performanceStateOrchestrator.cleanup(),
+    () => displayModeOrchestrator.cleanup(),
+    () => captureOrchestrator.cleanup(),
+    () => streamingOrchestrator.cleanup(),
+    () => streamingAudioOrchestrator.cleanup(),
+    () => rendererDeviceRuntime.dispose(),
+    () => streamingAudioPipelineService.dispose(),
+    () => streamingRenderService.dispose(),
+    () => captureService.dispose(),
+    () => gpuRecordingService.dispose(),
+    () => captureSaveService.dispose(),
+    () => transcodeService.dispose(),
+    () => updateService.dispose(),
+    () => settingsService.dispose(),
+    () => uiEventBridge.dispose(),
+    () => captureUiBridge.dispose(),
+    () => transcodeUiBridge.dispose(),
+    // UI disposal flushes pending note edits before the note service and event bus are released.
+    () => uiController.dispose(),
+    () => notesService.dispose(),
+    () => bodyClassManager.dispose(),
+    () => presentationModeStore.dispose(),
+    () => streamViewService.dispose(),
+    () => deviceMediaAcquirer.dispose(),
+    () => streamingService.dispose()
+  ]));
+  let starting: Promise<void> | null = null;
+  let stopping: Promise<void> | null = null;
+  let closing = false;
+  return {
+    initialize: lifecycle.initialize,
+    start(): Promise<void> {
+      if (closing) return Promise.reject(new Error('Runtime has been disposed'));
+      return starting ??= lifecycle.initialize().then(() => {
+        uiSetupOrchestrator.initializeDeferredComponents();
+        uiSetupOrchestrator.setupUIEventListeners();
+      }).catch(async (error: unknown) => {
+        closing = true;
+        try { await lifecycle.dispose(); } catch { /* Keep the startup error. */ }
+        throw error;
+      });
+    },
+    dispose(): Promise<void> {
+      closing = true;
+      return stopping ??= (async () => {
+        try { await starting; } catch { /* Startup already rolled back. */ }
+        await lifecycle.dispose();
+      })();
+    },
+    uiComponentHost,
+    eventBus
+  };
 }
+
+export type RendererRuntime = ReturnType<typeof createRendererRuntime>;
