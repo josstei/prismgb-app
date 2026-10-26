@@ -29,6 +29,18 @@ const baseCoverageConfig = {
   ]
 };
 
+const commonSetup = path.resolve(__dirname, 'tests/setup.js');
+
+function project(name, environment, include, setupFiles = [commonSetup]) {
+  return { test: {
+    name, environment, include, setupFiles,
+    alias: sharedAlias,
+    globals: true,
+    clearMocks: true,
+    restoreMocks: true
+  } };
+}
+
 export default defineConfig({
   root: __dirname,
   resolve: {
@@ -46,85 +58,23 @@ export default defineConfig({
     // E2E tests still run separately through Playwright.
     exclude: ['tests/e2e/**'],
     projects: [
-      {
-        test: {
-          alias: sharedAlias,
-          name: 'scripts-node',
-          globals: true,
-          clearMocks: true,
-          restoreMocks: true,
-          environment: 'node',
-          include: [
-            'tests/unit/scripts/**/*.{test,spec}.{js,ts}',
-            'tests/unit/support/**/*.{test,spec}.{js,ts}'
-          ],
-          setupFiles: [
-            path.resolve(__dirname, 'tests/setup.js')
-          ]
-        }
-      },
-      {
-        test: {
-          alias: sharedAlias,
-          name: 'renderer-happy-dom',
-          globals: true,
-          clearMocks: true,
-          restoreMocks: true,
-          environment: 'happy-dom',
-          include: [
-            'tests/integration/**/*.{test,spec}.{js,ts}',
-            'tests/unit/renderer/**/*.{test,spec}.{js,ts}'
-          ],
-          setupFiles: [
-            path.resolve(__dirname, 'tests/setup.js'),
-            path.resolve(__dirname, 'tests/support/mocks/renderer-browser-mocks.setup.js'),
-            path.resolve(__dirname, 'tests/testing-library.setup.js')
-          ]
-        }
-      },
-      {
-        test: {
-          alias: sharedAlias,
-          name: 'main-node',
-          globals: true,
-          clearMocks: true,
-          restoreMocks: true,
-          environment: 'node',
-          include: [
-            'tests/unit/main/**/*.{test,spec}.{js,ts}'
-          ],
-          setupFiles: [
-            path.resolve(__dirname, 'tests/setup.js')
-          ]
-        }
-      },
-      {
-        test: {
-          alias: sharedAlias,
-          name: 'platform-node',
-          globals: true,
-          clearMocks: true,
-          restoreMocks: true,
-          environment: 'node',
-          include: [
-            'tests/unit/platform/{config,core,devices,events,ipc,notes,transcode,updates}/**/*.{test,spec}.{js,ts}'
-          ],
-          setupFiles: [
-            path.resolve(__dirname, 'tests/setup.js')
-          ]
-        }
-      },
-      {
-        test: {
-          alias: sharedAlias,
-          name: 'platform-dom',
-          globals: true,
-          clearMocks: true,
-          restoreMocks: true,
-          environment: 'happy-dom',
-          include: ['tests/unit/platform/{gpu,ui-base}/**/*.{test,spec}.{js,ts}']
-        }
-      }
+      project('scripts-node', 'node', [
+        'tests/unit/scripts/**/*.{test,spec}.{js,ts}',
+        'tests/unit/support/**/*.{test,spec}.{js,ts}'
+      ]),
+      project('renderer-happy-dom', 'happy-dom', [
+        'tests/integration/**/*.{test,spec}.{js,ts}',
+        'tests/unit/renderer/**/*.{test,spec}.{js,ts}'
+      ], [
+        commonSetup,
+        path.resolve(__dirname, 'tests/support/mocks/renderer-browser-mocks.setup.js'),
+        path.resolve(__dirname, 'tests/testing-library.setup.js')
+      ]),
+      project('main-node', 'node', ['tests/unit/main/**/*.{test,spec}.{js,ts}']),
+      project('platform-node', 'node', [
+        'tests/unit/platform/{config,core,devices,events,ipc,notes,transcode,updates}/**/*.{test,spec}.{js,ts}'
+      ]),
+      project('platform-dom', 'happy-dom', ['tests/unit/platform/{gpu,ui-base}/**/*.{test,spec}.{js,ts}'], [])
     ]
   }
 });

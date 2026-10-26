@@ -225,15 +225,9 @@ const allDefinitions: readonly SettingsDefinition[] = Object.freeze(definitions.
   return Object.freeze(definition);
 }));
 const startupPreferenceDefinitions = Object.freeze(allDefinitions.filter((definition) => definition.startupPreference));
-const startupPreferenceEventDefinitions = Object.freeze(startupPreferenceDefinitions.filter(
-  (definition): definition is SettingsDefinition & { event: keyof EventPayloadMap } => Boolean(definition.event)
-));
-
 export const SettingsDefinitions = Object.freeze({
   definitions: allDefinitions,
-  startupPreferenceDefinitions,
-  startupPreferenceEventDefinitions,
-  loadAllPreferencesShape: Object.freeze(startupPreferenceDefinitions.map((definition) => definition.name as StoredSettingName))
+  startupPreferenceDefinitions
 });
 
 export function hasSettingsControl(definition: SettingsDefinition): definition is SettingsControlDefinition {
@@ -260,7 +254,4 @@ export function getSettingsListboxOptions(definition: SettingsListboxDefinition)
     label: definition.ui.optionLabelFormat === 'mediaFormat' ? (value === 'webm' ? 'WebM' : value.toUpperCase()) : value,
     active: value === definition.default
   }));
-}
-export function getStartupPreferenceEventDefinitions() {
-  return startupPreferenceEventDefinitions;
 }

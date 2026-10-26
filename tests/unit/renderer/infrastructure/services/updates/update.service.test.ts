@@ -40,6 +40,58 @@ describe('UpdateService', () => {
   });
 
   describe('initialize', () => {
+    it('subscribes before loading a snapshot and preserves a newer downloaded push', async () => {
+      const initial = Promise.withResolvers<{ state: typeof UpdateState.IDLE }>();
+      vi.mocked(trpcClient.update.getStatus.query).mockReturnValueOnce(initial.promise);
+      const initialize = service.initialize();
+      emitTrpcData(trpcClient.update.onDownloaded, { version: '2.0.0' });
+      initial.resolve({ state: UpdateState.IDLE });
+      await initialize;
+      expect(service.state).toBe(UpdateState.DOWNLOADED);
+      expect(service.updateInfo.version).toBe('2.0.0');
+      expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UI.STATUS_MESSAGE, {
+        message: 'Update v2.0.0 ready to install', type: 'success'
+      });
+      await service.dispose();
+    });
+
+    it('projects an update already discovered before renderer startup', async () => {
+      vi.mocked(trpcClient.update.getStatus.query).mockResolvedValueOnce({
+        state: UpdateState.AVAILABLE, updateInfo: updateInfoFixture('2.0.0')
+      });
+      await service.initialize();
+      expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UPDATE.BADGE_SHOW);
+      expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UI.STATUS_MESSAGE, {
+        message: 'Update v2.0.0 available', type: 'info'
+      });
+      await service.dispose();
+    });
+
+    it('owns progress arriving before the initial snapshot finishes', async () => {
+      const initial = Promise.withResolvers<{ state: typeof UpdateState.IDLE }>();
+      vi.mocked(trpcClient.update.getStatus.query).mockReturnValueOnce(initial.promise);
+      const initialize = service.initialize();
+      emitTrpcData(trpcClient.update.onProgress, progressFixture(50));
+      initial.resolve({ state: UpdateState.IDLE });
+      await initialize;
+      expect(service.state).toBe(UpdateState.DOWNLOADING);
+      expect(service.getStatus().downloadProgress.percent).toBe(50);
+      await service.dispose();
+    });
+
+    it('does not resurrect state or subscriptions after disposal during initial loading', async () => {
+      const initial = Promise.withResolvers<{ state: typeof UpdateState.AVAILABLE }>();
+      vi.mocked(trpcClient.update.getStatus.query).mockReturnValueOnce(initial.promise);
+      const initialize = service.initialize();
+      await service.dispose();
+      mockEventBus.publish.mockClear();
+      initial.resolve({ state: UpdateState.AVAILABLE });
+      await initialize;
+      expect(service.state).toBe(UpdateState.IDLE);
+      expect(service._initialized).toBe(false);
+      expect(service.disposables.size).toBe(0);
+      expect(mockEventBus.publish).not.toHaveBeenCalled();
+    });
     it('should set up tRPC subscriptions', async () => {
       vi.mocked(trpcClient.update.getStatus.query).mockResolvedValue({
         state: UpdateState.IDLE,
@@ -94,7 +146,7 @@ describe('UpdateService', () => {
 
       expect(service.state).toBe(UpdateState.AVAILABLE);
       expect(service.updateInfo).toBe(info);
-      expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UPDATE.AVAILABLE, info);
+      expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UI.STATUS_MESSAGE, { message: 'Update v2.0.0 available', type: 'info' });
     });
 
     it('should handle not-available event', () => {
@@ -103,7 +155,7 @@ describe('UpdateService', () => {
 
       expect(service.state).toBe(UpdateState.NOT_AVAILABLE);
       expect(service.updateInfo).toBe(info);
-      expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UPDATE.NOT_AVAILABLE, info);
+      expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UI.STATUS_MESSAGE, { message: "You're up to date", type: 'success' });
     });
 
     it('should handle progress event', () => {
@@ -120,7 +172,7 @@ describe('UpdateService', () => {
 
       expect(service.state).toBe(UpdateState.DOWNLOADED);
       expect(service.updateInfo).toBe(info);
-      expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UPDATE.DOWNLOADED, info);
+      expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UI.STATUS_MESSAGE, { message: 'Update v2.0.0 ready to install', type: 'success' });
     });
 
     it('should handle error event', () => {
@@ -129,13 +181,35 @@ describe('UpdateService', () => {
 
       expect(service.state).toBe(UpdateState.ERROR);
       expect(service.getStatus().error).toBe(error);
-      expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UPDATE.ERROR, error);
+      expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UI.STATUS_MESSAGE, { message: 'Update failed: Network error', type: 'error' });
     });
   });
 
   describe('checkForUpdates', () => {
     beforeEach(async () => {
       await service.initialize();
+    });
+
+    it('ignores an old check failure after a newer downloaded push', async () => {
+      const check = Promise.withResolvers<never>();
+      vi.mocked(trpcClient.update.checkForUpdates.mutate).mockReturnValueOnce(check.promise);
+      const checking = service.checkForUpdates();
+      emitTrpcData(trpcClient.update.onDownloaded, { version: '2.0.0' });
+      check.reject(new Error('old request failed'));
+      await checking;
+      expect(service.state).toBe(UpdateState.DOWNLOADED);
+    });
+
+    it('ignores a check result after disposal', async () => {
+      const check = Promise.withResolvers<{ updateAvailable: boolean }>();
+      vi.mocked(trpcClient.update.checkForUpdates.mutate).mockReturnValueOnce(check.promise);
+      const checking = service.checkForUpdates();
+      await service.dispose();
+      mockEventBus.publish.mockClear();
+      check.resolve({ updateAvailable: false });
+      await checking;
+      expect(service.state).toBe(UpdateState.IDLE);
+      expect(mockEventBus.publish).not.toHaveBeenCalled();
     });
 
     it('should set state to CHECKING', async () => {
@@ -178,7 +252,7 @@ describe('UpdateService', () => {
 
       expect(service.state).toBe(UpdateState.AVAILABLE);
       expect(service.updateInfo).toEqual(updateInfo);
-      expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UPDATE.AVAILABLE, updateInfo);
+      expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UI.STATUS_MESSAGE, { message: 'Update v2.0.0 available', type: 'info' });
     });
 
     it('should reconcile a no-update result into the NOT_AVAILABLE state', async () => {
@@ -191,7 +265,7 @@ describe('UpdateService', () => {
 
       expect(service.state).toBe(UpdateState.NOT_AVAILABLE);
       expect(service.updateInfo).toEqual({ reason: 'latest' });
-      expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UPDATE.NOT_AVAILABLE, { reason: 'latest' });
+      expect(mockEventBus.publish).toHaveBeenCalledWith(EventChannels.UPDATE.BADGE_HIDE);
     });
 
     it('should transition to ERROR and preserve the rejected message when the server reports a business failure', async () => {

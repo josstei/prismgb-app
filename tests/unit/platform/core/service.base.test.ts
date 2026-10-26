@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeEach, vi, type MockedFunction } from 'vitest';
 import { BaseService, type EventBusLike, type LoggerFactoryLike, type LoggerLike } from '@platform/core';
 import { createEventBus, createLoggerFactory } from '../../../factories/index.js';
+import { createDeferred } from '../../../support/deferred.testkit';
 
 type MockEventBus = EventBusLike &
   ReturnType<typeof createEventBus> & {
@@ -206,6 +207,35 @@ describe('BaseService', () => {
       await expect(first).rejects.toBe(failure);
       expect(unsubscribe).toHaveBeenCalledOnce();
       expect((service as unknown as InjectedServiceShape)._initialized).toBe(false);
+    });
+
+    it('does not become initialized after disposal overtakes an asynchronous hook, and can initialize freshly afterward', async () => {
+      const pending = createDeferred();
+      const unsubscribe = [vi.fn(), vi.fn()];
+      let initializations = 0;
+      class AsyncService extends BaseService {
+        protected override onInitialize(): Promise<void> {
+          this.track(unsubscribe[initializations]);
+          initializations++;
+          return initializations === 1 ? pending.promise : Promise.resolve();
+        }
+        get initialized(): boolean { return this._initialized; }
+      }
+      const service = new AsyncService({ loggerFactory: mockLoggerFactory });
+      const initializing = service.initialize();
+      await Promise.all([service.dispose(), service.dispose()]);
+      expect(unsubscribe[0]).toHaveBeenCalledOnce();
+      pending.resolve();
+      await initializing;
+      expect(service.initialized).toBe(false);
+      expect(service.disposables.size).toBe(0);
+
+      await service.initialize();
+      expect(initializations).toBe(2);
+      expect(service.initialized).toBe(true);
+      expect(unsubscribe[1]).not.toHaveBeenCalled();
+      await service.dispose();
+      expect(unsubscribe[1]).toHaveBeenCalledOnce();
     });
 
     it('should default to a no-op onInitialize', () => {

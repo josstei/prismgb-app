@@ -119,6 +119,50 @@ describe('CaptureGpuRecordingService', () => {
     expect(service.isActive()).toBe(false);
   });
 
+  it('rolls back the recording stream when audio cloning fails during startup', async () => {
+    const videoTrack = createMediaTrackMock();
+    const { mockCanvas } = createRecordingCanvasFixture({ recordingStream: createMediaStreamMock({ tracks: [videoTrack] }) });
+    installCanvasAndAnimationFrameMocks(mockCanvas, { requestAnimationFrame: vi.fn() });
+    const audioTrack = createMediaTrackMock({ clone: vi.fn(() => { throw new Error('Track clone failed'); }) });
+    const stream = createStreamPayloadMock({ getAudioTracks: vi.fn(() => [audioTrack]) });
+    await expect(service.start({ stream })).rejects.toThrow('Track clone failed');
+    expect(videoTrack.stop).toHaveBeenCalledOnce();
+    expect(service.isActive()).toBe(false);
+    await service.start({ stream: createStreamPayloadMock() });
+    expect(service.isActive()).toBe(true);
+    await service.stop();
+  });
+
+  it('joins concurrent drains before allowing a new recording to start', async () => {
+    vi.useFakeTimers();
+    try {
+      const captured = Promise.withResolvers<ImageBitmap>();
+      mockGpuRendererService.captureFrame.mockReturnValueOnce(captured.promise);
+      const { mockCanvas } = createRecordingCanvasFixture();
+      let frameCallback: (() => Promise<void>) | undefined;
+      installCanvasAndAnimationFrameMocks(mockCanvas, {
+        requestAnimationFrame: vi.fn((callback) => { frameCallback = callback; return 1; }), cancelAnimationFrame: vi.fn()
+      });
+      await service.start({ stream: createStreamPayloadMock() });
+      const rendering = frameCallback!();
+      const first = service.stop();
+      await vi.advanceTimersByTimeAsync(100);
+      const second = service.stop();
+      expect(first).toBe(second);
+      const restarted = service.start({ stream: createStreamPayloadMock() });
+      await vi.advanceTimersByTimeAsync(400);
+      await Promise.all([first, second, restarted]);
+      expect(service.isActive()).toBe(true);
+      await vi.advanceTimersByTimeAsync(100);
+      expect(service.isActive()).toBe(true);
+      const frame = createRecordingFrameMock();
+      captured.resolve(frame);
+      await rendering;
+      expect(frame.close).toHaveBeenCalledOnce();
+      await service.stop();
+    } finally { vi.useRealTimers(); }
+  });
+
   it('should calculate integer upscaling for smaller frames', () => {
     service._recordingWidth = 640;
     service._recordingHeight = 576;

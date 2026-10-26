@@ -11,6 +11,7 @@ type PerformanceState = {
 type PerformanceStateOrchestratorDependencies = {
   eventBus: TypedEventBusLike;
   loggerFactory: LoggerFactoryLike;
+  appState: { readonly isStreaming: boolean };
   visibilityAdapter: {
     isHidden(): boolean;
     onVisibilityChange(callback: (hidden: boolean) => void): () => void;
@@ -36,7 +37,6 @@ export class PerformanceStateOrchestrator extends BaseOrchestrator {
     idle: false,
     reducedMotion: false
   };
-  private isStreaming = false;
   private lastIdleReset = 0;
 
   constructor(private readonly dependencies: PerformanceStateOrchestratorDependencies) {
@@ -76,23 +76,14 @@ export class PerformanceStateOrchestrator extends BaseOrchestrator {
   }
 
   @OnEvent(EventChannels.STREAM.STARTED)
-  private handleStreamStarted(): void {
-    this.setStreaming(true);
-  }
-
   @OnEvent(EventChannels.STREAM.STOPPED)
-  private handleStreamStopped(): void {
-    this.setStreaming(false);
-  }
-
-  private setStreaming(isStreaming: boolean): void {
-    this.isStreaming = isStreaming;
+  private handleStreamChanged(): void {
     this.updateState({ idle: false });
     this.syncIdleTimer();
   }
 
   private shouldTrackIdle(): boolean {
-    return !this.isStreaming && !this.state.hidden && !this.state.performanceModeEnabled;
+    return !this.dependencies.appState.isStreaming && !this.state.hidden && !this.state.performanceModeEnabled;
   }
 
   private syncIdleTimer(): void {

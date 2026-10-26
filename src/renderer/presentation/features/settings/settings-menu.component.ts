@@ -32,7 +32,6 @@ const BOOLEAN_SETTING_SIDE_EFFECTS = {
   statusStripVisible: (component: SettingsMenuComponent, visible: boolean) => component._applyStatusStripVisibility(visible)
 } as const;
 const SETTINGS_MENU_ASYNC_SETTINGS_LIFECYCLE = Symbol('settingsMenuAsyncSettingsLifecycle');
-const SETTINGS_MENU_CHILD_COMPONENT_LIFECYCLE = Symbol('settingsMenuChildComponentLifecycle');
 
 function getSettingsElement<TElement extends HTMLElement>(elements: SettingsMenuElements, ref: string): TElement | null {
   const elementMap = elements as Partial<Record<string, HTMLElement | null>>;
@@ -130,10 +129,9 @@ class SettingsMenuComponent extends PresentationComponent {
     }
 
     this._initialized = true;
-    this._bindEvents();
+    this._bindEvents(asyncSettingsToken);
     this._setupMenuDisclosure();
     this._setupListboxDropdowns();
-    this._trackRuntimeChildren();
     this._initializeUpdateSection();
     this._loadCurrentSettings(asyncSettingsToken);
 
@@ -146,6 +144,7 @@ class SettingsMenuComponent extends PresentationComponent {
       return;
     }
 
+    this.track(this._updateSection);
     this._updateSection.initialize(this.updateElements);
 
     if (typeof __APP_VERSION__ !== 'undefined') {
@@ -153,13 +152,16 @@ class SettingsMenuComponent extends PresentationComponent {
     }
   }
 
-  _bindEvents(): void {
+  _bindEvents(asyncSettingsToken: PresentationLifecycleToken): void {
     for (const [checkbox, settingName, afterChange] of this._getBooleanSettingBindings()) {
       if (!checkbox) continue;
       this.listen(checkbox, 'change', () => {
         const value = checkbox.checked;
-        if (settingName === 'launchOnLogin') void this.settingsService.setLaunchOnLogin(value);
-        else this.settingsService.setSetting(settingName, value);
+        if (settingName === 'launchOnLogin') {
+          // A pending initial query must not overwrite a newer user command.
+          void asyncSettingsToken.dispose();
+          void this.settingsService.setLaunchOnLogin(value);
+        } else this.settingsService.setSetting(settingName, value);
         afterChange?.(value);
       });
     }
@@ -227,6 +229,7 @@ class SettingsMenuComponent extends PresentationComponent {
         logger: this.logger
       });
 
+      this.track(dropdown);
       dropdown.initialize();
       this.listboxDropdowns.set(binding.definition.name, dropdown);
     }
@@ -254,6 +257,7 @@ class SettingsMenuComponent extends PresentationComponent {
       }
     });
 
+    this.track(this._menuDisclosure);
     this._menuDisclosure.initialize();
     this._setupDisclaimerDisclosure();
   }
@@ -270,6 +274,7 @@ class SettingsMenuComponent extends PresentationComponent {
       logger: this.logger
     });
 
+    this.track(this._disclaimerDisclosure);
     this._disclaimerDisclosure.initialize();
   }
 
@@ -277,27 +282,6 @@ class SettingsMenuComponent extends PresentationComponent {
     if (this._initialized || this.disposables.size || this._menuDisclosure || this.listboxDropdowns.size) {
       void this._releaseRuntimeLifecycle();
     }
-  }
-
-  _trackRuntimeChildren(): void {
-    const menuDisclosure = this._menuDisclosure;
-    const disclaimerDisclosure = this._disclaimerDisclosure;
-    const dropdowns = new Map(this.listboxDropdowns);
-    const updateSection = this._updateSection;
-
-    this.replaceManaged(SETTINGS_MENU_CHILD_COMPONENT_LIFECYCLE, async () => {
-      await Promise.all([
-        menuDisclosure?.dispose(),
-        disclaimerDisclosure?.dispose(),
-        ...Array.from(dropdowns.values(), (dropdown) => dropdown.dispose()),
-        updateSection?.dispose()
-      ]);
-      if (this._menuDisclosure === menuDisclosure) this._menuDisclosure = null;
-      if (this._disclaimerDisclosure === disclaimerDisclosure) this._disclaimerDisclosure = null;
-      for (const [name, dropdown] of dropdowns) {
-        if (this.listboxDropdowns.get(name) === dropdown) this.listboxDropdowns.delete(name);
-      }
-    });
   }
 
   _releaseRuntimeLifecycle(): Promise<void> {

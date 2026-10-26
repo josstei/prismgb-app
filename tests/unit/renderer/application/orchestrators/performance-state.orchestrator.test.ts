@@ -7,6 +7,7 @@ describe('PerformanceStateOrchestrator', () => {
   let orchestrator: PerformanceStateOrchestrator;
   let bus: PlatformEventBus;
   let states: PerformanceStatePayload[];
+  let appState: { isStreaming: boolean };
   let visibility: ReturnType<typeof createAdapters>['visibilityAdapter'];
   let activity: ReturnType<typeof createAdapters>['userActivityAdapter'];
   let motion: ReturnType<typeof createAdapters>['reducedMotionAdapter'];
@@ -37,10 +38,11 @@ describe('PerformanceStateOrchestrator', () => {
     bus = new PlatformEventBus();
     bus.subscribe<PerformanceStatePayload>(EventChannels.PERFORMANCE.STATE_CHANGED, state => { states.push(state); });
     const adapters = createAdapters();
+    appState = { isStreaming: false };
     visibility = adapters.visibilityAdapter;
     activity = adapters.userActivityAdapter;
     motion = adapters.reducedMotionAdapter;
-    orchestrator = new PerformanceStateOrchestrator({ eventBus: bus, loggerFactory: createLoggerFactory(), ...adapters });
+    orchestrator = new PerformanceStateOrchestrator({ appState, eventBus: bus, loggerFactory: createLoggerFactory(), ...adapters });
   });
 
   afterEach(async () => {
@@ -110,11 +112,25 @@ describe('PerformanceStateOrchestrator', () => {
   it('clears idle while streaming and restarts the timer after stop', async () => {
     await orchestrator.initialize();
     vi.advanceTimersByTime(30000);
+    appState.isStreaming = true;
     bus.publish(EventChannels.STREAM.STARTED);
     expect(currentState().idle).toBe(false);
     userActivity();
     vi.advanceTimersByTime(30000);
     expect(currentState().idle).toBe(false);
+    appState.isStreaming = false;
+    bus.publish(EventChannels.STREAM.STOPPED);
+    vi.advanceTimersByTime(30000);
+    expect(currentState().idle).toBe(true);
+  });
+
+  it('does not enter idle when streaming began before its subscriptions existed', async () => {
+    appState.isStreaming = true;
+    await orchestrator.initialize();
+    vi.advanceTimersByTime(60000);
+    expect(currentState().idle).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+    appState.isStreaming = false;
     bus.publish(EventChannels.STREAM.STOPPED);
     vi.advanceTimersByTime(30000);
     expect(currentState().idle).toBe(true);

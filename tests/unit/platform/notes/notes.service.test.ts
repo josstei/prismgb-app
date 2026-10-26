@@ -206,7 +206,6 @@ describe('NotesService', () => {
     it('should add new note at beginning of list', () => {
       const storedNotes = [{ id: 'existing', title: 'Existing', updatedAt: 1000 }];
       setStoredNotes(storedNotes);
-      service._invalidateCache();
 
       service.createNote('New Note');
 
@@ -230,7 +229,6 @@ describe('NotesService', () => {
         { id: 'note_1', title: 'Original', content: 'Original Content', updatedAt: 1000 }
       ];
       setStoredNotes(storedNotes);
-      service._invalidateCache();
     });
 
     it('should update note title', () => {
@@ -294,7 +292,6 @@ describe('NotesService', () => {
         { id: 'note_2', title: 'Second', updatedAt: 2000 }
       ];
       setStoredNotes(storedNotes);
-      service._invalidateCache();
     });
 
     it('should delete existing note', () => {
@@ -348,7 +345,6 @@ describe('NotesService', () => {
         { id: 'note_3', title: 'CSS Styling', content: 'CSS tutorial and tips', updatedAt: 1000 }
       ];
       setStoredNotes(storedNotes);
-      service._invalidateCache();
     });
 
     it('should return all notes for empty query', () => {
@@ -409,7 +405,6 @@ describe('NotesService', () => {
         { id: 'note_2', title: 'Other Note', content: 'This is a tutorial', updatedAt: 2000 }
       ];
       setStoredNotes(storedNotes);
-      service._invalidateCache();
 
       const results = service.searchNotes('tutorial');
 
@@ -423,7 +418,6 @@ describe('NotesService', () => {
         { id: 'note_1', content: 'Content with search term', updatedAt: 1000 }
       ];
       setStoredNotes(storedNotes);
-      service._invalidateCache();
 
       const results = service.searchNotes('search');
 
@@ -435,7 +429,6 @@ describe('NotesService', () => {
         { id: 'note_1', title: 'Search Title', updatedAt: 1000 }
       ];
       setStoredNotes(storedNotes);
-      service._invalidateCache();
 
       const results = service.searchNotes('search');
 
@@ -447,7 +440,6 @@ describe('NotesService', () => {
         { id: 'note_1', title: 123, content: null, updatedAt: 1000 }
       ];
       setStoredNotes(storedNotes);
-      service._invalidateCache();
 
       // Should not throw
       const results = service.searchNotes('test');
@@ -476,17 +468,27 @@ describe('NotesService', () => {
     });
   });
 
-  describe('_invalidateCache', () => {
-    it('should clear cache', () => {
-      service._notesCache = [{ id: 'note_1' }];
-
-      service._invalidateCache();
-
-      expect(service._notesCache).toBeNull();
-    });
-  });
-
   describe('_saveNotes', () => {
+    it.each(['rejected', 'thrown'])('keeps cached snapshots and stored notes unchanged after %s writes', (failure) => {
+      setStoredNotes([{ id: 'note_1', title: 'Saved', content: '', updatedAt: 1000 }]);
+      const snapshot = service.getAllNotes();
+      const persisted = mockStorageService.getItem(NotesStorageKeys.USER_NOTES);
+      mockStorageService.setItem.mockImplementation(() => {
+        if (failure === 'thrown') throw new Error('Storage unavailable');
+        return false;
+      });
+
+      expect(service.createNote('Unsaved')).toBeNull();
+      expect(service.updateNote('note_1', { title: 'Unsaved' })).toBeNull();
+      expect(service.deleteNote('note_1')).toBe(false);
+
+      expect(service.getAllNotes()).toBe(snapshot);
+      expect(snapshot).toHaveLength(1);
+      expect(snapshot[0].title).toBe('Saved');
+      expect(mockStorageService.getItem(NotesStorageKeys.USER_NOTES)).toBe(persisted);
+      expect(mockEventBus.publish).not.toHaveBeenCalled();
+    });
+
     it('should save and update cache', () => {
       const notes = [{ id: 'note_1', title: 'Test', updatedAt: 1000 }];
 

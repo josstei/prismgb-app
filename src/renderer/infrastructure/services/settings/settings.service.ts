@@ -1,13 +1,12 @@
 
 import { BaseService } from '@platform/core';
 import { EventChannels, type TypedEventBusLike } from '@platform/events';
-import { SettingsDefinitions, getStartupPreferenceEventDefinitions, type SettingsDefinition, type SettingName, type StoredSettingName, type SettingValues, type SettingsAccess } from '@renderer/lib/settings.definitions.js';
+import { SettingsDefinitions, type SettingsDefinition, type SettingName, type StoredSettingName, type SettingValues, type SettingsAccess } from '@renderer/lib/settings.definitions.js';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import type { LoggerFactoryLike, LoggerLike, StorageServiceLike } from '@platform/core';
 
 type SettingDefinition = SettingsDefinition;
-type SettingDefaultValue = string | number | boolean;
-type SettingValue = SettingDefaultValue;
+type SettingValue = string | number | boolean;
 type SettingEncodeResult = { ok: true; value: SettingValue } | { ok: false };
 
 /**
@@ -122,8 +121,8 @@ class SettingsService extends BaseService implements SettingsAccess {
     try {
       const preferences = this.loadAllPreferences();
 
-      for (const { name, event } of getStartupPreferenceEventDefinitions()) {
-        this.eventBus.publish(event, preferences[name]);
+      for (const { name, event } of SettingsDefinitions.startupPreferenceDefinitions) {
+        if (event) this.eventBus.publish(event, preferences[name]);
       }
 
       this.eventBus.publish(EventChannels.SETTINGS.PREFERENCES_LOADED, preferences);
@@ -211,11 +210,11 @@ class SettingsService extends BaseService implements SettingsAccess {
 
   loadAllPreferences() {
     const preferences = Object.fromEntries(
-      SettingsDefinitions.loadAllPreferencesShape.map((name) => [name, this.getSetting(name)])
+      SettingsDefinitions.startupPreferenceDefinitions.map(({ name }) => [name, this.getSetting(name as StoredSettingName)])
     );
 
-    const summary = SettingsDefinitions.loadAllPreferencesShape
-      .map((name: string) => `${name}: ${String(preferences[name])}`)
+    const summary = SettingsDefinitions.startupPreferenceDefinitions
+      .map(({ name }) => `${name}: ${String(preferences[name])}`)
       .join(', ');
     this.logger.info(`Loaded preferences - ${summary}`);
 

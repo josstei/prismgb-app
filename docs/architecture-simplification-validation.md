@@ -266,3 +266,82 @@ prebuild with `npmRebuild=false`; normal packaging defaults still rebuild native
 dependencies. Physical hardware, hardware WebGPU image parity and macOS/Windows
 packaging remain unverified here. Local reports, generated fixtures and build outputs
 were removed after verification.
+
+## Maximum-depth six-pass audit, 2026-10-26
+
+Baseline: `87a8825`. Six reviews traced actual callers, asynchronous state changes,
+partial initialization and persistent outputs, then implemented the supported
+findings. Independent challenge reviewed the combined ownership changes.
+
+1. **Process lifecycle:** renderer entry owns its runtime before awaiting startup.
+   Remove RendererBootstrap and its restart/load-strategy test scaffolding. Early
+   shutdown now joins actual disposal, including before DOM readiness. Late service
+   initialization cannot revive disposed readiness. Resource registration belongs
+   to the lifecycle host; remove unused bag APIs and subscription inspection state.
+2. **Main contracts and outputs:** one transcode completion owner covers process
+   outcome, atomic promotion, notifications and cleanup. Encoding uses a unique
+   same-directory staging file; failed/cancelled conversions preserve existing final
+   recordings. Standard readline parsing handles split progress records. Window
+   listeners have one owner and capture their persistent session for cleanup.
+   Download failures remain visible to draining; disabled update checks cannot leave
+   the renderer checking forever. Cleanup removes only each runtime's own sessions.
+3. **Notes and settings:** commit notes cache changes only after persistence succeeds.
+   Own settings children before mounting and await every cleanup on error. Delayed
+   login-item reads cannot overwrite newer checkbox edits. Remove self-forwarding
+   editor callbacks, an unused resize reference and duplicate startup metadata.
+   Tolerant loading, stored keys/defaults and asymmetric codecs remain unchanged.
+4. **Media:** each audio start owns one graph and cancellation scope. Old resume
+   failures cannot close replacement audio; partial graph failures release resources.
+   Recording stops share one drain; rejected rapid restarts preserve accepted chunks.
+   Stream startup cancels without waiting for a native permission prompt, and late
+   grants close their tracks. Cancelled target lookup cannot acquire or persist a
+   selection after replacement or shutdown. Preserve fades, platform timings, raw
+   audio/Canvas fallbacks, capture backpressure and recording drain.
+5. **Tooling/distribution:** process waits remove timeout listeners and distinguish
+   exited children from undrained stdio; forced termination covers owned process
+   groups. Remove the process mock framework and factor repeated test-project config.
+   Boundary rules target actual renderer composition. Move three packaging-only
+   assets outside publicDir, update all seven packaging paths and icon generation,
+   and retain their exact bytes. PNG, tray and renderer asset URLs remain unchanged.
+6. **Cross-boundary challenge:** queue device changes during initial queries, derive
+   reconnects from current snapshots and roll back partial subscriptions. Remove
+   unused clock metadata and runtime inspection APIs. Fullscreen/update queries
+   cannot overwrite newer pushes or publish after disposal. The update state owner
+   emits feedback directly, replacing UpdateUiService and four unconsumed renderer
+   republishes. Performance state reads the actual stream owner during late startup.
+
+| Measurement | Prior head | Maximum-depth audit |
+| --- | ---: | ---: |
+| Production source lines, same extensions as above | 25,512 | 24,976 |
+| Test-support and factory lines | 2,457 | 2,320 |
+| Renderer entry JavaScript | 362,694 bytes | 359,236 bytes |
+| Main JavaScript | 212,192 bytes | 210,333 bytes |
+| Three packaging-only files copied into renderer | 230,214 bytes | 0 bytes |
+
+The complete suite passes **1,689 tests across 148 files**. Added coverage exercises
+real ownership failures and deferred races: early shutdown, late initialization,
+existing-file collisions, shared temporary storage, rejected writes, partial mounts,
+old audio/recording work, native permission grants, device selection and stale state
+queries. Production and support code decreased while regression coverage grew.
+Application/test types, architecture lint, generated paths, full/production Knip and
+production build pass. Shader bodies, layouts and presets did not change; these size
+measurements establish no new runtime-speed or GPU-throughput claim.
+
+The unsafe global temporary-session sweep was removed. Each runtime removes only its
+own files. Forced termination can leave an unowned temporary session or hidden output
+staging file; normal failure/cancellation/shutdown cleans owned artifacts. This
+preserves live work from other profiles and existing successful recordings instead
+of attempting an unscoped filesystem sweep. Current preload/tRPC/boxed-boolean,
+FFmpeg-location, ARM AppImage, macOS naming and Canvas fallback compatibility retain
+demonstrated consumers.
+
+All **92 Electron E2E tests** pass with fullscreen enabled and no retries, including
+notes quit/persistence, media restart/visibility, screenshots and final recording
+output. Real Vite development startup, native ABI checks and Linux packaged startup
+with preload/tRPC readiness and renderer disposal also pass. The package used the
+installed Electron distribution and verified native USB prebuild with
+`npmRebuild=false`; production packaging defaults retain native rebuilding. The
+three moved resources are byte-identical and absent from the built renderer.
+Physical hardware, hardware WebGPU image parity and macOS/Windows packaging remain
+unverified here. Local reports, generated fixtures and build outputs were removed
+after verification.

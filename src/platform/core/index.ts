@@ -12,8 +12,8 @@ export { getErrorMessage } from './primitives/error.utils.js';
 export { deepFreeze, pruneUndefined } from './primitives/object.utils.js';
 
 export { DisposableBag } from './primitives/disposable-bag.js';
-export type { DisposableFunction, DisposableKey, EventTargetLike } from './primitives/disposable-bag.js';
-export { ManagedLifecycleHost } from './primitives/managed-lifecycle-host.js';
+export type { DisposableFunction, DisposableKey } from './primitives/disposable-bag.js';
+export { ManagedLifecycleHost, type EventTargetLike } from './primitives/managed-lifecycle-host.js';
 export { BaseService, type EventPublisherLike, type LoggerLike, type EventBusLike, type LoggerFactoryLike, type StorageServiceLike, type LogLevel } from './primitives/service.base.js';
 export { BaseOrchestrator } from './primitives/orchestrator.base.js';
 export { createOnEventDecorator } from './primitives/event-decorator.js';

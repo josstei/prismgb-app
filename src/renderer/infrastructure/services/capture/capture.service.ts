@@ -145,16 +145,16 @@ class CaptureService extends BaseService {
       throw new Error('Already recording');
     }
 
+    if (this._stopWaiter) {
+      this.logger.warn('Recording stop is still in progress');
+      throw new Error('Recording is stopping');
+    }
+
     try {
       const codecs = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
       const mimeType = codecs.find(codec => MediaRecorder.isTypeSupported(codec)) || 'video/webm';
 
       const options = { mimeType };
-
-      if (this._stopWaiter) {
-        this.logger.warn('Recording stop is still in progress');
-        throw new Error('Recording is stopping');
-      }
 
       const recorder = new MediaRecorder(stream, options);
       this.mediaRecorder = recorder;

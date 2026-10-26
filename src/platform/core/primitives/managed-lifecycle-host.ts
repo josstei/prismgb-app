@@ -2,9 +2,13 @@ import {
   DisposableBag,
   type Disposable,
   type DisposableFunction,
-  type DisposableKey,
-  type EventTargetLike
+  type DisposableKey
 } from './disposable-bag.js';
+
+export type EventTargetLike = {
+  addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: AddEventListenerOptions | boolean): void;
+  removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: EventListenerOptions | boolean): void;
+};
 
 /** Shared resource ownership for services, orchestrators and presentation components. */
 export class ManagedLifecycleHost {
@@ -16,7 +20,8 @@ export class ManagedLifecycleHost {
     listener: EventListenerOrEventListenerObject,
     options?: AddEventListenerOptions | boolean
   ): DisposableFunction {
-    return this.disposables.addEvent(target, type, listener, options);
+    target.addEventListener(type, listener, options);
+    return this.track(() => target.removeEventListener(type, listener, options));
   }
 
   timeout<TArgs extends unknown[]>(
@@ -29,12 +34,12 @@ export class ManagedLifecycleHost {
       release();
       handler(...args);
     }, delay);
-    release = this.disposables.addTimeout(handle);
+    release = this.track(() => clearTimeout(handle));
     return release;
   }
 
   observe(observer: { disconnect(): void }): DisposableFunction {
-    return this.disposables.addObserver(observer);
+    return this.track(() => observer.disconnect());
   }
 
   track(disposable: Disposable): DisposableFunction {

@@ -103,8 +103,8 @@ describe('StreamingService', () => {
     it('should start streaming with a runtime-resolved target for a specific device ID', async () => {
       const result = await service.start('device-1');
 
-      expect(mockRendererDeviceRuntime.resolveStreamingTarget).toHaveBeenCalledWith('device-1');
-      expect(mockDeviceMediaAcquirer.acquire).toHaveBeenCalledWith(mockTarget);
+      expect(mockRendererDeviceRuntime.resolveStreamingTarget).toHaveBeenCalledWith('device-1', expect.any(AbortSignal));
+      expect(mockDeviceMediaAcquirer.acquire).toHaveBeenCalledWith(mockTarget, expect.any(AbortSignal));
       expect(result.stream).toBe(mockStream);
       expect(result.device).toBe(mockTarget.videoDevice);
       expect(service.isStreaming).toBe(true);
@@ -113,7 +113,7 @@ describe('StreamingService', () => {
     it('should resolve an automatic target when no ID is provided', async () => {
       const result = await service.start();
 
-      expect(mockRendererDeviceRuntime.resolveStreamingTarget).toHaveBeenCalledWith(null);
+      expect(mockRendererDeviceRuntime.resolveStreamingTarget).toHaveBeenCalledWith(null, expect.any(AbortSignal));
       expect(result.device).toBe(mockTarget.videoDevice);
     });
 
@@ -146,15 +146,19 @@ describe('StreamingService', () => {
       await service.start('device-1');
 
       expect(mockDeviceMediaAcquirer.release).toHaveBeenCalledWith(mockStream);
-      expect(mockDeviceMediaAcquirer.acquire).toHaveBeenCalledWith(mockTarget);
+      expect(mockDeviceMediaAcquirer.acquire).toHaveBeenCalledWith(mockTarget, expect.any(AbortSignal));
     });
 
-    it('should wait for start to finish when stop is called while starting', async () => {
+    it('cancels pending start immediately and releases a late acquisition', async () => {
       const pendingAcquire = createDeferred<DeviceMediaAcquireResult>();
       mockDeviceMediaAcquirer.acquire.mockReturnValue(pendingAcquire.promise);
 
       const startPromise = service.start('device-1');
+      const cancelled = expect(startPromise).rejects.toMatchObject({ name: 'AbortError' });
+      await vi.waitFor(() => expect(mockDeviceMediaAcquirer.acquire).toHaveBeenCalledOnce());
       const stopPromise = service.stop();
+      await expect(stopPromise).resolves.toBeUndefined();
+      await cancelled;
 
       pendingAcquire.resolve({
         stream: mockStream,
@@ -162,10 +166,21 @@ describe('StreamingService', () => {
         capabilities
       });
 
-      await expect(startPromise).resolves.toMatchObject({ stream: mockStream });
-      await expect(stopPromise).resolves.toBeUndefined();
-      expect(mockDeviceMediaAcquirer.release).toHaveBeenCalledWith(mockStream);
+      await vi.waitFor(() => expect(mockDeviceMediaAcquirer.release).toHaveBeenCalledWith(mockStream));
       expect(service.isStreaming).toBe(false);
+      expect(mockEventBus.publish).not.toHaveBeenCalledWith('stream:started', expect.anything());
+    });
+
+    it('disposes while target resolution is pending without starting acquisition afterward', async () => {
+      const target = createDeferred<ReturnType<typeof createStreamingTarget>>();
+      mockRendererDeviceRuntime.resolveStreamingTarget.mockReturnValueOnce(target.promise);
+      const cancelled = expect(service.start()).rejects.toMatchObject({ name: 'AbortError' });
+      await service.dispose();
+      await cancelled;
+      target.resolve(mockTarget);
+      await Promise.resolve();
+      expect(mockDeviceMediaAcquirer.acquire).not.toHaveBeenCalled();
+      await expect(service.start()).rejects.toMatchObject({ name: 'AbortError' });
     });
 
     it('should wait for stop to finish when start is called while stopping', async () => {
@@ -182,7 +197,7 @@ describe('StreamingService', () => {
 
       await expect(stopPromise).resolves.toBeUndefined();
       await expect(startPromise).resolves.toMatchObject({ stream: mockStream });
-      expect(mockDeviceMediaAcquirer.acquire).toHaveBeenCalledWith(mockTarget);
+      expect(mockDeviceMediaAcquirer.acquire).toHaveBeenCalledWith(mockTarget, expect.any(AbortSignal));
     });
 
     it('publishes started only after its owned state is visible to subscribers', async () => {

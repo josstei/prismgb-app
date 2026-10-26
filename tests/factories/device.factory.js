@@ -42,44 +42,10 @@ export function createRendererDeviceRuntimeMock(overrides = {}) {
     profile: getDeviceStreamProfile(descriptor),
     acquisition: getDeviceAcquisitionProfile(descriptor)
   };
-  const snapshot = {
-    status: {
-      state: 'disconnected',
-      connected: false,
-      device: null
-    },
-    supportedDevices: [],
-    selectedDeviceId: null,
-    hasMediaPermission: false,
-    lastEnumerationAt: null
-  };
-
-  const runtime = /** @type {any} */ ({
-    get isConnected() {
-      return runtime.snapshot().status.connected;
-    },
-    get selectedDevice() {
-      const selectedDeviceId = runtime.selectedDeviceId;
-      return selectedDeviceId
-        ? runtime.snapshot().supportedDevices.find((device) => device.deviceId === selectedDeviceId) || null
-        : null;
-    },
-    get selectedDeviceId() {
-      return runtime.snapshot().selectedDeviceId;
-    },
-    initialize: vi.fn().mockResolvedValue(undefined),
-    cleanup: vi.fn().mockResolvedValue(undefined),
-    dispose: vi.fn().mockResolvedValue(undefined),
-    getStatus: vi.fn(() => snapshot.status),
-    refreshStatus: vi.fn().mockResolvedValue(snapshot.status),
-    refresh: vi.fn().mockResolvedValue(snapshot),
-    snapshot: vi.fn(() => snapshot),
-    enumerateDevices: vi.fn().mockResolvedValue({ devices: snapshot.supportedDevices, connected: snapshot.status.connected }),
+  return {
     resolveStreamingTarget: vi.fn().mockResolvedValue(streamingTarget),
     ...overrides
-  });
-
-  return runtime;
+  };
 }
 
 export function createDeviceStatusComponentMock(overrides = {}) {

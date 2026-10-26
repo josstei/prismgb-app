@@ -197,8 +197,7 @@ class NotesPanelComponent extends PresentationComponent {
       gameInput: this.elements!.notesGameInput,
       gameAddBtn: this.elements!.notesGameAddBtn,
       onSave: () => this._saveCurrentNote(),
-      onDelete: () => this._deleteCurrentNote(),
-      onShowGameInput: () => this.children!.editorView.showGameInput()
+      onDelete: () => this._deleteCurrentNote()
     });
     this.children!.gameAutocomplete.initialize({
       inputElement: this.elements!.notesGameInput ?? null,
@@ -206,7 +205,6 @@ class NotesPanelComponent extends PresentationComponent {
     });
     this.children!.resizeHandler.initialize({
       listToggle: this.elements!.notesListToggle,
-      panelElement: this.elements!.notesPanel,
       panelContent: this.elements!.notesPanelContent,
       listWrapper: this.elements!.notesListWrapper
     });

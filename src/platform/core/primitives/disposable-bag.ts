@@ -9,14 +9,6 @@ type DisposableObject = {
 export type Disposable = DisposableFunction | DisposableObject | null | undefined;
 export type DisposableKey = string | symbol;
 
-export type EventTargetLike = {
-  addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: AddEventListenerOptions | boolean): void;
-  removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: EventListenerOptions | boolean): void;
-};
-
-type TimerHandle = ReturnType<typeof setTimeout> | number;
-type AnimationFrameHandle = ReturnType<typeof requestAnimationFrame> | number;
-
 // Only aggregates created here are flattened when overlapping owners join cleanup.
 const cleanupAggregates = new WeakSet<AggregateError>();
 
@@ -104,12 +96,7 @@ export class DisposableBag {
 
   replace(key: DisposableKey, disposable: Disposable): DisposableFunction {
     const cancelled = this.cancel(key);
-    if (isPromiseLike<void>(cancelled)) throw new Error('DisposableBag.replace() cannot replace pending async cleanup; use replaceAsync()');
-    return this.setManaged(key, disposable);
-  }
-
-  async replaceAsync(key: DisposableKey, disposable: Disposable): Promise<DisposableFunction> {
-    await this.cancel(key);
+    if (isPromiseLike<void>(cancelled)) throw new Error('Await cancel() before replacing asynchronous resources');
     return this.setManaged(key, disposable);
   }
 
@@ -137,32 +124,6 @@ export class DisposableBag {
       .filter((entry): entry is DisposableFunction => entry !== null);
 
     return this.replace(key, () => disposeAll(group.splice(0).reverse()));
-  }
-
-  addEvent(
-    target: EventTargetLike,
-    type: string,
-    listener: EventListenerOrEventListenerObject,
-    options?: AddEventListenerOptions | boolean
-  ): DisposableFunction {
-    target.addEventListener(type, listener, options);
-    return this.add(() => target.removeEventListener(type, listener, options));
-  }
-
-  addTimeout(handle: TimerHandle): DisposableFunction {
-    return this.add(() => clearTimeout(handle));
-  }
-
-  addInterval(handle: TimerHandle): DisposableFunction {
-    return this.add(() => clearInterval(handle));
-  }
-
-  addAnimationFrame(handle: AnimationFrameHandle): DisposableFunction {
-    return this.add(() => cancelAnimationFrame(handle));
-  }
-
-  addObserver(observer: { disconnect(): void }): DisposableFunction {
-    return this.add(() => observer.disconnect());
   }
 
   private trackPending(cleanup: Promise<void>): Promise<void> {

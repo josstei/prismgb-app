@@ -8,6 +8,8 @@ import {
   createSettingsControlsTemplate
 } from '@renderer/presentation/features/settings/settings-menu.template.js';
 import { SettingsDefinitions, hasSettingsControl } from '@renderer/lib/settings.definitions.js';
+import { ListboxDropdownController } from '@platform/ui-base';
+import { createDeferred } from '../../../../../support/deferred.testkit.js';
 import {
   createLogger,
   createSettingsMenuElementsMock,
@@ -19,6 +21,14 @@ describe('SettingsMenuComponent', () => {
   let mockSettingsService: ReturnType<typeof createSettingsServiceMock>;
   let mockLogger: ReturnType<typeof createLogger>;
   let mockElements: ReturnType<typeof createSettingsMenuElementsMock>;
+
+  function elementsWithListbox() {
+    return { ...mockElements,
+      settingRecordingFormat: document.createElement('button'),
+      recordingFormatLabel: document.createElement('span'),
+      recordingFormatMenu: document.createElement('div')
+    };
+  }
 
   beforeEach(() => {
     mockSettingsService = createSettingsServiceMock({
@@ -44,8 +54,8 @@ describe('SettingsMenuComponent', () => {
     });
   });
 
-  afterEach(() => {
-    component.dispose();
+  afterEach(async () => {
+    await component.dispose().catch(() => {});
   });
 
   describe('Constructor', () => {
@@ -287,6 +297,20 @@ describe('SettingsMenuComponent', () => {
 
       expect(mockElements.settingLaunchOnLogin.checked).toBe(true);
     });
+
+    it('keeps a user edit when the initial login-item query replies late', async () => {
+      await component.dispose();
+      const initial = createDeferred<boolean>();
+      mockSettingsService.getLaunchOnLogin.mockReturnValueOnce(initial.promise);
+      component.initialize(mockElements);
+      mockElements.settingLaunchOnLogin.checked = true;
+      mockElements.settingLaunchOnLogin.dispatchEvent(new Event('change'));
+      expect(mockSettingsService.setLaunchOnLogin).toHaveBeenCalledWith(true);
+      initial.resolve(false);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(mockElements.settingLaunchOnLogin.checked).toBe(true);
+    });
   });
 
   describe('Disclaimer toggle', () => {
@@ -382,6 +406,46 @@ describe('SettingsMenuComponent', () => {
   });
 
   describe('dispose', () => {
+    it('releases partially mounted controllers when listbox initialization fails', async () => {
+      const initialize = ListboxDropdownController.prototype.initialize;
+      let dropdown: ListboxDropdownController | undefined;
+      vi.spyOn(ListboxDropdownController.prototype, 'initialize').mockImplementationOnce(function (...args) {
+        dropdown = this;
+        initialize.apply(this, args);
+        throw new Error('Listbox mount failed');
+      });
+
+      expect(() => component.initialize(elementsWithListbox())).toThrow('Listbox mount failed');
+      const menu = component._menuDisclosure!;
+      expect(menu.disposables.size).toBeGreaterThan(0);
+      expect(dropdown?.disposables.size).toBeGreaterThan(0);
+      await component.dispose();
+      expect(menu.disposables.size).toBe(0);
+      expect(dropdown?.disposables.size).toBe(0);
+    });
+
+    it('waits for all child cleanup when one controller rejects', async () => {
+      component.initialize(elementsWithListbox());
+      const menu = component._menuDisclosure!;
+      const dropdown = component.listboxDropdowns.values().next().value!;
+      const releaseMenu = menu.dispose.bind(menu);
+      const releaseDropdown = dropdown.dispose.bind(dropdown);
+      const pending = createDeferred();
+      const failure = new Error('Menu cleanup failed');
+      vi.spyOn(menu, 'dispose').mockImplementation(async () => { await releaseMenu(); throw failure; });
+      vi.spyOn(dropdown, 'dispose').mockImplementation(async () => { await releaseDropdown(); await pending.promise; });
+      const settled = vi.fn();
+      const disposal = component.dispose();
+      void disposal.then(settled, settled);
+      const rejection = expect(disposal).rejects.toThrow('Menu cleanup failed');
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(settled).not.toHaveBeenCalled();
+      pending.resolve();
+      await rejection;
+      expect(dropdown.disposables.size).toBe(0);
+    });
+
     it('should remove click outside handler', async () => {
       component.initialize(mockElements);
 

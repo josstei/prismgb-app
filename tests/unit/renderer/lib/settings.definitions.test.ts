@@ -7,8 +7,7 @@ import {
   getSettingsUiDefinitions,
   getBooleanSettingsUiDefinitions,
   getListboxSettingsUiDefinitions,
-  getSettingsListboxOptions,
-  getStartupPreferenceEventDefinitions
+  getSettingsListboxOptions
 } from '@renderer/lib/settings.definitions';
 import type { SettingsListboxDefinition } from '@renderer/lib/settings.definitions';
 
@@ -26,8 +25,6 @@ describe('SettingsDefinitions manifest', () => {
     expect(Object.isFrozen(SettingsDefinitions.definitions)).toBe(true);
     expect(Array.isArray(SettingsDefinitions.definitions)).toBe(true);
     expect(Array.isArray(SettingsDefinitions.startupPreferenceDefinitions)).toBe(true);
-    expect(Array.isArray(SettingsDefinitions.startupPreferenceEventDefinitions)).toBe(true);
-    expect(Array.isArray(SettingsDefinitions.loadAllPreferencesShape)).toBe(true);
   });
 
   it('marks only synchronously-readable definitions as startup preferences', () => {
@@ -37,14 +34,6 @@ describe('SettingsDefinitions manifest', () => {
     }
   });
 
-  it('exposes startup-preference event definitions that each carry a non-empty event', () => {
-    const eventDefinitions = getStartupPreferenceEventDefinitions();
-    expect(eventDefinitions.length).toBeGreaterThan(0);
-    for (const definition of eventDefinitions) {
-      expect(typeof definition.event).toBe('string');
-      expect(definition.event.length).toBeGreaterThan(0);
-    }
-  });
 });
 
 describe('settings definition predicates', () => {

@@ -5,8 +5,8 @@ import { IPC_CHANNELS } from '@platform/ipc';
 import type { IpcPushPublisher, IpcPushPayloadMap, IpcPushArguments } from '@platform/ipc';
 import { TRANSCODE_CONFIG, type TranscodeFormat } from './transcode.config.js';
 import { getFfmpegPath, getOptionalFfprobePath, validateFfmpegBinaries, type FfmpegEnvironment } from './ffmpeg-path.utils.js';
-import { createTempSession, writeTempFile, cleanupSession, cleanupAllSessions } from './transcode-temp.utils.js';
-import { TranscodeProcess, probeDuration, type TranscodeProgressData } from './transcode-process.js';
+import { createTempSession, writeTempFile, cleanupSession } from './transcode-temp.utils.js';
+import { TranscodeProcess, probeDuration } from './transcode-process.js';
 
 interface TranscodeOptions {
   inputBuffer: Buffer;
@@ -28,14 +28,17 @@ interface TranscodeServiceDependencies {
 
 interface ActiveJob {
   process: TranscodeProcess;
-  sessionDir: string;
-  outputPath: string;
+  completion: Promise<void>;
+}
+interface AcceptedJob {
+  jobId: string;
+  completion: Promise<void>;
 }
 
 /** Owns active conversion processes and their files until a terminal event or shutdown. */
 export class TranscodeService extends BaseService {
   private readonly jobs = new Map<string, ActiveJob>();
-  private readonly starting = new Set<Promise<{ jobId: string }>>();
+  private readonly starting = new Set<Promise<AcceptedJob>>();
   private disposing = false;
   private draining = false;
   private readonly pushPublisher: IpcPushPublisher;
@@ -61,10 +64,10 @@ export class TranscodeService extends BaseService {
   transcode(options: TranscodeOptions): Promise<{ jobId: string }> {
     const pending = this.startTranscode(options);
     this.starting.add(pending);
-    return pending.finally(() => this.starting.delete(pending));
+    return pending.then(({ jobId }) => ({ jobId })).finally(() => this.starting.delete(pending));
   }
 
-  private async startTranscode({ inputBuffer, format, outputFilename, inputArgs = [] }: TranscodeOptions): Promise<{ jobId: string }> {
+  private async startTranscode({ inputBuffer, format, outputFilename, inputArgs = [] }: TranscodeOptions): Promise<AcceptedJob> {
     if (!this._initialized || this.disposing || this.draining) throw new Error('TranscodeService not initialized');
     if (!Object.hasOwn(TRANSCODE_CONFIG.formats, format)) throw new Error(`Unsupported format: ${format}`);
     if (!outputFilename || typeof outputFilename !== 'string') throw new Error('Output filename is required');
@@ -82,33 +85,16 @@ export class TranscodeService extends BaseService {
 
       const config = TRANSCODE_CONFIG.formats[format];
       const outputPath = path.join(this.environment.downloadsDir, `${outputFilename}.${config.extension}`);
-      const process = new TranscodeProcess(inputPath, outputPath, config.ffmpegArgs, durationUs, inputArgs, getFfmpegPath(this.environment));
-      this.jobs.set(sessionId, { process, sessionDir, outputPath });
-      process.on('progress', (progress: TranscodeProgressData) => {
-        this.publish(IPC_CHANNELS.TRANSCODE.PROGRESS, { jobId: sessionId, ...progress });
-      });
-      process.once('completed', () => {
-        this.publish(IPC_CHANNELS.TRANSCODE.COMPLETED, { jobId: sessionId, filePath: outputPath });
-        this.cleanupJob(sessionId, false);
-      });
-      process.once('cancelled', () => {
-        this.publish(IPC_CHANNELS.TRANSCODE.CANCELLED, { jobId: sessionId });
-        this.cleanupJob(sessionId, true);
-      });
-      process.once('error', (error: Error) => {
-        this.publish(IPC_CHANNELS.TRANSCODE.ERROR, { jobId: sessionId, error: error.message });
-        this.logger.error('Transcode failed', { sessionId, error: error.message });
-        this.cleanupJob(sessionId, true);
-      });
-      void process.start().catch((error: unknown) => {
-        this.logger.debug('Transcode process rejected', { sessionId, error: getErrorMessage(error) });
-        // Covers synchronous startup failures that cannot emit a process event.
-        if (this.jobs.has(sessionId)) {
-          this.publish(IPC_CHANNELS.TRANSCODE.ERROR, { jobId: sessionId, error: getErrorMessage(error) });
-          this.cleanupJob(sessionId, true);
-        }
-      });
-      return { jobId: sessionId };
+      // Keep the existing recording intact until replacement succeeds. This file
+      // shares the destination filesystem so promotion is an atomic rename.
+      const stagingPath = path.join(this.environment.downloadsDir, `.${sessionId}.${config.extension}`);
+      const process = new TranscodeProcess(inputPath, stagingPath, config.ffmpegArgs, durationUs, inputArgs, getFfmpegPath(this.environment));
+      const completion = Promise.resolve().then(() => this.finishJob(sessionId, process, sessionDir, stagingPath, outputPath));
+      this.jobs.set(sessionId, { process, completion });
+      // Drain observes failures; conversion errors are also delivered immediately
+      // through their correlated push without causing an unhandled rejection.
+      void completion.catch(() => {});
+      return { jobId: sessionId, completion };
     } catch (error) {
       cleanupSession(sessionDir, this.logger);
       throw error;
@@ -118,20 +104,30 @@ export class TranscodeService extends BaseService {
   cancel(jobId: string): void {
     const job = this.jobs.get(jobId);
     if (!job) throw new Error('Job not found or already completed');
-    if (!job.process.isRunning) throw new Error('Job is not running');
-    job.process.cancel();
+    if (!job.process.cancel()) throw new Error('Job is not running');
   }
 
-  private cleanupJob(jobId: string, removeOutput: boolean): void {
-    const job = this.jobs.get(jobId);
-    if (!job) return;
-    this.jobs.delete(jobId);
-    cleanupSession(job.sessionDir, this.logger);
-    if (removeOutput) {
+  private async finishJob(jobId: string, process: TranscodeProcess, sessionDir: string, stagingPath: string, outputPath: string): Promise<void> {
+    try {
+      const outcome = await process.start((progress) => this.publish(IPC_CHANNELS.TRANSCODE.PROGRESS, { jobId, ...progress }));
+      if (outcome === 'cancelled') {
+        this.publish(IPC_CHANNELS.TRANSCODE.CANCELLED, { jobId });
+      } else {
+        fs.renameSync(stagingPath, outputPath);
+        this.publish(IPC_CHANNELS.TRANSCODE.COMPLETED, { jobId, filePath: outputPath });
+      }
+    } catch (error) {
+      const message = getErrorMessage(error);
+      this.publish(IPC_CHANNELS.TRANSCODE.ERROR, { jobId, error: message });
+      this.logger.error('Transcode failed', { jobId, error: message });
+      throw error;
+    } finally {
+      this.jobs.delete(jobId);
+      cleanupSession(sessionDir, this.logger);
       try {
-        fs.rmSync(job.outputPath, { force: true });
+        fs.rmSync(stagingPath, { force: true });
       } catch (error) {
-        this.logger.warn('Failed to remove partial output file', { jobId, path: job.outputPath, error });
+        this.logger.warn('Failed to remove partial output file', { jobId, path: stagingPath, error });
       }
     }
   }
@@ -147,10 +143,12 @@ export class TranscodeService extends BaseService {
   /** Stop accepting work and let accepted recordings finish before normal application exit. */
   async drain(): Promise<void> {
     this.draining = true;
-    const active = new Set([...this.jobs.values()].map((job) => job.process));
+    const active = new Set([...this.jobs.values()].map((job) => job.completion));
     const preparations = await Promise.allSettled([...this.starting]);
-    for (const job of this.jobs.values()) active.add(job.process);
-    const completed = await Promise.allSettled([...active].map((process) => process.waitForExit()));
+    for (const preparation of preparations) {
+      if (preparation.status === 'fulfilled') active.add(preparation.value.completion);
+    }
+    const completed = await Promise.allSettled([...active]);
     const errors = [...preparations, ...completed]
       .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
       .map((result) => result.reason);
@@ -160,14 +158,10 @@ export class TranscodeService extends BaseService {
   override async dispose(): Promise<void> {
     this.disposing = true;
     await Promise.allSettled([...this.starting]);
-    await Promise.all([...this.jobs.entries()].map(async ([jobId, job]) => {
+    await Promise.all([...this.jobs.values()].map(async (job) => {
       job.process.cancel();
-      try { await job.process.waitForExit(); } catch { /* Expected on cancellation. */ }
-      this.cleanupJob(jobId, true);
-      job.process.removeAllListeners();
+      try { await job.completion; } catch { /* Failure was already published and cleaned up. */ }
     }));
-    cleanupAllSessions(this.environment.tempDir, this.logger);
-    this._initialized = false;
     await super.dispose();
   }
 }

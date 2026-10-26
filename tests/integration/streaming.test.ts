@@ -51,7 +51,7 @@ async function createStreamingFixture() {
   });
   const subscriptions: Array<() => void> = [];
   await orchestrator.initialize();
-  return { media, eventBus, streaming, appState, video, rendering, recording, subscriptions,
+  return { media, eventBus, streaming, appState, video, rendering, recording, subscriptions, orchestrator,
     async dispose() {
       await streaming.dispose();
       await orchestrator.dispose();
@@ -68,6 +68,25 @@ describe('streaming service and orchestrator integration', () => {
   let fixture: Awaited<ReturnType<typeof createStreamingFixture>>;
   beforeEach(async () => { fixture = await createStreamingFixture(); });
   afterEach(async () => { await fixture.dispose(); });
+
+  it('quits during a pending native permission request and closes a later granted stream', async () => {
+    const media = navigator.mediaDevices;
+    const late = await media.getUserMedia({ video: { deviceId: { exact: fixture.media.videoDevice.deviceId } }, audio: false });
+    const permission = Promise.withResolvers<MediaStream>();
+    const getUserMedia = vi.spyOn(media, 'getUserMedia').mockReturnValueOnce(permission.promise);
+    const errorFeedback = vi.fn();
+    fixture.subscriptions.push(fixture.eventBus.subscribe(EventChannels.UI.OVERLAY_ERROR, errorFeedback));
+    const starting = fixture.eventBus.publishAsync(EventChannels.UI.STREAM_START_REQUESTED);
+    await vi.waitFor(() => expect(getUserMedia).toHaveBeenCalledOnce());
+    await fixture.orchestrator.dispose();
+    await starting;
+    permission.resolve(late);
+    await vi.waitFor(() => expect(late.getTracks().every((track) => track.readyState === 'ended')).toBe(true));
+    expect(fixture.appState.isStreaming).toBe(false);
+    expect(fixture.video.srcObject).toBeNull();
+    expect(fixture.rendering.startPipeline).not.toHaveBeenCalled();
+    expect(errorFeedback).not.toHaveBeenCalled();
+  });
 
   it('routes UI requests through acquisition, paired audio, DOM attachment and render startup', async () => {
     const modeChanged = vi.fn();

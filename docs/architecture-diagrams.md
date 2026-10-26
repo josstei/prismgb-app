@@ -10,17 +10,16 @@ Each `application/container.ts` is an explicit construction function: `createMai
 flowchart TD
   MainEntry["main/index.ts"] --> MainRuntime["createMainRuntime"]
   MainRuntime --> MainServices["Window, tray, USB, IPC, update, transcode"]
-  RendererEntry["renderer/index.ts"] --> RendererBootstrap
-  RendererBootstrap --> RendererRuntime["createRendererRuntime"]
+  RendererEntry["renderer/index.ts"] --> RendererRuntime["createRendererRuntime"]
   RendererRuntime --> Services["Media, settings, notes, update services"]
   RendererRuntime --> UI["UI bridges, effects and component factories"]
 ```
 
-`createApplicationLifecycle` shares concurrent initialization and disposal promises. A failed initialization rolls back the constructed runtime once. `disposeInOrder` attempts each registered disposer even if another fails. A disposed runtime cannot restart; a bootstrap creates a fresh runtime when restarting after cleanup.
+`createApplicationLifecycle` shares concurrent initialization and disposal promises. A failed initialization rolls back the constructed runtime once. `disposeInOrder` attempts each registered disposer even if another fails. A new startup constructs a fresh runtime and ownership graph.
 
 Renderer UI factories preserve deferred construction in `UiComponentHost`. The renderer runtime establishes UI bridges before application initialization, then starts deferred components and input listeners. It disposes components before the notes service so pending edits can flush. Main composition passes Electron capabilities directly to platform services, including the typed push publisher, update-install callback, and transcode directories.
 
-The renderer subscribes to shutdown requests before reporting readiness. During shutdown, main keeps IPC and the window alive, sends a request with a correlation ID, and waits for the renderer's typed acknowledgement. Renderer cleanup flushes pending notes and finishes recording/rendering cleanup before acknowledging. Main then waits for accepted conversions and registered downloads to finish before tearing down services, IPC, and the window. A missing or failed acknowledgement still runs cleanup and cancels remaining work; packaged smoke reports failure.
+The renderer subscribes to shutdown requests before reporting readiness. During shutdown, main keeps IPC and the window alive, sends a request with a correlation ID, and waits for the renderer's typed acknowledgement. Renderer cleanup flushes pending notes and finishes recording/rendering cleanup before acknowledging. Main then waits for accepted conversions and registered downloads to finish before tearing down services, IPC, and the window. A missing or failed acknowledgement still attempts the output drains and tears down remaining owners; packaged smoke reports failure.
 
 ## Device and Streaming Flow
 
@@ -102,4 +101,4 @@ Typed definitions in `settings.definitions.ts` supply keys, defaults, validation
 - Dependency-boundary tests invoke dependency-cruiser's API against intentional invalid fixtures.
 - CI runs the full Vitest suite once per selected platform and reuses its Linux Vite build for Playwright.
 - Packaged smoke starts the normal main/preload/renderer path with a temporary profile. It requires renderer readiness, the shutdown request/acknowledgement, conversion/download drains, and completed main cleanup before emitting its success marker and exiting zero. Missing readiness or acknowledgement, timeout, signal termination, or cleanup failure fails the check.
-- Vite's public directory owns renderer static assets; file URLs use a relative base. Packaging hooks retain native-library, signing, and AppImage compatibility responsibilities.
+- Vite's `assets` public directory owns renderer static assets; file URLs use a relative base. Packaging-only icons and entitlements live in `build-resources`, so the renderer does not ship unused ICO, ICNS or signing metadata. Packaging hooks retain native-library, signing, and AppImage compatibility responsibilities.

@@ -116,6 +116,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
     try {
       await this.streamingService.start(deviceId);
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
       const message = getErrorMessage(error, 'Failed to start stream');
       this.logger.error('Failed to start stream:', error);
       this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: `Error: ${message}`, type: 'error' });
@@ -247,6 +248,7 @@ export class StreamingOrchestrator extends BaseOrchestrator {
       try {
         await this.streamingService.start(data.device.deviceId);
       } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
         const message = getErrorMessage(error, 'Failed to auto-start stream');
         this.logger.error('Failed to auto-start stream:', error);
         this.eventBus.publish(EventChannels.UI.OVERLAY_ERROR, { message });
@@ -255,14 +257,11 @@ export class StreamingOrchestrator extends BaseOrchestrator {
   }
 
   async onCleanup(): Promise<void> {
-    await this.streamingRenderService.cleanup();
-
-    if (this.streamingService.isActive()) {
-      try {
-        await this.streamingService.stop();
-      } catch (error) {
-        this.logger.error('Error stopping stream during cleanup:', getErrorMessage(error, 'Failed to stop stream'));
-      }
+    try {
+      await this.streamingService.stop();
+    } catch (error) {
+      this.logger.error('Error stopping stream during cleanup:', getErrorMessage(error, 'Failed to stop stream'));
     }
+    await this.streamingRenderService.cleanup();
   }
 }

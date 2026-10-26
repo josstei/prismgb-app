@@ -23,10 +23,6 @@ class NotesService extends BaseService {
     this._notesCache = null;
   }
 
-  _invalidateCache() {
-    this._notesCache = null;
-  }
-
   getAllNotes(): UserNote[] {
     if (this._notesCache !== null) {
       return this._notesCache;
@@ -67,8 +63,7 @@ class NotesService extends BaseService {
       updatedAt: now
     };
 
-    const notes = this.getAllNotes();
-    notes.unshift(note);
+    const notes = [note, ...this.getAllNotes()];
 
     if (!this._saveNotes(notes)) {
       this.logger.error('Failed to create note - storage error');
@@ -96,9 +91,7 @@ class NotesService extends BaseService {
       updatedAt: Date.now()
     };
 
-    notes[index] = updatedNote;
-
-    if (!this._saveNotes(notes)) {
+    if (!this._saveNotes(notes.map((note, noteIndex) => noteIndex === index ? updatedNote : note))) {
       this.logger.error(`Failed to update note: ${id} - storage error`);
       return null;
     }
@@ -118,9 +111,7 @@ class NotesService extends BaseService {
       return false;
     }
 
-    notes.splice(index, 1);
-
-    if (!this._saveNotes(notes)) {
+    if (!this._saveNotes(notes.filter((_, noteIndex) => noteIndex !== index))) {
       this.logger.error(`Failed to delete note: ${id} - storage error`);
       return false;
     }
@@ -195,14 +186,12 @@ class NotesService extends BaseService {
     try {
       if (!this.storageService.setItem(NotesStorageKeys.USER_NOTES, JSON.stringify(notes))) {
         this.logger.error('Storage rejected notes save');
-        this._invalidateCache();
         return false;
       }
       this._notesCache = [...notes].sort((a, b) => b.updatedAt - a.updatedAt);
       return true;
     } catch (error) {
       this.logger.error('Failed to save notes to storage', error);
-      this._invalidateCache();
       return false;
     }
   }

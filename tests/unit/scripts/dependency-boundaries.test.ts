@@ -52,7 +52,7 @@ const EXPECTED_VIOLATIONS = [
   'platform-not-to-app src/platform/notes/index.ts',
   'platform-notes-not-to-foreign-internals src/platform/notes/index.ts',
   'preload-isolated src/preload/index.ts',
-  'renderer-bootstrap-only-from-entry src/renderer/application/bootstrap-loop.ts',
+  'renderer-composition-only-from-entry src/renderer/application/composition-reach.ts',
   'renderer-entry-not-imported src/renderer/presentation/views/entry-reach.ts',
   'renderer-infra-to-main-ipc-value src/renderer/infrastructure/services/router-value.ts',
   'renderer-infrastructure-not-to-presentation src/renderer/infrastructure/services/presentation-reach.ts',
@@ -83,7 +83,7 @@ describe('source tree structure', () => {
 
   it('classifies every src/renderer top-level entry', () => {
     expect(listSourceEntries('src/renderer')).toEqual([
-      'app-bootstrap.ts', 'application', 'assets', 'index.html', 'index.ts',
+      'application', 'assets', 'index.html', 'index.ts',
       'infrastructure', 'lib', 'presentation'
     ]);
   });

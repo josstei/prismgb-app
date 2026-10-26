@@ -13,7 +13,6 @@ import { TranscodeService } from '../infrastructure/services/transcode/transcode
 import { CaptureSaveService } from '../infrastructure/services/capture/capture-save.service';
 import { SettingsFullscreenService } from '../infrastructure/services/settings/settings-fullscreen.service';
 import { UpdateService } from '../infrastructure/services/updates/update.service';
-import { UpdateUiService } from '../infrastructure/services/updates/update-ui.service';
 import { VisibilityAdapter } from '../infrastructure/adapters/visibility.adapter';
 import { UserActivityAdapter } from '../infrastructure/adapters/user-activity.adapter';
 import { ReducedMotionAdapter } from '../infrastructure/adapters/reduced-motion.adapter';
@@ -72,7 +71,6 @@ export function createRendererRuntime(options: RendererRuntimeOptions = {}) {
   const appState = new AppState({ streamingService, rendererDeviceRuntime });
   const settingsService = new SettingsService({ eventBus, loggerFactory, storageService });
   const updateService = new UpdateService({ eventBus, loggerFactory });
-  const updateUiService = new UpdateUiService({ eventBus, loggerFactory });
   const notesService = new NotesService({ eventBus, storageService, loggerFactory });
   const presentationModeStore = new PresentationModeStore({ eventBus, cinematicEnabled: appState.cinematicModeSignal });
   const bodyClassManager = new BodyClassManager();
@@ -98,7 +96,7 @@ export function createRendererRuntime(options: RendererRuntimeOptions = {}) {
   const captureOrchestrator = new CaptureOrchestrator({ captureService, appState, streamViewService, streamingRenderService, gpuRecordingService, transcodeService, captureSaveService, eventBus, loggerFactory });
   const displayModeOrchestrator = new SettingsDisplayModeOrchestrator({ fullscreenService, appState, settingsService, eventBus, loggerFactory });
   const uiSetupOrchestrator = new UISetupOrchestrator({ appState, uiController, eventBus, loggerFactory });
-  const performanceStateOrchestrator = new PerformanceStateOrchestrator({ eventBus, loggerFactory, visibilityAdapter: new VisibilityAdapter(), userActivityAdapter: new UserActivityAdapter(), reducedMotionAdapter: new ReducedMotionAdapter() });
+  const performanceStateOrchestrator = new PerformanceStateOrchestrator({ appState, eventBus, loggerFactory, visibilityAdapter: new VisibilityAdapter(), userActivityAdapter: new UserActivityAdapter(), reducedMotionAdapter: new ReducedMotionAdapter() });
   const uiEventBridge = new UIEventBridge({ eventBus, uiController, loggerFactory });
   const captureUiBridge = new CaptureUIBridge({ eventBus, uiController, loggerFactory });
   const transcodeUiBridge = new TranscodeUIBridge({ eventBus, loggerFactory });
@@ -122,7 +120,6 @@ export function createRendererRuntime(options: RendererRuntimeOptions = {}) {
     await displayModeOrchestrator.initialize();
     await settingsService.initialize();
     await updateService.initialize();
-    updateUiService.initialize();
   }, () => disposeInOrder([
     () => uiSetupOrchestrator.cleanup(),
     () => performanceStateOrchestrator.cleanup(),
@@ -130,7 +127,7 @@ export function createRendererRuntime(options: RendererRuntimeOptions = {}) {
     () => captureOrchestrator.cleanup(),
     () => streamingOrchestrator.cleanup(),
     () => streamingAudioOrchestrator.cleanup(),
-    () => rendererDeviceRuntime.cleanup(),
+    () => rendererDeviceRuntime.dispose(),
     () => streamingAudioPipelineService.dispose(),
     () => streamingRenderService.dispose(),
     () => captureService.dispose(),
@@ -138,7 +135,6 @@ export function createRendererRuntime(options: RendererRuntimeOptions = {}) {
     () => captureSaveService.dispose(),
     () => transcodeService.dispose(),
     () => updateService.dispose(),
-    () => updateUiService.dispose(),
     () => settingsService.dispose(),
     () => uiEventBridge.dispose(),
     () => captureUiBridge.dispose(),

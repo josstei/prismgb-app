@@ -1,7 +1,7 @@
 import { disposeInOrder } from './application-lifecycle.js';
-import { ManagedLifecycleHost } from './managed-lifecycle-host.js';
+import { ManagedLifecycleHost, type EventTargetLike } from './managed-lifecycle-host.js';
 import { getEventHandlerBindings } from './event-decorator.js';
-import type { DisposableFunction, EventTargetLike } from './disposable-bag.js';
+import type { DisposableFunction } from './disposable-bag.js';
 import type { EventBusLike, LifecycleDependencies, LoggerLike } from './service.base.js';
 
 export class BaseOrchestrator extends ManagedLifecycleHost {

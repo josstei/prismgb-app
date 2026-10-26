@@ -37,32 +37,27 @@ describe('NotesResizeHandlerComponent', () => {
     it('should create component with default state', () => {
       expect(component.isListVisible).toBe(true);
       expect(component.listToggle).toBeNull();
-      expect(component.panelElement).toBeNull();
     });
   });
 
   describe('initialize', () => {
     it('should set up toggle when elements are provided', () => {
       const listToggle = document.createElement('button');
-      const panelElement = document.createElement('div');
       const panelContent = document.createElement('div');
       const listWrapper = document.createElement('div');
 
       component.initialize({
         listToggle,
-        panelElement,
         panelContent,
         listWrapper,
       });
 
       expect(component.listToggle).toBe(listToggle);
-      expect(component.panelElement).toBe(panelElement);
     });
 
     it('should warn when list toggle element is missing', () => {
       component.initialize({
         listToggle: null,
-        panelElement: document.createElement('div'),
       });
 
       expect(mockLogger.warn).toHaveBeenCalledWith('List toggle element not found');
@@ -72,7 +67,6 @@ describe('NotesResizeHandlerComponent', () => {
       const comp = new NotesResizeHandlerComponent({ logger: undefined });
       expect(() => comp.initialize({
         listToggle: null,
-        panelElement: null,
       })).not.toThrow();
       comp.dispose();
     });
@@ -81,7 +75,6 @@ describe('NotesResizeHandlerComponent', () => {
       const listToggle = document.createElement('button');
       component.initialize({
         listToggle,
-        panelElement: document.createElement('div'),
         panelContent: null,
         listWrapper: null,
       });
@@ -101,7 +94,6 @@ describe('NotesResizeHandlerComponent', () => {
 
       component.initialize({
         listToggle,
-        panelElement: document.createElement('div'),
         panelContent,
         listWrapper: document.createElement('div'),
       });
@@ -160,7 +152,6 @@ describe('NotesResizeHandlerComponent', () => {
 
       component.initialize({
         listToggle,
-        panelElement: document.createElement('div'),
         panelContent,
         listWrapper: document.createElement('div'),
       });
@@ -240,7 +231,6 @@ describe('NotesResizeHandlerComponent', () => {
       listToggle = document.createElement('button');
       component.initialize({
         listToggle,
-        panelElement: document.createElement('div'),
         panelContent: document.createElement('div'),
         listWrapper: document.createElement('div'),
       });
@@ -280,7 +270,6 @@ describe('NotesResizeHandlerComponent', () => {
       const listToggle = document.createElement('button');
       component.initialize({
         listToggle,
-        panelElement: document.createElement('div'),
         panelContent: document.createElement('div'),
         listWrapper: document.createElement('div'),
       });
@@ -301,7 +290,6 @@ describe('NotesResizeHandlerComponent', () => {
       const listToggle = document.createElement('button');
       component.initialize({
         listToggle,
-        panelElement: document.createElement('div'),
         panelContent: document.createElement('div'),
         listWrapper: document.createElement('div'),
       });
@@ -319,7 +307,6 @@ describe('NotesResizeHandlerComponent', () => {
       document.body.style.userSelect = 'text';
       component.initialize({
         listToggle,
-        panelElement: document.createElement('div'),
         panelContent: document.createElement('div'),
         listWrapper: document.createElement('div'),
       });
@@ -346,7 +333,6 @@ describe('NotesResizeHandlerComponent', () => {
       expect(component.isListVisible).toBe(true);
       expect(component._isDragging).toBe(false);
       expect(component._dragFramePending).toBe(false);
-      expect(component.panelElement).toBeNull();
       expect(component._contentElement).toBeNull();
       expect(component._listWrapperElement).toBeNull();
       expect(component.logger).toBeNull();

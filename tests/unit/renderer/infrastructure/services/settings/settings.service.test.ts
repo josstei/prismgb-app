@@ -31,7 +31,6 @@ describe('SettingsService', () => {
         'performanceMode',
         'minimalistFullscreen'
       ]);
-      expect(settingsDefinitions.loadAllPreferencesShape).toEqual(startupPreferencesFromDefinitions);
       expect(startupPreferencesFromDefinitions.every((name) => {
         const definition = settingsDefinitions.definitions.find((entry) => entry.name === name);
         return definition && !('externalSource' in definition);

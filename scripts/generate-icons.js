@@ -12,13 +12,14 @@
 
 import sharp from 'sharp';
 import png2icons from 'png2icons';
-import { readFile, writeFile } from 'fs/promises';
+import { mkdir, readFile, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ASSETS_DIR = join(__dirname, '..', 'assets');
+const BUILD_RESOURCES_DIR = join(__dirname, '..', 'build-resources');
 const OVERLAY_DIR = join(ASSETS_DIR, 'overlay-icons');
 
 // Source file
@@ -27,8 +28,8 @@ const APP_ICON_SOURCE = join(OVERLAY_DIR, 'default.svg');
 // Output files
 const OUTPUTS = {
   iconPng: join(ASSETS_DIR, 'icon.png'),
-  iconIco: join(ASSETS_DIR, 'icon.ico'),
-  iconIcns: join(ASSETS_DIR, 'icon.icns'),
+  iconIco: join(BUILD_RESOURCES_DIR, 'icon.ico'),
+  iconIcns: join(BUILD_RESOURCES_DIR, 'icon.icns'),
   trayPng: join(ASSETS_DIR, 'tray-icon.png')
 };
 const TRAY_ICON_SIZE = 30; // Slightly smaller again for macOS menu bar clearance
@@ -210,6 +211,7 @@ async function main() {
     process.exit(1);
   }
 
+  await mkdir(BUILD_RESOURCES_DIR, { recursive: true });
   await generateAppIcons();
 
   console.log('\nIcon generation complete!');

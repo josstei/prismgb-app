@@ -41,6 +41,7 @@ describe('main transcode media outputs', () => {
     ['mp4', 'h264', 'aac'],
     ['mov', 'prores', 'pcm_s16le']
   ] as const)('writes playable %s with the requested audio and video codecs', async (format, videoCodec, audioCodec) => {
+    fs.writeFileSync(path.join(directory, `clip.${format}`), 'previous successful recording');
     const accepted = service.transcode({ inputBuffer, format, outputFilename: 'clip', inputArgs: ['-fflags', '+genpts', '-err_detect', 'ignore_err'] });
     await service.drain();
     const { jobId } = await accepted;
@@ -67,6 +68,15 @@ describe('main transcode media outputs', () => {
     const { jobId } = await service.transcode({ inputBuffer: Buffer.from('not a media file'), format: 'mp4', outputFilename: 'broken' });
     await vi.waitFor(() => expect(publish).toHaveBeenCalledWith('transcode:error', expect.objectContaining({ jobId })), { timeout: 10000 });
     expect(fs.existsSync(path.join(directory, 'broken.mp4'))).toBe(false);
-    expect(fs.readdirSync(path.join(directory, 'prismgb-transcode'))).toEqual([]);
+    expect(fs.existsSync(path.join(directory, 'prismgb-transcode'))).toBe(false);
+  });
+
+  it('does not delete an existing successful file when replacement input cannot be decoded', async () => {
+    const outputPath = path.join(directory, 'keep.mp4');
+    fs.writeFileSync(outputPath, 'previous successful recording');
+    const { jobId } = await service.transcode({ inputBuffer: Buffer.from('not a media file'), format: 'mp4', outputFilename: 'keep' });
+    await vi.waitFor(() => expect(publish).toHaveBeenCalledWith('transcode:error', expect.objectContaining({ jobId })), { timeout: 10000 });
+    expect(fs.readFileSync(outputPath, 'utf8')).toBe('previous successful recording');
+    expect(fs.readdirSync(directory).filter((entry) => entry.endsWith('.mp4'))).toEqual(['keep.mp4']);
   });
 });

@@ -203,9 +203,14 @@ class UpdateService extends BaseService {
     try {
       this.logger.info('Checking for updates...');
       const result = await autoUpdater.checkForUpdates();
+      if (!result) {
+        this.state = UpdateState.NOT_AVAILABLE;
+        this._notifyRenderer(IPC_CHANNELS.UPDATE.NOT_AVAILABLE, { version: this.config.version, reason: 'update-check-disabled' });
+        return { updateAvailable: false, reason: 'update-check-disabled' };
+      }
       return {
-        updateAvailable: result?.updateInfo?.version !== this.config.version,
-        updateInfo: result?.updateInfo
+        updateAvailable: result.updateInfo.version !== this.config.version,
+        updateInfo: result.updateInfo
       };
     } catch (error) {
       if (this._isPlatformNotFoundMessage((error as Error)?.message)) {

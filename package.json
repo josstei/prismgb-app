@@ -135,7 +135,7 @@
     "artifactBuildCompleted": "./scripts/patch-appimage-runtime.js",
     "directories": {
       "output": "release",
-      "buildResources": "assets"
+      "buildResources": "build-resources"
     },
     "mac": {
       "category": "public.app-category.utilities",
@@ -143,12 +143,12 @@
         "dmg",
         "zip"
       ],
-      "icon": "assets/icon.icns",
+      "icon": "build-resources/icon.icns",
       "artifactName": "${productName}-${version}-mac-${arch}.${ext}",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
-      "entitlements": "assets/entitlements.mac.plist",
-      "entitlementsInherit": "assets/entitlements.mac.plist",
+      "entitlements": "build-resources/entitlements.mac.plist",
+      "entitlementsInherit": "build-resources/entitlements.mac.plist",
       "notarize": true
     },
     "dmg": {
@@ -204,7 +204,7 @@
           ]
         }
       ],
-      "icon": "assets/icon.ico",
+      "icon": "build-resources/icon.ico",
       "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "nsis": {
@@ -216,8 +216,8 @@
       "perMachine": false,
       "runAfterFinish": true,
       "license": "LICENSE",
-      "installerIcon": "assets/icon.ico",
-      "uninstallerIcon": "assets/icon.ico"
+      "installerIcon": "build-resources/icon.ico",
+      "uninstallerIcon": "build-resources/icon.ico"
     },
     "portable": {
       "artifactName": "${productName}-${version}-portable.exe"

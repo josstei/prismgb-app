@@ -294,7 +294,9 @@ describe('WindowService', () => {
 
       closeHandler(mockEvent);
 
-      // Verify webContents listener was removed during close (before destroy)
+      const closedHandler = win.on.mock.calls.find(call => call[0] === 'closed')![1];
+      closedHandler();
+      // The window retains its subscriptions until it has actually closed.
       expect(win.webContents.off).toHaveBeenCalledWith('console-message', expect.any(Function));
     });
 
@@ -371,7 +373,7 @@ describe('WindowService', () => {
         expect(rejected).not.toHaveBeenCalled();
         item.once.mock.calls[0][1]({}, 'completed');
         await draining;
-        expect(rejected).toHaveBeenCalledWith(expect.objectContaining({ message: 'Downloads failed to start' }));
+        expect(rejected).toHaveBeenCalledWith(expect.objectContaining({ message: 'Downloads failed to save' }));
         await expect(windowService.drainDownloads()).resolves.toBeUndefined();
       } finally {
         vi.useRealTimers();
@@ -400,7 +402,7 @@ describe('WindowService', () => {
       expect(drained).toHaveBeenCalledOnce();
     });
 
-    it('settles cancelled downloads without blocking shutdown', async () => {
+    it.each(['cancelled', 'interrupted'])('reports %s downloads without leaving shutdown blocked', async (state) => {
       windowService.createWindow();
       const download = windowService.mainWindow!.webContents.session.on.mock.calls.find(
         call => call[0] === 'will-download'
@@ -408,9 +410,24 @@ describe('WindowService', () => {
       const item = { getFilename: vi.fn(() => 'recording.webm'), getURL: vi.fn(() => 'blob:recording'), setSavePath: vi.fn(), once: vi.fn() };
       download(createPreventDefaultEventMock(), item);
       const draining = windowService.drainDownloads();
-      item.once.mock.calls[0][1]({}, 'cancelled');
-      await draining;
-      expect(mockLogger.warn).toHaveBeenCalledWith('Download failed: cancelled');
+      const rejected = expect(draining).rejects.toThrow('Downloads failed to save');
+      item.once.mock.calls[0][1]({}, state);
+      await rejected;
+      expect(mockLogger.warn).toHaveBeenCalledWith(`Download failed: ${state}`);
+      await expect(windowService.drainDownloads()).resolves.toBeUndefined();
+    });
+
+    it('retains a completed failure for a later drain and catches save-path setup failure', async () => {
+      windowService.createWindow();
+      const download = windowService.mainWindow!.webContents.session.on.mock.calls.find(call => call[0] === 'will-download')![1];
+      const failure = new Error('save path unavailable');
+      const event = createPreventDefaultEventMock();
+      const item = { getFilename: () => 'recording.webm', getURL: () => 'blob:recording',
+        setSavePath: () => { throw failure; }, once: vi.fn() };
+      expect(() => download(event, item)).not.toThrow();
+      expect(event.preventDefault).toHaveBeenCalledOnce();
+      await Promise.resolve();
+      await expect(windowService.drainDownloads()).rejects.toMatchObject({ errors: [failure] });
     });
 
     it('returns immediately when no downloads are pending', async () => {
@@ -419,6 +436,17 @@ describe('WindowService', () => {
   });
 
   describe('destroyWindow', () => {
+    it('releases a persistent session listener even after its window has already been destroyed', () => {
+      windowService.createWindow();
+      const win = windowService.mainWindow!;
+      const session = win.webContents.session;
+      const closedHandler = win.on.mock.calls.find(call => call[0] === 'closed')![1];
+      Object.defineProperty(win, 'isDestroyed', { value: () => true });
+      Object.defineProperty(win.webContents, 'session', { get: () => { throw new Error('webContents is destroyed'); } });
+      closedHandler();
+      expect(session.off).toHaveBeenCalledWith('will-download', expect.any(Function));
+      expect(windowService.mainWindow).toBeNull();
+    });
     it('should destroy BrowserWindow and null reference', () => {
       windowService.createWindow();
       const win = windowService.mainWindow!;

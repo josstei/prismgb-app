@@ -24,7 +24,6 @@ export interface NotesResizeHandlerComponentOptions {
 
 export interface NotesResizeHandlerInitializeOptions {
   listToggle?: HTMLElement | null;
-  panelElement?: HTMLElement | null;
   panelContent?: HTMLElement | null;
   listWrapper?: HTMLElement | null;
 }
@@ -39,7 +38,6 @@ class NotesResizeHandlerComponent extends PresentationComponent {
   _dragFramePending: boolean;
   _dragBodyStyleSnapshot: BodyStyleSnapshot | null;
   listToggle: HTMLElement | null | undefined;
-  panelElement: HTMLElement | null | undefined;
   _contentElement: HTMLElement | null;
   _listWrapperElement: HTMLElement | null;
 
@@ -54,19 +52,17 @@ class NotesResizeHandlerComponent extends PresentationComponent {
     this._dragFramePending = false;
     this._dragBodyStyleSnapshot = null;
     this.listToggle = null;
-    this.panelElement = null;
     this._contentElement = null;
     this._listWrapperElement = null;
   }
 
-  initialize({ listToggle, panelElement, panelContent, listWrapper }: NotesResizeHandlerInitializeOptions): void {
+  initialize({ listToggle, panelContent, listWrapper }: NotesResizeHandlerInitializeOptions): void {
     this.cancelManaged(LIST_TOGGLE_SETUP_LIFECYCLE);
     this._cleanupDragListeners();
     this._cancelDragFrame();
     this._cleanupDragVisualState();
     this._isDragging = false;
     this.listToggle = listToggle;
-    this.panelElement = panelElement;
     this._contentElement = panelContent || null;
     this._listWrapperElement = listWrapper || null;
 
@@ -219,7 +215,6 @@ class NotesResizeHandlerComponent extends PresentationComponent {
     this._dragBodyStyleSnapshot = null;
     const disposed = super.dispose();
     this.listToggle = null;
-    this.panelElement = null;
     this._contentElement = null;
     this._listWrapperElement = null;
     this.logger = null;

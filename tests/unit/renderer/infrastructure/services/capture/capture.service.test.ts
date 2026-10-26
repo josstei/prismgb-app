@@ -301,6 +301,25 @@ describe('CaptureService', () => {
       expect(recorder.stop).toHaveBeenCalledTimes(1);
       expect(drained).toHaveBeenCalledOnce();
     });
+
+    it('rejects a rapid restart without discarding the recording still draining', async () => {
+      blobMock.cleanup();
+      const recorder = service.mediaRecorder;
+      recorder.stop.mockImplementation(() => { recorder.state = 'inactive'; });
+      const firstChunk = new Blob(['first']);
+      recorder.ondataavailable(createMediaBlobEventMock({ data: firstChunk }));
+      const stopping = service.stopRecording();
+      await expect(service.startRecording(mockStream)).rejects.toThrow('Recording is stopping');
+      expect(service.mediaRecorder).toBe(recorder);
+      expect(service.recordedChunks).toEqual([firstChunk]);
+      recorder.ondataavailable(createMediaBlobEventMock({ data: new Blob(['last']) }));
+      recorder.onstop();
+      await stopping;
+      expect(mockEventBus.publishAsync).toHaveBeenCalledWith('capture:recording-ready', expect.objectContaining({
+        blob: expect.objectContaining({ size: 9 })
+      }));
+      expect(service.mediaRecorder).toBeNull();
+    });
   });
 
   describe('_handleRecordingStop', () => {

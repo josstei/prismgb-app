@@ -308,6 +308,15 @@ describe('UpdateService', () => {
       expect(result.updateAvailable).toBe(false);
     });
 
+    it('settles a disabled updater without claiming an update is available', async () => {
+      vi.mocked(autoUpdater.checkForUpdates).mockResolvedValue(null);
+      await expect(service.checkForUpdates()).resolves.toEqual({ updateAvailable: false, reason: 'update-check-disabled' });
+      expect(service.state).toBe(UpdateState.NOT_AVAILABLE);
+      expect(mockPushPublisher.emit).toHaveBeenCalledWith('update:not-available', {
+        version: mockConfig.version, reason: 'update-check-disabled'
+      });
+    });
+
     it('should throw on error', async () => {
       const error = new Error('Network error');
       vi.mocked(autoUpdater.checkForUpdates).mockRejectedValue(error);

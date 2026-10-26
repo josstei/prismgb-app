@@ -147,4 +147,40 @@ describe('DeviceMediaAcquirer', () => {
     expect(audioTrack.stop).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['grant', 'reject'])('disposes without waiting for permission and owns a late %s', async (outcome) => {
+    const { acquirer, mediaDevicesPort, target } = createAcquirer();
+    const permission = Promise.withResolvers<MediaStream>();
+    mediaDevicesPort.getUserMedia.mockReturnValueOnce(permission.promise);
+    const acquired = expect(acquirer.acquire(target)).rejects.toMatchObject({ name: 'AbortError' });
+    await acquirer.dispose();
+    await acquired;
+    expect(mediaDevicesPort.getUserMedia).toHaveBeenCalledOnce();
+    if (outcome === 'grant') {
+      const stream = createActiveStream();
+      permission.resolve(stream);
+      await vi.waitFor(() => stream.getTracks().forEach((track) => expect(track.stop).toHaveBeenCalledOnce()));
+    } else {
+      permission.reject(new Error('Permission denied after shutdown'));
+      await Promise.resolve();
+    }
+    await expect(acquirer.acquire(target)).rejects.toMatchObject({ name: 'AbortError' });
+    expect(mediaDevicesPort.getUserMedia).toHaveBeenCalledOnce();
+  });
+
+  it('cancels one permission request without closing a replacement acquisition', async () => {
+    const { acquirer, mediaDevicesPort, target } = createAcquirer();
+    const permission = Promise.withResolvers<MediaStream>();
+    const abort = new AbortController();
+    mediaDevicesPort.getUserMedia.mockReturnValueOnce(permission.promise);
+    const cancelled = expect(acquirer.acquire(target, abort.signal)).rejects.toMatchObject({ name: 'AbortError' });
+    abort.abort();
+    await cancelled;
+    const replacement = await acquirer.acquire(target);
+    const old = createActiveStream('cancelled');
+    permission.resolve(old);
+    await vi.waitFor(() => old.getTracks().forEach((track) => expect(track.stop).toHaveBeenCalledOnce()));
+    replacement.stream.getTracks().forEach((track) => expect(track.stop).not.toHaveBeenCalled());
+    await acquirer.dispose();
+  });
+
 });

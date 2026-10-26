@@ -27,18 +27,14 @@ export function cleanupSession(sessionDir: string, logger: Pick<LoggerLike, 'war
   } catch (error) {
     logger.warn('Failed to clean up transcode session', { sessionDir, error });
   }
-}
-
-/** On shutdown, also remove abandoned sessions left by previous application crashes. */
-export function cleanupAllSessions(tempDir: string, logger: Pick<LoggerLike, 'warn'>): void {
-  const baseDir = baseDirectory(tempDir);
-  if (!fs.existsSync(baseDir)) return;
+  // A non-recursive removal can only remove the now-empty parent; another
+  // profile/runtime may still own sessions in this shared temporary directory.
   try {
-    for (const entry of fs.readdirSync(baseDir)) {
-      if (entry.startsWith(TRANSCODE_CONFIG.tempPrefix)) cleanupSession(path.join(baseDir, entry), logger);
-    }
-    if (fs.readdirSync(baseDir).length === 0) fs.rmdirSync(baseDir);
+    fs.rmdirSync(path.dirname(sessionDir));
   } catch (error) {
-    logger.warn('Failed to clean up transcode directory', { baseDir, error });
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== 'ENOTEMPTY' && code !== 'EEXIST' && code !== 'ENOENT') {
+      logger.warn('Failed to clean up transcode directory', { sessionDir, error });
+    }
   }
 }

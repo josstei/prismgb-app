@@ -39,6 +39,7 @@ export class BaseService extends ManagedLifecycleHost {
   protected logger!: LoggerLike;
   protected _initialized: boolean;
   private _initialization: Promise<void> | null = null;
+  private _initializationGeneration = 0;
   private readonly _eventBus: EventBusLike | null;
   private readonly _serviceName: string;
 
@@ -61,10 +62,11 @@ export class BaseService extends ManagedLifecycleHost {
     }
 
     if (this._initialization) return this._initialization;
+    const generation = this._initializationGeneration;
     const result = this.onInitialize();
     if (result instanceof Promise) {
       this._initialization = result.then(() => {
-        this._initialized = true;
+        if (generation === this._initializationGeneration) this._initialized = true;
       }).catch(async (error: unknown) => {
         await this.disposables.clear().catch((cleanupError: unknown) => {
           this.logger?.error(`${this._serviceName} initialization rollback failed`, cleanupError);
@@ -74,7 +76,7 @@ export class BaseService extends ManagedLifecycleHost {
       return this._initialization;
     }
 
-    this._initialized = true;
+    if (generation === this._initializationGeneration) this._initialized = true;
   }
 
   protected onInitialize(): void | Promise<void> {}
@@ -98,6 +100,7 @@ export class BaseService extends ManagedLifecycleHost {
   }
 
   override dispose(): void | Promise<void> {
+    this._initializationGeneration++;
     this._initialized = false;
     return super.dispose();
   }

@@ -7,6 +7,8 @@
 import './presentation/styles/styles.css';
 import { trpcClient } from './infrastructure/ipc/trpc-client';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
+import { createRendererRuntime, type RendererRuntime } from './application/container.js';
+import { renderAppShell } from './presentation/shell/app-shell.renderer.js';
 // Global error handlers for uncaught errors
 window.addEventListener('unhandledrejection', (event) => {
   console.error('Unhandled promise rejection:', event.reason);
@@ -16,14 +18,11 @@ window.addEventListener('error', (event) => {
   console.error('Uncaught error:', event.error);
 });
 
-// Import application bootstrap
-import { createApplication } from './app-bootstrap';
-import type { RendererBootstrap } from './app-bootstrap';
 import { renderFatalError } from './presentation/shell/fatal-error-screen';
 
-// Global application instance
-let app: RendererBootstrap | null = null;
+let app: RendererRuntime | null = null;
 let cleanupPromise: Promise<void> | null = null;
+let closing = false;
 
 // Register before reporting readiness so main can keep IPC and transcoding alive
 // until notes are flushed and recording/rendering resources finish draining.
@@ -55,16 +54,27 @@ async function completeShutdown(requestId: string): Promise<void> {
  * Initialize the application
  */
 async function init() {
+  if (closing) return;
   try {
-    // Create and start application
-    app = await createApplication();
+    const appContainer = document.getElementById('appContainer');
+    if (appContainer) renderAppShell(appContainer);
+    // Establish ownership before startup yields so an early shutdown joins disposal.
+    app = createRendererRuntime();
+    await app.start();
+    if (closing) return;
 
     // Mark body ready after CSS and templates are loaded (prevents FOUC)
+    document.body.dataset.prismgbAppStarted = 'true';
     document.body.classList.add(CSSClasses.BODY_READY);
+    console.info('[RendererEntry] Renderer application started successfully');
     void trpcClient.app.rendererReady.mutate().catch((error: unknown) => {
       console.error('Failed to report renderer readiness:', error);
     });
   } catch (error) {
+    const current = app;
+    try { await current?.dispose(); } catch { /* Preserve the startup failure. */ }
+    if (app === current) app = null;
+    if (closing) return;
     const normalizedError = error instanceof Error ? error : new Error(String(error));
 
     // Use console.error as fallback since app may not be initialized
@@ -80,12 +90,14 @@ async function init() {
  * Cleanup on window unload
  */
 function cleanup(): Promise<void> {
+  closing = true;
   return cleanupPromise ??= (async () => {
     const current = app;
     try {
-      await current?.cleanup();
+      await current?.dispose();
     } finally {
       if (app === current) app = null;
+      delete document.body.dataset.prismgbAppStarted;
     }
   })();
 }

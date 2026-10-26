@@ -40,6 +40,25 @@ describe('waitForProcessClose', () => {
       code: null,
       signal: 'timeout'
     });
+    expect(child.listenerCount('close')).toBe(0);
+  });
+
+  it('recognizes already-closed children without registering a waiter', async () => {
+    const child = Object.assign(new FakeChildProcess(), { exitCode: 0, signalCode: null, stdio: [null] });
+    await expect(waitForProcessClose(child, 1000)).resolves.toEqual({ closed: true, code: 0, signal: null });
+    expect(child.listenerCount('close')).toBe(0);
+  });
+
+  it('waits for open stdio even after process exit', async () => {
+    const child = Object.assign(new FakeChildProcess(), { exitCode: 0, stdio: [{ destroyed: false }] });
+    const settled = vi.fn();
+    const waiting = waitForProcessClose(child, 1000).then(settled);
+    await Promise.resolve();
+    expect(settled).not.toHaveBeenCalled();
+    child.emit('close', 0, null);
+    await waiting;
+    expect(settled).toHaveBeenCalledWith({ closed: true, code: 0, signal: null });
+    expect(child.listenerCount('close')).toBe(0);
   });
 });
 
@@ -71,5 +90,17 @@ describe('terminateProcessTree', () => {
     await terminateProcessTree(child, { gracefulMs: 100, platform: 'win32', execCommand });
     expect(execCommand).toHaveBeenCalledWith('taskkill /pid 4242 /t /f');
     expect(child.kill).not.toHaveBeenCalled();
+  });
+
+  it('escalates an unresponsive owned process group as a group', async () => {
+    const child = new FakeChildProcess();
+    const signalGroup = vi.fn((_pid: number, signal: string): true => {
+      if (signal === 'SIGKILL') setImmediate(() => child.emit('close', null, signal));
+      return true;
+    });
+    await terminateProcessTree(child, { gracefulMs: 10, killProcessGroup: true, platform: 'linux', signalGroup });
+    expect(signalGroup.mock.calls).toEqual([[4242, 'SIGTERM'], [4242, 'SIGKILL']]);
+    expect(child.kill).not.toHaveBeenCalled();
+    expect(child.listenerCount('close')).toBe(0);
   });
 });

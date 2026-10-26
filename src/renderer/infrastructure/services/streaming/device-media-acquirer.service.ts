@@ -26,6 +26,7 @@ type DeviceMediaAcquirerDependencies = {
 
 export class DeviceMediaAcquirer extends BaseService {
   private readonly activeStreams = new Set<MediaStream>();
+  private readonly lifetime = new AbortController();
 
   private readonly mediaDevicesPort: MediaDevicesPort;
 
@@ -34,7 +35,9 @@ export class DeviceMediaAcquirer extends BaseService {
     this.mediaDevicesPort = mediaDevicesPort;
   }
 
-  async acquire(target: DeviceStreamingTarget): Promise<DeviceMediaAcquireResult> {
+  async acquire(target: DeviceStreamingTarget, requestSignal?: AbortSignal): Promise<DeviceMediaAcquireResult> {
+    const signal = requestSignal ? AbortSignal.any([this.lifetime.signal, requestSignal]) : this.lifetime.signal;
+    signal.throwIfAborted();
     if (!target.videoDevice.deviceId) {
       throw new Error('DeviceMediaAcquirer.acquire requires a media device ID');
     }
@@ -51,13 +54,14 @@ export class DeviceMediaAcquirer extends BaseService {
       try {
         this.logger.info(`Attempting stream acquisition with strategy: ${attempt.strategy}`);
         this.logger.debug('Media constraints:', constraints);
-        const stream = await this.acquireStream(constraints);
+        const stream = await this.acquireStream(constraints, signal);
         return {
           stream,
           strategy: attempt.strategy,
           capabilities: this.getCapabilities(target.profile, hasAudioDevice)
         };
       } catch (error) {
+        signal.throwIfAborted();
         lastError = error;
         this.logger.warn(`Stream acquisition strategy failed (${attempt.strategy}):`, getErrorMessage(error));
       }
@@ -86,6 +90,7 @@ export class DeviceMediaAcquirer extends BaseService {
   }
 
   override async dispose(): Promise<void> {
+    this.lifetime.abort();
     const streams = [...this.activeStreams];
     await Promise.allSettled(streams.map((stream) => this.release(stream)));
     await super.dispose();
@@ -116,14 +121,30 @@ export class DeviceMediaAcquirer extends BaseService {
     };
   }
 
-  private async acquireStream(constraints: MediaStreamConstraints): Promise<MediaStream> {
-    const stream = await this.mediaDevicesPort.getUserMedia(constraints);
-    if (!stream?.getTracks || stream.getTracks().length === 0) {
-      throw new Error('Invalid stream: no tracks available');
-    }
-
-    this.activeStreams.add(stream);
-    return stream;
+  private acquireStream(constraints: MediaStreamConstraints, signal: AbortSignal): Promise<MediaStream> {
+    return new Promise((resolve, reject) => {
+      const abort = () => reject(signal.reason);
+      signal.addEventListener('abort', abort, { once: true });
+      // Native getUserMedia cannot be cancelled. Logical cancellation releases
+      // the caller immediately; a later permission grant still has an owner.
+      const acquire = async () => {
+        try {
+          signal.throwIfAborted();
+          const stream = await this.mediaDevicesPort.getUserMedia(constraints);
+          if (signal.aborted) { await this.release(stream); return; }
+          if (!stream?.getTracks || stream.getTracks().length === 0) {
+            throw new Error('Invalid stream: no tracks available');
+          }
+          this.activeStreams.add(stream);
+          resolve(stream);
+        } catch (error) {
+          reject(error);
+        } finally {
+          signal.removeEventListener('abort', abort);
+        }
+      };
+      void acquire();
+    });
   }
 
   private getCapabilities(

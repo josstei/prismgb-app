@@ -139,6 +139,42 @@ describe('SettingsFullscreenService', () => {
   });
 
   describe('_syncFullscreenState', () => {
+    it('keeps native events newer than the initial query', async () => {
+      const initial = Promise.withResolvers<{ isFullscreen: boolean }>();
+      vi.mocked(trpcClient.window.isFullScreen.query).mockReturnValueOnce(initial.promise);
+      service.initialize();
+      emitTrpcData(trpcClient.window.onEnterFullscreen);
+      initial.resolve({ isFullscreen: false });
+      await initial.promise;
+      expect(service._isFullscreenActive).toBe(true);
+      expect(mockEventBus.publish).not.toHaveBeenCalledWith(EventChannels.UI.FULLSCREEN_STATE, { active: false });
+      await service.dispose();
+    });
+
+    it('ignores an older overlapping query after a newer query completes', async () => {
+      const older = Promise.withResolvers<{ isFullscreen: boolean }>();
+      const newer = Promise.withResolvers<{ isFullscreen: boolean }>();
+      vi.mocked(trpcClient.window.isFullScreen.query).mockReturnValueOnce(older.promise).mockReturnValueOnce(newer.promise);
+      const first = service._syncFullscreenState();
+      const second = service._syncFullscreenState();
+      newer.resolve({ isFullscreen: false });
+      await second;
+      older.resolve({ isFullscreen: true });
+      expect(await first).toBe(false);
+      expect(service._isFullscreenActive).toBe(false);
+    });
+
+    it('does not toggle or publish after disposal while its query is pending', async () => {
+      const query = Promise.withResolvers<{ isFullscreen: boolean }>();
+      vi.mocked(trpcClient.window.isFullScreen.query).mockReturnValueOnce(query.promise);
+      const toggle = service.toggleFullscreen();
+      await service.dispose();
+      query.resolve({ isFullscreen: true });
+      await toggle;
+      expect(trpcClient.window.setFullScreen.mutate).not.toHaveBeenCalled();
+      expect(mockEventBus.publish).not.toHaveBeenCalled();
+    });
+
     it('should use tRPC isFullScreen query and apply the reported state', async () => {
       vi.mocked(trpcClient.window.isFullScreen.query).mockResolvedValue({ isFullscreen: true });
 

@@ -22,7 +22,6 @@ export interface NotesEditorViewInitializeOptions {
   gameAddBtn?: HTMLElement | null;
   onSave?: EditorCallback | null;
   onDelete?: EditorCallback | null;
-  onShowGameInput?: EditorCallback | null;
 }
 
 class NotesEditorViewComponent extends PresentationComponent {
@@ -36,7 +35,6 @@ class NotesEditorViewComponent extends PresentationComponent {
   gameAddBtn: HTMLElement | null | undefined;
   onSave: EditorCallback | null | undefined;
   onDelete: EditorCallback | null | undefined;
-  onShowGameInput: EditorCallback | null | undefined;
   private _hasPendingSave: boolean;
 
   constructor() {
@@ -66,7 +64,6 @@ class NotesEditorViewComponent extends PresentationComponent {
     this.gameAddBtn = options.gameAddBtn;
     this.onSave = options.onSave;
     this.onDelete = options.onDelete;
-    this.onShowGameInput = options.onShowGameInput;
 
     const setupDisposers: Array<() => void> = [];
     this._setupEditor(setupDisposers);
@@ -137,25 +134,21 @@ class NotesEditorViewComponent extends PresentationComponent {
     this._hasPendingSave = false;
   }
 
-  scheduleSave(): void {
-    this._scheduleSave();
-  }
-
   _setupEditor(setupDisposers: Array<() => void>): void {
     if (this.titleInput) {
-      setupDisposers.push(this.listen(this.titleInput, 'input', () => this._scheduleSave()));
+      setupDisposers.push(this.listen(this.titleInput, 'input', () => this.scheduleSave()));
     }
     if (this.contentArea) {
-      setupDisposers.push(this.listen(this.contentArea, 'input', () => this._scheduleSave()));
+      setupDisposers.push(this.listen(this.contentArea, 'input', () => this.scheduleSave()));
     }
   }
 
   _setupGameTagUI(setupDisposers: Array<() => void>): void {
     if (this.gameAddBtn) {
-      setupDisposers.push(this.listen(this.gameAddBtn, 'click', () => this.onShowGameInput?.()));
+      setupDisposers.push(this.listen(this.gameAddBtn, 'click', () => this.showGameInput()));
     }
     if (this.gameTag) {
-      setupDisposers.push(this.listen(this.gameTag, 'click', () => this.onShowGameInput?.()));
+      setupDisposers.push(this.listen(this.gameTag, 'click', () => this.showGameInput()));
     }
   }
 
@@ -199,7 +192,7 @@ class NotesEditorViewComponent extends PresentationComponent {
     this.deleteBtn?.classList.remove('holding');
   }
 
-  _scheduleSave(): void {
+  scheduleSave(): void {
     this._hasPendingSave = true;
     this.replaceTimeout(SAVE_DEBOUNCE_TIMEOUT, () => {
       this._hasPendingSave = false;
@@ -220,7 +213,6 @@ class NotesEditorViewComponent extends PresentationComponent {
     this.gameAddBtn = null;
     this.onSave = null;
     this.onDelete = null;
-    this.onShowGameInput = null;
     return disposed;
   }
 }
