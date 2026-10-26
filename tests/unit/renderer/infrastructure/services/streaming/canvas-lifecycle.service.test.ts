@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { StreamingCanvasLifecycleService } from '@renderer/infrastructure/services/streaming/canvas-lifecycle.service';
-import { createEventBus, createLoggerFactory } from '../../../../../factories/index.js';
+import { createEventBus } from '../../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
 function fixture() {
   const section = document.createElement('section');
   let canvas = document.createElement('canvas');

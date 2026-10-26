@@ -2,7 +2,6 @@
  * Window Factory
  *
  * Creates mock Electron BrowserWindow, Tray, and window-service instances for testing.
- * Extracted from tests/factories/index.js as part of the factory-split refactor.
  */
 
 import { vi } from 'vitest';

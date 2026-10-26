@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EventChannels } from '@platform/events';
 import { RendererDeviceRuntime } from '@renderer/infrastructure/services/devices/device-runtime.service';
-import { createEventBus, createLoggerFactory } from '../../../../../factories/index.js';
+import { createEventBus } from '../../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
 import type { DeviceStatus } from '@platform/devices';
 import {
   CHROMATIC_SPECS,

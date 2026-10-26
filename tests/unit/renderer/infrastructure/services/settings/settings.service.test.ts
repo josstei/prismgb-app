@@ -8,7 +8,7 @@ vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
 import { SettingsDefinitions as settingsDefinitions } from '@renderer/lib/settings.definitions.js';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { EventChannels } from '@platform/events';
-import { createSettingsServiceHarness } from '../../../../../factories/index.js';
+import { createSettingsServiceHarness } from '../../../../../support/settings-service.harness.js';
 describe('SettingsService', () => {
   let service;
   let mockEventBus;

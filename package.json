@@ -32,6 +32,7 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "test:run": "vitest run",
+    "test:related": "vitest related --run --passWithNoTests",
     "test:integration": "vitest run tests/integration",
     "test:integration:watch": "vitest tests/integration",
     "test:unit": "vitest run tests/unit",
@@ -78,7 +79,6 @@
     "@electron/notarize": "^2.5.0",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.63.0",
-    "@testing-library/dom": "^10.4.2",
     "@types/node": "^26.5.1",
     "@typescript-eslint/eslint-plugin": "^8.70.0",
     "@typescript-eslint/parser": "^8.54.0",
@@ -107,9 +107,6 @@
   "lint-staged": {
     "src/**/*.ts": [
       "eslint"
-    ],
-    "*.{js,ts}": [
-      "vitest related --run --passWithNoTests"
     ]
   },
   "build": {

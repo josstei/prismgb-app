@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { NotesResizeHandlerComponent } from '@renderer/presentation/features/notes/notes-resize-handler.component.js';
-import { createLogger } from '../../../../../factories/index.js';
+import { createLogger } from '../../../../../factories/logger.factory.js';
 import { installAnimationFrameMock } from '../../../../../support/mocks/browser-api.installers.js';
 
 type ClientXTouch = Pick<Touch, 'clientX'>;

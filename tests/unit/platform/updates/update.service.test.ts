@@ -7,7 +7,8 @@ import { UpdateService } from '@platform/updates';
 import { UpdateState } from '@platform/config';
 import type { LoggerLike } from '@platform/core';
 import type { ProgressInfo, UpdateInfo } from 'electron-updater';
-import { createLoggerFactory, createUpdateConfigMock } from '../../../factories/index.js';
+import { createLoggerFactory } from '../../../factories/logger.factory.js';
+import { createUpdateConfigMock } from '../../../factories/update.factory.js';
 
 vi.mock('electron', () => ({
   app: {

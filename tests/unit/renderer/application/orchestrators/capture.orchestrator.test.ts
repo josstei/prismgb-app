@@ -1,18 +1,24 @@
-import * as serviceMocks from '../../../../factories/index.js';
+import { createAppState } from '../../../../factories/app-state.factory.js';
+import { createBitmapMock } from '../../../../factories/system.factory.js';
+import {
+  createStreamingViewServiceMock,
+  createStreamingViewElementsMock
+} from '../../../../factories/streaming-pipeline.factory.js';
+import { createStreamPayloadMock } from '../../../../factories/stream.factory.js';
+import {
+  createTranscodeServiceMock,
+  createCaptureServiceMock,
+  createCaptureGpuRecordingServiceMock,
+  createCaptureSaveServiceMock
+} from '../../../../factories/capture.factory.js';
+import { createEventBus } from '../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../factories/logger.factory.js';
 /**
  * CaptureOrchestrator Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CaptureOrchestrator } from '@renderer/application/orchestrators/capture.orchestrator';
-import {
-  createAppState,
-  createBitmapMock,
-  createStreamingViewServiceMock,
-  createStreamingViewElementsMock,
-  createStreamPayloadMock,
-  createTranscodeServiceMock
-} from '../../../../factories/index.js';
 import { createServiceHarness } from '../../../../support/service.harness.js';
 
 describe('CaptureOrchestrator', () => {
@@ -47,11 +53,11 @@ describe('CaptureOrchestrator', () => {
     streamViewService._elements = mockStreamingViewElements;
 
     const h = createServiceHarness(CaptureOrchestrator, {
-      captureService: serviceMocks.createCaptureServiceMock(),
-      gpuRecordingService: serviceMocks.createCaptureGpuRecordingServiceMock(),
-      captureSaveService: serviceMocks.createCaptureSaveServiceMock(),
-      eventBus: serviceMocks.createEventBus(),
-      loggerFactory: serviceMocks.createLoggerFactory(),
+      captureService: createCaptureServiceMock(),
+      gpuRecordingService: createCaptureGpuRecordingServiceMock(),
+      captureSaveService: createCaptureSaveServiceMock(),
+      eventBus: createEventBus(),
+      loggerFactory: createLoggerFactory(),
       appState,
       streamViewService,
       streamingRenderService: {

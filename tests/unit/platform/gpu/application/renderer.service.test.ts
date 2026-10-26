@@ -16,7 +16,15 @@ describe('renderer backend initialization', () => {
     expect(context.drawImage).toHaveBeenCalledOnce();
     expect(context.imageSmoothingEnabled).toBe(false);
     expect(requestAdapter).not.toHaveBeenCalled();
+    // Resizing a canvas resets its context state; the factory-owned pipeline
+    // must restore pixel-perfect sampling through the real Canvas driver.
+    context.imageSmoothingEnabled = true;
+    renderer.resize(320, 288);
+    expect(canvas.width).toBe(320);
+    expect(canvas.height).toBe(288);
+    expect(context.imageSmoothingEnabled).toBe(false);
     await renderer.dispose();
+    expect(renderer.isActive).toBe(false);
   });
 
   it('reports unavailable WebGPU so the session owner can replace the canvas before fallback', async () => {

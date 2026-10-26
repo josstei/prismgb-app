@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StreamingAudioPipelineService } from '@renderer/infrastructure/services/streaming/audio-pipeline.service';
 import { EventChannels, PlatformEventBus } from '@platform/events';
-import { createLoggerFactory, createSettingsServiceMock } from '../../../../../factories/index.js';
+import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
+import { createSettingsServiceMock } from '../../../../../factories/settings.factory.js';
 
 function audioGraph(state = 'running') {
   const source = { connect: vi.fn(), disconnect: vi.fn() };

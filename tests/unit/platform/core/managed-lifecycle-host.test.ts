@@ -75,6 +75,9 @@ describe('ManagedLifecycleHost', () => {
       vi.advanceTimersByTime(100);
       expect(first).not.toHaveBeenCalled();
       expect(second).toHaveBeenCalledTimes(2);
+      host.cancelManaged('key');
+      vi.advanceTimersByTime(100);
+      expect(second).toHaveBeenCalledTimes(2);
     });
   });
 

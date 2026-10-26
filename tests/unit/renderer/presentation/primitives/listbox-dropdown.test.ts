@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ListboxDropdownController, ComboboxListboxController } from '@platform/ui-base';
-import { createCallbackMap, createLogger } from '../../../../factories/index.js';
+import { createCallbackMap } from '../../../../factories/system.factory.js';
+import { createLogger } from '../../../../factories/logger.factory.js';
 
 describe('ListboxDropdownController', () => {
   let fixture;

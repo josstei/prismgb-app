@@ -1,4 +1,6 @@
-import * as serviceMocks from '../../../../factories/index.js';
+import { createEventBus } from '../../../../factories/event-bus.factory.js';
+import { createUIEventBridgeControllerMock } from '../../../../factories/ui.factory.js';
+import { createLoggerFactory } from '../../../../factories/logger.factory.js';
 /**
  * UIEventBridge Unit Tests
  * Tests the event bridge between EventBus and UIController
@@ -7,10 +9,6 @@ import * as serviceMocks from '../../../../factories/index.js';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge';
 import { EventChannels } from '@platform/events';
-import {
-  createEventBus,
-  createUIEventBridgeControllerMock
-} from '../../../../factories/index.js';
 import { createServiceHarness } from '../../../../support/service.harness.js';
 
 describe('UIEventBridge', () => {
@@ -25,7 +23,7 @@ describe('UIEventBridge', () => {
     subscribedHandlers = {};
 
     const h = createServiceHarness(UIEventBridge, {
-      loggerFactory: serviceMocks.createLoggerFactory(),
+      loggerFactory: createLoggerFactory(),
       eventBus: createEventBus({
           onSubscribe: (event, handlerFn) => {
             subscribedHandlers[event] = handlerFn;

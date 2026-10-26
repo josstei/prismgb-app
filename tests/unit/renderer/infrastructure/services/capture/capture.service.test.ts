@@ -1,4 +1,16 @@
-import * as serviceMocks from '../../../../../factories/index.js';
+import {
+  createCaptureStreamMock,
+  createMediaTrackMock,
+  createMockCanvas
+} from '../../../../../factories/stream.factory.js';
+import { createCanvasRenderingContextMock } from '../../../../../factories/system.factory.js';
+import {
+  createMediaBlobEventMock,
+  createMediaRecorderMock,
+  createMediaRecorderErrorEventMock
+} from '../../../../../factories/capture.factory.js';
+import { createEventBus } from '../../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
 /**
  * CaptureService Unit Tests
  */
@@ -6,21 +18,11 @@ import * as serviceMocks from '../../../../../factories/index.js';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { CaptureService } from '@renderer/infrastructure/services/capture/capture.service';
 import {
-  createCaptureStreamMock,
-  createCanvasRenderingContextMock,
-  createMediaBlobEventMock,
-  createMediaRecorderMock,
-  createMediaRecorderErrorEventMock,
-  createMediaTrackMock,
-  createMockCanvas
-} from '../../../../../factories/index.js';
-import {
   installBlobMock,
   installDocumentCreateElementMock,
   installMediaRecorderMock
 } from '../../../../../support/mocks/browser-api.installers.js';
 import { createServiceHarness } from '../../../../../support/service.harness.js';
-
 import { FilenameGenerator } from '@renderer/lib/filename-generator.utils';
 
 describe('CaptureService', () => {
@@ -36,8 +38,8 @@ describe('CaptureService', () => {
     vi.spyOn(FilenameGenerator, 'forRecording').mockReturnValue('recording_2024-01-01_12-00-00.webm');
 
     const h = createServiceHarness(CaptureService, {
-      eventBus: serviceMocks.createEventBus(),
-      loggerFactory: serviceMocks.createLoggerFactory()
+      eventBus: createEventBus(),
+      loggerFactory: createLoggerFactory()
     });
     service = h.subject;
     mockLogger = h.logger;
@@ -52,15 +54,6 @@ describe('CaptureService', () => {
     documentCreateElementMock = null;
     blobMock.cleanup();
     mediaRecorderMock.cleanup();
-  });
-
-  describe('Constructor', () => {
-    it('should create service with initial state', () => {
-      expect(service.isRecording).toBe(false);
-      expect(service.mediaRecorder).toBeNull();
-      expect(service.recordedChunks).toEqual([]);
-      expect(service._isDisposing).toBe(false);
-    });
   });
 
   describe('takeScreenshot', () => {
@@ -115,32 +108,15 @@ describe('CaptureService', () => {
       } finally { vi.unstubAllGlobals(); }
     });
 
-    it('should capture screenshot from video element', async () => {
+    it('captures the video dimensions and pixels in the named screenshot and publishes its result', async () => {
       const result = await service.takeScreenshot(mockVideo);
 
       expect(result.filename).toBe('screenshot_2024-01-01_12-00-00.png');
       expect(result.blob).toBeDefined();
-    });
-
-    it('should set canvas dimensions from video', async () => {
-      await service.takeScreenshot(mockVideo);
-
       expect(mockCanvas.width).toBe(160);
       expect(mockCanvas.height).toBe(144);
-    });
-
-    it('should draw video to canvas', async () => {
-      await service.takeScreenshot(mockVideo);
-
       expect(mockCtx.drawImage).toHaveBeenCalledWith(mockVideo, 0, 0);
-    });
-
-    it('should emit capture:screenshot-ready event', async () => {
-      await service.takeScreenshot(mockVideo);
-
-      expect(mockEventBus.publish).toHaveBeenCalledWith('capture:screenshot-ready', expect.objectContaining({
-        filename: 'screenshot_2024-01-01_12-00-00.png'
-      }));
+      expect(mockEventBus.publish).toHaveBeenCalledWith('capture:screenshot-ready', result);
     });
 
     it('should throw for null source', async () => {
@@ -178,12 +154,8 @@ describe('CaptureService', () => {
 
       expect(service.isRecording).toBe(true);
       expect(service.mediaRecorder).not.toBeNull();
-    });
-
-    it('should emit capture:recording-started event', async () => {
-      await service.startRecording(mockStream);
-
       expect(mockEventBus.publish).toHaveBeenCalledWith('capture:recording-started');
+      expect(service.mediaRecorder.onerror).toEqual(expect.any(Function));
     });
 
     it('should throw for missing stream', async () => {
@@ -237,20 +209,15 @@ describe('CaptureService', () => {
       await service.startRecording(mockStream);
     });
 
-    it('should stop recording', async () => {
+    it('flushes buffered data, stops the recorder and publishes the stopped state', async () => {
       const stopSpy = vi.spyOn(service.mediaRecorder, 'stop');
+      const requestDataSpy = vi.spyOn(service.mediaRecorder, 'requestData');
       await service.stopRecording();
 
       expect(service.isRecording).toBe(false);
       expect(stopSpy).toHaveBeenCalled();
-    });
-
-    it('should flush buffered recorder data before stopping', async () => {
-      const requestDataSpy = vi.spyOn(service.mediaRecorder, 'requestData');
-
-      await service.stopRecording();
-
       expect(requestDataSpy).toHaveBeenCalled();
+      expect(mockEventBus.publish).toHaveBeenCalledWith('capture:recording-stopped');
     });
 
     it('should continue stopping when recorder data flush fails', async () => {
@@ -266,12 +233,6 @@ describe('CaptureService', () => {
         'Failed to flush recording data before stop',
         expect.any(Error)
       );
-    });
-
-    it('should emit capture:recording-stopped event', async () => {
-      await service.stopRecording();
-
-      expect(mockEventBus.publish).toHaveBeenCalledWith('capture:recording-stopped');
     });
 
     it('is an idempotent drain when not recording', async () => {
@@ -340,13 +301,6 @@ describe('CaptureService', () => {
       expect(mockEventBus.publish).toHaveBeenCalledWith('capture:recording-ready', expect.objectContaining({
         filename: 'recording_2024-01-01_12-00-00.webm'
       }));
-    });
-
-    it('should clear recorded chunks after handling', async () => {
-      service.recordedChunks = [{ size: 100 }];
-
-      await service._handleRecordingStop();
-
       expect(service.recordedChunks).toEqual([]);
     });
 
@@ -360,8 +314,8 @@ describe('CaptureService', () => {
     });
 
     it('should skip processing when disposing', async () => {
+      await service.dispose();
       service.recordedChunks = [{ size: 100 }];
-      service._isDisposing = true;
 
       await service._handleRecordingStop();
 
@@ -403,12 +357,6 @@ describe('CaptureService', () => {
   });
 
   describe('dispose', () => {
-    it('should set disposing flag', () => {
-      service.dispose();
-
-      expect(service._isDisposing).toBe(true);
-    });
-
     it('should stop recording if active', async () => {
       const mockStream = createCaptureStreamMock({
         getVideoTracks: vi.fn(() => []),
@@ -437,16 +385,4 @@ describe('CaptureService', () => {
     });
   });
 
-  describe('onerror handler', () => {
-    it('should set up onerror handler on MediaRecorder', async () => {
-      const mockStream = createCaptureStreamMock({
-        getVideoTracks: vi.fn(() => []),
-        getAudioTracks: vi.fn(() => [])
-      });
-      await service.startRecording(mockStream);
-
-      expect(service.mediaRecorder.onerror).toBeDefined();
-      expect(typeof service.mediaRecorder.onerror).toBe('function');
-    });
-  });
 });

@@ -1,4 +1,5 @@
-import * as serviceMocks from '../../../../../factories/index.js';
+import { createCaptureStreamMock, createMediaTrackMock } from '../../../../../factories/stream.factory.js';
+import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   DeviceCatalog,
@@ -6,10 +7,6 @@ import {
   getDeviceStreamProfile
 } from '@platform/devices';
 import { DeviceMediaAcquirer } from '@renderer/infrastructure/services/streaming/device-media-acquirer.service';
-import {
-  createCaptureStreamMock,
-  createMediaTrackMock
-} from '../../../../../factories/index.js';
 import { createServiceHarness } from '../../../../../support/service.harness.js';
 import {
   CHROMATIC_AUDIO_DEVICE_INFO,
@@ -54,7 +51,7 @@ function createAcquirer() {
     subscribeDeviceChange: vi.fn()
   };
   const h = createServiceHarness(DeviceMediaAcquirer, {
-      loggerFactory: serviceMocks.createLoggerFactory(),
+      loggerFactory: createLoggerFactory(),
       mediaDevicesPort
     });
   const acquirer = h.subject;

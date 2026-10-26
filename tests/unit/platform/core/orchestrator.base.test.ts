@@ -1,198 +1,76 @@
-/**
- * BaseOrchestrator Unit Tests
- */
+import { describe, it, expect, vi } from 'vitest';
+import { BaseOrchestrator } from '@platform/core';
 
-import { describe, it, expect, beforeEach } from 'vitest';
-import { BaseOrchestrator, type EventBusLike, type LoggerFactoryLike, type LoggerLike } from '@platform/core';
-import { createLoggerFactory } from '../../../factories/index.js';
-
-type MockLoggerFactory = LoggerFactoryLike & ReturnType<typeof createLoggerFactory>;
-type OrchestratorDependencies = {
-  loggerFactory?: MockLoggerFactory;
-  eventBus?: EventBusLike;
-};
-type InjectedOrchestratorShape = {
-  loggerFactory?: MockLoggerFactory;
-  logger?: LoggerLike;
-  _orchestratorName: string;
-};
+function dependencies() {
+  const logger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() };
+  return { logger, loggerFactory: { create: vi.fn(() => logger) } };
+}
 
 describe('BaseOrchestrator', () => {
-  let mockLoggerFactory: MockLoggerFactory;
-  let mockLogger: LoggerLike;
-
-  beforeEach(() => {
-    mockLoggerFactory = createLoggerFactory() as MockLoggerFactory;
-    mockLogger = mockLoggerFactory.create('TestOrchestrator');
+  it('uses the class name as its logger context without an explicit name', () => {
+    class NamedOrchestrator extends BaseOrchestrator {}
+    const deps = dependencies();
+    new NamedOrchestrator(deps);
+    expect(deps.loggerFactory.create).toHaveBeenCalledWith('NamedOrchestrator');
   });
 
-  describe('Constructor', () => {
-    it('should create orchestrator with valid dependencies', () => {
-      const orchestrator = new BaseOrchestrator(
-        { loggerFactory: mockLoggerFactory },
-        'TestOrchestrator'
-      );
-      const injected = orchestrator as unknown as InjectedOrchestratorShape;
-
-      expect(injected.logger).toBe(mockLogger);
-      expect(orchestrator.isInitialized).toBe(false);
-    });
-
-    it('should use constructor name if name not provided', () => {
-      class MyOrchestrator extends BaseOrchestrator {
-        constructor(deps: OrchestratorDependencies) {
-          super(deps);
-        }
-      }
-
-      const orchestrator = new MyOrchestrator({ loggerFactory: mockLoggerFactory });
-
-      expect((orchestrator as unknown as InjectedOrchestratorShape)._orchestratorName).toBe('MyOrchestrator');
-    });
-
-    it('should work without loggerFactory', () => {
-      const orchestrator = new BaseOrchestrator(
-        {},
-        'TestOrchestrator'
-      );
-
-      expect((orchestrator as unknown as InjectedOrchestratorShape).logger).toBeUndefined();
-    });
+  it('runs initialization once, reports readiness and logs repeated initialization', async () => {
+    const deps = dependencies();
+    const initialize = vi.fn(async () => {});
+    class StartingOrchestrator extends BaseOrchestrator {
+      override onInitialize(): Promise<void> { return initialize(); }
+    }
+    const orchestrator = new StartingOrchestrator(deps, 'TestOrchestrator');
+    expect(orchestrator.isInitialized).toBe(false);
+    await orchestrator.initialize();
+    expect(orchestrator.isInitialized).toBe(true);
+    await orchestrator.initialize();
+    expect(initialize).toHaveBeenCalledOnce();
+    expect(deps.logger.info).toHaveBeenCalledWith('Initializing TestOrchestrator');
+    expect(deps.logger.info).toHaveBeenCalledWith('TestOrchestrator initialized');
+    expect(deps.logger.warn).toHaveBeenCalledWith('TestOrchestrator already initialized');
   });
 
-  describe('initialize', () => {
-    it('should initialize and set isInitialized to true', async () => {
-      const orchestrator = new BaseOrchestrator(
-        { loggerFactory: mockLoggerFactory },
-        'TestOrchestrator'
-      );
-
-      await orchestrator.initialize();
-
-      expect(orchestrator.isInitialized).toBe(true);
-      expect(mockLogger.info).toHaveBeenCalledWith('Initializing TestOrchestrator');
-      expect(mockLogger.info).toHaveBeenCalledWith('TestOrchestrator initialized');
-    });
-
-    it('should warn and return early if already initialized', async () => {
-      const orchestrator = new BaseOrchestrator(
-        { loggerFactory: mockLoggerFactory },
-        'TestOrchestrator'
-      );
-
-      await orchestrator.initialize();
-      await orchestrator.initialize();
-
-      expect(mockLogger.warn).toHaveBeenCalledWith('TestOrchestrator already initialized');
-    });
-
-    it('should call onInitialize', async () => {
-      class TestOrchestrator extends BaseOrchestrator {
-        onInitializeCalled: boolean;
-
-        constructor(deps: OrchestratorDependencies) {
-          super(deps, 'TestOrchestrator');
-          this.onInitializeCalled = false;
-        }
-
-        override async onInitialize(): Promise<void> {
-          this.onInitializeCalled = true;
-        }
-      }
-
-      const orchestrator = new TestOrchestrator({ loggerFactory: mockLoggerFactory });
-      await orchestrator.initialize();
-
-      expect(orchestrator.onInitializeCalled).toBe(true);
-    });
-
-    it('should work without logger', async () => {
-      const orchestrator = new BaseOrchestrator({}, 'TestOrchestrator');
-      await orchestrator.initialize();
-
-      expect(orchestrator.isInitialized).toBe(true);
-    });
+  it('supports default hooks and a missing logger throughout initialization and cleanup', async () => {
+    const orchestrator = new BaseOrchestrator({});
+    await orchestrator.initialize();
+    expect(orchestrator.isInitialized).toBe(true);
+    await orchestrator.cleanup();
+    expect(orchestrator.isInitialized).toBe(false);
   });
 
-  describe('cleanup', () => {
-    it('should cleanup and set isInitialized to false', async () => {
-      const orchestrator = new BaseOrchestrator(
-        { loggerFactory: mockLoggerFactory },
-        'TestOrchestrator'
-      );
-
-      await orchestrator.initialize();
-      await orchestrator.cleanup();
-
-      expect(orchestrator.isInitialized).toBe(false);
-      expect(mockLogger.info).toHaveBeenCalledWith('Cleaning up TestOrchestrator');
-    });
-
-    it('should call onCleanup', async () => {
-      class TestOrchestrator extends BaseOrchestrator {
-        onCleanupCalled: boolean;
-
-        constructor(deps: OrchestratorDependencies) {
-          super(deps, 'TestOrchestrator');
-          this.onCleanupCalled = false;
-        }
-
-        override async onCleanup(): Promise<void> {
-          this.onCleanupCalled = true;
-        }
-      }
-
-      const orchestrator = new TestOrchestrator({ loggerFactory: mockLoggerFactory });
-      await orchestrator.initialize();
-      await orchestrator.cleanup();
-
-      expect(orchestrator.onCleanupCalled).toBe(true);
-    });
-
-    it('joins concurrent cleanup and dispose calls until teardown finishes', async () => {
-      let finish!: () => void;
-      const hook = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
-      class DrainingOrchestrator extends BaseOrchestrator {
-        override onCleanup(): Promise<void> { return hook(); }
-      }
-      const orchestrator = new DrainingOrchestrator({ loggerFactory: mockLoggerFactory });
-      await orchestrator.initialize();
-      const first = orchestrator.cleanup();
-      expect(orchestrator.cleanup()).toBe(first);
-      expect(orchestrator.dispose()).toBe(first);
-      await Promise.resolve();
-      expect(hook).toHaveBeenCalledOnce();
-      let settled = false;
-      void first.then(() => { settled = true; });
-      await Promise.resolve();
-      expect(settled).toBe(false);
-      finish();
-      await first;
-      expect(orchestrator.isInitialized).toBe(false);
-      expect(orchestrator.cleanup()).toBe(first);
-    });
-
-    it('starts a fresh cleanup after an awaited restart', async () => {
-      const orchestrator = new BaseOrchestrator({ loggerFactory: mockLoggerFactory });
-      const cleanup = vi.spyOn(orchestrator, 'onCleanup');
-      await orchestrator.initialize();
-      await orchestrator.cleanup();
-      await orchestrator.initialize();
-      await orchestrator.dispose();
-      expect(cleanup).toHaveBeenCalledTimes(2);
-    });
-
+  it('joins concurrent cleanup and dispose calls until the hook finishes', async () => {
+    const pending = Promise.withResolvers<void>();
+    const hook = vi.fn(() => pending.promise);
+    const deps = dependencies();
+    class DrainingOrchestrator extends BaseOrchestrator {
+      override onCleanup(): Promise<void> { return hook(); }
+    }
+    const orchestrator = new DrainingOrchestrator(deps, 'TestOrchestrator');
+    await orchestrator.initialize();
+    const first = orchestrator.cleanup();
+    expect(orchestrator.cleanup()).toBe(first);
+    expect(orchestrator.dispose()).toBe(first);
+    await Promise.resolve();
+    expect(hook).toHaveBeenCalledOnce();
+    let settled = false;
+    void first.then(() => { settled = true; });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    pending.resolve();
+    await first;
+    expect(orchestrator.isInitialized).toBe(false);
+    expect(orchestrator.cleanup()).toBe(first);
+    expect(deps.logger.info).toHaveBeenCalledWith('Cleaning up TestOrchestrator');
   });
 
-  describe('onInitialize / onCleanup defaults', () => {
-    it('should have default onInitialize that does nothing', async () => {
-      const orchestrator = new BaseOrchestrator({}, 'TestOrchestrator');
-      await expect(orchestrator.onInitialize()).resolves.toBeUndefined();
-    });
-
-    it('should have default onCleanup that does nothing', async () => {
-      const orchestrator = new BaseOrchestrator({}, 'TestOrchestrator');
-      await expect(orchestrator.onCleanup()).resolves.toBeUndefined();
-    });
+  it('starts fresh cleanup after an awaited restart', async () => {
+    const orchestrator = new BaseOrchestrator(dependencies());
+    const cleanup = vi.spyOn(orchestrator, 'onCleanup');
+    await orchestrator.initialize();
+    await orchestrator.cleanup();
+    await orchestrator.initialize();
+    await orchestrator.dispose();
+    expect(cleanup).toHaveBeenCalledTimes(2);
   });
 });

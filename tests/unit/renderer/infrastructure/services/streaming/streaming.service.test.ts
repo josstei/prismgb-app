@@ -1,4 +1,14 @@
-import * as serviceMocks from '../../../../../factories/index.js';
+import {
+  createCaptureStreamMock,
+  createMediaTrackMock,
+  createDeviceMediaAcquirerMock
+} from '../../../../../factories/stream.factory.js';
+import {
+  createDeviceInfo,
+  createRendererDeviceRuntimeMock
+} from '../../../../../factories/device.factory.js';
+import { createEventBus } from '../../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
 /**
  * StreamingService Unit Tests
  */
@@ -11,12 +21,6 @@ import {
 } from '@platform/devices';
 import { StreamingService } from '@renderer/infrastructure/services/streaming/streaming.service';
 import type { DeviceMediaAcquireResult } from '@renderer/infrastructure/services/streaming/device-media-acquirer.service';
-import {
-  createCaptureStreamMock,
-  createDeviceInfo,
-  createRendererDeviceRuntimeMock,
-  createMediaTrackMock,
-} from '../../../../../factories/index.js';
 import { createServiceHarness } from '../../../../../support/service.harness.js';
 import { createDeferred } from '../../../../../support/deferred.testkit.js';
 
@@ -46,9 +50,9 @@ describe('StreamingService', () => {
     mockTarget = createStreamingTarget();
 
     const h = createServiceHarness(StreamingService, {
-      deviceMediaAcquirer: serviceMocks.createDeviceMediaAcquirerMock(),
-      eventBus: serviceMocks.createEventBus(),
-      loggerFactory: serviceMocks.createLoggerFactory(),
+      deviceMediaAcquirer: createDeviceMediaAcquirerMock(),
+      eventBus: createEventBus(),
+      loggerFactory: createLoggerFactory(),
       rendererDeviceRuntime: createRendererDeviceRuntimeMock({
           resolveStreamingTarget: vi.fn().mockResolvedValue(mockTarget)
         })

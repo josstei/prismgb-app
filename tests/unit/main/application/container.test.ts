@@ -59,7 +59,7 @@ import { WindowService } from '@main/infrastructure/window/window.service.js';
 import { TranscodeService } from '@platform/transcode/service';
 import { UpdateService } from '@platform/updates';
 import { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
-import { createLoggerFactory } from '../../../factories/index.js';
+import { createLoggerFactory } from '../../../factories/logger.factory.js';
 
 describe('Main runtime', () => {
   afterEach(() => vi.restoreAllMocks());

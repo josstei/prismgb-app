@@ -7,7 +7,7 @@ vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
 import { TrpcDeviceStatusPort } from '@renderer/infrastructure/services/devices/trpc-device-status.port';
 import { trpcClient } from '@renderer/infrastructure/ipc/trpc-client';
 import { emitTrpcData } from '../../../../../support/mocks/trpc-client.mock';
-import { createLoggerFactory } from '../../../../../factories/index.js';
+import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
 import { createChromaticDeviceStatusPayload, createChromaticDeviceInfoPayload } from '../../../../../devices/media.testkit';
 
 describe('TrpcDeviceStatusPort', () => {

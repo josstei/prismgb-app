@@ -3,7 +3,6 @@
  *
  * Creates mock primitives and ambient-service mocks
  * (callback maps, media queries, canvas contexts).
- * Extracted from tests/factories/index.js as part of the factory-split refactor.
  */
 
 import { vi } from 'vitest';

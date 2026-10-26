@@ -3,12 +3,10 @@ import { NotesPanelComponent } from '@renderer/presentation/features/notes/notes
 import { GameFilterComponent } from '@renderer/presentation/features/notes/game-filter.component.js';
 import { EventChannels } from '@platform/events';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
-import {
-  createEventBus,
-  createLogger,
-  createNotesPanelElementsMock,
-  createNotesServiceMock
-} from '../../../../../factories/index.js';
+import { createEventBus } from '../../../../../factories/event-bus.factory.js';
+import { createLogger } from '../../../../../factories/logger.factory.js';
+import { createNotesPanelElementsMock } from '../../../../../factories/ui.factory.js';
+import { createNotesServiceMock } from '../../../../../factories/notes.factory.js';
 
 type NotesServiceMock = ReturnType<typeof createNotesServiceMock>;
 type ServiceNote = NonNullable<ReturnType<NotesServiceMock['getNote']>>;
@@ -86,33 +84,21 @@ describe('NotesPanelComponent', () => {
     await component.dispose();
     vi.useRealTimers();
   });
-  describe('Constructor', () => {
-    it('should create component with default state', () => {
+  describe('initialize', () => {
+    it('mounts panel elements, initial list and event bindings in the closed state', () => {
       expect(component.isVisible).toBe(false);
       expect(component.currentNoteId).toBeNull();
-    });
-  });
-  describe('initialize', () => {
-    it('should initialize with DOM elements', () => {
       component.initialize(mockElements);
       expect(component.elements!.notesBtn).toBe(mockElements.notesBtn);
       expect(component.elements!.notesPanel).toBe(mockElements.notesPanel);
+      expect(mockNotesService.searchNotes).toHaveBeenCalled();
+      expect(mockEventBus.subscribe).toHaveBeenCalled();
+      expect(mockLogger.debug).toHaveBeenCalledWith('NotesPanelComponent initialized');
     });
+
     it('should warn if required elements are missing', () => {
       component.initialize({});
       expect(mockLogger.warn).toHaveBeenCalledWith('Notes panel elements not found');
-    });
-    it('should render notes list on initialize', () => {
-      component.initialize(mockElements);
-      expect(mockNotesService.searchNotes).toHaveBeenCalled();
-    });
-    it('should subscribe to events on initialize', () => {
-      component.initialize(mockElements);
-      expect(mockEventBus.subscribe).toHaveBeenCalled();
-    });
-    it('should log debug message on successful initialize', () => {
-      component.initialize(mockElements);
-      expect(mockLogger.debug).toHaveBeenCalledWith('NotesPanelComponent initialized');
     });
     it('should not self-wire the notes button (toggling is the action dispatcher\'s responsibility)', () => {
       component.initialize(mockElements);
@@ -175,128 +161,73 @@ describe('NotesPanelComponent', () => {
       expect(replacementElements.notesGameInput.value).toBe('New Game');
     });
   });
-  describe('toggle', () => {
-    beforeEach(() => {
-      component.initialize(mockElements);
-    });
-    it('should show panel when currently hidden', () => {
-      component.isVisible = false;
-      component.toggle();
-      expect(component.isVisible).toBe(true);
-    });
-    it('should hide panel when currently visible', () => {
-      component.isVisible = true;
-      mockElements.notesPanel.classList.add(CSSClasses.VISIBLE);
-      component.toggle();
-      expect(component.isVisible).toBe(false);
-    });
-  });
-  describe('show', () => {
-    beforeEach(() => {
-      component.initialize(mockElements);
-    });
-    it('should add visible class to panel', () => {
+  describe('panel visibility', () => {
+    beforeEach(() => { component.initialize(mockElements); });
+
+    it('shows accessible panel state and focus, then flushes pending edits before hiding', () => {
+      const focus = vi.spyOn(mockElements.notesSearchInput, 'focus');
+      const position = vi.spyOn(component.children!.layout, 'updatePosition');
       component.show();
+      expect(component.isVisible).toBe(true);
       expect(mockElements.notesPanel.classList.contains(CSSClasses.VISIBLE)).toBe(true);
-    });
-    it('should add panel-open class to button', () => {
-      component.show();
       expect(mockElements.notesBtn.classList.contains(CSSClasses.PANEL_OPEN)).toBe(true);
-    });
-    it('should set aria-expanded to true', () => {
-      component.show();
       expect(mockElements.notesBtn.getAttribute('aria-expanded')).toBe('true');
-    });
-    it('should set isVisible to true', () => {
-      component.show();
-      expect(component.isVisible).toBe(true);
-    });
-    it('should focus search input', () => {
-      const focusSpy = vi.spyOn(mockElements.notesSearchInput, 'focus');
-      component.show();
-      expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
-    });
-    it('should update layout position when shown', () => {
-      const updateSpy = vi.spyOn(component.children!.layout, 'updatePosition');
-      component.show();
-      expect(updateSpy).toHaveBeenCalled();
-    });
-    it('should not throw if panel element is missing', () => {
-      component.elements!.notesPanel = null;
-      expect(() => component.show()).not.toThrow();
-    });
-  });
-  describe('hide', () => {
-    beforeEach(() => {
-      component.initialize(mockElements);
-      component.isVisible = true;
-      mockElements.notesPanel.classList.add(CSSClasses.VISIBLE);
-    });
-    it('should remove visible class from panel', () => {
-      component.hide();
-      expect(mockElements.notesPanel.classList.contains(CSSClasses.VISIBLE)).toBe(false);
-    });
-    it('should remove panel-open class from button', () => {
-      mockElements.notesBtn.classList.add(CSSClasses.PANEL_OPEN);
-      component.hide();
-      expect(mockElements.notesBtn.classList.contains(CSSClasses.PANEL_OPEN)).toBe(false);
-    });
-    it('should set aria-expanded to false', () => {
-      component.hide();
-      expect(mockElements.notesBtn.getAttribute('aria-expanded')).toBe('false');
-    });
-    it('should set isVisible to false', () => {
-      component.hide();
-      expect(component.isVisible).toBe(false);
-    });
-    it('should save current note before hiding', () => {
+      expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+      expect(position).toHaveBeenCalled();
+
       component.currentNoteId = 'note_1';
       mockElements.notesGameInput.value = '';
       mockElements.notesTitleInput.value = 'Test Title';
       mockElements.notesContentArea.value = 'Test Content';
-      mockElements.notesGameInput.dispatchEvent(new Event('input'));
       mockElements.notesTitleInput.dispatchEvent(new Event('input'));
-      mockElements.notesContentArea.dispatchEvent(new Event('input'));
-      mockNotesService.updateNote.mockReturnValue(createTestNote({ id: 'note_1' }));
+      mockNotesService.updateNote.mockImplementationOnce(() => {
+        expect(component.isVisible).toBe(true);
+        expect(mockElements.notesPanel.classList.contains(CSSClasses.VISIBLE)).toBe(true);
+        return createTestNote({ id: 'note_1' });
+      });
       component.hide();
       expect(mockNotesService.updateNote).toHaveBeenCalledWith('note_1', {
-        title: 'Test Title',
-        content: 'Test Content',
-        gameName: ''
+        title: 'Test Title', content: 'Test Content', gameName: ''
       });
+      expect(component.isVisible).toBe(false);
+      expect(mockElements.notesPanel.classList.contains(CSSClasses.VISIBLE)).toBe(false);
+      expect(mockElements.notesBtn.classList.contains(CSSClasses.PANEL_OPEN)).toBe(false);
+      expect(mockElements.notesBtn.getAttribute('aria-expanded')).toBe('false');
+    });
+
+    it('toggles from hidden to visible and back', () => {
+      component.toggle();
+      expect(component.isVisible).toBe(true);
+      component.toggle();
+      expect(component.isVisible).toBe(false);
+    });
+
+    it('does not throw if the panel element is missing', () => {
+      component.elements!.notesPanel = null;
+      expect(() => component.show()).not.toThrow();
     });
   });
-  describe('_createNewNote', () => {
-    beforeEach(() => {
-      component.initialize(mockElements);
-    });
-    it('should create note via service', () => {
-      mockNotesService.createNote.mockReturnValue(createTestNote({ id: 'new_note', title: 'Untitled Note' }));
-      component._createNewNote();
-      expect(mockNotesService.createNote).toHaveBeenCalled();
-    });
-    it('should select the newly created note', () => {
-      const newNote = createTestNote({ id: 'new_note', title: 'Untitled Note', content: '' });
-      mockNotesService.createNote.mockReturnValue(newNote);
-      mockNotesService.getNote.mockReturnValue(newNote);
-      component._createNewNote();
-      expect(component.currentNoteId).toBe('new_note');
-    });
-    it('should focus and select title input', () => {
-      const newNote = createTestNote({ id: 'new_note', title: 'Untitled Note', content: '' });
-      mockNotesService.createNote.mockReturnValue(newNote);
-      mockNotesService.getNote.mockReturnValue(newNote);
+  describe('new-note button', () => {
+    beforeEach(() => { component.initialize(mockElements); });
+
+    it('creates and selects a note, focuses its title and preserves the search query', () => {
+      const note = createTestNote({ id: 'new_note', title: 'Untitled Note', content: '' });
+      mockNotesService.createNote.mockReturnValue(note);
+      mockNotesService.getNote.mockReturnValue(note);
       mockElements.notesSearchInput.value = 'draft';
-      const focusSpy = vi.spyOn(mockElements.notesTitleInput, 'focus');
-      const selectSpy = vi.spyOn(mockElements.notesTitleInput, 'select');
-      component._createNewNote();
-      expect(focusSpy).toHaveBeenCalled();
-      expect(selectSpy).toHaveBeenCalled();
+      const focus = vi.spyOn(mockElements.notesTitleInput, 'focus');
+      const select = vi.spyOn(mockElements.notesTitleInput, 'select');
+      mockElements.notesNewBtn.click();
+      expect(mockNotesService.createNote).toHaveBeenCalledOnce();
+      expect(component.currentNoteId).toBe('new_note');
+      expect(focus).toHaveBeenCalled();
+      expect(select).toHaveBeenCalled();
       expect(mockNotesService.searchNotes).toHaveBeenLastCalledWith('draft', '');
     });
-    it('should log error if note creation fails', () => {
+
+    it('reports failed note creation', () => {
       mockNotesService.createNote.mockReturnValue(null);
-      component._createNewNote();
+      mockElements.notesNewBtn.click();
       expect(mockLogger.error).toHaveBeenCalledWith('Failed to create note');
     });
   });
@@ -305,32 +236,19 @@ describe('NotesPanelComponent', () => {
       component.initialize(mockElements);
       component.currentNoteId = 'note_1';
     });
-    it('should delete note via service', () => {
-      mockNotesService.deleteNote.mockReturnValue(true);
-      mockNotesService.getAllNotes.mockReturnValue([]);
-      component._deleteCurrentNote();
-      expect(mockNotesService.deleteNote).toHaveBeenCalledWith('note_1');
-    });
-    it('should clear current note id after deletion', () => {
-      mockNotesService.deleteNote.mockReturnValue(true);
-      mockNotesService.getAllNotes.mockReturnValue([]);
-      component._deleteCurrentNote();
-      expect(component.currentNoteId).toBeNull();
-    });
-    it('should clear editor inputs after deletion', () => {
+    it('deletes the final note and clears selected editor state', () => {
       mockNotesService.deleteNote.mockReturnValue(true);
       mockNotesService.getAllNotes.mockReturnValue([]);
       mockElements.notesTitleInput.value = 'Test';
       mockElements.notesContentArea.value = 'Content';
+      mockElements.notesEditor.classList.add('has-note');
       component._deleteCurrentNote();
+      expect(mockNotesService.deleteNote).toHaveBeenCalledWith('note_1');
+      expect(component.currentNoteId).toBeNull();
       expect(mockElements.notesTitleInput.value).toBe('');
       expect(mockElements.notesContentArea.value).toBe('');
-    });
-    it('should disable delete button after deletion', () => {
-      mockNotesService.deleteNote.mockReturnValue(true);
-      mockNotesService.getAllNotes.mockReturnValue([]);
-      component._deleteCurrentNote();
       expect(mockElements.notesDeleteBtn.hasAttribute('disabled')).toBe(true);
+      expect(mockElements.notesEditor.classList.contains('has-note')).toBe(false);
     });
     it('should select first remaining note after deletion', () => {
       const remainingNote = createTestNote({ id: 'note_2', title: 'Remaining', gameName: '', content: '' });
@@ -352,13 +270,6 @@ describe('NotesPanelComponent', () => {
       expect(mockNotesService.searchNotes).toHaveBeenLastCalledWith('', '');
       expect(component.currentNoteId).toBe('note_2');
     });
-    it('should remove has-note class when no notes remain', () => {
-      mockNotesService.deleteNote.mockReturnValue(true);
-      mockNotesService.getAllNotes.mockReturnValue([]);
-      mockElements.notesEditor.classList.add('has-note');
-      component._deleteCurrentNote();
-      expect(mockElements.notesEditor.classList.contains('has-note')).toBe(false);
-    });
     it('should not delete if no current note', () => {
       component.currentNoteId = null;
       component._deleteCurrentNote();
@@ -374,30 +285,15 @@ describe('NotesPanelComponent', () => {
     beforeEach(() => {
       component.initialize(mockElements);
     });
-    it('should load note content into editor', () => {
+    it('selects a note, loads its values and enables the editor/delete control', () => {
       const note = createTestNote({ id: 'note_1', title: 'Test Title', content: 'Test Content' });
-      mockNotesService.getNote.mockReturnValue(note);
-      component._selectNote('note_1');
-      expect(mockElements.notesTitleInput.value).toBe('Test Title');
-      expect(mockElements.notesContentArea.value).toBe('Test Content');
-    });
-    it('should set current note id', () => {
-      const note = createTestNote({ id: 'note_1', title: 'Test', content: '' });
-      mockNotesService.getNote.mockReturnValue(note);
-      component._selectNote('note_1');
-      expect(component.currentNoteId).toBe('note_1');
-    });
-    it('should add has-note class to editor', () => {
-      const note = createTestNote({ id: 'note_1', title: 'Test', content: '' });
-      mockNotesService.getNote.mockReturnValue(note);
-      component._selectNote('note_1');
-      expect(mockElements.notesEditor.classList.contains('has-note')).toBe(true);
-    });
-    it('should enable delete button', () => {
-      const note = createTestNote({ id: 'note_1', title: 'Test', content: '' });
       mockNotesService.getNote.mockReturnValue(note);
       mockElements.notesDeleteBtn.setAttribute('disabled', '');
       component._selectNote('note_1');
+      expect(component.currentNoteId).toBe('note_1');
+      expect(mockElements.notesTitleInput.value).toBe('Test Title');
+      expect(mockElements.notesContentArea.value).toBe('Test Content');
+      expect(mockElements.notesEditor.classList.contains('has-note')).toBe(true);
       expect(mockElements.notesDeleteBtn.hasAttribute('disabled')).toBe(false);
     });
     it('should not select if note not found', () => {
@@ -521,30 +417,22 @@ describe('NotesPanelComponent', () => {
       expect(component.elements).toBeNull();
     });
 
-    it('should nullify references', async () => {
-      const layoutDisposeSpy = vi.spyOn(component.children!.layout, 'dispose');
+    it('releases children/subscriptions and clears panel references/state', async () => {
+      const layoutDispose = vi.spyOn(component.children!.layout, 'dispose');
+      const unsubscribers = mockEventBus.subscribe.mock.results
+        .map((result) => result.value)
+        .filter((unsubscribe) => typeof unsubscribe === 'function');
+      component.currentNoteId = 'note_1';
+      component.isVisible = true;
       await component.dispose();
       expect(component.elements).toBeNull();
       expect(component.notesService).toBeNull();
       expect(component.eventBus).toBeNull();
       expect(component.logger).toBeNull();
-      expect(layoutDisposeSpy).toHaveBeenCalled();
-    });
-    it('should reset state', async () => {
-      component.currentNoteId = 'note_1';
-      component.isVisible = true;
-      await component.dispose();
       expect(component.currentNoteId).toBeNull();
       expect(component.isVisible).toBe(false);
-    });
-    it('should unsubscribe from events', async () => {
-      const unsubscribeMocks = mockEventBus.subscribe.mock.results
-        .map(result => result.value)
-        .filter(unsubscribe => typeof unsubscribe === 'function');
-      await component.dispose();
-      unsubscribeMocks.forEach(unsubscribe => {
-        expect(unsubscribe).toHaveBeenCalled();
-      });
+      expect(layoutDispose).toHaveBeenCalled();
+      unsubscribers.forEach((unsubscribe) => expect(unsubscribe).toHaveBeenCalled());
     });
     it('should handle unsubscribe errors gracefully', async () => {
       const errorEventBus = createEventBus();
@@ -560,17 +448,6 @@ describe('NotesPanelComponent', () => {
       errorComponent.initialize(mockElements);
       await expect(errorComponent.dispose()).resolves.not.toThrow();
       expect(mockLogger.warn).toHaveBeenCalledWith('Error unsubscribing from event', expect.any(Error));
-    });
-  });
-  describe('Button click workflows', () => {
-    beforeEach(() => {
-      component.initialize(mockElements);
-    });
-    it('should create new note on new button click', () => {
-      mockNotesService.createNote.mockReturnValue(createTestNote({ id: 'new_note', title: 'Untitled Note' }));
-      mockNotesService.getNote.mockReturnValue(createTestNote({ id: 'new_note', title: 'Untitled Note', content: '' }));
-      mockElements.notesNewBtn.click();
-      expect(mockNotesService.createNote).toHaveBeenCalled();
     });
   });
   describe('Delete button hold-to-delete', () => {

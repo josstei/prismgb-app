@@ -10,11 +10,9 @@ import {
 import { SettingsDefinitions, hasSettingsControl } from '@renderer/lib/settings.definitions.js';
 import { ListboxDropdownController } from '@platform/ui-base';
 import { createDeferred } from '../../../../../support/deferred.testkit.js';
-import {
-  createLogger,
-  createSettingsMenuElementsMock,
-  createSettingsServiceMock
-} from '../../../../../factories/index.js';
+import { createLogger } from '../../../../../factories/logger.factory.js';
+import { createSettingsMenuElementsMock } from '../../../../../factories/ui.factory.js';
+import { createSettingsServiceMock } from '../../../../../factories/settings.factory.js';
 
 describe('SettingsMenuComponent', () => {
   let component: SettingsMenuComponent;

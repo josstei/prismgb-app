@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { DeviceIntegrationService } from '@main/infrastructure/devices/device-integration.service.js';
 import { createChromaticDeviceInfoPayload } from '../../../../devices/media.testkit';
-import { createLoggerFactory } from '../../../../factories/index.js';
+import { createLoggerFactory } from '../../../../factories/logger.factory.js';
 import type { DeviceConnectionService } from '@platform/devices/runtime';
 type DeviceStatusListener = Parameters<DeviceConnectionService['onStatusChanged']>[0];
 import type { TrayService } from '@main/infrastructure/tray/tray.service';

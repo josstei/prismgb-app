@@ -1,4 +1,5 @@
-import * as serviceMocks from '../../../../../factories/index.js';
+import { createEventBus } from '../../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
 /**
  * SettingsFullscreenService Unit Tests
  */
@@ -30,8 +31,8 @@ describe('SettingsFullscreenService', () => {
       .mockResolvedValue(undefined);
 
     const h = createServiceHarness(SettingsFullscreenService, {
-      eventBus: serviceMocks.createEventBus(),
-      loggerFactory: serviceMocks.createLoggerFactory()
+      eventBus: createEventBus(),
+      loggerFactory: createLoggerFactory()
     });
     service = h.subject;
     mockLogger = h.logger;

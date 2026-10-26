@@ -4,7 +4,8 @@ vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
 }));
 import { renderAppShell } from '@renderer/presentation/shell/app-shell.renderer.js';
 import { createRendererRuntime, type RendererRuntime } from '@renderer/application/container.js';
-import { createLoggerFactory, createStorageService } from '../../../factories/index.js';
+import { createLoggerFactory } from '../../../factories/logger.factory.js';
+import { createStorageService } from '../../../factories/storage.factory.js';
 import { NotesPanelComponent } from '@renderer/presentation/features/notes/notes-panel.component.js';
 import { UIEventBridge } from '@renderer/presentation/bridges/ui-event.bridge.js';
 

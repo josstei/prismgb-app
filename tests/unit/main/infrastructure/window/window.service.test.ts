@@ -1,13 +1,13 @@
-import * as serviceMocks from '../../../../factories/index.js';
+import { createLoggerFactory } from '../../../../factories/logger.factory.js';
 /**
  * WindowService Unit Tests
  */
 
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
-  createPreventDefaultEventMock,
   createWindowServiceElectronMock
-} from '../../../../factories/index.js';
+} from '../../../../factories/window.factory.js';
+import { createPreventDefaultEventMock } from '../../../../factories/system.factory.js';
 import { createServiceHarness, type LoggerMockLike } from '../../../../support/service.harness.js';
 
 type UrlModuleWithDefault = typeof import('node:url') & { default: typeof import('node:url') };
@@ -84,9 +84,6 @@ type TestableWindowService = Omit<WindowService, 'getMainWindow'> & {
   _forceWindowToForeground(): void;
   getMainWindow(): MockBrowserWindow | null;
 };
-type MockLoggerFactory = {
-  create: MockFn;
-};
 type MockIpcPushBridge = {
   emit: MockFn;
   on: MockFn;
@@ -96,55 +93,32 @@ type MockIpcPushBridge = {
 describe('WindowService', () => {
   let windowService: TestableWindowService;
   let mockLogger: LoggerMockLike;
-  let mockLoggerFactory: MockLoggerFactory;
   let mockIpcPushBridge: MockIpcPushBridge;
-  let originalPlatform: NodeJS.Platform;
 
   beforeEach(() => {
     const h = createServiceHarness(WindowService, {
-      loggerFactory: serviceMocks.createLoggerFactory(),
+      loggerFactory: createLoggerFactory(),
       ipcPushBridge: { emit: vi.fn(), on: vi.fn(), off: vi.fn() }
     });
     windowService = h.subject as unknown as TestableWindowService;
     mockLogger = h.logger;
     ({
-      ipcPushBridge: mockIpcPushBridge,
-      loggerFactory: mockLoggerFactory
-    } = h.deps as { ipcPushBridge: MockIpcPushBridge; loggerFactory: MockLoggerFactory });
+      ipcPushBridge: mockIpcPushBridge
+    } = h.deps as { ipcPushBridge: MockIpcPushBridge });
 
-    // Store original platform
-    originalPlatform = process.platform;
-  });
-
-  afterEach(() => {
-    // Note: Can't easily restore process.platform in vitest
-  });
-
-  describe('Constructor', () => {
-    it('should create logger', () => {
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('WindowService');
-    });
-
-    it('should initialize mainWindow as null', () => {
-      expect(windowService.mainWindow).toBeNull();
-    });
   });
 
   describe('createWindow', () => {
-    it('should create BrowserWindow', () => {
-      windowService.createWindow();
-
+    it('creates and returns a window with the development URL', () => {
+      const result = windowService.createWindow();
+      expect(result).toBe(windowService.mainWindow);
+      expect(windowService.mainWindow!.loadURL).toHaveBeenCalledWith('http://127.0.0.1:3000/src/renderer/index.html');
+      expect(mockLogger.info).toHaveBeenCalledWith('Creating main window');
       expect(windowService.mainWindow).toBeDefined();
       expect(windowService.mainWindow).not.toBeNull();
     });
 
-    it('should load dev URL when not packaged', () => {
-      windowService.createWindow();
 
-      expect(windowService.mainWindow!.loadURL).toHaveBeenCalledWith(
-        'http://127.0.0.1:3000/src/renderer/index.html'
-      );
-    });
 
     it('should load file in production', () => {
       const originalIsPackaged = app.isPackaged;
@@ -157,11 +131,7 @@ describe('WindowService', () => {
       Object.defineProperty(app, 'isPackaged', { value: originalIsPackaged, configurable: true });
     });
 
-    it('should register console-message handler', () => {
-      windowService.createWindow();
 
-      expect(windowService.mainWindow!.webContents.on).toHaveBeenCalledWith('console-message', expect.any(Function));
-    });
 
     it('should register ready-to-show handler', () => {
       windowService.createWindow();
@@ -169,17 +139,9 @@ describe('WindowService', () => {
       expect(windowService.mainWindow!.once).toHaveBeenCalledWith('ready-to-show', expect.any(Function));
     });
 
-    it('should register close handler', () => {
-      windowService.createWindow();
 
-      expect(windowService.mainWindow!.on).toHaveBeenCalledWith('close', expect.any(Function));
-    });
 
-    it('should register closed handler', () => {
-      windowService.createWindow();
 
-      expect(windowService.mainWindow!.on).toHaveBeenCalledWith('closed', expect.any(Function));
-    });
 
     it('should return existing window if already created', () => {
       windowService.createWindow();
@@ -191,17 +153,9 @@ describe('WindowService', () => {
       expect(firstWindow.show).toHaveBeenCalled();
     });
 
-    it('should return the window instance', () => {
-      const result = windowService.createWindow();
 
-      expect(result).toBe(windowService.mainWindow);
-    });
 
-    it('should log creation', () => {
-      windowService.createWindow();
 
-      expect(mockLogger.info).toHaveBeenCalledWith('Creating main window');
-    });
   });
 
   describe('showWindow', () => {

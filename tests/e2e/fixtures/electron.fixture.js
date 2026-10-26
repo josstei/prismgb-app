@@ -61,54 +61,43 @@ export function launchTestApp(userDataDir) {
   });
 }
 
+/** Close normally, retaining a bounded and observable failure path. */
+async function closeTestApp(app, child) {
+  if (child.exitCode !== null || child.signalCode !== null) {
+    if (child.exitCode !== 0) throw new Error('Electron exited unexpectedly: ' + (child.signalCode ?? child.exitCode));
+    return;
+  }
+  let timeout;
+  try {
+    await Promise.race([
+      app.close(),
+      new Promise((_, reject) => {
+        timeout = setTimeout(() => reject(new Error('Electron close timed out')), 5000);
+      }),
+    ]);
+  } catch (error) {
+    try { child.kill('SIGKILL'); } catch { /* Preserve the original close failure. */ }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 /**
  * Extended test fixtures with Electron app support
  */
 export const test = base.extend({
-  /**
-   * Electron app instance fixture
-   * Launches the built app with test-mode flags.
-   *
-   * Readiness is gated on `app.firstWindow()`, never `app.evaluate(() => app.whenReady())`.
-   * The main window is created inside the `app.whenReady().then(...)` boot chain, so a
-   * resolved `firstWindow()` already implies `whenReady()` completed — and it does so
-   * without a main-process `evaluate` round-trip, which races the first window's initial
-   * navigation and intermittently throws "Execution context was destroyed".
-   */
+  // Each journey owns a fresh profile and real application. Window readiness is
+  // awaited by the window fixture, avoiding a second firstWindow round-trip.
   electronApp: async ({}, use) => {
     const userDataDir = createTestUserDataDir();
-
-    const app = await launchTestApp(userDataDir);
-
-    // Wait for app to be ready
-    await app.firstWindow();
-
-    // Provide the app to the test
-    await use(app);
-
-    // Cleanup after test - force close with timeout
     try {
-      await Promise.race([
-        app.close(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Close timeout')), 5000)
-        ),
-      ]);
-    } catch {
-      // Force kill if close times out
-      try {
-        const pid = await app.evaluate(({ process }) => process.pid);
-        process.kill(pid, 'SIGKILL');
-      } catch {
-        // Ignore kill errors
-      }
-    }
-
-    // Remove temp user data directory
-    try {
+      const app = await launchTestApp(userDataDir);
+      const child = app.process();
+      try { await use(app); }
+      finally { await closeTestApp(app, child); }
+    } finally {
       fs.rmSync(userDataDir, { recursive: true, force: true });
-    } catch {
-      // Ignore cleanup errors
     }
   },
 

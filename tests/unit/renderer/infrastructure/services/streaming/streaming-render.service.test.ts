@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StreamingRenderService } from '@renderer/infrastructure/services/streaming/streaming-render.service';
 import type { SettingsAccess } from '@renderer/lib/settings.definitions';
-import { createEventBus, createLoggerFactory } from '../../../../../factories/index.js';
+import { createEventBus } from '../../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
 const { createSession, detect } = vi.hoisted(() => ({ createSession: vi.fn(), detect: vi.fn() }));
 vi.mock('@platform/gpu/runtime', () => ({ createGpuVideoRendererSession: createSession, detectBrowserGpuCapabilities: detect }));
 const capabilities = { webgpu: true, transferControlToOffscreen: true };

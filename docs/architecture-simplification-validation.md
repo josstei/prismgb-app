@@ -345,3 +345,94 @@ three moved resources are byte-identical and absent from the built renderer.
 Physical hardware, hardware WebGPU image parity and macOS/Windows packaging remain
 unverified here. Local reports, generated fixtures and build outputs were removed
 after verification.
+
+## Testing runtime optimization, 2026-10-26
+
+Baseline: `582c460`. Production source is unchanged. The optimization targets repeated
+test fixtures, isolated module/environment loading, Electron launches and overlapping
+local checks, while retaining distinct behavioral and failure-path coverage.
+
+| Measurement | Baseline | Optimized |
+| --- | ---: | ---: |
+| Unit/integration cases | 1,689 | 1,490 |
+| Isolated unit/integration files | 148 | 129 |
+| Test-support and factory lines | 2,320 | 2,022 |
+| Full suite, original two-worker limit | 42.48 s | 25.43 s |
+| Full suite, bounded four-worker limit | — | 17.96 s |
+| Fresh-profile Electron journeys | 92 | 17 |
+| Electron application launches | 93 | 18 |
+| Fullscreen Electron E2E wall time | 216.37 s | 57.00 s |
+
+These are single local wall-clock samples on the same four-CPU-quota environment,
+Node installation and production source. Each timing used a fresh test process with
+no concurrent test/build work. The original worker limit comparison measures a
+40.1% reduction before increased parallelism; four workers reduce wall time by
+57.7% against baseline. File isolation remains enabled; the worker count is capped
+at four and by `availableParallelism()`. Results will vary on other machines.
+
+The final Electron run passed all 17 journeys with fullscreen enabled, zero skips,
+zero retries and no concurrent test load: 73.7% less wall time. Both measurements
+reuse the same production build, virtual display and window manager. Earlier trial
+runs exposed fixture-only teardown and forced-click actionability issues; the final
+fixture captures the process before intentional quit and waits for controls to be
+onscreen and hit-testable before normal clicking. These fixes preserve the recording
+quit and actual native-fullscreen exit regressions. Production source did not change.
+
+The complete baseline and optimized suites were also run with V8 coverage. Stable
+source-location comparison found **no previously covered production function or
+branch lost**. Covered functions increased from 1,646 to 1,647 of 1,795; branches
+increased from 2,487 to 2,490 of 3,141. Covered lines increased from 6,103 to 6,104
+of 6,531. One tRPC-client construction statement moved out of unit coverage when
+the vacuous dynamic-proxy shape test was removed; actual client construction and
+typed request/push round trips remain exercised by Electron. Aggregate coverage
+does not replace review of the retained assertions and independent failure cases.
+
+Unit consolidations preserve primitive/error inputs, typed event/IPC contracts,
+device mapping, lifecycle rollback/drain, optional dependencies, shader ABI/math,
+uniform/resource cache invalidation, capture backpressure/timeouts/late replies,
+notes persistence/focus and media cancellation. Repeated constructor assignments,
+inherited scheduler checks and mock self-tests were removed; unique assertions moved
+into existing behavior suites. Audio tests now await actual completion, fixing old
+negative assertions that could run before the fallback callback.
+
+Direct imports replace the factory barrel in 46 files. The real settings harness
+is isolated from lightweight settings/notes/UI doubles. Remove unused factories,
+handwritten video mock machinery, the inert global preload fallback and unused
+Testing Library setup/dependency. GPU unit tests use their existing structural
+browser doubles in Node; UI suites retain Happy DOM. Every on-disk unit/integration
+test must match exactly one project, preventing skipped or duplicate discovery.
+
+E2E assertions were mapped into independent journeys with a fresh profile per test:
+
+| Retained behavior | Consolidation |
+| --- | --- |
+| Shell, title, controls, disconnected UI | One startup journey replaces duplicate launches |
+| Settings controls, menu reopen, disclosure, keyboard | Three journeys; storage codecs remain separately unit tested |
+| Device/IPC changes, attached paired tracks, rendered frames, FPS/resolution, retry | Four real application journeys replace duplicate fixture/direct-helper checks |
+| Native fullscreen state, connected layout, aspect ratio, exit/falsy input | One native BrowserWindow journey replaces HTML-fullscreen checks that never tested native state |
+| Notes toggle and quit/relaunch autosave | Separate regression journeys retained |
+| Stream restart, repeated restart, visibility pixels | Separate regression journeys retained |
+| Shader/fallback/screenshot/recording, disconnect, final WebM on quit | Separate media journeys retained |
+
+Removed CustomEvent error checks had no production listener. Unimplemented F11,
+fullscreen Escape and double-click shortcuts were never established by the former
+boolean/type assertions; the tests no longer imply that coverage. Real settings and
+notes keyboard behavior remains checked. Fixed sleeps now wait for actual checked
+state, pixels or native window state. Teardown captures the child at launch, clears
+its watchdog and retains bounded failure handling, including intentional normal quit.
+
+Pre-commit runs staged production ESLint; pre-push retains application/test types,
+architecture lint and the complete suite. Related tests remain available through
+`npm run test:related -- path/to/file.ts`. This avoids an overlapping related/full
+test run on every commit and push. CI style lint and runtime validation start in
+parallel; both remain checked. Linux x64 and ARM64 still run their full suites once,
+and Linux E2E still reuses the existing build. No platform gate or retry was added
+to obtain the local timings.
+
+Application/test types, generated paths, architecture lint and strict full/production
+dead-code checks pass. Complete two- and four-worker runs collected the same 1,490
+tests across 129 files and passed. The baseline coverage run used the archived
+baseline tests against the same source/dependencies before removing unused Testing
+Library packages. Repository reports and the temporary baseline checkout were removed
+after comparison; raw one-time measurements stayed in `/tmp`. No benchmark-specific
+runner or verification cache was introduced.

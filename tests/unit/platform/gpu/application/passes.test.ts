@@ -47,14 +47,13 @@ describe('createRenderPassPlan', () => {
     expect(plan.presentSource).toEqual({ kind: 'intermediate', index: 1 });
   });
 
-  it('presents from the last written intermediate', () => {
+  it('presents from the first intermediate after an odd one-pass plan', () => {
     const plan = createRenderPassPlan([
-      pass('pixel-upscale'),
-      pass('color-elevation')
+      pass('pixel-upscale')
     ]);
 
-    expect(plan.steps.at(-1)?.target).toEqual({ kind: 'intermediate', index: 1 });
-    expect(plan.presentSource).toEqual({ kind: 'intermediate', index: 1 });
+    expect(plan.steps.at(-1)?.target).toEqual({ kind: 'intermediate', index: 0 });
+    expect(plan.presentSource).toEqual({ kind: 'intermediate', index: 0 });
   });
 
   it('presents the source directly when there are no enabled passes', () => {

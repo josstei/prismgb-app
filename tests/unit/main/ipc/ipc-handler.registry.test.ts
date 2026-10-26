@@ -24,7 +24,7 @@ vi.mock('electron-trpc/main', () => ({
 import { IpcHandlerRegistry } from '@main/ipc/ipc-handler.registry.js';
 import { IpcPushBridge } from '@main/ipc/ipc-push.bridge.js';
 import { appRouter } from '@main/ipc/router.js';
-import { createLoggerFactory } from '../../../factories/index.js';
+import { createLoggerFactory } from '../../../factories/logger.factory.js';
 
 async function createRegistry() {
   const bridge = new IpcPushBridge();

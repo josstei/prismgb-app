@@ -35,7 +35,6 @@ test.describe('Streaming Smoke with Chromatic Media Environment', () => {
 
     await streamPage.captureScreenshot();
     await streamPage.startRecording();
-    await streamPage.page.waitForTimeout(1200);
     await streamPage.stopRecording();
 
     await expect.poll(async () => (await streamPage.getDownloads()).length).toBe(2);
@@ -75,10 +74,17 @@ test.describe('Streaming Smoke Cleanup', () => {
       await streamPage.start();
       await streamPage.startRecording();
 
-      await Promise.race([
-        electronApp.close(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('Electron close timed out')), 7000)),
-      ]);
+      let closeTimeout;
+      try {
+        await Promise.race([
+          electronApp.close(),
+          new Promise((_, reject) => {
+            closeTimeout = setTimeout(() => reject(new Error('Electron close timed out')), 7000);
+          }),
+        ]);
+      } finally {
+        clearTimeout(closeTimeout);
+      }
 
       const recordings = (await readdir(downloads)).filter((name) => name.endsWith('.webm'));
       expect(recordings).toHaveLength(1);

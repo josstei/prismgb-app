@@ -1,4 +1,5 @@
-import * as serviceMocks from '../../../../../factories/index.js';
+import { createEventBus } from '../../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
   trpcClient: (await import('../../../../../support/mocks/trpc-client.mock')).createTrpcClientMock()
@@ -20,8 +21,8 @@ describe('UpdateService', () => {
     vi.mocked(trpcClient.update.getStatus.query).mockResolvedValue({ state: UpdateState.IDLE, updateInfo: null, downloadProgress: null, error: null });
 
     const h = createServiceHarness(UpdateService, {
-      eventBus: serviceMocks.createEventBus(),
-      loggerFactory: serviceMocks.createLoggerFactory()
+      eventBus: createEventBus(),
+      loggerFactory: createLoggerFactory()
     });
     service = h.subject;
     mockLogger = h.logger;

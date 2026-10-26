@@ -1,24 +1,13 @@
 /**
  * Settings Factory
  *
- * Creates mock settings and notes instances for testing.
- * Extracted from tests/factories/index.js as part of the factory-split refactor.
+ * Creates settings doubles from the canonical definitions.
  */
 
 import { vi } from 'vitest';
-import { createEventBus } from './event-bus.factory.js';
-import { createLoggerFactory } from './logger.factory.js';
-import { createStorageService } from './storage.factory.js';
-import { SettingsService } from '@renderer/infrastructure/services/settings/settings.service';
 import { SettingsDefinitions } from '@renderer/lib/settings.definitions.js';
 
-export function createSettingsServiceHarness(overrides = {}) {
-  const eventBus = overrides.eventBus ?? createEventBus();
-  const loggerFactory = overrides.loggerFactory ?? createLoggerFactory();
-  const storageService = overrides.storageService ?? createStorageService(overrides.initialValues);
-  const service = new SettingsService({ eventBus: eventBus, loggerFactory: loggerFactory, storageService: storageService });
-  return { service, eventBus, loggerFactory, storageService, storage: storageService, logger: loggerFactory._getLogger('SettingsService') };
-}
+/** @typedef {import('@renderer/infrastructure/services/settings/settings.service').SettingsService} SettingsService */
 
 /**
  * Creates a mock SettingsService.
@@ -42,28 +31,5 @@ export function createSettingsServiceMock(overrides = {}) {
       return true;
     }),
     ...methodOverrides
-  });
-}
-
-/**
- * @typedef {import('@platform/notes').NotesService} NotesService
- */
-
-/**
- * Creates a mock NotesService.
- *
- * @param {Partial<import('vitest').Mocked<NotesService>>} [overrides={}] - Mock property and method overrides.
- * @returns {import('vitest').Mocked<NotesService>} A strongly-typed mock NotesService.
- */
-export function createNotesServiceMock(overrides = {}) {
-  return /** @type {any} */ ({
-    getAllNotes: vi.fn(() => []),
-    getNote: vi.fn(() => null),
-    createNote: vi.fn(() => null),
-    updateNote: vi.fn(() => null),
-    deleteNote: vi.fn(() => false),
-    searchNotes: vi.fn(() => []),
-    getUniqueGames: vi.fn(() => []),
-    ...overrides
   });
 }

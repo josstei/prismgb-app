@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { TranscodeService } from '@platform/transcode/service';
 import { TranscodeProcess, probeDuration } from '../../../../src/platform/transcode/transcode-process.js';
-import { createLoggerFactory } from '../../../factories/index.js';
+import { createLoggerFactory } from '../../../factories/logger.factory.js';
 
 vi.mock('../../../../src/platform/transcode/ffmpeg-path.utils.js', () => ({
   getFfmpegPath: () => '/fake/ffmpeg',

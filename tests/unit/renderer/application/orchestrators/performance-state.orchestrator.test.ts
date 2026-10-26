@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PlatformEventBus, EventChannels, type PerformanceStatePayload } from '@platform/events';
 import { PerformanceStateOrchestrator } from '@renderer/application/orchestrators/performance/performance-state.orchestrator';
-import { createLoggerFactory } from '../../../../factories/index.js';
+import { createLoggerFactory } from '../../../../factories/logger.factory.js';
 
 describe('PerformanceStateOrchestrator', () => {
   let orchestrator: PerformanceStateOrchestrator;

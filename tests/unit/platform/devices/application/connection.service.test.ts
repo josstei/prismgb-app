@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DeviceConnectionService } from '@platform/devices/runtime';
-import { createLoggerFactory } from '../../../../factories/index.js';
+import { createLoggerFactory } from '../../../../factories/logger.factory.js';
 import {
   createChromaticDeviceInfoPayload,
   createChromaticUsbDevice

@@ -47,13 +47,3 @@ export function createRendererDeviceRuntimeMock(overrides = {}) {
     ...overrides
   };
 }
-
-export function createDeviceStatusComponentMock(overrides = {}) {
-  return {
-    updateStatus: vi.fn(),
-    updateOverlayMessage: vi.fn(),
-    showError: vi.fn(),
-    setOverlayVisible: vi.fn(),
-    ...overrides
-  };
-}

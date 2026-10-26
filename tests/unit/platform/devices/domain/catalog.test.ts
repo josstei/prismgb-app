@@ -5,6 +5,7 @@ import {
   getDeviceStreamProfile,
   matchByLabel
 } from '@platform/devices';
+import { toDeviceInfo } from '../../../../../src/platform/devices/domain/payloads';
 import { matchByUsb } from '../../../../../src/platform/devices/domain/matching';
 import {
   createFixtureDeviceStatus,
@@ -18,6 +19,28 @@ import {
 } from '../../../../devices/media.testkit';
 
 describe('DeviceCatalog', () => {
+  it('maps observed USB devices to canonical device info without fixture-only fields', () => {
+    const observed = {
+      vendorId: CHROMATIC_DESCRIPTOR.usb.vendorId,
+      productId: CHROMATIC_DESCRIPTOR.usb.productId,
+      locationId: 4,
+      deviceAddress: 12,
+      serialNumber: 'CONTRACT-001'
+    };
+
+    expect(toDeviceInfo(CHROMATIC_DESCRIPTOR, observed)).toEqual({
+      id: CHROMATIC_DESCRIPTOR.id,
+      name: CHROMATIC_DESCRIPTOR.name,
+      manufacturer: CHROMATIC_DESCRIPTOR.manufacturer,
+      vendorId: CHROMATIC_DESCRIPTOR.usb.vendorId,
+      productId: CHROMATIC_DESCRIPTOR.usb.productId,
+      locationId: 4,
+      deviceAddress: 12,
+      serialNumber: 'CONTRACT-001'
+    });
+  });
+
+
   it('uses the manifest as the canonical device source', () => {
     const chromatic = DeviceCatalog.get(CHROMATIC_DESCRIPTOR.id);
 

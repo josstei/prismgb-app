@@ -54,7 +54,7 @@ Related docs:
 flowchart TD
   PR[Pull Request] --> CI[ci-pr.yml]
   CI --> LINT[reusable-ci-lint.yml]
-  LINT --> TESTS[reusable-ci-tests.yml]
+  CI --> TESTS[reusable-ci-tests.yml]
 
   TESTS --> LINUX[Test and build: ubuntu-latest]
   LINUX --> E2E[Playwright against existing build]
@@ -127,5 +127,18 @@ flowchart TD
 - Shared build logic lives in composite actions and scripts to reduce drift.
 
 Each test job runs the complete Vitest suite once; it already includes integration tests. The Linux x64 job reuses its Vite build for Playwright. Artifact upload patterns come from the platform manifest through the build matrix.
+
+PR style lint and runtime validation start independently; both must succeed for the
+workflow to pass. Commit hooks lint staged production TypeScript. The pre-push hook
+retains complete application/test typechecking, architecture lint and the full
+Vitest suite, avoiding a second overlapping test run during commit. For an optional
+focused development check, use `npm run test:related -- path/to/changed-file.ts`.
+
+Vitest preserves file isolation and uses at most four workers, bounded by available
+parallelism. GPU unit tests use structural browser doubles in Node; UI behavior tests
+keep Happy DOM. The discovery guard requires every unit/integration test file to
+match exactly one project. Electron journeys use fresh profiles, observable readiness
+and bounded cleanup; fullscreen requires a window manager and
+`RUN_FULLSCREEN_TESTS=1`.
 
 Packaged smoke runs the real application with an isolated temporary profile. Success requires renderer readiness, a shutdown request and acknowledgement after notes/recording cleanup, completion of accepted conversions and registered downloads, and main teardown before a zero exit. Missing or failed acknowledgements trigger cleanup and cancellation; startup/shutdown timeout, cleanup failure, or abnormal exit fails the check.

@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { appRouter } from '@main/ipc/router.js';
 import { IpcPushBridge } from '@main/ipc/ipc-push.bridge.js';
+import { TRPCError } from '@trpc/server';
+import { rethrowAsTrpcError } from '@main/ipc/trpc.js';
 import type { IpcContext } from '@main/ipc/trpc.js';
 import {
   createChromaticDeviceInfoPayload,
@@ -432,5 +434,117 @@ describe('appRouter — subscriptions', () => {
     expect(received).toEqual([valid]);
     expect(context.logger.warn).toHaveBeenCalledTimes(2);
     subscription.unsubscribe();
+  });
+});
+
+
+describe('IpcPushBridge', () => {
+  it('delivers an emitted payload to a registered listener', () => {
+    const bridge = new IpcPushBridge();
+    const listener = vi.fn();
+    bridge.on('device:connected', listener);
+
+    bridge.emitUnchecked('device:connected', { vendorId: 1234 });
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(listener).toHaveBeenCalledWith({ vendorId: 1234 });
+  });
+
+  it('delivers an undefined payload for void channels', () => {
+    const bridge = new IpcPushBridge();
+    const listener = vi.fn();
+    bridge.on('window:enter-fullscreen', listener);
+
+    bridge.emitUnchecked('window:enter-fullscreen');
+
+    expect(listener).toHaveBeenCalledWith(undefined);
+  });
+
+  it('fans out to multiple listeners on the same channel', () => {
+    const bridge = new IpcPushBridge();
+    const a = vi.fn();
+    const b = vi.fn();
+    bridge.on('transcode:progress', a);
+    bridge.on('transcode:progress', b);
+
+    bridge.emitUnchecked('transcode:progress', { percent: 50 });
+
+    expect(a).toHaveBeenCalledWith({ percent: 50 });
+    expect(b).toHaveBeenCalledWith({ percent: 50 });
+  });
+
+  it('stops delivering after a listener is removed', () => {
+    const bridge = new IpcPushBridge();
+    const listener = vi.fn();
+    bridge.on('transcode:completed', listener);
+    bridge.off('transcode:completed', listener);
+
+    bridge.emitUnchecked('transcode:completed', { jobId: 'j' });
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('does not cross-deliver between channels', () => {
+    const bridge = new IpcPushBridge();
+    const listener = vi.fn();
+    bridge.on('device:connected', listener);
+
+    bridge.emitUnchecked('device:disconnected', null);
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('rethrowAsTrpcError', () => {
+  it('returns the run result unchanged on success', async () => {
+    const logger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const result = await rethrowAsTrpcError('Failed to do thing', logger, () => ({ value: 42 }));
+    expect(result).toEqual({ value: 42 });
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('awaits an async run function and returns its resolved value', async () => {
+    const logger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const result = await rethrowAsTrpcError('Failed to do thing', logger, async () => ({ value: 'async' }));
+    expect(result).toEqual({ value: 'async' });
+  });
+
+  it('logs the label with the original error and throws an INTERNAL_SERVER_ERROR TRPCError carrying the original message', async () => {
+    const logger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const thrown = new Error('usb exploded');
+
+    await expect(
+      rethrowAsTrpcError('Failed to get device status', logger, () => {
+        throw thrown;
+      })
+    ).rejects.toMatchObject({ code: 'INTERNAL_SERVER_ERROR', message: 'usb exploded' });
+
+    expect(logger.error).toHaveBeenCalledWith('Failed to get device status', thrown);
+  });
+
+  it('throws a real TRPCError instance', async () => {
+    const logger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+    let caught: unknown;
+    try {
+      await rethrowAsTrpcError('Failed', logger, () => {
+        throw new Error('boom');
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(TRPCError);
+  });
+
+  it('falls back to a generic message when the thrown value has no message', async () => {
+    const logger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+    await expect(
+      rethrowAsTrpcError('Failed', logger, () => {
+        throw { code: 'ENOENT' };
+      })
+    ).rejects.toMatchObject({ code: 'INTERNAL_SERVER_ERROR', message: 'Unknown error' });
   });
 });

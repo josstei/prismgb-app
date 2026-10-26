@@ -47,18 +47,12 @@ export class StreamPage {
 
   async expectStreaming(options = {}) {
     const { timeout = 10000 } = options;
-    await expect(async () => {
-      const bodyClasses = await this.page.evaluate(() => document.body.className);
-      expect(bodyClasses).toContain('streaming-mode');
-    }).toPass({ timeout });
+    await expect(this.page.locator('body')).toHaveClass(/(?:^|\s)streaming-mode(?:\s|$)/, { timeout });
   }
 
   async expectStopped(options = {}) {
     const { timeout = 5000 } = options;
-    await expect(async () => {
-      const bodyClasses = await this.page.evaluate(() => document.body.className);
-      expect(bodyClasses).not.toContain('streaming-mode');
-    }).toPass({ timeout });
+    await expect(this.page.locator('body')).not.toHaveClass(/(?:^|\s)streaming-mode(?:\s|$)/, { timeout });
   }
 
   async expectCaptureControlsEnabled() {
@@ -114,6 +108,13 @@ export class StreamPage {
         };
       }
     });
+  }
+
+  async expectRenderedFrame() {
+    await expect.poll(() => this.getCanvasRenderInfo(), {
+      timeout: 10000,
+      message: 'a rendered input frame should reach the current canvas',
+    }).toMatchObject({ exists: true, hasContext: true, hasContent: true });
   }
 
   async suppressDownloads() {

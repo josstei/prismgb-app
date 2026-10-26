@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { detectBrowserGpuCapabilities } from '../../../../../src/platform/gpu/infrastructure/capabilities.browser';
+import { detectBrowserGpuCapabilities } from '@platform/gpu/runtime';
 
 describe('detectBrowserGpuCapabilities', () => {
   afterEach(() => {

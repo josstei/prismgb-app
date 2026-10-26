@@ -1,4 +1,5 @@
-import * as serviceMocks from '../../../../factories/index.js';
+import { createEventBus } from '../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../factories/logger.factory.js';
 /**
  * TranscodeUIBridge Unit Tests
  * Bridges transcode lifecycle events to record-button feedback. Toast display now
@@ -8,7 +9,6 @@ import * as serviceMocks from '../../../../factories/index.js';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge';
 import { EventChannels } from '@platform/events';
-import { createEventBus } from '../../../../factories/index.js';
 import { createServiceHarness } from '../../../../support/service.harness.js';
 
 describe('TranscodeUIBridge', () => {
@@ -24,7 +24,7 @@ describe('TranscodeUIBridge', () => {
   beforeEach(() => {
     subscribedHandlers = {};
     h = createServiceHarness(TranscodeUIBridge, {
-      loggerFactory: serviceMocks.createLoggerFactory(),
+      loggerFactory: createLoggerFactory(),
       eventBus: createEventBus({
           onSubscribe: (event, handlerFn) => {
             subscribedHandlers[event] = handlerFn;

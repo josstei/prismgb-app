@@ -1,19 +1,20 @@
-import * as serviceMocks from '../../../../../factories/index.js';
+import { createCanvasRenderingContextMock } from '../../../../../factories/system.factory.js';
+import { createGpuRendererServiceMock } from '../../../../../factories/streaming-pipeline.factory.js';
+import {
+  createMediaStreamMock,
+  createMediaTrackMock,
+  createMockCanvas,
+  createStreamPayloadMock
+} from '../../../../../factories/stream.factory.js';
+import { createRecordingFrameMock } from '../../../../../factories/capture.factory.js';
+import { createEventBus } from '../../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
 /**
  * CaptureGpuRecordingService Unit Tests
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CaptureGpuRecordingService } from '@renderer/infrastructure/services/gpu/gpu-recording.service';
-import {
-  createCanvasRenderingContextMock,
-  createGpuRendererServiceMock,
-  createMediaStreamMock,
-  createMediaTrackMock,
-  createMockCanvas,
-  createRecordingFrameMock,
-  createStreamPayloadMock
-} from '../../../../../factories/index.js';
 import {
   createCleanupStack,
   installAnimationFrameMock,
@@ -65,8 +66,8 @@ describe('CaptureGpuRecordingService', () => {
     cleanupStack = createCleanupStack();
 
     const h = createServiceHarness(CaptureGpuRecordingService, {
-      eventBus: serviceMocks.createEventBus(),
-      loggerFactory: serviceMocks.createLoggerFactory(),
+      eventBus: createEventBus(),
+      loggerFactory: createLoggerFactory(),
       streamingRenderService: createGpuRendererServiceMock({
           captureFrame: vi.fn(),
           getTargetDimensions: vi.fn(() => ({ width: 640, height: 576 }))

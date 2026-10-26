@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UIEffects } from '@renderer/presentation/effects/ui-effects.host';
 import { CaptureEffects } from '@renderer/presentation/effects/capture.effect';
 import { TIMING } from '@platform/config';
-import { createUIEffectsElementsMock } from '../../../../factories/index.js';
+import { createUIEffectsElementsMock } from '../../../../factories/ui.factory.js';
 import { installDocumentCreateElementMock } from '../../../../support/mocks/browser-api.installers.js';
 
 const HIDE_DELAY = TIMING.CURSOR_HIDE_DELAY_MS;

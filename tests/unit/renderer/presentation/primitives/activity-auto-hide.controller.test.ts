@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { PresentationComponent, ActivityAutoHideController } from '@platform/ui-base';
-import { createCallbackMap } from '../../../../factories/index.js';
+import { createCallbackMap } from '../../../../factories/system.factory.js';
 class TestComponent extends PresentationComponent {
   listenTo(target: EventTarget | null, type: string, handler: EventListener) {
     return this.listen(target, type, handler);

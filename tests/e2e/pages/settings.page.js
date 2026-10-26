@@ -109,11 +109,11 @@ export class SettingsMenuPage {
     const initial = await checkbox.isChecked();
 
     await this.label(settingName).click({ force: true });
-    await this.page.waitForTimeout(100);
+    await expect(checkbox).toBeChecked({ checked: !initial });
 
     return {
       initial,
-      current: await checkbox.isChecked(),
+      current: !initial,
     };
   }
 
@@ -121,7 +121,6 @@ export class SettingsMenuPage {
     const checkbox = this.checkbox(settingName);
     if ((await checkbox.isChecked()) !== enabled) {
       await this.label(settingName).click({ force: true });
-      await this.page.waitForTimeout(100);
     }
     await expect(checkbox).toBeChecked({ checked: enabled });
   }

@@ -7,7 +7,7 @@ import {
   DisclosureController,
   calculateAnchoredDisclosureLayout
 } from '@platform/ui-base';
-import { createLogger } from '../../../../factories/index.js';
+import { createLogger } from '../../../../factories/logger.factory.js';
 
 describe('calculateAnchoredDisclosureLayout', () => {
   it('returns right-of-anchor placement when there is enough width', () => {

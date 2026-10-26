@@ -1,208 +1,91 @@
-import * as serviceMocks from '../../../../factories/index.js';
-/**
- * StreamingAudioOrchestrator Unit Tests
- */
-
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { StreamingAudioOrchestrator } from '@renderer/application/orchestrators/streaming-audio.orchestrator';
-import {
-  createAppState,
-  createCaptureStreamMock,
-  createMediaTrackMock,
-  createStreamingViewServiceMock
-} from '../../../../factories/index.js';
-import { createServiceHarness } from '../../../../support/service.harness.js';
+import { EventChannels, PlatformEventBus } from '@platform/events';
+import { createCaptureStreamMock, createMediaTrackMock } from '../../../../factories/stream.factory.js';
+import { createLoggerFactory } from '../../../../factories/logger.factory.js';
 
-describe('StreamingAudioOrchestrator', () => {
-  let orchestrator;
-  let mockStreamingAudioPipelineService;
-  let mockStreamViewService;
-  let mockAppState;
-  let mockEventBus;
-  let mockLogger;
+describe('streaming audio event routing', () => {
+  let orchestrator: StreamingAudioOrchestrator;
+  let bus: PlatformEventBus;
+  let pipeline: { start: ReturnType<typeof vi.fn<(stream: MediaStream) => Promise<boolean>>>; stop: ReturnType<typeof vi.fn<() => void>> };
+  let view: { setMuted: ReturnType<typeof vi.fn<(muted: boolean) => void>> };
+  let appState: { isStreaming: boolean };
+  const stream = (audio = true) => createCaptureStreamMock({
+    audioTracks: audio ? [createMediaTrackMock({ id: 'audio' })] : []
+  }) as MediaStream;
+  const started = (value: MediaStream) => bus.publish(EventChannels.STREAM.STARTED, { stream: value });
+  // Await the actual mocked startup result and its registered reaction chain;
+  // waiting for start() to be called can pass before fallback has run.
+  const settled = () => pipeline.start.mock.results.at(-1)!.value.catch(() => undefined);
 
-  beforeEach(() => {
-    const h = createServiceHarness(StreamingAudioOrchestrator, {
-      streamingAudioPipelineService: serviceMocks.createStreamingAudioPipelineServiceMock(),
-      eventBus: serviceMocks.createEventBus(),
-      loggerFactory: serviceMocks.createLoggerFactory(),
-      streamViewService: createStreamingViewServiceMock({ setMuted: vi.fn() }),
-      appState: createAppState({ initialState: { isStreaming: false } })
+  beforeEach(async () => {
+    bus = new PlatformEventBus();
+    pipeline = { start: vi.fn<(stream: MediaStream) => Promise<boolean>>(async () => true), stop: vi.fn<() => void>() };
+    view = { setMuted: vi.fn<(muted: boolean) => void>() };
+    appState = { isStreaming: true };
+    orchestrator = new StreamingAudioOrchestrator({
+      streamingAudioPipelineService: pipeline, streamViewService: view,
+      appState, eventBus: bus, loggerFactory: createLoggerFactory()
     });
-    orchestrator = h.subject;
-    mockLogger = h.logger;
-    ({
-      streamingAudioPipelineService: mockStreamingAudioPipelineService,
-      streamViewService: mockStreamViewService,
-      appState: mockAppState,
-      eventBus: mockEventBus
-    } = h.deps);
+    await orchestrator.initialize();
+  });
+  afterEach(async () => {
+    await orchestrator.dispose();
+    expect(bus.emitter.eventNames()).toEqual([]);
   });
 
-  describe('onInitialize', () => {
-    it('should subscribe to stream events', async () => {
-      await orchestrator.initialize();
-
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:started', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:stopped', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:error', expect.any(Function));
-    });
+  it('deduplicates an attached stream and reattaches after both stop and error events', async () => {
+    const value = stream();
+    started(value);
+    started(value);
+    await settled();
+    expect(pipeline.start).toHaveBeenCalledOnce();
+    expect(pipeline.start).toHaveBeenCalledWith(value);
+    expect(view.setMuted).not.toHaveBeenCalled();
+    for (const event of [EventChannels.STREAM.STOPPED, EventChannels.STREAM.ERROR]) {
+      bus.publish(event);
+      started(value);
+      await settled();
+    }
+    expect(pipeline.stop).toHaveBeenCalledTimes(2);
+    expect(pipeline.start).toHaveBeenCalledTimes(3);
   });
 
-  describe('_handleStreamStarted', () => {
-    it('should initialize audio pipeline with stream', () => {
-      const mockStream = createCaptureStreamMock({
-        audioTracks: [createMediaTrackMock({ id: 'audio-1' })]
-      });
-
-      orchestrator._handleStreamStarted({ stream: mockStream });
-
-      expect(mockStreamingAudioPipelineService.start).toHaveBeenCalledWith(mockStream);
-    });
-
-    it('should skip re-init when same stream already attached', () => {
-      const mockStream = createCaptureStreamMock({
-        audioTracks: [createMediaTrackMock({ id: 'audio-1' })]
-      });
-
-      orchestrator._handleStreamStarted({ stream: mockStream });
-      orchestrator._handleStreamStarted({ stream: mockStream });
-
-      expect(mockStreamingAudioPipelineService.start).toHaveBeenCalledTimes(1);
-      expect(mockLogger.debug).toHaveBeenCalledWith('Audio pipeline already attached to stream; skipping re-init');
-    });
-
+  it.each([false, new Error('warm-up failed')])('unmutes fallback audio once per attachment after %s', async (result) => {
+    if (result instanceof Error) pipeline.start.mockRejectedValue(result);
+    else pipeline.start.mockResolvedValue(result);
+    const value = stream();
+    started(value);
+    await settled();
+    orchestrator._applyVideoAudioFallback();
+    started(value);
+    expect(view.setMuted).toHaveBeenCalledExactlyOnceWith(false);
+    bus.publish(EventChannels.STREAM.STOPPED);
+    started(value);
+    await settled();
+    expect(view.setMuted).toHaveBeenCalledTimes(2);
   });
 
-  describe('_handleStreamStopped', () => {
-    it('should stop audio pipeline', () => {
-      orchestrator._handleStreamStopped();
-
-      expect(mockStreamingAudioPipelineService.stop).toHaveBeenCalled();
-    });
-
-    it('should clear active stream', () => {
-      const mockStream = createCaptureStreamMock({
-        audioTracks: [createMediaTrackMock({ id: 'audio-1' })]
-      });
-      orchestrator._handleStreamStarted({ stream: mockStream });
-
-      orchestrator._handleStreamStopped();
-
-      orchestrator._handleStreamStarted({ stream: mockStream });
-      expect(mockStreamingAudioPipelineService.start).toHaveBeenCalledTimes(2);
-    });
+  it('does not unmute a video-only stream or a stream no longer active', async () => {
+    pipeline.start.mockResolvedValue(false);
+    started(stream(false));
+    await settled();
+    started(stream());
+    appState.isStreaming = false;
+    await settled();
+    expect(view.setMuted).not.toHaveBeenCalled();
   });
 
-  describe('_initializeAudioPipeline', () => {
-    it('should start audio warmup with stream', () => {
-      const mockStream = createCaptureStreamMock({
-        audioTracks: [createMediaTrackMock({ id: 'audio-1' })]
-      });
-
-      orchestrator._initializeAudioPipeline(mockStream);
-
-      expect(mockStreamingAudioPipelineService.start).toHaveBeenCalledWith(mockStream);
-    });
-
-    it('should fallback to video audio when warmup fails', async () => {
-      const mockStream = createCaptureStreamMock({
-        audioTracks: [createMediaTrackMock({ id: 'audio-1' })]
-      });
-      mockStreamingAudioPipelineService.start.mockResolvedValue(false);
-      mockAppState._forceSet('isStreaming', true);
-      orchestrator._activeStream = mockStream;
-
-      orchestrator._initializeAudioPipeline(mockStream);
-      await vi.waitFor(() => {
-        expect(mockLogger.warn).toHaveBeenCalledWith('Audio warm-up failed - falling back to video element audio');
-      });
-
-      expect(mockStreamViewService.setMuted).toHaveBeenCalledWith(false);
-    });
-
-    it('should fallback to video audio when warmup throws', async () => {
-      const mockStream = createCaptureStreamMock({
-        audioTracks: [createMediaTrackMock({ id: 'audio-1' })]
-      });
-      mockStreamingAudioPipelineService.start.mockRejectedValue(new Error('Warmup error'));
-      mockAppState._forceSet('isStreaming', true);
-      orchestrator._activeStream = mockStream;
-
-      orchestrator._initializeAudioPipeline(mockStream);
-      await vi.waitFor(() => {
-        expect(mockLogger.warn).toHaveBeenCalledWith(
-          'Audio warm-up error - falling back to video element audio',
-          expect.any(Error)
-        );
-      });
-
-      expect(mockStreamViewService.setMuted).toHaveBeenCalledWith(false);
-    });
-
-    it('should not fallback when stream has no audio', async () => {
-      const mockStream = createCaptureStreamMock();
-      mockStreamingAudioPipelineService.start.mockResolvedValue(false);
-      mockAppState._forceSet('isStreaming', true);
-      orchestrator._activeStream = mockStream;
-
-      orchestrator._initializeAudioPipeline(mockStream);
-      await vi.waitFor(() => {
-        expect(mockStreamingAudioPipelineService.start).toHaveBeenCalled();
-      });
-
-      expect(mockStreamViewService.setMuted).not.toHaveBeenCalled();
-    });
-
-    it('should not fallback when no longer streaming', async () => {
-      const mockStream = createCaptureStreamMock({
-        audioTracks: [createMediaTrackMock({ id: 'audio-1' })]
-      });
-      mockStreamingAudioPipelineService.start.mockResolvedValue(false);
-      mockAppState._forceSet('isStreaming', false);
-      orchestrator._activeStream = mockStream;
-
-      orchestrator._initializeAudioPipeline(mockStream);
-      await vi.waitFor(() => {
-        expect(mockStreamingAudioPipelineService.start).toHaveBeenCalled();
-      });
-
-      expect(mockStreamViewService.setMuted).not.toHaveBeenCalled();
-    });
-
-    it('should not fallback when stream changed during warmup', async () => {
-      const mockStream1 = createCaptureStreamMock({
-        audioTracks: [createMediaTrackMock({ id: 'audio-1' })]
-      });
-      const mockStream2 = createCaptureStreamMock({
-        audioTracks: [createMediaTrackMock({ id: 'audio-2' })]
-      });
-      mockStreamingAudioPipelineService.start.mockResolvedValue(false);
-      mockAppState._forceSet('isStreaming', true);
-      orchestrator._activeStream = mockStream2;
-
-      orchestrator._initializeAudioPipeline(mockStream1);
-      await vi.waitFor(() => {
-        expect(mockStreamingAudioPipelineService.start).toHaveBeenCalled();
-      });
-
-      expect(mockStreamViewService.setMuted).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('_applyVideoAudioFallback', () => {
-    it('should unmute video element', () => {
-      orchestrator._applyVideoAudioFallback();
-
-      expect(mockStreamViewService.setMuted).toHaveBeenCalledWith(false);
-      expect(mockLogger.warn).toHaveBeenCalledWith('Audio warm-up failed - falling back to video element audio');
-    });
-
-    it('should only apply fallback once', () => {
-      orchestrator._applyVideoAudioFallback();
-      orchestrator._applyVideoAudioFallback();
-
-      expect(mockStreamViewService.setMuted).toHaveBeenCalledTimes(1);
-    });
+  it.each([false, new Error('old warm-up failed')])('ignores %s from a stopped or replaced stream', async (result) => {
+    const previous = Promise.withResolvers<boolean>();
+    pipeline.start.mockReturnValueOnce(previous.promise);
+    started(stream());
+    bus.publish(EventChannels.STREAM.STOPPED);
+    started(stream());
+    if (result instanceof Error) previous.reject(result);
+    else previous.resolve(result);
+    await previous.promise.catch(() => undefined);
+    await settled();
+    expect(view.setMuted).not.toHaveBeenCalled();
   });
 });

@@ -6,6 +6,7 @@
 import { defineConfig } from 'vitest/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { availableParallelism } from 'node:os';
 import { platformAliasMap } from './scripts/lib/workspace-aliases.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -29,9 +30,7 @@ const baseCoverageConfig = {
   ]
 };
 
-const commonSetup = path.resolve(__dirname, 'tests/setup.js');
-
-function project(name, environment, include, setupFiles = [commonSetup]) {
+function project(name, environment, include, setupFiles = []) {
   return { test: {
     name, environment, include, setupFiles,
     alias: sharedAlias,
@@ -52,7 +51,7 @@ export default defineConfig({
     globals: true,
     testTimeout: 10000,
     pool: 'forks',
-    maxWorkers: 2,
+    maxWorkers: Math.min(4, availableParallelism()),
     fileParallelism: true,
     isolate: true,
     // E2E tests still run separately through Playwright.
@@ -66,15 +65,13 @@ export default defineConfig({
         'tests/integration/**/*.{test,spec}.{js,ts}',
         'tests/unit/renderer/**/*.{test,spec}.{js,ts}'
       ], [
-        commonSetup,
-        path.resolve(__dirname, 'tests/support/mocks/renderer-browser-mocks.setup.js'),
-        path.resolve(__dirname, 'tests/testing-library.setup.js')
+        path.resolve(__dirname, 'tests/support/mocks/renderer-browser-mocks.setup.js')
       ]),
       project('main-node', 'node', ['tests/unit/main/**/*.{test,spec}.{js,ts}']),
       project('platform-node', 'node', [
-        'tests/unit/platform/{config,core,devices,events,ipc,notes,transcode,updates}/**/*.{test,spec}.{js,ts}'
+        'tests/unit/platform/{config,core,devices,events,gpu,ipc,notes,transcode,updates}/**/*.{test,spec}.{js,ts}'
       ]),
-      project('platform-dom', 'happy-dom', ['tests/unit/platform/{gpu,ui-base}/**/*.{test,spec}.{js,ts}'], [])
+      project('platform-dom', 'happy-dom', ['tests/unit/platform/ui-base/**/*.{test,spec}.{js,ts}'], [])
     ]
   }
 });

@@ -6,7 +6,9 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { NotesService } from '@platform/notes';
 import { EventChannels } from '@platform/events';
 import { NotesStorageKeys } from '@renderer/lib/storage-keys.config';
-import { createEventBus, createLoggerFactory, createStorageService } from '../../../factories/index.js';
+import { createEventBus } from '../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../factories/logger.factory.js';
+import { createStorageService } from '../../../factories/storage.factory.js';
 
 describe('NotesService', () => {
   let service;

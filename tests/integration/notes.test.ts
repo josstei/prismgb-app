@@ -4,7 +4,8 @@ import { PlatformEventBus, EventChannels } from '@platform/events';
 import { NotesPanelComponent } from '@renderer/presentation/features/notes/notes-panel.component.js';
 import { createAppShellTemplate } from '@renderer/presentation/shell/app-shell.template.js';
 import { createDomBindings } from '@renderer/presentation/primitives/dom-bindings.utils.js';
-import { createLoggerFactory, createStorageService } from '../factories/index.js';
+import { createLoggerFactory } from '../factories/logger.factory.js';
+import { createStorageService } from '../factories/storage.factory.js';
 
 describe('notes persistence and presentation', () => {
   let panel: NotesPanelComponent;

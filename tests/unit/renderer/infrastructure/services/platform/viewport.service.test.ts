@@ -1,11 +1,12 @@
-import * as serviceMocks from '../../../../../factories/index.js';
+import { createMockCanvas } from '../../../../../factories/stream.factory.js';
+import { createMockElement } from '../../../../../factories/ui.factory.js';
+import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
 /**
  * StreamingViewportService Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingViewportService } from '@renderer/infrastructure/services/platform/viewport.service';
-import { createMockCanvas, createMockElement } from '../../../../../factories/index.js';
 import {
   installGetComputedStyleMock,
   installResizeObserverMock
@@ -108,7 +109,7 @@ describe('StreamingViewportService', () => {
     resizeObserverMock = installResizeObserverMock();
 
     const h = createServiceHarness(StreamingViewportService, {
-      loggerFactory: serviceMocks.createLoggerFactory()
+      loggerFactory: createLoggerFactory()
     });
     service = h.subject;
     mockLogger = h.logger;

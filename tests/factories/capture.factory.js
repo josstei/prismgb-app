@@ -3,7 +3,6 @@
  *
  * Creates mock capture services (screenshot, recording, transcode),
  * MediaRecorder primitives, and capture UI controllers/toasts.
- * Extracted from tests/factories/index.js as part of the factory-split refactor.
  */
 
 import { vi } from 'vitest';
@@ -100,19 +99,6 @@ export function createMediaRecorderErrorEventMock(overrides = {}) {
       ...overrides.error,
     },
     ...overrides,
-  };
-}
-
-/**
- * Creates a mock CaptureUIController.
- *
- * @param {Object} [overrides={}] - Mock overrides.
- * @returns {Object} Mock CaptureUIController.
- */
-export function createCaptureUIControllerMock(overrides = {}) {
-  return {
-    triggerDownload: vi.fn().mockResolvedValue(undefined),
-    ...overrides
   };
 }
 

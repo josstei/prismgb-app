@@ -1,11 +1,16 @@
-import * as serviceMocks from '../../../../factories/index.js';
+import { createUISetupControllerMock } from '../../../../factories/ui.factory.js';
+import { createAppState } from '../../../../factories/app-state.factory.js';
+import { createEventBus } from '../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../factories/logger.factory.js';
 /**
  * UISetupOrchestrator Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+vi.mock('@renderer/infrastructure/ipc/trpc-client', async () => ({
+  trpcClient: (await import('../../../../support/mocks/trpc-client.mock.js')).createTrpcClientMock()
+}));
 import { UISetupOrchestrator } from '@renderer/application/orchestrators/ui-setup.orchestrator';
-import { createUISetupControllerMock } from '../../../../factories/index.js';
 import { createServiceHarness } from '../../../../support/service.harness.js';
 import { EventChannels, PlatformEventBus } from '@platform/events';
 
@@ -17,9 +22,9 @@ describe('UISetupOrchestrator', () => {
 
   beforeEach(() => {
     const h = createServiceHarness(UISetupOrchestrator, {
-      appState: serviceMocks.createAppState(),
-      eventBus: serviceMocks.createEventBus(),
-      loggerFactory: serviceMocks.createLoggerFactory(),
+      appState: createAppState(),
+      eventBus: createEventBus(),
+      loggerFactory: createLoggerFactory(),
       uiController: { ...createUISetupControllerMock(),
           initializeDeferredComponents: vi.fn(),
           toggleSettingsMenu: vi.fn(),
@@ -59,8 +64,8 @@ describe('UISetupOrchestrator', () => {
     const bus = new PlatformEventBus();
     const publish = vi.spyOn(bus, 'publish');
     const ui = new UISetupOrchestrator({
-      appState: serviceMocks.createAppState(), uiController: mockUiController,
-      eventBus: bus, loggerFactory: serviceMocks.createLoggerFactory()
+      appState: createAppState(), uiController: mockUiController,
+      eventBus: bus, loggerFactory: createLoggerFactory()
     });
     await ui.initialize();
     const status = { state: 'connected' as const, connected: true, device: null };

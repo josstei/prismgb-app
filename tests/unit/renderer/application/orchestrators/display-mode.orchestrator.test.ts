@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vite
 import { SettingsDisplayModeOrchestrator } from '@renderer/application/orchestrators/display-mode.orchestrator';
 import { AppState } from '@renderer/application/state/app-state';
 import { EventChannels, PlatformEventBus } from '@platform/events';
-import { createLoggerFactory, createSettingsServiceMock } from '../../../../factories/index.js';
+import { createLoggerFactory } from '../../../../factories/logger.factory.js';
+import { createSettingsServiceMock } from '../../../../factories/settings.factory.js';
 import { installDocumentPropertyMock } from '../../../../support/mocks/browser-api.installers.js';
 
 describe('SettingsDisplayModeOrchestrator', () => {

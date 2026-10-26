@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { TranscodeService } from '@platform/transcode/service';
 import { getFfmpegPath, getFfprobePath } from '../../../../src/platform/transcode/ffmpeg-path.utils.js';
-import { createLoggerFactory } from '../../../factories/index.js';
+import { createLoggerFactory } from '../../../factories/logger.factory.js';
 
 const binaryEnvironment = { isPackaged: false, resourcesPath: '' };
 const ffmpeg = getFfmpegPath(binaryEnvironment);

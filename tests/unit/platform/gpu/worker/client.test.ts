@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WorkerRendererClient } from '../../../../../src/platform/gpu/worker/client';
-import { createWorkerResponse } from '../../../../../src/platform/gpu/worker/protocol';
+import { createWorkerMessage, createWorkerResponse, isValidWorkerMessage, isValidWorkerResponse } from '../../../../../src/platform/gpu/worker/protocol';
 import { createMockCanvas } from '@platform/gpu/testkit';
 
 const config = { nativeWidth: 160, nativeHeight: 144, targetWidth: 640, targetHeight: 576, presetId: 'vibrant' };
@@ -96,5 +96,20 @@ describe('worker resource ownership', () => {
     expect(worker.postMessage).toHaveBeenLastCalledWith({ type: 'frame', payload: { imageBitmap: next } }, [next]);
     expect(next.close).not.toHaveBeenCalled();
     await client.dispose();
+  });
+});
+
+describe('worker protocol', () => {
+  it('validates one canonical payload shape and rejects removed protocol fields', () => {
+    expect(isValidWorkerMessage(createWorkerMessage('resize', { width: 640, height: 576 }))).toBe(true);
+    expect(isValidWorkerMessage({ type: 'resize', payload: { width: '640', height: 576 } })).toBe(false);
+    expect(isValidWorkerMessage({ type: 'release' })).toBe(false);
+    expect(createWorkerMessage('capture', { requestId: 3 })).toEqual({ type: 'capture', payload: { requestId: 3 } });
+  });
+  it('requires a preset ID and correlated capture response', () => {
+    expect(isValidWorkerMessage(createWorkerMessage('setPreset', { presetId: 'pixel' }))).toBe(true);
+    expect(isValidWorkerMessage({ type: 'setPreset', payload: { preset: {} } })).toBe(false);
+    expect(isValidWorkerResponse({ type: 'captureReady', payload: { bitmap: { close() {} } } })).toBe(false);
+    expect(isValidWorkerResponse(createWorkerResponse('captureReady', { requestId: 2, bitmap: { close() {} } as ImageBitmap }))).toBe(true);
   });
 });

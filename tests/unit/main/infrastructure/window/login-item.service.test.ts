@@ -1,4 +1,4 @@
-import * as serviceMocks from '../../../../factories/index.js';
+import { createLoggerFactory } from '../../../../factories/logger.factory.js';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { app as mockApp } from 'electron';
 import { installTargetProperty } from '../../../../support/mocks/runtime-property.installers.js';
@@ -51,7 +51,7 @@ describe('LoginItemService', () => {
     processRuntimeMocks = [];
 
     const h = createServiceHarness(LoginItemService, {
-      loggerFactory: serviceMocks.createLoggerFactory()
+      loggerFactory: createLoggerFactory()
     });
     service = h.subject;
   });

@@ -1,5 +1,14 @@
 import { vi } from 'vitest';
-import { createDeviceStatusComponentMock } from './device.factory.js';
+
+export function createDeviceStatusComponentMock(overrides = {}) {
+  return {
+    updateStatus: vi.fn(),
+    updateOverlayMessage: vi.fn(),
+    showError: vi.fn(),
+    setOverlayVisible: vi.fn(),
+    ...overrides
+  };
+}
 
 /**
  * Use the test document for DOM behavior; spies observe calls without replacing
@@ -378,43 +387,5 @@ export function createStreamingControlsElementsMock(overrides = {}) {
     currentResolution,
     currentFPS,
     ...overrides,
-  };
-}
-
-export function createUIControllerElementsMock(overrides = {}) {
-  const statusIndicator = createMockElement('div', { className: 'status-indicator' });
-  const statusText = createMockElement('span', { className: 'status-text' });
-  const statusMessage = createMockElement('span', { className: 'status-message' });
-  const streamVideo = createMockElement('video', { className: 'stream-video' });
-  streamVideo.volume = 1;
-  const streamCanvas = createMockElement('canvas', { className: 'stream-canvas' });
-  const streamOverlay = createMockElement('div', { className: 'stream-overlay' });
-  const overlayMessage = createMockElement('div', { className: 'overlay-message' });
-  const screenshotBtn = createMockButton({ className: 'screenshot-btn' });
-  screenshotBtn.disabled = false;
-  const recordBtn = createMockButton({ className: 'record-btn' });
-  recordBtn.disabled = false;
-  const fullscreenBtn = createMockButton({ className: 'fullscreen-btn' });
-  const settingsBtn = createMockButton({ className: 'settings-btn' });
-
-  return {
-    statusIndicator,
-    statusText,
-    statusMessage,
-    streamVideo,
-    streamCanvas,
-    streamOverlay,
-    overlayMessage,
-    screenshotBtn,
-    recordBtn,
-    fullscreenBtn,
-    settingsBtn,
-    deviceName: createMockElement('span', { className: 'device-name' }),
-    deviceStatusText: createMockElement('span', { className: 'device-status-text' }),
-    currentResolution: createMockElement('span', { className: 'current-resolution' }),
-    currentFPS: createMockElement('span', { className: 'current-fps' }),
-    streamToolbar: createMockElement('div', { className: 'stream-toolbar' }),
-    fullscreenControls: createMockElement('div', { className: 'fullscreen-controls' }),
-    ...overrides
   };
 }

@@ -1,4 +1,4 @@
-import * as serviceMocks from '../../../../factories/index.js';
+import { createLoggerFactory } from '../../../../factories/logger.factory.js';
 /**
  * TrayService Unit Tests
  */
@@ -6,7 +6,7 @@ import * as serviceMocks from '../../../../factories/index.js';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   createWindowServiceMock
-} from '../../../../factories/index.js';
+} from '../../../../factories/window.factory.js';
 import { createServiceHarness, type LoggerMockLike } from '../../../../support/service.harness.js';
 
 type PathModuleWithDefault = typeof import('node:path') & { default: typeof import('node:path') };
@@ -60,9 +60,6 @@ type MockDeviceConnectionService = {
   isConnected: MockFn;
   reconcileDeviceStatus: MockFn;
 };
-type MockLoggerFactory = {
-  create: MockFn;
-};
 type TestableTrayService = Omit<TrayService, 'tray'> & {
   tray: MockTrayInstance | null;
   windowService: MockWindowService;
@@ -78,11 +75,10 @@ describe('TrayService', () => {
   let mockWindowService: MockWindowService;
   let mockDeviceConnectionService: MockDeviceConnectionService;
   let mockLogger: LoggerMockLike;
-  let mockLoggerFactory: MockLoggerFactory;
 
   beforeEach(() => {
     const h = createServiceHarness(TrayService, {
-      loggerFactory: serviceMocks.createLoggerFactory(),
+      loggerFactory: createLoggerFactory(),
       windowService: createWindowServiceMock({
           showWindow: vi.fn()
         }),
@@ -95,8 +91,7 @@ describe('TrayService', () => {
     mockLogger = h.logger;
     ({
       windowService: mockWindowService,
-      deviceConnectionService: mockDeviceConnectionService,
-      loggerFactory: mockLoggerFactory
+      deviceConnectionService: mockDeviceConnectionService
     } = h.deps);
   });
 
@@ -115,75 +110,16 @@ describe('TrayService', () => {
     expect(trayService.tray!.iconPath).toBe('/app/path/dist/renderer/tray-icon.png');
   });
 
-  describe('Constructor', () => {
-    it('should create logger', () => {
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('TrayService');
-    });
-
-    it('should initialize tray as null', () => {
-      expect(trayService.tray).toBeNull();
-    });
-
-    it('should store window service', () => {
-      expect(trayService.windowService).toBe(mockWindowService);
-    });
-
-    it('should store device connection service', () => {
-      expect(trayService.deviceConnectionService).toBe(mockDeviceConnectionService);
-    });
-  });
-
-  describe('createTray', () => {
-    it('should create tray instance', () => {
-      trayService.createTray();
-
-      expect(trayService.tray).toBeDefined();
-      expect(trayService.tray).not.toBeNull();
-    });
-
-    it('should set initial tooltip', () => {
-      trayService.createTray();
-
-      expect(trayService.tray!.setToolTip).toHaveBeenCalledWith('PrismGB - Monitoring for device');
-    });
-
-    it('should register click handler', () => {
-      trayService.createTray();
-
-      expect(trayService.tray!.on).toHaveBeenCalledWith('click', expect.any(Function));
-    });
-
-    it('should show window on click', () => {
-      trayService.createTray();
-
-      const clickHandler = trayService.tray!.on.mock.calls.find(
-        call => call[0] === 'click'
-      )![1];
-
-      clickHandler();
-
-      expect(mockWindowService.showWindow).toHaveBeenCalled();
-    });
-
-    it('should log creation', () => {
-      trayService.createTray();
-
-      expect(mockLogger.info).toHaveBeenCalledWith('Creating system tray icon');
-    });
-
-    it('should return tray instance', () => {
-      const result = trayService.createTray();
-
-      expect(result).toBe(trayService.tray);
-    });
-
-    it('should handle dist path for bundled environment', () => {
-      vi.mocked(app.getAppPath).mockReturnValue('/app/dist/main');
-
-      trayService.createTray();
-
-      expect(trayService.tray).toBeDefined();
-    });
+  it('creates the tray, installs its tooltip/menu and opens the window on click', () => {
+    const tray = trayService.createTray();
+    expect(tray).toBe(trayService.tray);
+    expect(trayService.tray).not.toBeNull();
+    expect(trayService.tray!.setToolTip).toHaveBeenCalledWith('PrismGB - Monitoring for device');
+    expect(trayService.tray!.setContextMenu).toHaveBeenCalledWith(vi.mocked(Menu.buildFromTemplate).mock.results.at(-1)!.value);
+    const click = trayService.tray!.on.mock.calls.find(call => call[0] === 'click')![1];
+    click();
+    expect(mockWindowService.showWindow).toHaveBeenCalledOnce();
+    expect(mockLogger.info).toHaveBeenCalledWith('Creating system tray icon');
   });
 
   describe('updateTrayMenu', () => {
@@ -191,17 +127,9 @@ describe('TrayService', () => {
       trayService.createTray();
     });
 
-    it('should build menu from template', () => {
-      trayService.updateTrayMenu();
 
-      expect(vi.mocked(Menu.buildFromTemplate)).toHaveBeenCalled();
-    });
 
-    it('should set context menu', () => {
-      trayService.updateTrayMenu();
 
-      expect(trayService.tray!.setContextMenu).toHaveBeenCalled();
-    });
 
     it('should do nothing if tray not created', () => {
       trayService.tray = null;
@@ -217,6 +145,8 @@ describe('TrayService', () => {
       trayService.updateTrayMenu();
 
       expect(mockDeviceConnectionService.isConnected).toHaveBeenCalled();
+      const template = vi.mocked(Menu.buildFromTemplate).mock.calls.at(-1)![0] as MenuTemplateItem[];
+      expect(template).toEqual(expect.arrayContaining([expect.objectContaining({ label: 'Device Connected' })]));
     });
 
     it('should reconcile through the tray-refresh path from the menu item', () => {

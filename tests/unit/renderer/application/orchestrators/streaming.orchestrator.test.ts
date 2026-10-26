@@ -1,20 +1,24 @@
-import * as serviceMocks from '../../../../factories/index.js';
+import { createAppState } from '../../../../factories/app-state.factory.js';
+import {
+  createCaptureStreamMock,
+  createStreamStartedPayloadMock,
+  createSupportedDevicePayloadMock
+} from '../../../../factories/stream.factory.js';
+import { createCaptureGpuRecordingServiceMock } from '../../../../factories/capture.factory.js';
+import {
+  createStreamingServiceFacadeMock,
+  createStreamingViewServiceMock,
+  createStreamingRenderServiceMock
+} from '../../../../factories/streaming-pipeline.factory.js';
+import { createSettingsServiceMock } from '../../../../factories/settings.factory.js';
+import { createEventBus } from '../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../factories/logger.factory.js';
 /**
  * StreamingOrchestrator Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StreamingOrchestrator } from '@renderer/application/orchestrators/streaming.orchestrator';
-import {
-  createAppState,
-  createCaptureStreamMock,
-  createStreamStartedPayloadMock,
-  createSupportedDevicePayloadMock,
-  createCaptureGpuRecordingServiceMock,
-  createStreamingServiceFacadeMock,
-  createStreamingViewServiceMock,
-  createSettingsServiceMock
-} from '../../../../factories/index.js';
 import { createServiceHarness } from '../../../../support/service.harness.js';
 
 describe('StreamingOrchestrator', () => {
@@ -30,9 +34,9 @@ describe('StreamingOrchestrator', () => {
 
   beforeEach(() => {
     const h = createServiceHarness(StreamingOrchestrator, {
-      streamingRenderService: serviceMocks.createStreamingRenderServiceMock(),
-      eventBus: serviceMocks.createEventBus(),
-      loggerFactory: serviceMocks.createLoggerFactory(),
+      streamingRenderService: createStreamingRenderServiceMock(),
+      eventBus: createEventBus(),
+      loggerFactory: createLoggerFactory(),
       streamingService: createStreamingServiceFacadeMock({
           start: vi.fn().mockResolvedValue({}),
           stop: vi.fn().mockResolvedValue(undefined),

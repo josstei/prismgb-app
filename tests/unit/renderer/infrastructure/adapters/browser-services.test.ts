@@ -6,7 +6,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { BrowserMediaDevicesPort } from '@renderer/infrastructure/services/devices/browser-media-devices.port.js';
 import { BrowserStorageAdapter } from '@renderer/infrastructure/adapters/browser-storage.adapter.js';
 import type { LoggerLike } from '@platform/core';
-import { createLogger } from '../../../../factories/index.js';
+import { createLogger } from '../../../../factories/logger.factory.js';
 import {
   installLocalStorageMock,
   installMediaMocks,
