@@ -237,13 +237,7 @@ jobs:
         with:
           name: ${{ inputs.artifact_prefix }}-${{ matrix.label }}
           path: |
-            release/*.AppImage
-            release/*.deb
-            release/*.tar.gz
-            release/*.dmg
-            release/*.zip
-            release/*.exe
-            release/latest*.yml
+            ${{ matrix.artifact_globs }}
             release/SHA256SUMS.txt
           if-no-files-found: ${{ inputs.artifact_if_no_files }}
           retention-days: ${{ inputs.artifact_retention_days }}

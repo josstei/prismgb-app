@@ -1,6 +1,6 @@
 # Contributing to PrismGB
 
-<!-- Source: package.json, docs/naming-conventions.md, src/main/application/container.ts, src/renderer/application/di/tokens.ts, src/platform/devices/domain/catalog.json -->
+<!-- Source: package.json, docs/naming-conventions.md, src/main/application/container.ts, src/renderer/application/container.ts, src/platform/devices/domain/catalog.json -->
 
 Thank you for your interest in contributing to PrismGB! This document provides guidelines and instructions for contributing.
 
@@ -218,10 +218,6 @@ Major-version updates for these packages are **ignored** by Dependabot and must 
 
 Their minor and patch updates still arrive through Dependabot groups.
 
-### Packages Dependabot does not update
-
-- `@inversifyjs/core` — must be the exact core that `inversify` depends on, because the DI test harness reads the metadata inversify writes. When an `inversify` update changes that core, `tests/unit/scripts/dependency-singletons.test.ts` fails on the update PR; set the devDependency to inversify's core version in the same PR.
-
 ### Upgrading TypeScript (major)
 
 A TypeScript major bump touches two things at once: the compiler and the lint toolchain. Do it in one branch:
@@ -235,7 +231,7 @@ A TypeScript major bump touches two things at once: the compiler and the lint to
    npm run typecheck
    npm run build:vite
    npm run test:coverage
-   npm run test:integration
+   npm run test:e2e:built
    ```
 
 ## Code Style
@@ -252,7 +248,8 @@ We use ESLint for code style enforcement:
 - **Services** extend `BaseService` for business logic
 - **Orchestrators** extend `BaseOrchestrator` for coordination
 - Use `EventBus` for cross-service communication
-- Use dependency injection via the container
+- Construct services with typed dependency objects in `createMainRuntime` or `createRendererRuntime`; keep environment ports explicit
+- Let the process runtime own initialization rollback and ordered disposal; do not add token registries or decorator metadata
 
 ## Naming Conventions
 
@@ -279,35 +276,31 @@ Runtime files follow the pattern: `{name}.{type}.{ext}`
 | `.contract.<ext>` | Public payload and API shapes |
 | `.testkit.ts` | Shared test fixtures and doubles |
 | `.utils.<ext>` | Pure utility functions |
-| `.class.<ext>` | Plain classes (no DI) |
 | `.base.<ext>` | Abstract base classes |
 
 **Rules:**
 - Use kebab-case for filenames
 - Type suffix uses dot separator: `ipc-handler.registry.ts`, `timing.config.ts`
 - Abstract base classes use `{type}.base.ts` pattern: `service.base.ts`, `orchestrator.base.ts`
-- Entry points (`index.ts`) and DI containers (`container.ts`) are exceptions
+- Entry points (`index.ts`) and process composition roots (`container.ts`) are exceptions
 
 ### Example Service
 
 ```ts
-import { inject, injectable } from 'inversify';
-import { BaseService } from '@platform/core';
-import type { EventPublisherLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import { BaseService, type LoggerFactoryLike } from '@platform/core';
 
-@injectable()
-export class MyService extends BaseService {
-  constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: EventPublisherLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
-    super({ loggerFactory, eventBus }, 'MyService');
+type ExampleServiceDependencies = {
+  loggerFactory: LoggerFactoryLike;
+  loadValue: () => Promise<string>;
+};
+
+export class ExampleService extends BaseService {
+  constructor(private readonly dependencies: ExampleServiceDependencies) {
+    super({ loggerFactory: dependencies.loggerFactory }, 'ExampleService');
   }
 
-  myMethod(): void {
-    this.logger.info('Doing something');
-    this.eventBus.publish('my:event', { data: 'value' });
+  async readValue(): Promise<string> {
+    return this.dependencies.loadValue();
   }
 }
 ```
@@ -326,7 +319,8 @@ npm run test:unit        # Unit tests only
 npm run test:integration # Integration tests only
 npm run test:integration:watch # Watch integration tests
 npm run test:coverage    # With coverage report
-npm run test:smoke       # Smoke test (requires build)
+npm run test:smoke       # Real application smoke (requires packaged build)
+npm run test:e2e:built   # Playwright against the existing Vite build
 ```
 
 ### Coverage Requirements
@@ -372,3 +366,11 @@ describe('MyService', () => {
 If you have questions about contributing, please open an issue for discussion.
 
 Thank you for contributing to PrismGB!
+
+### Contracts and generated configuration
+
+Settings definitions are typed data in `src/renderer/lib/settings.definitions.ts`. Keep setting keys and serialized values compatible with existing profiles. Renderer events pair channel literals and payload types in `src/platform/events/event.manifest.ts`. Define request schemas and procedures in the tRPC router; `IPC_CHANNELS` contains main-to-renderer push events only.
+
+Platform aliases are declared in `scripts/lib/workspace-aliases.mjs`. Run `npm run generate:paths` after changing that registry and commit the generated TypeScript paths. `npm run lint` checks freshness. `npm run lint:dead-code` checks files, exports, types, and dependencies against both the complete graph and the production graph. Declared testkit surfaces are excluded only from production; unit tests can import internal implementations directly without exposing them through runtime barrels. Explicit dynamic package hooks are annotated for export analysis.
+
+Tests construct subjects from typed dependency fixtures. Exercise behavior, lifecycle failures, and output contracts rather than private container metadata or repeated implementation manifests. The complete Vitest command already includes integration tests; CI runs those suites once and reuses its Linux build for Playwright.

@@ -6,8 +6,7 @@
  */
 
 import { spawn, ChildProcess } from 'node:child_process';
-import { EventEmitter } from 'node:events';
-import { getFfmpegPath, getOptionalFfprobePath } from './ffmpeg-path.utils.js';
+import { createInterface } from 'node:readline';
 import { TRANSCODE_CONFIG } from './transcode.config.js';
 import { DisposableBag } from '@platform/core';
 
@@ -25,9 +24,8 @@ export interface TranscodeProgressData {
  * @param inputPath - Path to the input file
  * @returns Duration in microseconds
  */
-export async function probeDuration(inputPath: string): Promise<number> {
+export async function probeDuration(inputPath: string, ffprobePath: string | null): Promise<number> {
   return new Promise((resolve, reject) => {
-    const ffprobePath = getOptionalFfprobePath();
     if (!ffprobePath) {
       resolve(0);
       return;
@@ -87,19 +85,14 @@ const FORCE_KILL_LIFECYCLE = Symbol('transcodeForceKill');
  * FFmpeg Transcode Process
  * Wraps FFmpeg spawn process with progress tracking and cancellation
  */
-export class TranscodeProcess extends EventEmitter {
-  private _inputPath: string;
-  private _outputPath: string;
-  private _ffmpegArgs: readonly string[];
-  private _durationUs: number;
-  private _inputArgs: readonly string[];
+export class TranscodeProcess {
+  private readonly _ffmpegArgs: readonly string[];
+  private readonly _inputArgs: readonly string[];
   private _process: ChildProcess | null = null;
   private _wasKilled = false;
-  private _hasCompleted = false;
   private _startTime: number | null = null;
   private _lastProgressEmit = 0;
   private readonly _disposables = new DisposableBag();
-  private _completionPromise: Promise<void> | null = null;
 
   /**
    * Create a new transcode process
@@ -109,29 +102,21 @@ export class TranscodeProcess extends EventEmitter {
    * @param durationUs - Expected duration in microseconds (for progress)
    * @param inputArgs - Optional input arguments (applied before -i)
    */
-  constructor(inputPath: string, outputPath: string, ffmpegArgs: readonly string[], durationUs: number, inputArgs: readonly string[] = []) {
-    super();
-    this._inputPath = inputPath;
-    this._outputPath = outputPath;
+  constructor(private readonly _inputPath: string, private readonly _outputPath: string, ffmpegArgs: readonly string[], private readonly _durationUs: number, inputArgs: readonly string[], private readonly ffmpegPath: string) {
     this._ffmpegArgs = [...ffmpegArgs];
-    this._durationUs = durationUs;
     this._inputArgs = [...inputArgs];
   }
 
   /**
    * Start the transcode process
-   * @returns Resolves when transcode completes
+   * @returns The terminal outcome after FFmpeg exits
    */
-  start(): Promise<void> {
-    this._completionPromise = new Promise((resolve, reject) => {
-      if (this._process) {
-        reject(new Error('Process already started'));
-        return;
-      }
+  start(onProgress: (progress: TranscodeProgressData) => void): Promise<'completed' | 'cancelled'> {
+    if (this._startTime !== null) return Promise.reject(new Error('Process already started'));
+    return new Promise((resolve, reject) => {
 
       this._startTime = Date.now();
 
-      const ffmpegPath = getFfmpegPath();
       const args = [
         '-y', // Overwrite output file
         ...this._inputArgs,
@@ -142,57 +127,53 @@ export class TranscodeProcess extends EventEmitter {
         this._outputPath
       ];
 
-      this._process = spawn(ffmpegPath, args, {
+      this._process = spawn(this.ffmpegPath, args, {
         stdio: ['ignore', 'pipe', 'pipe']
       });
 
       let stderrBuffer = '';
 
       // Parse progress from stdout (when using -progress pipe:1)
-      this._process.stdout?.on('data', (data) => {
-        const lines = data.toString().split('\n');
-        for (const line of lines) {
-          this._parseProgressLine(line.trim());
-        }
-      });
+      if (this._process.stdout) {
+        createInterface({ input: this._process.stdout }).on('line', (line) => this._parseProgressLine(line.trim(), onProgress));
+      }
 
       // Collect stderr for error messages
       this._process.stderr?.on('data', (data) => {
         stderrBuffer += data.toString();
       });
 
+      let settled = false;
       this._process.on('close', (code, signal) => {
+        if (settled) return;
+        settled = true;
         this._process = null;
         this._disposables.cancel(FORCE_KILL_LIFECYCLE);
 
         if (this._wasKilled) {
-          this.emit('cancelled');
-          reject(new Error('Transcode cancelled'));
+          resolve('cancelled');
           return;
         }
 
         if (code === 0) {
-          this._hasCompleted = true;
-          this.emit('progress', { percent: 100, timeUs: this._durationUs });
-          this.emit('completed', { outputPath: this._outputPath });
-          resolve();
+          onProgress({ percent: 100, timeUs: this._durationUs });
+          resolve('completed');
         } else {
           const errorMessage = this._extractErrorMessage(stderrBuffer) ||
             `FFmpeg exited with code ${code}${signal ? ` (signal: ${signal})` : ''}`;
           const error = new Error(errorMessage);
-          this.emit('error', error);
           reject(error);
         }
       });
 
       this._process.on('error', (error) => {
+        if (settled) return;
+        settled = true;
         this._process = null;
         this._disposables.cancel(FORCE_KILL_LIFECYCLE);
-        this.emit('error', error);
         reject(error);
       });
     });
-    return this._completionPromise;
   }
 
   /**
@@ -200,7 +181,7 @@ export class TranscodeProcess extends EventEmitter {
    * @param line - Line from ffmpeg progress output
    * @private
    */
-  private _parseProgressLine(line: string): void {
+  private _parseProgressLine(line: string, onProgress: (progress: TranscodeProgressData) => void): void {
     if (!line) return;
 
     // Parse out_time_us=<microseconds>
@@ -222,7 +203,7 @@ export class TranscodeProcess extends EventEmitter {
           ? Math.round(Math.min(100, Math.max(0, (timeUs / this._durationUs) * 100)) * 10) / 10
           : -1;
 
-        this.emit('progress', { percent, timeUs, elapsedMs });
+        onProgress({ percent, timeUs, elapsedMs });
       }
     }
   }
@@ -262,7 +243,7 @@ export class TranscodeProcess extends EventEmitter {
   /**
    * Cancel the transcode process
    */
-  cancel(): void {
+  cancel(): boolean {
     if (this._process && !this._wasKilled) {
       this._wasKilled = true;
       // Send SIGTERM first for graceful shutdown
@@ -277,34 +258,9 @@ export class TranscodeProcess extends EventEmitter {
         }
       }, 2000);
       this._disposables.replace(FORCE_KILL_LIFECYCLE, () => clearTimeout(forceKillTimeoutId));
+      return true;
     }
+    return false;
   }
 
-  waitForExit(): Promise<void> {
-    return this._completionPromise ?? Promise.resolve();
-  }
-
-  /**
-   * Check if process is running
-   * @returns True if process is running
-   */
-  get isRunning(): boolean {
-    return this._process !== null && !this._wasKilled && !this._hasCompleted;
-  }
-
-  /**
-   * Check if process was cancelled
-   * @returns True if cancelled
-   */
-  get wasCancelled(): boolean {
-    return this._wasKilled;
-  }
-
-  /**
-   * Check if process completed successfully
-   * @returns True if completed
-   */
-  get hasCompleted(): boolean {
-    return this._hasCompleted;
-  }
 }

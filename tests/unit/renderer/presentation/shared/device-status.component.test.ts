@@ -5,25 +5,23 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { DeviceStatusComponent } from '@renderer/presentation/shared/device-status.component.js';
 import { DeviceStatusStore } from '@renderer/presentation/state/device-status.store.js';
-import { signal } from '@platform/ui-base/reactive';
-import { createDeviceStatusElementsMock, createEventBus } from '../../../../factories/index.js';
+import { createDeviceStatusElementsMock } from '../../../../factories/ui.factory.js';
+import { createEventBus } from '../../../../factories/event-bus.factory.js';
 import { EventChannels } from '@platform/events';
 
 describe('DeviceStatusComponent', () => {
   let mockElements;
   let mockEventBus;
-  let deviceConnectedSignal;
   let store;
   let component;
 
   beforeEach(() => {
     mockElements = createDeviceStatusElementsMock();
     mockEventBus = createEventBus();
-    deviceConnectedSignal = signal(false);
 
     store = new DeviceStatusStore({
       eventBus: mockEventBus,
-      deviceConnectedSignal
+      initialDeviceConnected: false
     });
 
     component = new DeviceStatusComponent({

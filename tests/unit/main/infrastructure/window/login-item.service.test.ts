@@ -1,30 +1,13 @@
+import { createLoggerFactory } from '../../../../factories/logger.factory.js';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { app as mockApp } from 'electron';
-import { installProcessEnvMock, installProcessRuntimeMock } from '../../../../support/mocks/runtime-property.installers.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { installTargetProperty } from '../../../../support/mocks/runtime-property.installers.js';
+import { createServiceHarness } from '../../../../support/service.harness.js';
 
-type ProcessEnvOverrides = Record<string, string | number | boolean | undefined>;
-type ProcessEnvMock = ReturnType<typeof installProcessEnvMock> & {
-  cleanup(): void;
-  env: NodeJS.ProcessEnv;
-  setValue(nextOverrides?: ProcessEnvOverrides): NodeJS.ProcessEnv;
-};
 type ProcessRuntimeMockOptions = {
   platform?: NodeJS.Platform;
   argv?: string[];
-  env?: ProcessEnvOverrides;
 };
-type ProcessRuntimeMockHandle = ReturnType<typeof installProcessRuntimeMock> & {
-  cleanup(): void;
-  platform?: NodeJS.Platform;
-  argv?: string[];
-  env?: NodeJS.ProcessEnv;
-};
-type ProcessRuntimeEnvMockHandle = ProcessRuntimeMockHandle & {
-  env: NodeJS.ProcessEnv;
-  setEnv(nextOverrides?: ProcessEnvOverrides): NodeJS.ProcessEnv;
-};
-type LoginItemHarness = ReturnType<typeof createInjectableHarness<LoginItemService>>;
 
 vi.mock('electron', () => ({
   app: {
@@ -60,49 +43,16 @@ function createLoginItemSettings(overrides: Partial<LoginItemSettings> = {}): Lo
   };
 }
 
-describe('process runtime mock installers', () => {
-  it('should normalize and restore process runtime descriptors after cleanup', () => {
-    const [originalPlatform, originalArgv, originalEnv] = [process.platform, process.argv, process.env];
-    const processRuntimeMock = installProcessRuntimeMock({
-      platform: 'win32',
-      argv: ['electron', '.', '--hidden'],
-      env: { NODE_ENV: 'development' },
-    }) as ProcessRuntimeEnvMockHandle;
-
-    expect(process.platform).toBe('win32');
-    expect(process.argv).toEqual(['electron', '.', '--hidden']);
-    expect(process.env.NODE_ENV).toBe('development');
-
-    const runtimeEnv = processRuntimeMock.setEnv({
-      NODE_ENV: 'production',
-      PRISMGB_TEST_LOG_LEVEL: 'warn',
-    });
-    expect(processRuntimeMock.env).toBe(runtimeEnv);
-    expect(process.env.PRISMGB_TEST_LOG_LEVEL).toBe('warn');
-
-    const envMock = installProcessEnvMock({ PRISMGB_TEST_NUMBER_ENV: 7 }) as ProcessEnvMock;
-    const replacementEnv = envMock.setValue({ PRISMGB_TEST_BOOLEAN_ENV: false, PRISMGB_TEST_NUMBER_ENV: undefined });
-    expect(envMock.env).toBe(replacementEnv);
-    expect(process.env.PRISMGB_TEST_BOOLEAN_ENV).toBe('false');
-    expect(process.env).not.toHaveProperty('PRISMGB_TEST_NUMBER_ENV');
-
-    envMock.cleanup();
-    processRuntimeMock.cleanup();
-
-    expect(process.platform).toBe(originalPlatform);
-    expect(process.argv).toBe(originalArgv);
-    expect(process.env).toBe(originalEnv);
-  });
-});
-
 describe('LoginItemService', () => {
   let service: LoginItemService;
-  let processRuntimeMocks: ProcessRuntimeMockHandle[];
+  let processRuntimeMocks: ReturnType<typeof installTargetProperty>[];
 
   beforeEach(() => {
     processRuntimeMocks = [];
 
-    const h: LoginItemHarness = createInjectableHarness(LoginItemService);
+    const h = createServiceHarness(LoginItemService, {
+      loggerFactory: createLoggerFactory()
+    });
     service = h.subject;
   });
 
@@ -112,10 +62,10 @@ describe('LoginItemService', () => {
     }
   });
 
-  function useProcessRuntimeMock(options: ProcessRuntimeMockOptions): ProcessRuntimeMockHandle {
-    const handle = installProcessRuntimeMock(options) as ProcessRuntimeMockHandle;
-    processRuntimeMocks.push(handle);
-    return handle;
+  function useProcessRuntimeMock(options: ProcessRuntimeMockOptions): void {
+    for (const [key, value] of Object.entries(options)) {
+      processRuntimeMocks.push(installTargetProperty(process, key, value));
+    }
   }
 
   describe('isEnabled', () => {

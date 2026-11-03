@@ -7,20 +7,6 @@ const COMBOBOX_BLUR_TIMEOUT = Symbol('comboboxBlurTimeout');
 type ComboboxCallback = () => void;
 type ComboboxSelectCallback = (value: string) => void;
 
-const COMBOBOX_LISTBOX_DEFAULTS: Partial<ComboboxListboxControllerOptions<unknown>> = {
-  optionSelector: '[role="option"]',
-  optionClassName: 'combobox-option',
-  optionIdPrefix: 'combobox-option',
-  highlightedClass: 'highlighted',
-  visibleClass: 'visible',
-  listboxAriaLabel: 'Suggestions',
-  debounceMs: 100,
-  blurDelayMs: 150,
-  getOptions: () => [],
-  getOptionValue: (option: unknown) => String(option ?? ''),
-  getOptionLabel: (option: unknown) => String(option ?? '')
-};
-
 export interface ComboboxListboxControllerOptions<TOption = unknown> {
   logger?: LoggerLike | null;
   optionSelector?: string;
@@ -48,34 +34,48 @@ export interface ComboboxListboxInitializeOptions {
 }
 
 export class ComboboxListboxController<TOption = unknown> extends PresentationComponent {
-  declare logger: LoggerLike | null | undefined;
-  declare optionSelector: string;
-  declare optionClassName: string;
-  declare optionIdPrefix: string;
-  declare highlightedClass: string;
-  declare visibleClass: string;
-  declare listboxAriaLabel: string;
-  declare debounceMs: number;
-  declare blurDelayMs: number;
-  declare getOptions: ((value: string) => readonly TOption[]) | null;
-  declare getOptionValue: ((option: TOption) => string) | null;
-  declare getOptionLabel: ((option: TOption) => string) | null;
-  declare onInput: ComboboxCallback | null | undefined;
-  declare onSelect: ComboboxSelectCallback | null | undefined;
-  declare onEnter: ComboboxCallback | null | undefined;
-  declare onEscape: ComboboxCallback | null | undefined;
-  declare onBlur: ComboboxCallback | null | undefined;
-  declare onFocus: ComboboxCallback | null | undefined;
-  declare inputElement: HTMLInputElement | null;
-  declare listboxElement: HTMLElement | null;
-  declare highlightedIndex: number;
+  logger: LoggerLike | null | undefined;
+  optionSelector: string;
+  optionClassName: string;
+  optionIdPrefix: string;
+  highlightedClass: string;
+  visibleClass: string;
+  listboxAriaLabel: string;
+  debounceMs: number;
+  blurDelayMs: number;
+  getOptions: ((value: string) => readonly TOption[]) | null;
+  getOptionValue: ((option: TOption) => string) | null;
+  getOptionLabel: ((option: TOption) => string) | null;
+  onInput: ComboboxCallback | null | undefined;
+  onSelect: ComboboxSelectCallback | null | undefined;
+  onEnter: ComboboxCallback | null | undefined;
+  onEscape: ComboboxCallback | null | undefined;
+  onBlur: ComboboxCallback | null | undefined;
+  onFocus: ComboboxCallback | null | undefined;
+  inputElement: HTMLInputElement | null;
+  listboxElement: HTMLElement | null;
+  highlightedIndex: number;
 
   constructor(options: ComboboxListboxControllerOptions<TOption> = {}) {
     super();
-    this.applyOptions<ComboboxListboxControllerOptions<TOption>>(
-      COMBOBOX_LISTBOX_DEFAULTS as Partial<ComboboxListboxControllerOptions<TOption>>,
-      options
-    );
+    this.logger = options.logger;
+    this.optionSelector = options.optionSelector ?? '[role="option"]';
+    this.optionClassName = options.optionClassName ?? 'combobox-option';
+    this.optionIdPrefix = options.optionIdPrefix ?? 'combobox-option';
+    this.highlightedClass = options.highlightedClass ?? 'highlighted';
+    this.visibleClass = options.visibleClass ?? 'visible';
+    this.listboxAriaLabel = options.listboxAriaLabel ?? 'Suggestions';
+    this.debounceMs = options.debounceMs ?? 100;
+    this.blurDelayMs = options.blurDelayMs ?? 150;
+    this.getOptions = options.getOptions ?? (() => []);
+    this.getOptionValue = options.getOptionValue ?? ((option) => String(option ?? ''));
+    this.getOptionLabel = options.getOptionLabel ?? ((option) => String(option ?? ''));
+    this.onInput = options.onInput;
+    this.onSelect = options.onSelect;
+    this.onEnter = options.onEnter;
+    this.onEscape = options.onEscape;
+    this.onBlur = options.onBlur;
+    this.onFocus = options.onFocus;
     this.inputElement = null;
     this.listboxElement = null;
     this.highlightedIndex = -1;
@@ -121,12 +121,8 @@ export class ComboboxListboxController<TOption = unknown> extends PresentationCo
     this.listen(this.listboxElement, 'click', handleSelection);
   }
 
-  getValue(): string { return this.inputElement?.value || ''; }
   setValue(value: string | null | undefined): void { if (this.inputElement) this.inputElement.value = value ?? ''; }
   isVisible(): boolean { return this.listboxElement?.classList.contains(this.visibleClass) || false; }
-  getHighlightedIndex(): number { return this.highlightedIndex; }
-  focus(): void { this.inputElement?.focus(); }
-  select(): void { this.inputElement?.select(); }
 
   show(): void {
     if (!this.inputElement || !this.listboxElement) return;

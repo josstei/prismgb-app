@@ -22,16 +22,18 @@ export interface CinematicToggleElements {
 
 /** Binds the cinematic pill (active class / aria-pressed / label) to the cinematic-mode signal. */
 class CinematicToggleComponent extends PresentationComponent {
-  declare eventBus: TypedEventBusLike;
-  declare appState: CinematicToggleAppState | null | undefined;
-  declare logger: LoggerLike | null | undefined;
-  declare toggleElement: HTMLElement | null | undefined;
-  declare textElement: HTMLElement | null | undefined;
+  eventBus: TypedEventBusLike;
+  appState: CinematicToggleAppState | null | undefined;
+  logger: LoggerLike | null | undefined;
+  toggleElement: HTMLElement | null | undefined;
+  textElement: HTMLElement | null | undefined;
 
   constructor(options: CinematicToggleComponentOptions) {
     super();
 
-    this.applyOptions<CinematicToggleComponentOptions>({}, options);
+    this.eventBus = options.eventBus;
+    this.appState = options.appState;
+    this.logger = options.logger;
 
     this.toggleElement = null;
     this.textElement = null;
@@ -39,7 +41,8 @@ class CinematicToggleComponent extends PresentationComponent {
 
   initialize(options: CinematicToggleElements): void {
     void this.dispose();
-    this.applyOptions<CinematicToggleElements>({}, options);
+    this.toggleElement = options.toggleElement;
+    this.textElement = options.textElement;
 
     if (!this.toggleElement) {
       this.logger?.warn('Cinematic toggle elements not found');

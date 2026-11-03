@@ -1,11 +1,10 @@
-import { injectable, inject } from 'inversify';
+
 import { BaseService, getErrorMessage } from '@platform/core';
 import { EventChannels } from '@platform/events';
-import { downloadFile } from '@renderer/lib/file-download.utils.js';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
 import type { CallIpcResult } from '@renderer/infrastructure/ipc/call-ipc.js';
-import type { TranscodeStartPayload } from '@platform/ipc';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { TranscodeStartPayload, TranscodeFormat } from '@platform/ipc';
+import type { SettingsAccess } from '@renderer/lib/settings.definitions';
 
 interface RecordingSaveOptions {
   interrupted?: boolean;
@@ -17,38 +16,46 @@ interface SaveResult {
   error?: string;
 }
 
-type CaptureSettingsServiceLike = {
-  getStringSetting(name: string): string;
-};
+type CaptureSettingsServiceLike = Pick<SettingsAccess, 'getSetting'>;
 
 type CaptureTranscodeServiceLike = {
-  isAvailable(): boolean;
   transcode(
     blob: Blob,
-    format: string,
+    format: TranscodeFormat,
     outputBaseName: string,
-    options: { inputArgs?: string[]; interrupted: boolean }
+    options: { inputArgs?: string[] }
   ): Promise<CallIpcResult<TranscodeStartPayload>>;
 };
 
-@injectable()
+type CaptureSaveServiceDependencies = {
+  downloadFile(blob: Blob, filename: string): Promise<void>;
+  eventBus: EventBusLike;
+  settingsService: CaptureSettingsServiceLike;
+  transcodeService: CaptureTranscodeServiceLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 class CaptureSaveService extends BaseService {
-  constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
-    @inject(TOKENS.settingsService) private readonly settingsService: CaptureSettingsServiceLike,
-    @inject(TOKENS.transcodeService) private readonly transcodeService: CaptureTranscodeServiceLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly downloadFile: CaptureSaveServiceDependencies['downloadFile'];
+  private readonly eventBus: EventBusLike;
+  private readonly settingsService: CaptureSettingsServiceLike;
+  private readonly transcodeService: CaptureTranscodeServiceLike;
+
+  constructor({ downloadFile, eventBus, settingsService, transcodeService, loggerFactory }: CaptureSaveServiceDependencies) {
     super({ loggerFactory, eventBus }, 'CaptureSaveService');
+    this.downloadFile = downloadFile;
+    this.eventBus = eventBus;
+    this.settingsService = settingsService;
+    this.transcodeService = transcodeService;
   }
 
   async saveRecording(blob: Blob, filename: string, options: RecordingSaveOptions = {}): Promise<SaveResult> {
-    const format = this.settingsService.getStringSetting('recordingFormat');
+    const format = this.settingsService.getSetting('recordingFormat');
     const interrupted = Boolean(options.interrupted);
 
     this.logger.info(`Saving recording with format preference: ${format}`);
 
-    if (format === 'webm' || !this.transcodeService.isAvailable()) {
+    if (format === 'webm') {
       return this._directSave(blob, filename);
     }
 
@@ -62,7 +69,7 @@ class CaptureSaveService extends BaseService {
 
   async _directSave(blob: Blob, filename: string): Promise<SaveResult> {
     try {
-      await downloadFile(blob, filename);
+      await this.downloadFile(blob, filename);
 
       this.logger.info(`Direct save completed: ${filename}`);
       return { success: true, transcoded: false };
@@ -75,7 +82,7 @@ class CaptureSaveService extends BaseService {
 
   async _transcodeAndSave(
     blob: Blob,
-    format: string,
+    format: TranscodeFormat,
     outputBaseName: string,
     options: RecordingSaveOptions = {}
   ): Promise<SaveResult> {
@@ -85,8 +92,7 @@ class CaptureSaveService extends BaseService {
       const inputArgs = interrupted ? ['-fflags', '+genpts', '-err_detect', 'ignore_err'] : undefined;
 
       const result = await this.transcodeService.transcode(blob, format, outputBaseName, {
-        inputArgs,
-        interrupted
+        ...(inputArgs ? { inputArgs } : {})
       });
 
       if (result.status === 'error') {

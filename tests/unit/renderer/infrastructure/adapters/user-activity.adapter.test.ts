@@ -1,152 +1,58 @@
-/**
- * UserActivityAdapter Unit Tests
- */
-
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { UserActivityAdapter } from '@renderer/infrastructure/adapters/user-activity.adapter.js';
 
-type CapturedDocumentListener = {
-  listener: EventListenerOrEventListenerObject;
-  options?: boolean | AddEventListenerOptions;
-};
-type CapturedDocumentListeners = Record<string, CapturedDocumentListener[]>;
-
-function invokeCapturedListener(listener: EventListenerOrEventListenerObject): void {
-  const event = new Event('test');
-  if (typeof listener === 'function') {
-    listener(event);
-    return;
-  }
-
-  listener.handleEvent(event);
-}
-
 describe('UserActivityAdapter', () => {
-  let adapter: UserActivityAdapter;
-  let eventListeners: CapturedDocumentListeners;
-
+  const adapter = new UserActivityAdapter();
+  let releases: Array<() => void>;
   beforeEach(() => {
-    eventListeners = {};
-    adapter = new UserActivityAdapter();
-
-    // Mock document.addEventListener
-    vi.spyOn(document, 'addEventListener').mockImplementation((event, listener, options) => {
-      if (!eventListeners[event]) {
-        eventListeners[event] = [];
-      }
-      eventListeners[event].push({ listener, options });
-    });
-
-    vi.spyOn(document, 'removeEventListener');
+    vi.useFakeTimers();
+    vi.setSystemTime(1000);
+    releases = [];
   });
-
   afterEach(() => {
-    adapter.dispose();
+    releases.forEach((release) => release());
+    vi.useRealTimers();
   });
 
-  describe('onActivity', () => {
-    it('should call callback on pointermove', () => {
-      const callback = vi.fn();
-      adapter.onActivity(callback);
-
-      // Simulate pointermove event
-      const listeners = eventListeners['pointermove'];
-      expect(listeners).toBeDefined();
-      invokeCapturedListener(listeners[0].listener);
-
-      expect(callback).toHaveBeenCalledTimes(1);
-    });
-
-    it('should call callback on keydown', () => {
-      const callback = vi.fn();
-      adapter.onActivity(callback);
-
-      // Simulate keydown event
-      const listeners = eventListeners['keydown'];
-      expect(listeners).toBeDefined();
-      invokeCapturedListener(listeners[0].listener);
-
-      expect(callback).toHaveBeenCalledTimes(1);
-    });
-
-    it('should call callback on wheel', () => {
-      const callback = vi.fn();
-      adapter.onActivity(callback);
-
-      // Simulate wheel event
-      const listeners = eventListeners['wheel'];
-      expect(listeners).toBeDefined();
-      invokeCapturedListener(listeners[0].listener);
-
-      expect(callback).toHaveBeenCalledTimes(1);
-    });
-
-    it('should call callback on touchstart', () => {
-      const callback = vi.fn();
-      adapter.onActivity(callback);
-
-      // Simulate touchstart event
-      const listeners = eventListeners['touchstart'];
-      expect(listeners).toBeDefined();
-      invokeCapturedListener(listeners[0].listener);
-
-      expect(callback).toHaveBeenCalledTimes(1);
-    });
-
-    it('should register listeners with passive option', () => {
-      const callback = vi.fn();
-      adapter.onActivity(callback);
-
-      ['pointermove', 'keydown', 'wheel', 'touchstart'].forEach((event) => {
-        const listeners = eventListeners[event];
-        expect(listeners).toBeDefined();
-        expect(listeners[0].options).toEqual({ passive: true });
-      });
-    });
-
-    it('should return cleanup function', () => {
-      const callback = vi.fn();
-      const cleanup = adapter.onActivity(callback);
-
-      expect(typeof cleanup).toBe('function');
-    });
-
-    it('should remove all listeners when cleanup is called', () => {
-      const callback = vi.fn();
-      const cleanup = adapter.onActivity(callback);
-
-      cleanup();
-
-      expect(document.removeEventListener).toHaveBeenCalledTimes(4);
-      ['pointermove', 'keydown', 'wheel', 'touchstart'].forEach((event) => {
-        expect(document.removeEventListener).toHaveBeenCalledWith(
-          event,
-          expect.any(Function),
-          { capture: false }
-        );
-      });
-    });
+  it.each(['pointermove', 'keydown', 'wheel', 'touchstart'])('observes %s and throttles activity across event kinds', (event) => {
+    const callback = vi.fn();
+    releases.push(adapter.onActivity(callback));
+    document.dispatchEvent(new Event(event));
+    document.dispatchEvent(new Event('pointermove'));
+    expect(callback).toHaveBeenCalledOnce();
+    vi.advanceTimersByTime(100);
+    document.dispatchEvent(new Event('keydown'));
+    expect(callback).toHaveBeenCalledTimes(2);
   });
 
-  describe('dispose', () => {
-    it('should remove all event listeners', () => {
-      const callback = vi.fn();
-      adapter.onActivity(callback);
+  it('keeps activity listeners passive', () => {
+    const add = vi.spyOn(document, 'addEventListener');
+    releases.push(adapter.onActivity(vi.fn()));
+    for (const event of ['pointermove', 'keydown', 'wheel', 'touchstart']) {
+      expect(add).toHaveBeenCalledWith(event, expect.any(Function), { passive: true });
+    }
+  });
 
-      adapter.dispose();
-
-      expect(document.removeEventListener).toHaveBeenCalledTimes(4);
-    });
-
-    it('should handle multiple dispose calls safely', () => {
-      const callback = vi.fn();
-      adapter.onActivity(callback);
-
-      adapter.dispose();
-      adapter.dispose();
-
-      // Should not throw
-      expect(true).toBe(true);
-    });
+  it('releases only its own subscription and removes every event kind', () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const releaseFirst = adapter.onActivity(first);
+    const releaseSecond = adapter.onActivity(second);
+    releases.push(releaseFirst, releaseSecond);
+    releaseFirst();
+    document.dispatchEvent(new Event('pointermove'));
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledOnce();
+    releaseFirst();
+    vi.advanceTimersByTime(100);
+    document.dispatchEvent(new Event('keydown'));
+    expect(second).toHaveBeenCalledTimes(2);
+    releaseSecond();
+    for (const event of ['pointermove', 'keydown', 'wheel', 'touchstart']) {
+      vi.advanceTimersByTime(100);
+      document.dispatchEvent(new Event(event));
+    }
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledTimes(2);
   });
 });

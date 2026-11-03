@@ -1,31 +1,24 @@
 import { defineConfig } from 'vite';
 import electron from 'vite-plugin-electron';
-import renderer from 'vite-plugin-electron-renderer';
-import { viteStaticCopy } from 'vite-plugin-static-copy';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
-import { platformAliasEntries, platformAliasMap } from './scripts/lib/workspace-aliases.mjs';
+import { platformAliasEntries } from './scripts/lib/workspace-aliases.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const pkg = require('./package.json');
 
+const alias = [
+  ...platformAliasEntries(__dirname),
+  { find: '@main', replacement: path.resolve(__dirname, 'src/main') },
+  { find: '@renderer', replacement: path.resolve(__dirname, 'src/renderer') }
+];
+
 export default defineConfig({
+  // Packaged renderer pages load through file://, including worker chunks.
+  base: './',
   plugins: [
-    // Copy assets and JSON files
-    viteStaticCopy({
-      targets: [
-        {
-          src: 'assets',
-          dest: '.' // Copy to dist/
-        }
-      ],
-      // Watch for changes in dev mode
-      watch: {
-        reloadPageOnChange: true
-      }
-    }),
     electron([
       {
         // Main process entry
@@ -35,13 +28,7 @@ export default defineConfig({
           args.startup();
         },
         vite: {
-          resolve: {
-            alias: {
-              '@main': path.resolve(__dirname, 'src/main'),
-              '@renderer': path.resolve(__dirname, 'src/renderer'),
-              ...platformAliasMap(__dirname)
-            }
-          },
+          resolve: { alias },
           build: {
             outDir: 'dist/main',
             rollupOptions: {
@@ -52,9 +39,15 @@ export default defineConfig({
                 const externals = [
                   'electron',
                   'usb',
-                  'eventemitter3'
+                  'eventemitter3',
+                  'electron-updater',
+                  'electron-log',
+                  'electron-trpc'
                 ];
-                return externals.some(ext => id === ext || id.startsWith(ext + '/') || id.includes('node_modules/' + ext));
+                // Match package boundaries before resolution; a prefix match on
+                // "electron" otherwise emits absolute build-machine paths for
+                // electron-updater, electron-log and electron-trpc.
+                return externals.some(ext => id === ext || id.startsWith(ext + '/') || id.includes('node_modules/' + ext + '/'));
               }
             }
           }
@@ -68,13 +61,7 @@ export default defineConfig({
           args.reload();
         },
         vite: {
-          resolve: {
-            alias: {
-              '@main': path.resolve(__dirname, 'src/main'),
-              '@renderer': path.resolve(__dirname, 'src/renderer'),
-              ...platformAliasMap(__dirname)
-            }
-          },
+          resolve: { alias },
           plugins: [
             {
               // Emit package.json to make preload directory CommonJS scope
@@ -102,11 +89,7 @@ export default defineConfig({
           }
         }
       }
-    ]),
-    renderer({
-      // Enable Node integration in renderer if needed
-      nodeIntegration: false
-    })
+    ])
   ],
 
   // Renderer build config
@@ -132,16 +115,8 @@ export default defineConfig({
   // Serve assets from the assets directory
   publicDir: 'assets',
 
-  // Resolve options
-  resolve: {
-    // Platform module aliases are emitted from scripts/lib/workspace-aliases.mjs
-    // (exact-match entries; deep imports intentionally do not resolve).
-    alias: [
-      ...platformAliasEntries(__dirname),
-      { find: '@main', replacement: path.resolve(__dirname, 'src/main') },
-      { find: '@renderer', replacement: path.resolve(__dirname, 'src/renderer') }
-    ]
-  },
+  // Exact platform entrypoints are shared by all three process builds.
+  resolve: { alias },
 
   // Define global constants
   define: {

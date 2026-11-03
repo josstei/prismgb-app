@@ -1,239 +1,106 @@
-/**
- * BaseService Unit Tests
- */
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { BaseService } from '@platform/core';
 
-import { describe, it, expect, beforeEach, vi, type MockedFunction } from 'vitest';
-import { BaseService, type EventBusLike, type LoggerFactoryLike, type LoggerLike } from '@platform/core';
-import { createEventBus, createLoggerFactory } from '../../../factories/index.js';
+class TestService extends BaseService {
+  onStart: () => void | Promise<void> = () => {};
+  protected override onInitialize(): void | Promise<void> { return this.onStart(); }
+  get initialized(): boolean { return this._initialized; }
+}
 
-type MockEventBus = EventBusLike &
-  ReturnType<typeof createEventBus> & {
-    subscribe: MockedFunction<EventBusLike['subscribe']>;
+function dependencies() {
+  const logger = { info: vi.fn(), debug: vi.fn(), warn: vi.fn(), error: vi.fn() };
+  const unsubscribe = vi.fn();
+  return {
+    logger, unsubscribe,
+    loggerFactory: { create: vi.fn(() => logger) },
+    eventBus: { publish: vi.fn(), subscribe: vi.fn(() => unsubscribe) }
   };
-type MockLoggerFactory = LoggerFactoryLike & ReturnType<typeof createLoggerFactory>;
-type ServiceDependencies = {
-  eventBus?: MockEventBus;
-  loggerFactory?: MockLoggerFactory;
-};
-type InjectedServiceShape = {
-  eventBus?: MockEventBus;
-  loggerFactory?: MockLoggerFactory;
-  logger?: LoggerLike;
-  _serviceName: string;
-  _initialized: boolean;
-};
+}
 
 describe('BaseService', () => {
-  let mockEventBus: MockEventBus;
-  let mockLoggerFactory: MockLoggerFactory;
-  let mockLogger: LoggerLike;
-
+  let deps: ReturnType<typeof dependencies>;
+  let service: TestService;
   beforeEach(() => {
-    mockLoggerFactory = createLoggerFactory() as MockLoggerFactory;
-    mockLogger = mockLoggerFactory.create('TestService');
-    mockEventBus = createEventBus() as MockEventBus;
+    deps = dependencies();
+    service = new TestService(deps, 'TestService');
   });
 
-  describe('Constructor', () => {
-    it('should create service with valid dependencies', () => {
-      const service = new BaseService(
-        { eventBus: mockEventBus, loggerFactory: mockLoggerFactory },
-        'TestService'
-      );
-      const injected = service as unknown as InjectedServiceShape;
-
-      expect(injected.eventBus).toBe(mockEventBus);
-      expect(injected.loggerFactory).toBe(mockLoggerFactory);
-      expect(injected.logger).toBe(mockLogger);
-      expect(injected._serviceName).toBe('TestService');
-    });
-
-    it('should use constructor name if serviceName not provided', () => {
-      class MyService extends BaseService {
-        constructor(deps: ServiceDependencies) {
-          super(deps);
-        }
-      }
-
-      const service = new MyService({ loggerFactory: mockLoggerFactory });
-
-      expect((service as unknown as InjectedServiceShape)._serviceName).toBe('MyService');
-    });
-
-    it('should work without loggerFactory', () => {
-      const service = new BaseService(
-        { eventBus: mockEventBus },
-        'TestService'
-      );
-
-      expect((service as unknown as InjectedServiceShape).logger).toBeUndefined();
-    });
+  it('derives the logger context from the class name when no name is supplied', () => {
+    class NamedService extends BaseService {}
+    new NamedService(deps);
+    expect(deps.loggerFactory.create).toHaveBeenLastCalledWith('NamedService');
   });
 
-  describe('Lifecycle helpers', () => {
-    let service: BaseService;
-
-    beforeEach(() => {
-      service = new BaseService(
-        { eventBus: mockEventBus, loggerFactory: mockLoggerFactory },
-        'TestService'
-      );
-    });
-
-    it('tracks EventBus subscriptions through listen()', async () => {
-      const listener = vi.fn();
-      const unsub = vi.fn();
-      mockEventBus.subscribe = vi.fn(() => unsub) as MockedFunction<EventBusLike['subscribe']>;
-
-      const stopListening = service.listen('device:connected', listener);
-
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('device:connected', listener);
-      expect(unsub).not.toHaveBeenCalled();
-
-      await service.dispose();
-      stopListening();
-      expect(unsub).toHaveBeenCalledTimes(1);
-    });
-
-    it('tracks timeout and interval lifecycles and clears them on dispose', async () => {
-      vi.useFakeTimers();
-
-      const timeoutHandler = vi.fn();
-      const intervalHandler = vi.fn();
-
-      service.timeout(timeoutHandler, 1000);
-      service.interval(intervalHandler, 100);
-
-      await service.dispose();
-      vi.advanceTimersByTime(2000);
-
-      expect(timeoutHandler).not.toHaveBeenCalled();
-      expect(intervalHandler).not.toHaveBeenCalled();
-
-      vi.useRealTimers();
-    });
-
-    it('throws nothing when dispose is called multiple times', async () => {
-      const unsub = vi.fn();
-      mockEventBus.subscribe = vi.fn(() => unsub) as MockedFunction<EventBusLike['subscribe']>;
-      service.listen('one', vi.fn());
-
-      await expect(service.dispose()).resolves.toBeUndefined();
-      await expect(service.dispose()).resolves.toBeUndefined();
-    });
+  it('supports the default hooks and missing optional logger/event bus', async () => {
+    const optional = new BaseService({});
+    optional.initialize();
+    optional.listen('missing', vi.fn())();
+    await optional.dispose();
   });
 
-  describe('initialize', () => {
-    it('should warn and return early if already initialized', () => {
-      const service = new BaseService({ loggerFactory: mockLoggerFactory }, 'TestService');
-
-      service.initialize();
-      service.initialize();
-
-      expect(mockLogger.warn).toHaveBeenCalledWith('TestService already initialized');
-    });
-
-    it('should call a synchronous onInitialize and set _initialized synchronously', () => {
-      class SyncService extends BaseService {
-        hookCalled = false;
-
-        protected override onInitialize(): void {
-          this.hookCalled = true;
-        }
-      }
-
-      const service = new SyncService({ loggerFactory: mockLoggerFactory }, 'SyncService');
-      service.initialize();
-
-      expect(service.hookCalled).toBe(true);
-      expect((service as unknown as InjectedServiceShape)._initialized).toBe(true);
-    });
-
-    it('should not warn twice in a row when a synchronous hook already ran', () => {
-      class CountingService extends BaseService {
-        callCount: number;
-
-        constructor(deps: ServiceDependencies, name: string) {
-          super(deps, name);
-          this.callCount = 0;
-        }
-
-        protected override onInitialize(): void {
-          this.callCount += 1;
-        }
-      }
-
-      const service = new CountingService({ loggerFactory: mockLoggerFactory }, 'CountingService');
-      service.initialize();
-      service.initialize();
-
-      expect(service.callCount).toBe(1);
-    });
-
-    it('should defer _initialized until an asynchronous onInitialize resolves', async () => {
-      class AsyncService extends BaseService {
-        hookCalled = false;
-
-        protected override async onInitialize(): Promise<void> {
-          await Promise.resolve();
-          this.hookCalled = true;
-        }
-      }
-
-      const service = new AsyncService({ loggerFactory: mockLoggerFactory }, 'AsyncService');
-      const result = service.initialize();
-
-      expect((service as unknown as InjectedServiceShape)._initialized).toBe(false);
-
-      await result;
-
-      expect(service.hookCalled).toBe(true);
-      expect((service as unknown as InjectedServiceShape)._initialized).toBe(true);
-    });
-
-    it('should default to a no-op onInitialize', () => {
-      const service = new BaseService({ loggerFactory: mockLoggerFactory }, 'TestService');
-
-      expect(() => service.initialize()).not.toThrow();
-      expect((service as unknown as InjectedServiceShape)._initialized).toBe(true);
-    });
+  it('owns subscriptions and releases them once across disposal and explicit release', async () => {
+    const listener = vi.fn();
+    const stopListening = service.listen('device:connected', listener);
+    expect(deps.eventBus.subscribe).toHaveBeenCalledWith('device:connected', listener);
+    expect(deps.unsubscribe).not.toHaveBeenCalled();
+    await Promise.all([service.dispose(), service.dispose()]);
+    stopListening();
+    expect(deps.unsubscribe).toHaveBeenCalledOnce();
   });
 
-  describe('keyed scheduling', () => {
-    it('replaces a pending keyed timeout scheduled under the same key', () => {
-      vi.useFakeTimers();
-      try {
-        const service = new BaseService({ loggerFactory: createLoggerFactory() }, 'KeyedService');
-        const first = vi.fn();
-        const second = vi.fn();
+  it('runs a synchronous hook once and marks readiness synchronously', () => {
+    service.onStart = vi.fn();
+    expect(service.initialized).toBe(false);
+    service.initialize();
+    expect(service.initialized).toBe(true);
+    service.initialize();
+    expect(service.onStart).toHaveBeenCalledOnce();
+    expect(deps.logger.warn).toHaveBeenCalledWith('TestService already initialized');
+  });
 
-        service.schedule('job', first, 100);
-        service.schedule('job', second, 100);
-        vi.advanceTimersByTime(100);
+  it('shares asynchronous initialization and marks readiness only after completion', async () => {
+    const pending = Promise.withResolvers<void>();
+    service.onStart = vi.fn(() => pending.promise);
+    const initializing = service.initialize();
+    expect(service.initialize()).toBe(initializing);
+    expect(service.initialized).toBe(false);
+    pending.resolve();
+    await initializing;
+    expect(service.onStart).toHaveBeenCalledOnce();
+    expect(service.initialized).toBe(true);
+  });
 
-        expect(first).not.toHaveBeenCalled();
-        expect(second).toHaveBeenCalledTimes(1);
-      } finally {
-        vi.useRealTimers();
-      }
-    });
+  it('preserves initialization failure while still attempting failing rollback', async () => {
+    const pending = Promise.withResolvers<void>();
+    const failure = new Error('initialize failed');
+    const cleanup = vi.fn(() => { throw new Error('cleanup failed'); });
+    service.onStart = () => { service.track(cleanup); return pending.promise; };
+    const initializing = service.initialize();
+    expect(service.initialize()).toBe(initializing);
+    pending.reject(failure);
+    await expect(initializing).rejects.toBe(failure);
+    expect(cleanup).toHaveBeenCalledOnce();
+    expect(service.initialized).toBe(false);
+  });
 
-    it('cancelScheduled stops a keyed interval', () => {
-      vi.useFakeTimers();
-      try {
-        const service = new BaseService({ loggerFactory: createLoggerFactory() }, 'KeyedService');
-        const handler = vi.fn();
+  it('does not revive readiness after disposal overtakes initialization, and can restart afterward', async () => {
+    const pending = Promise.withResolvers<void>();
+    const firstRelease = vi.fn();
+    const nextRelease = vi.fn();
+    service.onStart = () => { service.track(firstRelease); return pending.promise; };
+    const initializing = service.initialize();
+    await Promise.all([service.dispose(), service.dispose()]);
+    expect(firstRelease).toHaveBeenCalledOnce();
+    pending.resolve();
+    await initializing;
+    expect(service.initialized).toBe(false);
+    expect(service.disposables.size).toBe(0);
 
-        service.scheduleInterval('poll', handler, 50);
-        vi.advanceTimersByTime(100);
-        expect(handler).toHaveBeenCalledTimes(2);
-
-        service.cancelScheduled('poll');
-        vi.advanceTimersByTime(100);
-        expect(handler).toHaveBeenCalledTimes(2);
-      } finally {
-        vi.useRealTimers();
-      }
-    });
+    service.onStart = () => { service.track(nextRelease); };
+    await service.initialize();
+    expect(service.initialized).toBe(true);
+    expect(nextRelease).not.toHaveBeenCalled();
+    await service.dispose();
+    expect(nextRelease).toHaveBeenCalledOnce();
   });
 });

@@ -8,7 +8,7 @@ function escapeAttributeSelectorValue(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-export function createTemplateRefSelector(ref: string): string {
+function createTemplateRefSelector(ref: string): string {
   return `[${TEMPLATE_REF_ATTRIBUTE}="${escapeAttributeSelectorValue(ref)}"]`;
 }
 

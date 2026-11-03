@@ -4,13 +4,11 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { ShaderSelectorComponent } from '@renderer/presentation/features/toolbar/shader-selector.component.js';
-import {
-  createAppState,
-  createEventBus,
-  createLogger,
-  createSettingsServiceMock,
-  createShaderSelectorElementsMock
-} from '../../../../../factories/index.js';
+import { createAppState } from '../../../../../factories/app-state.factory.js';
+import { createEventBus } from '../../../../../factories/event-bus.factory.js';
+import { createLogger } from '../../../../../factories/logger.factory.js';
+import { createSettingsServiceMock } from '../../../../../factories/settings.factory.js';
+import { createShaderSelectorElementsMock } from '../../../../../factories/ui.factory.js';
 
 let mockCinematicToggle;
 let mockPresetList;

@@ -1,17 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
-  DEFAULT_DEVICE_ID,
-  DEFAULT_NATIVE_RESOLUTION,
   DeviceCatalog,
   getDeviceAcquisitionProfile,
   getDeviceStreamProfile,
-  matchByLabel,
-  matchByUsb,
-  matchDevice,
-  toDeviceInfo,
-  toDeviceStatusPayload
+  matchByLabel
 } from '@platform/devices';
-import * as DevicesPublicApi from '@platform/devices';
+import { toDeviceInfo } from '../../../../../src/platform/devices/domain/payloads';
+import { matchByUsb } from '../../../../../src/platform/devices/domain/matching';
 import {
   createFixtureDeviceStatus,
   createFixtureFrameData,
@@ -24,18 +19,40 @@ import {
 } from '../../../../devices/media.testkit';
 
 describe('DeviceCatalog', () => {
+  it('maps observed USB devices to canonical device info without fixture-only fields', () => {
+    const observed = {
+      vendorId: CHROMATIC_DESCRIPTOR.usb.vendorId,
+      productId: CHROMATIC_DESCRIPTOR.usb.productId,
+      locationId: 4,
+      deviceAddress: 12,
+      serialNumber: 'CONTRACT-001'
+    };
+
+    expect(toDeviceInfo(CHROMATIC_DESCRIPTOR, observed)).toEqual({
+      id: CHROMATIC_DESCRIPTOR.id,
+      name: CHROMATIC_DESCRIPTOR.name,
+      manufacturer: CHROMATIC_DESCRIPTOR.manufacturer,
+      vendorId: CHROMATIC_DESCRIPTOR.usb.vendorId,
+      productId: CHROMATIC_DESCRIPTOR.usb.productId,
+      locationId: 4,
+      deviceAddress: 12,
+      serialNumber: 'CONTRACT-001'
+    });
+  });
+
+
   it('uses the manifest as the canonical device source', () => {
     const chromatic = DeviceCatalog.get(CHROMATIC_DESCRIPTOR.id);
 
     expect(chromatic).not.toBeNull();
-    expect(chromatic?.id).toBe(DEFAULT_DEVICE_ID);
+    expect(chromatic?.id).toBe(DeviceCatalog.default().id);
     expect(chromatic?.name).toBe(CHROMATIC_DESCRIPTOR.name);
     expect(chromatic?.manufacturer).toBe(CHROMATIC_DESCRIPTOR.manufacturer);
     expect(chromatic?.usb).toMatchObject(CHROMATIC_DESCRIPTOR.usb);
   });
 
   it('returns immutable descriptors and descriptor collections', () => {
-    const devices = DeviceCatalog.all();
+    const devices = DeviceCatalog.enabled();
     const chromatic = DeviceCatalog.default();
 
     expect(Object.isFrozen(devices)).toBe(true);
@@ -68,12 +85,12 @@ describe('DeviceCatalog', () => {
   });
 
   it('exposes default native resolution through catalog helpers', () => {
-    expect(DEFAULT_NATIVE_RESOLUTION).toEqual({
+    const expectedResolution = {
       width: CHROMATIC_DESCRIPTOR.display.nativeWidth,
       height: CHROMATIC_DESCRIPTOR.display.nativeHeight
-    });
-    expect(DeviceCatalog.nativeResolution()).toEqual(DEFAULT_NATIVE_RESOLUTION);
-    expect(DeviceCatalog.nativeResolution(CHROMATIC_DESCRIPTOR.id)).toEqual(DEFAULT_NATIVE_RESOLUTION);
+    };
+    expect(DeviceCatalog.nativeResolution()).toEqual(expectedResolution);
+    expect(DeviceCatalog.nativeResolution(CHROMATIC_DESCRIPTOR.id)).toEqual(expectedResolution);
   });
 
   it('derives stream profiles through the catalog', () => {
@@ -83,7 +100,10 @@ describe('DeviceCatalog', () => {
       hasVideo: true,
       audioSupport: true,
       canvasScale: 4,
-      nativeResolution: DEFAULT_NATIVE_RESOLUTION,
+      nativeResolution: {
+        width: CHROMATIC_DESCRIPTOR.display.nativeWidth,
+        height: CHROMATIC_DESCRIPTOR.display.nativeHeight
+      },
       canvasResolution: {
         width: CHROMATIC_DESCRIPTOR.display.nativeWidth * 4,
         height: CHROMATIC_DESCRIPTOR.display.nativeHeight * 4,
@@ -95,7 +115,7 @@ describe('DeviceCatalog', () => {
       supportedResolutions: CHROMATIC_DESCRIPTOR.display.resolutions,
       supportedFrameRates: CHROMATIC_DESCRIPTOR.fixture?.supportedFrameRates
     });
-    expect(DeviceCatalog.streamProfile(CHROMATIC_DESCRIPTOR.id)).toEqual(profile);
+    expect(getDeviceStreamProfile(CHROMATIC_DESCRIPTOR.id)).toEqual(profile);
     expect(Object.isFrozen(profile)).toBe(true);
   });
 
@@ -138,7 +158,7 @@ describe('DeviceCatalog', () => {
       includeAudio: false,
       audioConstraints: null
     });
-    expect(DeviceCatalog.acquisitionProfile(CHROMATIC_DESCRIPTOR.id)).toEqual(profile);
+    expect(getDeviceAcquisitionProfile(CHROMATIC_DESCRIPTOR.id)).toEqual(profile);
   });
 
   it('exposes fixture projection through the package testkit subpath', () => {
@@ -172,71 +192,14 @@ describe('DeviceCatalog', () => {
     });
   });
 
-  it('matches observed USB devices and media labels through one matcher', () => {
+  it('matches observed USB devices and media labels through the catalog', () => {
     expect(matchByUsb({
       vendorId: CHROMATIC_DESCRIPTOR.usb.vendorId,
       productId: CHROMATIC_DESCRIPTOR.usb.productId
     }).deviceId).toBe(CHROMATIC_DESCRIPTOR.id);
     expect(matchByUsb({ vendorId: 0x9999, productId: CHROMATIC_DESCRIPTOR.usb.productId }).matched).toBe(false);
     expect(matchByLabel(`USB ${CHROMATIC_DESCRIPTOR.name} Device`).deviceId).toBe(CHROMATIC_DESCRIPTOR.id);
-    expect(matchDevice({
-      deviceId: 'media-1',
-      kind: 'videoinput',
-      label: `${CHROMATIC_SPECS.hexVendorId.slice(2)}:${CHROMATIC_SPECS.hexProductId.slice(2)}`,
-      groupId: 'g1'
-    }).reason).toBe('label');
+    expect(matchByLabel(`${CHROMATIC_SPECS.hexVendorId.slice(2)}:${CHROMATIC_SPECS.hexProductId.slice(2)}`).reason).toBe('label');
   });
 
-  it('maps canonical domain status to transport-safe payloads without IPC envelopes', () => {
-    const descriptor = DeviceCatalog.default();
-    const info = toDeviceInfo(descriptor, {
-      vendorId: descriptor.usb.vendorId,
-      productId: descriptor.usb.productId,
-      locationId: 7,
-      deviceAddress: 12,
-      serialNumber: 'abc'
-    });
-
-    const payload = toDeviceStatusPayload({
-      state: 'connected',
-      connected: true,
-      device: info,
-      updatedAt: 12345
-    });
-
-    expect(payload).toEqual({
-      state: 'connected',
-      connected: true,
-      device: {
-        id: descriptor.id,
-        name: descriptor.name,
-        manufacturer: descriptor.manufacturer,
-        vendorId: descriptor.usb.vendorId,
-        productId: descriptor.usb.productId,
-        locationId: 7,
-        deviceAddress: 12,
-        serialNumber: 'abc'
-      }
-    });
-    expect('success' in payload).toBe(false);
-  });
-
-  it('keeps the package root to catalog, matcher, and payload helpers', () => {
-    expect(Object.keys(DevicesPublicApi).sort()).toEqual([
-      'DEFAULT_DEVICE_ID',
-      'DEFAULT_NATIVE_RESOLUTION',
-      'DeviceCatalog',
-      'deviceInfoSchema',
-      'deviceStatusPayloadSchema',
-      'getDeviceAcquisitionProfile',
-      'getDeviceStreamProfile',
-      'matchByLabel',
-      'matchByUsb',
-      'matchDevice',
-      'nullableDeviceInfoSchema',
-      'toDeviceInfo',
-      'toDeviceInfoPayload',
-      'toDeviceStatusPayload'
-    ]);
-  });
 });

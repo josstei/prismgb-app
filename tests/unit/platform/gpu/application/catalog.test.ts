@@ -1,16 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { PRESET_POLICY, getUiPresets, resolvePreset } from '../../../../../src/platform/gpu/index';
-import { BUILT_IN_PRESET_CATALOG, BUILT_IN_PRESETS } from '../../../../../src/platform/gpu/domain/presets';
-import {
-  getPackageDefaultPreset,
-  getPreset,
-  getRendererDefaultPreset
-} from '../../../../../src/platform/gpu/application/catalog';
+import { BUILT_IN_PRESETS } from '../../../../../src/platform/gpu/domain/presets';
+import { getPreset } from '../../../../../src/platform/gpu/application/catalog';
 
 describe('preset catalog', () => {
   it('exports built-in catalog and policy through the package entrypoint without mutable registration', () => {
-    expect(BUILT_IN_PRESET_CATALOG.packageDefaultPresetId).toBe(PRESET_POLICY.packageDefaultId);
-    expect(BUILT_IN_PRESET_CATALOG.rendererDefaultPresetId).toBe(PRESET_POLICY.rendererDefaultId);
     expect(getPreset(PRESET_POLICY.rendererDefaultId)).toBeDefined();
     expect(getUiPresets().map((preset) => preset.id)).not.toContain(PRESET_POLICY.performancePresetId);
   });
@@ -20,10 +14,9 @@ describe('preset catalog', () => {
     expect(getPreset('unknown-preset')).toBeUndefined();
   });
 
-  it('keeps package and renderer defaults distinct', () => {
-    expect(getPackageDefaultPreset().id).toBe(PRESET_POLICY.packageDefaultId);
-    expect(getRendererDefaultPreset().id).toBe(PRESET_POLICY.rendererDefaultId);
-    expect(PRESET_POLICY.rendererDefaultId).not.toBe(PRESET_POLICY.packageDefaultId);
+  it('preserves the renderer default for absent selections', () => {
+    expect(resolvePreset().id).toBe('vibrant');
+    expect(resolvePreset('').id).toBe('vibrant');
   });
 
   it('returns UI summaries in built-in catalog order', () => {

@@ -5,7 +5,6 @@
  * Keeps CaptureOrchestrator thin by owning all GPU recording state.
  */
 
-import { injectable, inject } from 'inversify';
 import { BaseService, raceWithTimeout } from '@platform/core';
 import type { LoggerFactoryLike, TimedRaceOutcome } from '@platform/core';
 import { EventChannels } from '@platform/events';
@@ -16,17 +15,20 @@ import type {
   GpuRendererServiceLike,
   RecordingScaleParams
 } from '@renderer/infrastructure/services/streaming/streaming.contract.js';
-import { TOKENS } from '@renderer/application/di/tokens.js';
 
 const RECORDING_FRAME_LIFECYCLE = Symbol('gpuRecordingFrame');
 
-@injectable()
+type CaptureGpuRecordingServiceDependencies = {
+  streamingRenderService: GpuRendererServiceLike;
+  eventBus: TypedEventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 class CaptureGpuRecordingService extends BaseService {
   private _recordingCanvas: HTMLCanvasElement | null;
   private _recordingCtx: CanvasRenderingContext2D | null;
   private _recordingStream: MediaStream | null;
   private _isRecording: boolean;
-  private _isCapturePending: boolean;
   private _recordingDroppedFrames: number;
   private _recordingWidth: number;
   private _recordingHeight: number;
@@ -36,19 +38,20 @@ class CaptureGpuRecordingService extends BaseService {
   private _isCanvasCleared: boolean;
   private _isDraining: boolean;
   private _lastCapturePromise: Promise<ImageBitmap> | null;
+  private stopping: Promise<void> | null = null;
 
-  constructor(
-    @inject(TOKENS.streamingRenderService) private readonly gpuRendererService: GpuRendererServiceLike,
-    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly gpuRendererService: GpuRendererServiceLike;
+  private readonly eventBus: TypedEventBusLike;
+
+  constructor({ streamingRenderService: gpuRendererService, eventBus, loggerFactory }: CaptureGpuRecordingServiceDependencies) {
     super({ loggerFactory, eventBus }, 'CaptureGpuRecordingService');
+    this.gpuRendererService = gpuRendererService;
+    this.eventBus = eventBus;
 
     this._recordingCanvas = null;
     this._recordingCtx = null;
     this._recordingStream = null;
     this._isRecording = false;
-    this._isCapturePending = false;
     this._recordingDroppedFrames = 0;
     this._recordingWidth = 0;
     this._recordingHeight = 0;
@@ -68,15 +71,8 @@ class CaptureGpuRecordingService extends BaseService {
     return this._isRecording;
   }
 
-  getRecordingStream(): MediaStream | null {
-    return this._recordingStream;
-  }
-
-  captureFrame(): Promise<ImageBitmap> {
-    return this.gpuRendererService.captureFrame();
-  }
-
   async start({ stream, frameRate }: GpuRecordingStartOptions): Promise<MediaStream> {
+    if (this.stopping) await this.stopping;
     if (!stream) {
       this.logger.warn('Cannot start GPU recording - no stream provided');
       throw new Error('No stream provided');
@@ -87,40 +83,45 @@ class CaptureGpuRecordingService extends BaseService {
       throw new Error('GPU recording already active');
     }
 
-    const { width: targetWidth, height: targetHeight } = this.gpuRendererService.getTargetDimensions();
+    try {
+      const { width: targetWidth, height: targetHeight } = this.gpuRendererService.getTargetDimensions();
 
-    this._recordingCanvas = document.createElement('canvas');
-    this._recordingCanvas.width = targetWidth;
-    this._recordingCanvas.height = targetHeight;
-    this._recordingWidth = targetWidth;
-    this._recordingHeight = targetHeight;
-    const recordingContext = this._recordingCanvas.getContext('2d', { alpha: false });
-    if (!recordingContext) {
-      this._recordingCanvas = null;
-      this._recordingWidth = 0;
-      this._recordingHeight = 0;
-      throw new Error('Unable to create GPU recording canvas context');
+      this._recordingCanvas = document.createElement('canvas');
+      this._recordingCanvas.width = targetWidth;
+      this._recordingCanvas.height = targetHeight;
+      this._recordingWidth = targetWidth;
+      this._recordingHeight = targetHeight;
+      const recordingContext = this._recordingCanvas.getContext('2d', { alpha: false });
+      if (!recordingContext) {
+        this._recordingCanvas = null;
+        this._recordingWidth = 0;
+        this._recordingHeight = 0;
+        throw new Error('Unable to create GPU recording canvas context');
+      }
+
+      this._recordingCtx = recordingContext;
+      recordingContext.imageSmoothingEnabled = false;
+
+      const fps = frameRate || 60;
+      const recordingStream = this._recordingCanvas.captureStream(fps);
+      this._recordingStream = recordingStream;
+
+      for (const track of stream.getAudioTracks()) {
+        recordingStream.addTrack(track.clone());
+      }
+
+      this._isRecording = true;
+      this._recordingDroppedFrames = 0;
+
+      this.logger.info(`Starting GPU recording at ${targetWidth}x${targetHeight}`);
+
+      this._startRecordingFrameLoop();
+
+      return recordingStream;
+    } catch (error) {
+      this._cleanupGpuRecording();
+      throw error;
     }
-
-    this._recordingCtx = recordingContext;
-    recordingContext.imageSmoothingEnabled = false;
-
-    const fps = frameRate || 60;
-    const recordingStream = this._recordingCanvas.captureStream(fps);
-    this._recordingStream = recordingStream;
-
-    for (const track of stream.getAudioTracks()) {
-      recordingStream.addTrack(track.clone());
-    }
-
-    this._isRecording = true;
-    this._recordingDroppedFrames = 0;
-
-    this.logger.info(`Starting GPU recording at ${targetWidth}x${targetHeight}`);
-
-    this._startRecordingFrameLoop();
-
-    return recordingStream;
   }
 
   /**
@@ -128,10 +129,13 @@ class CaptureGpuRecordingService extends BaseService {
    * This prevents race conditions with GPU resource cleanup.
    * @returns {Promise<void>}
    */
-  async stop(): Promise<void> {
-    if (!this._isRecording) {
-      return;
-    }
+  stop(): Promise<void> {
+    if (this.stopping) return this.stopping;
+    if (!this._isRecording) return Promise.resolve();
+    return this.stopping = this.drain().finally(() => { this.stopping = null; });
+  }
+
+  private async drain(): Promise<void> {
 
     // Enter draining state - no new captures will start
     this._isDraining = true;
@@ -145,16 +149,7 @@ class CaptureGpuRecordingService extends BaseService {
       const capturePromise = this._lastCapturePromise;
       const drainResult: TimedRaceOutcome = await raceWithTimeout(capturePromise, 500);
 
-      if (drainResult === 'timed-out') {
-        void capturePromise.then((bitmap) => {
-          if (bitmap && typeof bitmap.close === 'function') {
-            bitmap.close();
-            this.logger.debug('Closed late-resolving ImageBitmap after timeout');
-          }
-        }).catch(() => {
-          // Ignore errors - capture may have failed
-        });
-      } else if (drainResult === 'failed') {
+      if (drainResult === 'failed') {
         // Capture may have failed due to GPU shutdown - that's expected
         this.logger.debug('In-flight capture completed with error (expected during shutdown)');
       }
@@ -163,11 +158,9 @@ class CaptureGpuRecordingService extends BaseService {
     this._cleanupGpuRecording();
   }
 
-  override dispose(): void | Promise<void> {
-    this._cleanupGpuRecording();
-    const disposed = super.dispose();
-    this.logger.info('CaptureGpuRecordingService disposed');
-    return disposed;
+  override async dispose(): Promise<void> {
+    await this.stop();
+    await super.dispose();
   }
 
   _calculateRecordingScale(frameWidth: number, frameHeight: number): RecordingScaleParams | null {
@@ -229,53 +222,52 @@ class CaptureGpuRecordingService extends BaseService {
       // Don't start new captures if draining or stopped
       if (!this._isRecording || this._isDraining) return;
 
-      if (!this._isCapturePending) {
-        this._isCapturePending = true;
-        let frame: ImageBitmap | null = null;
+      let frame: ImageBitmap | null = null;
 
-        // Track the capture promise for draining
-        const capturePromise = this.gpuRendererService.captureFrame();
+      let capturePromise: Promise<ImageBitmap> | null = null;
+      try {
+        capturePromise = this.gpuRendererService.captureFrame();
         this._lastCapturePromise = capturePromise;
+        frame = await capturePromise;
+        if (this._isDraining || !this._isRecording || this._lastCapturePromise !== capturePromise) return;
 
-        try {
-          frame = await capturePromise;
+        const scaleParams = this._calculateRecordingScale(frame.width, frame.height);
+        if (!scaleParams) {
+          throw new Error('Invalid frame dimensions');
+        }
 
-          const scaleParams = this._calculateRecordingScale(frame.width, frame.height);
-          if (!scaleParams) {
-            throw new Error('Invalid frame dimensions');
-          }
+        const { drawWidth, drawHeight, offsetX, offsetY, needsClearing } = scaleParams;
+        const recordingContext = this._recordingCtx;
+        if (!recordingContext) {
+          throw new Error('Recording canvas context is unavailable');
+        }
 
-          const { drawWidth, drawHeight, offsetX, offsetY, needsClearing } = scaleParams;
-          const recordingContext = this._recordingCtx;
-          if (!recordingContext) {
-            throw new Error('Recording canvas context is unavailable');
-          }
+        // Performance: only clear canvas once when dimensions require it
+        if (needsClearing && !this._isCanvasCleared) {
+          recordingContext.fillStyle = '#000000';
+          recordingContext.fillRect(0, 0, this._recordingWidth, this._recordingHeight);
+          this._isCanvasCleared = true;
+        }
 
-          // Performance: only clear canvas once when dimensions require it
-          if (needsClearing && !this._isCanvasCleared) {
-            recordingContext.fillStyle = '#000000';
-            recordingContext.fillRect(0, 0, this._recordingWidth, this._recordingHeight);
-            this._isCanvasCleared = true;
-          }
-
-          recordingContext.drawImage(
-            frame,
-            0, 0, frame.width, frame.height,
-            offsetX, offsetY, drawWidth, drawHeight
-          );
-        } catch (e) {
-          this.logger.debug('Frame capture skipped:', getErrorMessage(e, 'Frame capture failed'));
-          this._recordingDroppedFrames++;
-          if (this._recordingDroppedFrames >= 30) {
-            this.eventBus.publish(EventChannels.CAPTURE.RECORDING_DEGRADED, {
-              reason: 'dropped_frames',
-              droppedFrames: this._recordingDroppedFrames
-            });
-            this._recordingDroppedFrames = 0;
-          }
-        } finally {
-          frame?.close();
-          this._isCapturePending = false;
+        recordingContext.drawImage(
+          frame,
+          0, 0, frame.width, frame.height,
+          offsetX, offsetY, drawWidth, drawHeight
+        );
+      } catch (e) {
+        if (capturePromise && this._lastCapturePromise !== capturePromise) return;
+        this.logger.debug('Frame capture skipped:', getErrorMessage(e, 'Frame capture failed'));
+        this._recordingDroppedFrames++;
+        if (this._recordingDroppedFrames >= 30) {
+          this.eventBus.publish(EventChannels.CAPTURE.RECORDING_DEGRADED, {
+            reason: 'dropped_frames',
+            droppedFrames: this._recordingDroppedFrames
+          });
+          this._recordingDroppedFrames = 0;
+        }
+      } finally {
+        frame?.close();
+        if (this._lastCapturePromise === capturePromise) {
           this._lastCapturePromise = null;
         }
       }
@@ -290,14 +282,16 @@ class CaptureGpuRecordingService extends BaseService {
     this.disposables.cancel(RECORDING_FRAME_LIFECYCLE);
 
     if (this._recordingStream) {
-      this._recordingStream.getTracks().forEach((track) => track.stop());
+      for (const track of this._recordingStream.getTracks()) {
+        try { track.stop(); }
+        catch (error) { this.logger.warn('Failed to stop recording track:', getErrorMessage(error)); }
+      }
       this._recordingStream = null;
     }
 
     this._recordingCanvas = null;
     this._recordingCtx = null;
     this._isRecording = false;
-    this._isCapturePending = false;
     this._recordingDroppedFrames = 0;
     this._recordingWidth = 0;
     this._recordingHeight = 0;
@@ -314,6 +308,7 @@ class CaptureGpuRecordingService extends BaseService {
   }
 
   private _scheduleRecordingFrame(callback: FrameRequestCallback): void {
+    if (!this._isRecording || this._isDraining) return;
     const recordingFrameId = requestAnimationFrame(callback);
     this.disposables.replace(RECORDING_FRAME_LIFECYCLE, () => cancelAnimationFrame(recordingFrameId));
   }

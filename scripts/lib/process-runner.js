@@ -17,23 +17,21 @@ export async function waitForProcessClose(child, timeoutMs) {
     return { closed: false, code: null, signal: null };
   }
 
+  // exitCode alone only proves exit: inherited pipes can keep close pending.
+  if ((child.exitCode != null || child.signalCode != null)
+    && (child.stdio ?? []).every((stream) => !stream || stream.destroyed)) {
+    return { closed: true, code: child.exitCode ?? null, signal: child.signalCode ?? null };
+  }
+
   return new Promise((resolve) => {
-    let settled = false;
-
-    const timer = setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        resolve({ closed: false, code: null, signal: 'timeout' });
-      }
-    }, timeoutMs);
-
-    child.once('close', (code, signal) => {
-      if (!settled) {
-        settled = true;
-        clearTimeout(timer);
-        resolve({ closed: true, code, signal });
-      }
-    });
+    const finish = (result) => {
+      clearTimeout(timer);
+      child.removeListener('close', onClose);
+      resolve(result);
+    };
+    const onClose = (code, signal) => finish({ closed: true, code, signal });
+    const timer = setTimeout(() => finish({ closed: false, code: null, signal: 'timeout' }), timeoutMs);
+    child.once('close', onClose);
   });
 }
 
@@ -67,9 +65,10 @@ export async function terminateProcessTree(child, {
   const closeResult = await waitForProcessClose(child, gracefulMs);
   if (!closeResult.closed) {
     try {
-      child.kill('SIGKILL');
+      if (platform !== 'win32' && killProcessGroup) signalGroup(child.pid, 'SIGKILL');
+      else child.kill('SIGKILL');
     } catch {
-      return;
+      try { child.kill('SIGKILL'); } catch { return; }
     }
     await waitForProcessClose(child, Math.min(1000, gracefulMs));
   }

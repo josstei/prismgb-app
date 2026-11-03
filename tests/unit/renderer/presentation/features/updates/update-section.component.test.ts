@@ -7,7 +7,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { UpdateSectionComponent } from '@renderer/presentation/features/updates/update-section.component.js';
 import { UpdateState } from '@platform/config';
-import { createEventBus, createLoggerFactory } from '../../../../../factories/index.js';
+import { createEventBus } from '../../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
 import { EventChannels } from '@platform/events';
 
 function createElements() {

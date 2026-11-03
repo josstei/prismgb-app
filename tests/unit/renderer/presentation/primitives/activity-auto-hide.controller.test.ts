@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { PresentationComponent, ActivityAutoHideController } from '@platform/ui-base';
-import { createCallbackMap } from '../../../../factories/index.js';
+import { createCallbackMap } from '../../../../factories/system.factory.js';
 class TestComponent extends PresentationComponent {
   listenTo(target: EventTarget | null, type: string, handler: EventListener) {
     return this.listen(target, type, handler);
@@ -77,19 +77,6 @@ describe('ActivityAutoHideController', () => {
     expect(callbacks.onTimeout).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(callbacks.onTimeout).toHaveBeenCalledTimes(1);
-  });
-  it('does not start timer when shouldStartTimer returns false', () => {
-    const shouldStartTimer = vi.fn(() => false);
-    controller = new ActivityAutoHideController({
-      onTimeout: callbacks.onTimeout,
-      shouldStartTimer,
-      timeoutMs: 1000
-    });
-    controller.enable();
-    controller.startTimer();
-    vi.advanceTimersByTime(2000);
-    expect(shouldStartTimer).toHaveBeenCalledTimes(1);
-    expect(callbacks.onTimeout).not.toHaveBeenCalled();
   });
   it('does not fire timeout after disable', () => {
     controller = new ActivityAutoHideController({

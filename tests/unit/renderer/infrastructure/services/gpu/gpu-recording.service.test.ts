@@ -1,3 +1,14 @@
+import { createCanvasRenderingContextMock } from '../../../../../factories/system.factory.js';
+import { createGpuRendererServiceMock } from '../../../../../factories/streaming-pipeline.factory.js';
+import {
+  createMediaStreamMock,
+  createMediaTrackMock,
+  createMockCanvas,
+  createStreamPayloadMock
+} from '../../../../../factories/stream.factory.js';
+import { createRecordingFrameMock } from '../../../../../factories/capture.factory.js';
+import { createEventBus } from '../../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
 /**
  * CaptureGpuRecordingService Unit Tests
  */
@@ -5,20 +16,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { CaptureGpuRecordingService } from '@renderer/infrastructure/services/gpu/gpu-recording.service';
 import {
-  createCanvasRenderingContextMock,
-  createGpuRendererServiceMock,
-  createMediaStreamMock,
-  createMediaTrackMock,
-  createMockCanvas,
-  createRecordingFrameMock,
-  createStreamPayloadMock
-} from '../../../../../factories/index.js';
-import {
   createCleanupStack,
   installAnimationFrameMock,
   installDocumentCreateElementMock
 } from '../../../../../support/mocks/browser-api.installers.js';
-import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../../support/service.harness.js';
 
 describe('CaptureGpuRecordingService', () => {
   let service;
@@ -63,13 +65,13 @@ describe('CaptureGpuRecordingService', () => {
   beforeEach(() => {
     cleanupStack = createCleanupStack();
 
-    const h = createInjectableHarness(CaptureGpuRecordingService, {
-      overrides: {
-        streamingRenderService: createGpuRendererServiceMock({
+    const h = createServiceHarness(CaptureGpuRecordingService, {
+      eventBus: createEventBus(),
+      loggerFactory: createLoggerFactory(),
+      streamingRenderService: createGpuRendererServiceMock({
           captureFrame: vi.fn(),
           getTargetDimensions: vi.fn(() => ({ width: 640, height: 576 }))
         })
-      }
     });
     service = h.subject;
     mockLogger = h.logger;
@@ -100,12 +102,12 @@ describe('CaptureGpuRecordingService', () => {
 
   it('should throw a clear error when canvas context creation fails', async () => {
     const { mockCanvas } = createRecordingCanvasFixture({
-      context: null,
       recordingStream: createMediaStreamMock({
         tracks: []
       })
     });
 
+    mockCanvas.getContext = vi.fn(() => null);
     trackMock(installDocumentCreateElementMock({
       createElement: vi.fn(() => mockCanvas)
     }));
@@ -116,6 +118,50 @@ describe('CaptureGpuRecordingService', () => {
       .rejects.toThrow('Unable to create GPU recording canvas context');
 
     expect(service.isActive()).toBe(false);
+  });
+
+  it('rolls back the recording stream when audio cloning fails during startup', async () => {
+    const videoTrack = createMediaTrackMock();
+    const { mockCanvas } = createRecordingCanvasFixture({ recordingStream: createMediaStreamMock({ tracks: [videoTrack] }) });
+    installCanvasAndAnimationFrameMocks(mockCanvas, { requestAnimationFrame: vi.fn() });
+    const audioTrack = createMediaTrackMock({ clone: vi.fn(() => { throw new Error('Track clone failed'); }) });
+    const stream = createStreamPayloadMock({ getAudioTracks: vi.fn(() => [audioTrack]) });
+    await expect(service.start({ stream })).rejects.toThrow('Track clone failed');
+    expect(videoTrack.stop).toHaveBeenCalledOnce();
+    expect(service.isActive()).toBe(false);
+    await service.start({ stream: createStreamPayloadMock() });
+    expect(service.isActive()).toBe(true);
+    await service.stop();
+  });
+
+  it('joins concurrent drains before allowing a new recording to start', async () => {
+    vi.useFakeTimers();
+    try {
+      const captured = Promise.withResolvers<ImageBitmap>();
+      mockGpuRendererService.captureFrame.mockReturnValueOnce(captured.promise);
+      const { mockCanvas } = createRecordingCanvasFixture();
+      let frameCallback: (() => Promise<void>) | undefined;
+      installCanvasAndAnimationFrameMocks(mockCanvas, {
+        requestAnimationFrame: vi.fn((callback) => { frameCallback = callback; return 1; }), cancelAnimationFrame: vi.fn()
+      });
+      await service.start({ stream: createStreamPayloadMock() });
+      const rendering = frameCallback!();
+      const first = service.stop();
+      await vi.advanceTimersByTimeAsync(100);
+      const second = service.stop();
+      expect(first).toBe(second);
+      const restarted = service.start({ stream: createStreamPayloadMock() });
+      await vi.advanceTimersByTimeAsync(400);
+      await Promise.all([first, second, restarted]);
+      expect(service.isActive()).toBe(true);
+      await vi.advanceTimersByTimeAsync(100);
+      expect(service.isActive()).toBe(true);
+      const frame = createRecordingFrameMock();
+      captured.resolve(frame);
+      await rendering;
+      expect(frame.close).toHaveBeenCalledOnce();
+      await service.stop();
+    } finally { vi.useRealTimers(); }
   });
 
   it('should calculate integer upscaling for smaller frames', () => {
@@ -175,6 +221,74 @@ describe('CaptureGpuRecordingService', () => {
     expect(mockFrame.close).toHaveBeenCalled();
   });
 
+  it('continues recording after capture throws synchronously during session replacement', async () => {
+    const frame = createRecordingFrameMock();
+    mockGpuRendererService.captureFrame
+      .mockImplementationOnce(() => { throw new Error('No active rendering session'); })
+      .mockResolvedValueOnce(frame);
+    const context = createCanvasRenderingContextMock();
+    const { mockCanvas } = createRecordingCanvasFixture({ context });
+    let frameCallback: (() => Promise<void>) | undefined;
+    const requestAnimationFrame = vi.fn((callback) => { frameCallback = callback; return 1; });
+    installCanvasAndAnimationFrameMocks(mockCanvas, { requestAnimationFrame, cancelAnimationFrame: vi.fn() });
+    await service.start({ stream: createStreamPayloadMock() });
+    await frameCallback!();
+    expect(requestAnimationFrame).toHaveBeenCalledTimes(2);
+    await frameCallback!();
+    expect(context.drawImage).toHaveBeenCalledOnce();
+    expect(frame.close).toHaveBeenCalledOnce();
+    await service.stop();
+  });
+
+  it('does not let a late failed capture from a stopped generation schedule into a new recording', async () => {
+    vi.useFakeTimers();
+    try {
+      const captured = Promise.withResolvers<ImageBitmap>();
+      mockGpuRendererService.captureFrame.mockReturnValueOnce(captured.promise);
+      const { mockCanvas } = createRecordingCanvasFixture();
+      let frameCallback: (() => Promise<void>) | undefined;
+      const requestAnimationFrame = vi.fn((callback) => { frameCallback = callback; return 1; });
+      installCanvasAndAnimationFrameMocks(mockCanvas, { requestAnimationFrame, cancelAnimationFrame: vi.fn() });
+      await service.start({ stream: createStreamPayloadMock() });
+      const rendering = frameCallback!();
+      const stopped = service.stop();
+      await vi.advanceTimersByTimeAsync(500);
+      await stopped;
+      await service.start({ stream: createStreamPayloadMock() });
+      expect(requestAnimationFrame).toHaveBeenCalledTimes(2);
+      captured.reject(new Error('Old worker stopped'));
+      await rendering;
+      expect(requestAnimationFrame).toHaveBeenCalledTimes(2);
+      expect(service.isActive()).toBe(true);
+      await service.stop();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('closes a late captured bitmap exactly once after drain timeout without drawing or scheduling', async () => {
+    vi.useFakeTimers();
+    try {
+      const captured = Promise.withResolvers<ImageBitmap>();
+      mockGpuRendererService.captureFrame.mockReturnValueOnce(captured.promise);
+      const context = createCanvasRenderingContextMock();
+      const { mockCanvas } = createRecordingCanvasFixture({ context });
+      let frameCallback: (() => Promise<void>) | undefined;
+      const requestAnimationFrame = vi.fn((callback) => { frameCallback = callback; return 1; });
+      installCanvasAndAnimationFrameMocks(mockCanvas, { requestAnimationFrame, cancelAnimationFrame: vi.fn() });
+      await service.start({ stream: createStreamPayloadMock() });
+      const rendering = frameCallback!();
+      const stopped = service.stop();
+      await vi.advanceTimersByTimeAsync(500);
+      await stopped;
+      const frame = createRecordingFrameMock();
+      captured.resolve(frame);
+      await rendering;
+      expect(frame.close).toHaveBeenCalledTimes(1);
+      expect(context.drawImage).not.toHaveBeenCalled();
+      expect(requestAnimationFrame).toHaveBeenCalledTimes(1);
+      expect(service.isActive()).toBe(false);
+    } finally { vi.useRealTimers(); }
+  });
+
   it('should warn after 30 dropped frames', async () => {
     mockGpuRendererService.captureFrame.mockRejectedValue(new Error('Capture failed'));
 
@@ -203,16 +317,6 @@ describe('CaptureGpuRecordingService', () => {
       reason: 'dropped_frames',
       droppedFrames: 30
     });
-  });
-
-  it('should expose captureFrame method that delegates to gpuRendererService', async () => {
-    const mockFrame = createRecordingFrameMock();
-    mockGpuRendererService.captureFrame.mockResolvedValue(mockFrame);
-
-    const result = await service.captureFrame();
-
-    expect(mockGpuRendererService.captureFrame).toHaveBeenCalled();
-    expect(result).toBe(mockFrame);
   });
 
   it('should stop recording and clean up resources', async () => {
@@ -347,27 +451,9 @@ describe('CaptureGpuRecordingService', () => {
     expect(animationFrameMock.cancelAnimationFrame).not.toHaveBeenCalled();
   });
 
-  it('should dispose and cleanup resources', () => {
-    trackMock(installAnimationFrameMock({
-      cancelAnimationFrame: vi.fn()
-    }));
-
-    service.dispose();
-
-    expect(mockLogger.info).toHaveBeenCalledWith('CaptureGpuRecordingService disposed');
-  });
-
-  it('should return recording stream via getter', async () => {
-    const { mockCanvas } = createRecordingCanvasFixture();
-
-    installCanvasAndAnimationFrameMocks(mockCanvas, {
-      requestAnimationFrame: vi.fn()
-    });
-
-    const mockStream = createStreamPayloadMock();
-    const recordingStream = await service.start({ stream: mockStream, frameRate: 60 });
-
-    expect(service.getRecordingStream()).toBe(recordingStream);
+  it('disposes recording resources', async () => {
+    await service.dispose();
+    expect(service.isActive()).toBe(false);
   });
 
   it('should clear canvas only once when offsets are needed', async () => {

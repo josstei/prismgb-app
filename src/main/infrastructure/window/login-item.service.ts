@@ -1,12 +1,14 @@
 import { app } from 'electron';
-import { injectable, inject } from 'inversify';
-import { BaseService, type LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@main/application/di/tokens.js';
 
-@injectable()
+import { BaseService, type LoggerFactoryLike } from '@platform/core';
+
+type LoginItemServiceDependencies = {
+  loggerFactory: LoggerFactoryLike;
+};
+
 class LoginItemService extends BaseService {
 
-  constructor(@inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike) {
+  constructor({ loggerFactory }: LoginItemServiceDependencies) {
     super({ loggerFactory }, 'LoginItemService');
   }
 

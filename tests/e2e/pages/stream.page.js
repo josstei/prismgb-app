@@ -15,8 +15,9 @@ export const StreamSelectors = Object.freeze({
 });
 
 export class StreamPage {
-  constructor(page) {
+  constructor(page, electronApp) {
     this.page = page;
+    this.electronApp = electronApp;
     this.overlay = page.locator(StreamSelectors.overlay);
     this.canvas = page.locator(StreamSelectors.canvas);
     this.screenshotButton = page.locator(StreamSelectors.screenshotButton);
@@ -46,18 +47,12 @@ export class StreamPage {
 
   async expectStreaming(options = {}) {
     const { timeout = 10000 } = options;
-    await expect(async () => {
-      const bodyClasses = await this.page.evaluate(() => document.body.className);
-      expect(bodyClasses).toContain('streaming-mode');
-    }).toPass({ timeout });
+    await expect(this.page.locator('body')).toHaveClass(/(?:^|\s)streaming-mode(?:\s|$)/, { timeout });
   }
 
   async expectStopped(options = {}) {
     const { timeout = 5000 } = options;
-    await expect(async () => {
-      const bodyClasses = await this.page.evaluate(() => document.body.className);
-      expect(bodyClasses).not.toContain('streaming-mode');
-    }).toPass({ timeout });
+    await expect(this.page.locator('body')).not.toHaveClass(/(?:^|\s)streaming-mode(?:\s|$)/, { timeout });
   }
 
   async expectCaptureControlsEnabled() {
@@ -115,33 +110,27 @@ export class StreamPage {
     });
   }
 
+  async expectRenderedFrame() {
+    await expect.poll(() => this.getCanvasRenderInfo(), {
+      timeout: 10000,
+      message: 'a rendered input frame should reach the current canvas',
+    }).toMatchObject({ exists: true, hasContext: true, hasContent: true });
+  }
+
   async suppressDownloads() {
-    await this.page.evaluate(() => {
-      window.__smokeDownloads = [];
-
-      if (window.__smokeDownloadPatchInstalled) {
-        return;
-      }
-
-      const originalClick = HTMLAnchorElement.prototype.click;
-      HTMLAnchorElement.prototype.click = function patchedAnchorClick() {
-        if (this.download) {
-          window.__smokeDownloads.push({
-            filename: this.download,
-            hrefPrefix: this.href.slice(0, 16),
-          });
-          return;
-        }
-
-        return originalClick.call(this);
-      };
-
-      window.__smokeDownloadPatchInstalled = true;
+    await this.electronApp.evaluate(({ BrowserWindow }) => {
+      globalThis.__smokeDownloads = [];
+      BrowserWindow.getAllWindows()[0].webContents.session.on('will-download', (_event, item) => {
+        globalThis.__smokeDownloads.push({ filename: item.getFilename(), hrefPrefix: item.getURL().slice(0, 16) });
+        // Let the production will-download handler accept ownership, then cancel
+        // the real DownloadItem so every registered download reaches done.
+        item.cancel();
+      });
     });
   }
 
   async getDownloads() {
-    return this.page.evaluate(() => window.__smokeDownloads ?? []);
+    return this.electronApp.evaluate(() => globalThis.__smokeDownloads ?? []);
   }
 
   async selectAlternateShaderPreset() {

@@ -3,7 +3,6 @@
  *
  * Creates mock capture services (screenshot, recording, transcode),
  * MediaRecorder primitives, and capture UI controllers/toasts.
- * Extracted from tests/factories/index.js as part of the factory-split refactor.
  */
 
 import { vi } from 'vitest';
@@ -44,9 +43,6 @@ export function createMediaBlobEventMock(overrides = {}) {
  */
 export function createMediaRecorderMock(overrides = {}) {
   const listeners = {};
-  let ondataavailable = vi.fn();
-  let onerror = vi.fn();
-  let onstop = vi.fn();
 
   const mock = {
     start: vi.fn(),
@@ -74,47 +70,17 @@ export function createMediaRecorderMock(overrides = {}) {
     ...overrides,
   };
 
-  Object.defineProperty(mock, 'ondataavailable', {
-    get() {
-      return (event) => {
-        const list = listeners['dataavailable'] || [];
-        list.forEach(l => l(event));
-        if (ondataavailable) ondataavailable(event);
-      };
-    },
-    set(cb) {
-      ondataavailable = cb;
-    },
-    configurable: true
-  });
-
-  Object.defineProperty(mock, 'onerror', {
-    get() {
-      return (event) => {
-        const list = listeners['error'] || [];
-        list.forEach(l => l(event));
-        if (onerror) onerror(event);
-      };
-    },
-    set(cb) {
-      onerror = cb;
-    },
-    configurable: true
-  });
-
-  Object.defineProperty(mock, 'onstop', {
-    get() {
-      return (event) => {
-        const list = listeners['stop'] || [];
-        list.forEach(l => l(event));
-        if (onstop) onstop(event);
-      };
-    },
-    set(cb) {
-      onstop = cb;
-    },
-    configurable: true
-  });
+  for (const type of ['dataavailable', 'error', 'stop']) {
+    let handler = null;
+    Object.defineProperty(mock, `on${type}`, {
+      get: () => (event) => {
+        (listeners[type] || []).forEach((listener) => listener(event));
+        handler?.(event);
+      },
+      set: (nextHandler) => { handler = nextHandler; },
+      configurable: true
+    });
+  }
 
   return mock;
 }
@@ -137,19 +103,6 @@ export function createMediaRecorderErrorEventMock(overrides = {}) {
 }
 
 /**
- * Creates a mock CaptureUIController.
- *
- * @param {Object} [overrides={}] - Mock overrides.
- * @returns {Object} Mock CaptureUIController.
- */
-export function createCaptureUIControllerMock(overrides = {}) {
-  return {
-    triggerDownload: vi.fn(),
-    ...overrides
-  };
-}
-
-/**
  * @typedef {import('@renderer/infrastructure/services/transcode/transcode.service').TranscodeService} TranscodeService
  */
 
@@ -163,7 +116,6 @@ export function createTranscodeServiceMock(overrides = {}) {
   return /** @type {any} */ ({
     transcode: vi.fn(),
     cancel: vi.fn(),
-    getStatus: vi.fn(),
     ...overrides
   });
 }
@@ -183,7 +135,6 @@ export function createCaptureServiceMock(overrides = {}) {
     takeScreenshot: vi.fn(),
     toggleRecording: vi.fn(),
     startRecording: vi.fn(),
-    getRecordingState: vi.fn(),
     stopRecording: vi.fn(),
     isRecording: false,
     ...overrides

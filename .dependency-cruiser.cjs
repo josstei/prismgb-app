@@ -107,7 +107,7 @@ module.exports = {
       severity: 'error',
       comment: 'renderer/lib is a shared kernel; it imports platform modules and externals only.',
       from: { path: '^src/renderer/lib/' },
-      to: { path: '^src/(main|preload)/|^src/renderer/(application|infrastructure|presentation)/|^src/renderer/(index|app-bootstrap)\\.ts$' }
+      to: { path: '^src/(main|preload)/|^src/renderer/(application|infrastructure|presentation)/|^src/renderer/index\\.ts$' }
     },
     {
       name: 'renderer-entry-not-imported',
@@ -117,11 +117,11 @@ module.exports = {
       to: { path: '^src/renderer/index\\.ts$' }
     },
     {
-      name: 'renderer-bootstrap-only-from-entry',
+      name: 'renderer-composition-only-from-entry',
       severity: 'error',
-      comment: 'Only the renderer entry wires the bootstrap.',
-      from: { path: '^src/', pathNot: ['^src/renderer/index\\.ts$'] },
-      to: { path: '^src/renderer/app-bootstrap\\.ts$' }
+      comment: 'Only the renderer entry constructs the process runtime.',
+      from: { path: '^src/renderer/', pathNot: ['^src/renderer/index\\.ts$'] },
+      to: { path: '^src/renderer/application/container\\.ts$' }
     },
     {
       name: 'main-entry-not-imported',
@@ -131,11 +131,11 @@ module.exports = {
       to: { path: '^src/main/index\\.ts$' }
     },
     {
-      name: 'main-bootstrap-only-from-entry',
+      name: 'main-composition-only-from-entry',
       severity: 'error',
-      comment: 'Only the main entry wires the bootstrap.',
-      from: { path: '^src/', pathNot: ['^src/main/index\\.ts$'] },
-      to: { path: '^src/main/app-bootstrap\\.ts$' }
+      comment: 'Only the main entry constructs the process runtime.',
+      from: { path: '^src/main/', pathNot: ['^src/main/index\\.ts$'] },
+      to: { path: '^src/main/application/container\\.ts$' }
     },
     {
       name: 'platform-not-to-app',

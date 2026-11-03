@@ -4,23 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { TranscodeState, TRANSCODE_CONFIG } from '@platform/transcode';
-
-describe('TranscodeState', () => {
-  it.each([
-    ['IDLE', 'idle'],
-    ['TRANSCODING', 'transcoding'],
-    ['COMPLETED', 'completed'],
-    ['CANCELLED', 'cancelled'],
-    ['ERROR', 'error']
-  ] as const)('should define %s state', (key, value) => {
-    expect(TranscodeState[key]).toBe(value);
-  });
-
-  it('should be frozen', () => {
-    expect(Object.isFrozen(TranscodeState)).toBe(true);
-  });
-});
+import { TRANSCODE_CONFIG } from '@platform/transcode';
 
 describe('TRANSCODE_CONFIG', () => {
   describe('formats', () => {

@@ -35,7 +35,7 @@ export default function createNotesPanelTemplate(): string {
         </button>
 
         <div class="notes-editor" id="notesEditor" data-ref="notesEditor">
-          <div class="notes-empty-state" id="notesEmptyState" data-ref="notesEmptyState">
+          <div class="notes-empty-state" id="notesEmptyState">
             ${getIconSvg('notes-empty')}
             <span>Click <strong>New</strong> to create a note</span>
           </div>

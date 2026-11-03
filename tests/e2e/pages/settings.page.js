@@ -1,25 +1,13 @@
 import { expect } from '@playwright/test';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { SettingsDefinitions } from '../../../src/renderer/lib/settings.definitions.ts';
 import { AppShellPage, AppSelectors, expectPopupHidden, expectPopupVisible } from './app-shell.page.js';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const settingsDefinitionsPath = path.resolve(
-  __dirname,
-  '../../../src/renderer/lib/settings.definitions.json'
-);
-
-function readSettingsDefinitions() {
-  return JSON.parse(fs.readFileSync(settingsDefinitionsPath, 'utf8')).definitions;
-}
 
 function getControlName(definition) {
   return definition.ui.controlName ?? definition.name;
 }
 
 function createSettingsControlMetadata() {
-  const definitions = readSettingsDefinitions().filter((definition) => definition.ui?.controlId);
+  const definitions = SettingsDefinitions.definitions.filter((definition) => definition.ui?.controlId);
   const controls = Object.fromEntries(
     definitions.map((definition) => [
       getControlName(definition),
@@ -121,11 +109,11 @@ export class SettingsMenuPage {
     const initial = await checkbox.isChecked();
 
     await this.label(settingName).click({ force: true });
-    await this.page.waitForTimeout(100);
+    await expect(checkbox).toBeChecked({ checked: !initial });
 
     return {
       initial,
-      current: await checkbox.isChecked(),
+      current: !initial,
     };
   }
 
@@ -133,7 +121,6 @@ export class SettingsMenuPage {
     const checkbox = this.checkbox(settingName);
     if ((await checkbox.isChecked()) !== enabled) {
       await this.label(settingName).click({ force: true });
-      await this.page.waitForTimeout(100);
     }
     await expect(checkbox).toBeChecked({ checked: enabled });
   }

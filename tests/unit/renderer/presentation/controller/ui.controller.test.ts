@@ -1,297 +1,137 @@
-/**
- * UIController Unit Tests
- * Tests delegation to UiComponentHost and UIEffects
- */
-
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { UIController } from '@renderer/presentation/controller/ui.controller.js';
 import { createDomBindings } from '@renderer/presentation/primitives/dom-bindings.utils.js';
+import { createLoggerFactory } from '../../../../factories/logger.factory.js';
 import {
-  createLoggerFactory,
-  createDeviceStatusComponentMock,
-  createSettingsMenuComponentMock,
-  createShaderSelectorComponentMock,
-  createStatusNotificationComponentMock,
-  createStreamControlsComponentMock,
-  createUiComponentHostMock,
-  createUIControllerElementsMock,
-  createUIEffectsMock
-} from '../../../../factories/index.js';
+  createDeviceStatusComponentMock, createStreamControlsComponentMock, createSettingsMenuComponentMock,
+  createShaderSelectorComponentMock, createUiComponentHostMock, createUIEffectsMock
+} from '../../../../factories/ui.factory.js';
 
 describe('UIController', () => {
-  let controller;
-  let mockElements;
-  let mockHost;
-  let mockEffects;
-  let mockStatusManager;
-  let mockDeviceStatus;
-  let mockStreamControls;
-  let mockSettingsMenu;
-  let mockShaderSelector;
-  let mockLoggerFactory;
-  let domBindings;
+  let controller: UIController;
+  let download;
+  let host;
+  let effects;
+  let components;
+  let loggerFactory;
+  let dom;
 
   beforeEach(() => {
-    // Create mock elements
-    mockElements = createUIControllerElementsMock();
-
-    // Mock document.getElementById
-    vi.spyOn(document, 'getElementById').mockImplementation((id) => mockElements[id] || null);
-    vi.spyOn(document, 'querySelector').mockImplementation((selector) => {
-      const refMatch = /^\[data-ref="(.+)"\]$/.exec(selector);
-      return refMatch ? mockElements[refMatch[1]] || null : null;
-    });
-
-    domBindings = createDomBindings(document);
-
-    // Create mock components
-    mockStatusManager = createStatusNotificationComponentMock();
-    mockDeviceStatus = createDeviceStatusComponentMock();
-    mockStreamControls = createStreamControlsComponentMock();
-    mockSettingsMenu = createSettingsMenuComponentMock();
-    mockShaderSelector = createShaderSelectorComponentMock();
-
-    // Create mock host
-    mockHost = createUiComponentHostMock({
-      statusNotificationComponent: mockStatusManager,
-      deviceStatusComponent: mockDeviceStatus,
-      streamControlsComponent: mockStreamControls,
-      settingsMenuComponent: mockSettingsMenu,
-      shaderSelectorComponent: mockShaderSelector
-    });
-
-    // Create mock effects
-    mockEffects = createUIEffectsMock();
-
-    mockLoggerFactory = createLoggerFactory();
-
+    // These are the elements consumed by this controller. The complete rendered
+    // template/ref contract is exercised in template-contract.test.ts.
+    document.body.innerHTML = [
+      '<div id="statusIndicator" data-ref="statusIndicator"></div>',
+      '<span id="statusText" data-ref="statusText"></span>',
+      '<video id="streamVideo" data-ref="streamVideo"></video>',
+      '<button id="screenshotBtn" data-ref="screenshotBtn"></button>',
+      '<button id="recordBtn" data-ref="recordBtn"></button>',
+      '<button id="fullscreenBtn" data-ref="fullscreenBtn"></button>',
+      '<div id="streamToolbar" data-ref="streamToolbar"></div>',
+      '<div id="fullscreenControls" data-ref="fullscreenControls"></div>'
+    ].join('');
+    dom = createDomBindings(document);
+    download = vi.fn().mockResolvedValue(undefined);
+    components = {
+      deviceStatusComponent: createDeviceStatusComponentMock(),
+      streamControlsComponent: createStreamControlsComponentMock(),
+      settingsMenuComponent: createSettingsMenuComponentMock(),
+      shaderSelectorComponent: createShaderSelectorComponentMock()
+    };
+    host = createUiComponentHostMock(components);
+    effects = createUIEffectsMock();
+    loggerFactory = createLoggerFactory();
     controller = new UIController({
-      uiComponentHost: mockHost,
-      domBindings,
-      uiEffects: mockEffects,
-      loggerFactory: mockLoggerFactory
+      downloadFile: download, uiComponentHost: host, domBindings: dom,
+      uiEffects: effects, loggerFactory
     });
   });
 
-  describe('Constructor', () => {
-    it('should initialize elements', () => {
-      expect(controller.elements).toBeDefined();
-    });
+  afterEach(() => { document.body.innerHTML = ''; });
 
-    it('should store host reference', () => {
-      expect(controller.host).toBe(mockHost);
-    });
-
-    it('should store effects reference', () => {
-      expect(controller.effects).toBe(mockEffects);
-    });
-
-    it('should create logger', () => {
-      expect(mockLoggerFactory.create).toHaveBeenCalledWith('UIController');
-    });
+  it('binds available elements and resolves core, deferred and runtime components through the host', () => {
+    expect(controller.initializeElements()).toBe(dom.flat);
+    for (const id of ['statusIndicator', 'statusText', 'streamVideo', 'screenshotBtn', 'recordBtn'] as const) {
+      expect(controller.elements[id]).toBe(document.getElementById(id));
+    }
+    expect(loggerFactory.create).toHaveBeenCalledWith('UIController');
+    controller.initializeComponents();
+    controller.initializeDeferredComponents();
+    controller.toggleSettingsMenu();
+    expect(host.touchCore).toHaveBeenCalledOnce();
+    expect(host.touchDeferred).toHaveBeenCalledOnce();
+    expect(components.settingsMenuComponent.toggle).toHaveBeenCalledOnce();
+    expect(controller.deviceStatus).toBe(components.deviceStatusComponent);
   });
 
-  describe('initializeElements', () => {
-    it('should return object with all required elements', () => {
-      const elements = controller.initializeElements();
+  it('coordinates streaming controls, cursor/toolbar visibility and shader closing across start/stop', () => {
+    controller.setStreamingMode(true);
+    expect(components.streamControlsComponent.setStreamingMode).toHaveBeenCalledWith(true);
+    expect(effects.enableCursorAutoHide).toHaveBeenCalledOnce();
+    expect(effects.enableToolbarAutoHide).toHaveBeenCalledWith(controller.elements.streamToolbar);
 
-      expect(elements.statusIndicator).toBeDefined();
-      expect(elements.statusText).toBeDefined();
-      expect(elements.streamVideo).toBeDefined();
-      expect(elements.screenshotBtn).toBeDefined();
-      expect(elements.recordBtn).toBeDefined();
-    });
+    controller.setStreamingMode(false);
+    expect(components.streamControlsComponent.setStreamingMode).toHaveBeenLastCalledWith(false);
+    expect(effects.disableCursorAutoHide).toHaveBeenCalledOnce();
+    expect(effects.disableToolbarAutoHide).toHaveBeenCalledOnce();
+    expect(components.shaderSelectorComponent.hide).toHaveBeenCalledOnce();
   });
 
-  describe('initializeComponents', () => {
-    it('should touch every core component on the host', () => {
-      controller.initializeComponents();
-
-      expect(mockHost.touchCore).toHaveBeenCalled();
-    });
+  it('updates fullscreen labels and routes fullscreen control activity', () => {
+    controller.updateFullscreenButton(true);
+    expect(controller.elements.fullscreenBtn!.title).toBe('Exit Fullscreen');
+    controller.updateFullscreenButton(false);
+    expect(controller.elements.fullscreenBtn!.title).toBe('Fullscreen');
+    controller.enableControlsAutoHide();
+    expect(effects.enableControlsAutoHide).toHaveBeenCalledWith(controller.elements.fullscreenControls);
+    controller.disableControlsAutoHide();
+    expect(effects.disableControlsAutoHide).toHaveBeenCalledOnce();
   });
 
-  describe('initializeDeferredComponent', () => {
-    it('should resolve the deferred component through the host', () => {
-      controller.initializeDeferredComponent('settingsMenuComponent');
-
-      expect(mockHost.get).toHaveBeenCalledWith('settingsMenuComponent');
-    });
+  it('routes shutter, button and active/inactive recording feedback to effects', () => {
+    controller.triggerShutterFlash();
+    controller.triggerRecordButtonPop();
+    controller.triggerRecordButtonPress();
+    controller.triggerButtonFeedback('screenshotBtn', 'capturing', 200);
+    expect(effects.triggerShutterFlash).toHaveBeenCalledOnce();
+    expect(effects.triggerRecordButtonPop).toHaveBeenCalledOnce();
+    expect(effects.triggerRecordButtonPress).toHaveBeenCalledOnce();
+    expect(effects.triggerButtonFeedback).toHaveBeenCalledWith('screenshotBtn', 'capturing', 200);
+    controller.updateRecordingButtonState(true);
+    controller.updateRecordingButtonState(false);
+    expect(effects.setRecordingButtonState.mock.calls).toEqual([
+      [controller.elements.recordBtn, true], [controller.elements.recordBtn, false]
+    ]);
   });
 
-  describe('toggleSettingsMenu', () => {
-    it('should call toggle on settings menu component', () => {
-      controller.toggleSettingsMenu();
-
-      expect(mockSettingsMenu.toggle).toHaveBeenCalled();
-    });
+  it('tolerates a missing recording button or optional effects', () => {
+    controller.elements.recordBtn = null;
+    expect(() => controller.updateRecordingButtonState(true)).not.toThrow();
+    expect(effects.setRecordingButtonState).not.toHaveBeenCalled();
+    controller.elements.recordBtn = document.createElement('button');
+    controller.effects = undefined;
+    expect(() => controller.updateRecordingButtonState(true)).not.toThrow();
   });
 
-
-  describe('deviceStatus getter', () => {
-    it('should return device status component from host', () => {
-      const result = controller.deviceStatus;
-
-      expect(result).toBe(mockDeviceStatus);
-    });
+  it('awaits screenshot download registration before releasing effects and component ownership', async () => {
+    const registered = Promise.withResolvers<void>();
+    download.mockReturnValueOnce(registered.promise);
+    const blob = new Blob(['screenshot']);
+    const saving = controller.triggerDownload(blob, 'screenshot.png');
+    const disposal = controller.dispose();
+    expect(download).toHaveBeenCalledWith(blob, 'screenshot.png');
+    expect(host.dispose).not.toHaveBeenCalled();
+    expect(effects.dispose).not.toHaveBeenCalled();
+    registered.resolve();
+    await Promise.all([saving, disposal]);
+    expect(effects.dispose).toHaveBeenCalledOnce();
+    expect(host.dispose).toHaveBeenCalledOnce();
   });
 
-  describe('setStreamingMode', () => {
-    it('should delegate to StreamingControlsComponent', () => {
-      controller.setStreamingMode(true);
-
-      expect(mockStreamControls.setStreamingMode).toHaveBeenCalledWith(true);
-    });
-
-    it('should enable cursor auto-hide when streaming starts', () => {
-      controller.setStreamingMode(true);
-
-      expect(mockEffects.enableCursorAutoHide).toHaveBeenCalled();
-    });
-
-    it('should enable toolbar auto-hide when streaming starts', () => {
-      controller.setStreamingMode(true);
-
-      expect(mockEffects.enableToolbarAutoHide).toHaveBeenCalledWith(
-        controller.elements.streamToolbar
-      );
-    });
-
-    it('should disable cursor auto-hide when streaming stops', () => {
-      controller.setStreamingMode(false);
-
-      expect(mockEffects.disableCursorAutoHide).toHaveBeenCalled();
-    });
-
-    it('should disable toolbar auto-hide when streaming stops', () => {
-      controller.setStreamingMode(false);
-
-      expect(mockEffects.disableToolbarAutoHide).toHaveBeenCalled();
-    });
-
-    it('should hide shader selector when disabling streaming', () => {
-      controller.setStreamingMode(false);
-
-      expect(mockShaderSelector.hide).toHaveBeenCalled();
-    });
-  });
-
-  describe('updateFullscreenButton', () => {
-    it('should set title to Exit Fullscreen when fullscreen', () => {
-      controller.updateFullscreenButton(true);
-
-      expect(controller.elements.fullscreenBtn.title).toBe('Exit Fullscreen');
-    });
-
-    it('should set title to Fullscreen when not fullscreen', () => {
-      controller.updateFullscreenButton(false);
-
-      expect(controller.elements.fullscreenBtn.title).toBe('Fullscreen');
-    });
-  });
-
-  describe('Effects delegation', () => {
-    it('triggerShutterFlash should delegate to effects', () => {
-      controller.triggerShutterFlash();
-
-      expect(mockEffects.triggerShutterFlash).toHaveBeenCalled();
-    });
-
-    it('triggerRecordButtonPop should delegate to effects', () => {
-      controller.triggerRecordButtonPop();
-
-      expect(mockEffects.triggerRecordButtonPop).toHaveBeenCalled();
-    });
-
-    it('triggerRecordButtonPress should delegate to effects', () => {
-      controller.triggerRecordButtonPress();
-
-      expect(mockEffects.triggerRecordButtonPress).toHaveBeenCalled();
-    });
-
-    it('triggerButtonFeedback should delegate to effects', () => {
-      controller.triggerButtonFeedback('screenshotBtn', 'capturing', 200);
-
-      expect(mockEffects.triggerButtonFeedback).toHaveBeenCalledWith('screenshotBtn', 'capturing', 200);
-    });
-  });
-
-  describe('updateRecordingButtonState', () => {
-    beforeEach(() => {
-      mockEffects.setRecordingButtonState = vi.fn();
-    });
-
-    it('should call setRecordingButtonState when recordBtn exists', () => {
-      controller.updateRecordingButtonState(true);
-
-      expect(mockEffects.setRecordingButtonState).toHaveBeenCalledWith(
-        controller.elements.recordBtn,
-        true
-      );
-    });
-
-    it('should call setRecordingButtonState with false when not active', () => {
-      controller.updateRecordingButtonState(false);
-
-      expect(mockEffects.setRecordingButtonState).toHaveBeenCalledWith(
-        controller.elements.recordBtn,
-        false
-      );
-    });
-
-    it('should not call effects when recordBtn is null', () => {
-      controller.elements.recordBtn = null;
-
-      expect(() => controller.updateRecordingButtonState(true)).not.toThrow();
-      expect(mockEffects.setRecordingButtonState).not.toHaveBeenCalled();
-    });
-
-    it('should not call effects when effects is undefined', () => {
-      controller.effects = undefined;
-
-      expect(() => controller.updateRecordingButtonState(true)).not.toThrow();
-    });
-  });
-
-  describe('enableControlsAutoHide', () => {
-    beforeEach(() => {
-      mockEffects.enableControlsAutoHide = vi.fn();
-    });
-
-    it('should call enableControlsAutoHide with fullscreenControls element', () => {
-      controller.enableControlsAutoHide();
-
-      expect(mockEffects.enableControlsAutoHide).toHaveBeenCalledWith(
-        controller.elements.fullscreenControls
-      );
-    });
-  });
-
-  describe('disableControlsAutoHide', () => {
-    beforeEach(() => {
-      mockEffects.disableControlsAutoHide = vi.fn();
-    });
-
-    it('should call disableControlsAutoHide on effects', () => {
-      controller.disableControlsAutoHide();
-
-      expect(mockEffects.disableControlsAutoHide).toHaveBeenCalled();
-    });
-  });
-
-  describe('dispose', () => {
-    it('should dispose effects', async () => {
-      const effects = controller.effects;
-      await controller.dispose();
-
-      expect(effects.dispose).toHaveBeenCalled();
-    });
-
-    it('should dispose host', async () => {
-      const host = controller.host;
-      await controller.dispose();
-
-      expect(host.dispose).toHaveBeenCalled();
-    });
+  it('releases components after effect cleanup fails and reports the failure', async () => {
+    effects.dispose.mockRejectedValue(new Error('effect cleanup failed'));
+    await expect(controller.dispose()).rejects.toThrow('Runtime disposal failed');
+    expect(host.dispose).toHaveBeenCalledOnce();
+    expect(controller.host).toBeNull();
+    expect(controller.effects).toBeNull();
   });
 });

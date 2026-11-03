@@ -44,8 +44,7 @@ test.describe('Stream Restart with Chromatic Media Environment', () => {
     await streamPage.stop();
 
     await streamPage.start();
-    await streamPage.page.waitForTimeout(2000);
-    await streamPage.expectStreaming({ timeout: 1000 });
+    await streamPage.expectRenderedFrame();
     await streamPage.captureScreenshot();
 
     await streamPage.stop();
@@ -65,8 +64,7 @@ test.describe('Stream Restart with Chromatic Media Environment', () => {
 
     for (let cycle = 0; cycle < 3; cycle++) {
       await streamPage.start();
-      await streamPage.page.waitForTimeout(1500);
-      await streamPage.expectStreaming({ timeout: 1000 });
+      await streamPage.expectRenderedFrame();
       await streamPage.stop();
     }
 

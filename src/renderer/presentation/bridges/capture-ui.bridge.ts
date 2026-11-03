@@ -1,6 +1,6 @@
-import { injectable, inject } from 'inversify';
+
 import { BaseService } from '@platform/core';
-import { EventChannels, OnEvent } from '@platform/events';
+import { EventChannels, OnEvent, type TypedEventBusLike } from '@platform/events';
 import type {
   RecordingDegradedPayload,
   RecordingErrorPayload,
@@ -8,21 +8,26 @@ import type {
   UiButtonFeedbackPayload
 } from '@platform/events';
 import { TIMING } from '@platform/config';
-import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { LoggerFactoryLike } from '@platform/core';
 
 type CaptureUiControllerLike = {
-  triggerDownload(blob: Blob, filename: string): void;
+  triggerDownload(blob: Blob, filename: string): Promise<void>;
 };
 
-@injectable()
+type CaptureUIBridgeDependencies = {
+  eventBus: TypedEventBusLike;
+  uiController: CaptureUiControllerLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 class CaptureUIBridge extends BaseService {
-  constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
-    @inject(TOKENS.uiController) private readonly uiController: CaptureUiControllerLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly eventBus: TypedEventBusLike;
+  private readonly uiController: CaptureUiControllerLike;
+
+  constructor({ eventBus, uiController, loggerFactory }: CaptureUIBridgeDependencies) {
     super({ loggerFactory, eventBus }, 'CaptureUIBridge');
+    this.eventBus = eventBus;
+    this.uiController = uiController;
   }
 
   initialize() {
@@ -47,8 +52,8 @@ class CaptureUIBridge extends BaseService {
   }
 
   @OnEvent(EventChannels.CAPTURE.SCREENSHOT_READY)
-  _handleScreenshotReady(data: ScreenshotReadyPayload) {
-    this.uiController.triggerDownload(data.blob, data.filename);
+  async _handleScreenshotReady(data: ScreenshotReadyPayload): Promise<void> {
+    await this.uiController.triggerDownload(data.blob, data.filename);
     this.eventBus.publish(EventChannels.UI.STATUS_MESSAGE, { message: 'Screenshot saved!' });
   }
 

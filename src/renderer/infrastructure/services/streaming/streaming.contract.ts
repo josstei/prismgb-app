@@ -14,8 +14,6 @@ export type {
 
 export type GpuRendererServiceLike = {
   isActive(): boolean;
-  isFallback(): boolean;
-  isCanvasTransferred(): boolean;
   getTargetDimensions(): Dimensions;
   captureFrame(): Promise<ImageBitmap>;
 };

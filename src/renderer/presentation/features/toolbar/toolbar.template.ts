@@ -1,3 +1,4 @@
+import { actionAttribute } from '@renderer/presentation/primitives/template-ref.utils.js';
 /**
  * Toolbar Template
  *
@@ -48,19 +49,19 @@ export function createToolbarTemplate(): string {
     <div class="stream-toolbar" id="streamToolbar" data-ref="streamToolbar">
       <!-- Shader Button + Panel -->
       <div class="toolbar-item toolbar-capture" id="shaderControls" data-ref="shaderControls">
-        <button class="toolbar-btn" id="shaderBtn" data-ref="shaderBtn" data-action="shader.toggle" aria-label="Shader Selection" aria-expanded="false">
+        <button class="toolbar-btn" id="shaderBtn" data-ref="shaderBtn" ${actionAttribute('shader.toggle')} aria-label="Shader Selection" aria-expanded="false">
           ${getIconSvg('toolbar-shader')}
         </button>
         ${createShaderPanelTemplate()}
       </div>
 
       <!-- Screenshot Button -->
-      <button class="toolbar-btn toolbar-capture toolbar-screenshot" id="screenshotBtn" data-ref="screenshotBtn" data-action="capture.screenshot" aria-label="Take Screenshot" disabled>
+      <button class="toolbar-btn toolbar-capture toolbar-screenshot" id="screenshotBtn" data-ref="screenshotBtn" ${actionAttribute('capture.screenshot')} aria-label="Take Screenshot" disabled>
         ${getIconSvg('toolbar-screenshot')}
       </button>
 
       <!-- Record Button -->
-      <button class="toolbar-btn toolbar-capture toolbar-record" id="recordBtn" data-ref="recordBtn" data-action="recording.toggle" aria-label="Start Recording" aria-pressed="false" disabled>
+      <button class="toolbar-btn toolbar-capture toolbar-record" id="recordBtn" data-ref="recordBtn" ${actionAttribute('recording.toggle')} aria-label="Start Recording" aria-pressed="false" disabled>
         <!-- Normal record dot icon -->
         <span class="record-dot">${getIconSvg('toolbar-record')}</span>
         <!-- Recording state: static dot + spinning outer ring -->
@@ -71,7 +72,7 @@ export function createToolbarTemplate(): string {
       </button>
 
       <!-- Notes Button -->
-      <button class="toolbar-btn toolbar-capture toolbar-notes" id="notesBtn" data-ref="notesBtn" data-action="notes.toggle" aria-label="Notes" aria-expanded="false">
+      <button class="toolbar-btn toolbar-capture toolbar-notes" id="notesBtn" data-ref="notesBtn" ${actionAttribute('notes.toggle')} aria-label="Notes" aria-expanded="false">
         ${getIconSvg('toolbar-notes')}
       </button>
     </div>

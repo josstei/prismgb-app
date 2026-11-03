@@ -7,7 +7,7 @@ import { walkPaths } from '../../../scripts/lib/fs-walk.js';
 const tempRoots: string[] = [];
 
 afterEach(() => {
-  while (tempRoots.length > 0) fs.rmSync(tempRoots.pop(), { recursive: true, force: true });
+  while (tempRoots.length > 0) fs.rmSync(tempRoots.pop()!, { recursive: true, force: true });
 });
 
 function createTree(): string {

@@ -1,7 +1,6 @@
-import type { RenderPreset, ShaderPresetCatalog } from './types';
+import type { RenderPreset } from './types';
 
 export const PRESET_POLICY = Object.freeze({
-  packageDefaultId: 'true-color',
   rendererDefaultId: 'vibrant',
   performancePresetId: 'performance'
 } as const);
@@ -163,14 +162,3 @@ export const BUILT_IN_PRESETS: readonly BuiltInPresetRecord[] = Object.freeze([
   Object.freeze({ preset: pixelPreset }),
   Object.freeze({ preset: performancePreset, visibleInUI: false })
 ]);
-
-export const BUILT_IN_PRESET_CATALOG: ShaderPresetCatalog = Object.freeze({
-  presets: Object.freeze(BUILT_IN_PRESETS.map((entry) => entry.preset)),
-  packageDefaultPresetId: PRESET_POLICY.packageDefaultId,
-  rendererDefaultPresetId: PRESET_POLICY.rendererDefaultId,
-  uiPresetIds: Object.freeze(
-    BUILT_IN_PRESETS
-      .filter((entry) => entry.visibleInUI !== false)
-      .map((entry) => entry.preset.id)
-  )
-});

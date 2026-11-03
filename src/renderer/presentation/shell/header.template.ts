@@ -1,3 +1,4 @@
+import { actionAttribute } from '@renderer/presentation/primitives/template-ref.utils.js';
 /**
  * Header Template
  *
@@ -21,11 +22,11 @@ export default function createHeaderTemplate(): string {
         </div>
       </div>
       <div class="header-right">
-        <button class="btn btn-secondary" id="fullscreenBtn" data-ref="fullscreenBtn" data-action="fullscreen.toggle" aria-label="Toggle Fullscreen">
+        <button class="btn btn-secondary" id="fullscreenBtn" data-ref="fullscreenBtn" ${actionAttribute('fullscreen.toggle')} aria-label="Toggle Fullscreen">
           ${getIconSvg('header-fullscreen')}
         </button>
         <div class="settings-control">
-          <button class="btn btn-primary" id="settingsBtn" data-ref="settingsBtn" data-action="settings.toggle" aria-label="Open Settings" aria-expanded="false">
+          <button class="btn btn-primary" id="settingsBtn" data-ref="settingsBtn" ${actionAttribute('settings.toggle')} aria-label="Open Settings" aria-expanded="false">
             <span class="update-badge hidden" id="updateBadge" data-ref="updateBadge"></span>
             ${getIconSvg('header-settings')}
           </button>

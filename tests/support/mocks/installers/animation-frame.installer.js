@@ -1,6 +1,5 @@
 import { vi } from 'vitest';
-import { createCleanupStack } from '../runtime-property.installers.js';
-import { installProperty } from './install-property.helper.js';
+import { createCleanupStack, installTargetProperty } from '../runtime-property.installers.js';
 
 /**
  * Canonical RAF installer.
@@ -19,8 +18,8 @@ export function installAnimationFrameMock(options = {}) {
   });
 
   [
-    installProperty(globalThis, 'requestAnimationFrame', mockRequestAnimationFrame),
-    installProperty(globalThis, 'cancelAnimationFrame', mockCancelAnimationFrame),
+    installTargetProperty(globalThis, 'requestAnimationFrame', mockRequestAnimationFrame),
+    installTargetProperty(globalThis, 'cancelAnimationFrame', mockCancelAnimationFrame),
   ].forEach((propertyStack) => stack.add(() => propertyStack.cleanup()));
 
   return {
@@ -36,9 +35,6 @@ export function installAnimationFrameMock(options = {}) {
 export function installVideoFrameCallbacksMock() {
   const stack = createCleanupStack();
 
-  const originalRequest = HTMLVideoElement.prototype.requestVideoFrameCallback;
-  const originalCancel = HTMLVideoElement.prototype.cancelVideoFrameCallback;
-
   const mockRequestVideoFrameCallback = vi.fn((callback) => {
     const now = performance.now();
     return setTimeout(() => callback(now, { presentationTime: now }), 0);
@@ -48,39 +44,13 @@ export function installVideoFrameCallbacksMock() {
     clearTimeout(id);
   });
 
-  Object.defineProperty(HTMLVideoElement.prototype, 'requestVideoFrameCallback', {
-    configurable: true,
-    writable: true,
-    value: mockRequestVideoFrameCallback,
-  });
-
-  Object.defineProperty(HTMLVideoElement.prototype, 'cancelVideoFrameCallback', {
-    configurable: true,
-    writable: true,
-    value: mockCancelVideoFrameCallback,
-  });
-
-  stack.add(() => {
-    if (typeof originalRequest === 'undefined') {
-      delete HTMLVideoElement.prototype.requestVideoFrameCallback;
-    } else {
-      Object.defineProperty(HTMLVideoElement.prototype, 'requestVideoFrameCallback', {
-        configurable: true,
-        writable: true,
-        value: originalRequest,
-      });
-    }
-
-    if (typeof originalCancel === 'undefined') {
-      delete HTMLVideoElement.prototype.cancelVideoFrameCallback;
-    } else {
-      Object.defineProperty(HTMLVideoElement.prototype, 'cancelVideoFrameCallback', {
-        configurable: true,
-        writable: true,
-        value: originalCancel,
-      });
-    }
-  });
+  for (const [name, mock] of Object.entries({
+    requestVideoFrameCallback: mockRequestVideoFrameCallback,
+    cancelVideoFrameCallback: mockCancelVideoFrameCallback
+  })) {
+    const property = installTargetProperty(HTMLVideoElement.prototype, name, mock);
+    stack.add(() => property.cleanup());
+  }
 
   return {
     ...stack,

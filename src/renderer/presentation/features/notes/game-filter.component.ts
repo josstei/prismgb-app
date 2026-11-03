@@ -20,21 +20,20 @@ export interface GameFilterInitializeOptions {
 }
 
 class GameFilterComponent extends PresentationComponent {
-  declare notesService: NotesGameServiceLike | null;
-  declare logger: LoggerLike | null | undefined;
-  declare currentGameFilter: string;
-  declare isGameFilterOpen: boolean;
-  declare _filterDropdown: ListboxDropdownController | null;
-  declare filterButton: HTMLElement | null | undefined;
-  declare filterLabel: HTMLElement | null | undefined;
-  declare filterMenu: HTMLElement | null | undefined;
-  declare onFilterChange: ((value: string, label: string) => void) | null | undefined;
+  notesService: NotesGameServiceLike | null;
+  logger: LoggerLike | null | undefined;
+  currentGameFilter: string;
+  _filterDropdown: ListboxDropdownController | null;
+  filterButton: HTMLElement | null | undefined;
+  filterLabel: HTMLElement | null | undefined;
+  filterMenu: HTMLElement | null | undefined;
+  onFilterChange: ((value: string, label: string) => void) | null | undefined;
 
   constructor(options: GameFilterComponentOptions) {
     super();
-    this.applyOptions<GameFilterComponentOptions>({}, options);
+    this.notesService = options.notesService;
+    this.logger = options.logger;
     this.currentGameFilter = '';
-    this.isGameFilterOpen = false;
     this._filterDropdown = null;
     this.filterButton = null;
     this.filterLabel = null;
@@ -43,8 +42,10 @@ class GameFilterComponent extends PresentationComponent {
 
   initialize(options: GameFilterInitializeOptions): void {
     this.cancelManaged(FILTER_SETUP_LIFECYCLE);
-    this.isGameFilterOpen = false;
-    this.applyOptions<GameFilterInitializeOptions>({}, options);
+    this.filterButton = options.filterButton;
+    this.filterLabel = options.filterLabel;
+    this.filterMenu = options.filterMenu;
+    this.onFilterChange = options.onFilterChange;
 
     if (!this.filterButton || !this.filterMenu) {
       this.logger?.warn('Game filter elements not found');
@@ -87,7 +88,7 @@ class GameFilterComponent extends PresentationComponent {
   }
 
   hide(): void {
-    this._hideGameFilterMenu();
+    this._filterDropdown?.hide();
   }
 
   _setupGameFilter(): void {
@@ -104,12 +105,6 @@ class GameFilterComponent extends PresentationComponent {
       enableTriggerKeyboard: true,
       focusOnTriggerOpen: true,
       onChange: (value, label) => this._selectGameFilterOption(value, label),
-      onShow: () => {
-        this.isGameFilterOpen = true;
-      },
-      onHide: () => {
-        this.isGameFilterOpen = false;
-      },
       logger: this.logger
     });
     this._filterDropdown = filterDropdown;
@@ -118,7 +113,6 @@ class GameFilterComponent extends PresentationComponent {
       await filterDropdown.dispose();
       if (this._filterDropdown === filterDropdown) {
         this._filterDropdown = null;
-        this.isGameFilterOpen = false;
       }
     });
     filterDropdown.initialize({ activeValue: this.currentGameFilter });
@@ -155,16 +149,8 @@ class GameFilterComponent extends PresentationComponent {
     this.onFilterChange?.(nextValue, label);
   }
 
-  _toggleGameFilterMenu(): void {
-    this._filterDropdown?.toggle();
-  }
-
-  _showGameFilterMenu(): void {
-    this._filterDropdown?.show();
-  }
-
-  _hideGameFilterMenu(): void {
-    this._filterDropdown?.hide();
+  get isGameFilterOpen(): boolean {
+    return this._filterDropdown?.isOpen() ?? false;
   }
 
   override dispose(): void | Promise<void> {
@@ -176,7 +162,6 @@ class GameFilterComponent extends PresentationComponent {
     this.notesService = null;
     this.logger = null;
     this.currentGameFilter = '';
-    this.isGameFilterOpen = false;
     this._filterDropdown = null;
     return disposed;
   }

@@ -1,129 +1,115 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { WorkerRendererClient } from '../../../../../src/platform/gpu/worker/client';
-import { WorkerMessageType, WorkerResponseType, createWorkerResponse } from '../../../../../src/platform/gpu/worker/protocol';
+import { createWorkerMessage, createWorkerResponse, isValidWorkerMessage, isValidWorkerResponse } from '../../../../../src/platform/gpu/worker/protocol';
 import { createMockCanvas } from '@platform/gpu/testkit';
 
-function createWorkerMock(): Worker {
-  return {
-    onmessage: null,
-    onerror: null,
-    postMessage: vi.fn(),
-    terminate: vi.fn()
-  } as unknown as Worker;
-}
-
-function createConfig() {
-  return {
-    nativeWidth: 160,
-    nativeHeight: 144,
-    targetWidth: 640,
-    targetHeight: 576,
-    scaleFactor: 4,
-    backend: 'webgpu' as const,
-    presetId: 'vibrant'
+const config = { nativeWidth: 160, nativeHeight: 144, targetWidth: 640, targetHeight: 576, presetId: 'vibrant' };
+function fixture() {
+  const worker = { onmessage: null, onerror: null, postMessage: vi.fn(), terminate: vi.fn() } as unknown as Worker;
+  const logger = { error: vi.fn(), info: vi.fn() };
+  const client = new WorkerRendererClient({ createWorker: () => worker, logger });
+  const canvas = createMockCanvas() as unknown as HTMLCanvasElement;
+  const emit = (data: unknown) => worker.onmessage?.({ data } as MessageEvent);
+  const start = async () => {
+    const ready = client.initialize(canvas, config);
+    emit(createWorkerResponse('ready'));
+    await ready;
   };
+  return { worker, client, canvas, emit, logger, start };
 }
+afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
 
-describe('WorkerRendererClient', () => {
-  let worker: Worker;
-  let client: WorkerRendererClient;
-
-  beforeEach(() => {
-    worker = createWorkerMock();
-    client = new WorkerRendererClient({
-      createWorker: () => worker,
-      logger: {
-        debug: vi.fn(),
-        error: vi.fn(),
-        info: vi.fn()
-      }
-    });
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('transfers canvas and resolves when the worker reports ready', async () => {
-    const canvas = createMockCanvas() as unknown as HTMLCanvasElement;
-    const transferControlToOffscreen = vi.spyOn(canvas, 'transferControlToOffscreen');
-    const initializePromise = client.initialize(canvas, createConfig());
-
-    worker.onmessage?.({ data: createWorkerResponse(WorkerResponseType.READY, { backend: 'webgpu' }) } as MessageEvent);
-
-    await initializePromise;
-
-    expect(transferControlToOffscreen).toHaveBeenCalledTimes(1);
-    expect(worker.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ type: WorkerMessageType.INIT }),
-      [expect.objectContaining({ width: 160, height: 144 })]
-    );
-    expect(client.isReady()).toBe(true);
-  });
-
-  it('returns false instead of throwing when frame commands are sent before ready', () => {
-    const imageBitmap = { close: vi.fn() } as unknown as ImageBitmap;
-
-    expect(client.renderFrame(imageBitmap)).toBe(false);
-    expect(worker.postMessage).not.toHaveBeenCalled();
-  });
-
-  it('rejects timed-out initialization and allows same-canvas reinitialization', async () => {
-    vi.useFakeTimers();
-    const canvas = createMockCanvas() as unknown as HTMLCanvasElement;
-    const initializePromise = client.initialize(canvas, createConfig(), 50);
-    const initializationExpectation = expect(initializePromise).rejects.toThrow('Worker initialization timed out');
-
-    await vi.advanceTimersByTimeAsync(50);
-    await initializationExpectation;
-    expect(client.isReady()).toBe(false);
-
-    const reinitializePromise = client.initialize(canvas, createConfig(), 50);
-    worker.onmessage?.({ data: createWorkerResponse(WorkerResponseType.READY, { backend: 'webgpu' }) } as MessageEvent);
-
-    await expect(reinitializePromise).resolves.toBe(true);
-    expect(worker.postMessage).toHaveBeenLastCalledWith(
-      expect.objectContaining({ type: WorkerMessageType.INIT })
-    );
-    expect(client.isReady()).toBe(true);
-  });
-
-  it('dispatches typed callbacks and posts accepted frame commands', async () => {
-    const canvas = createMockCanvas() as unknown as HTMLCanvasElement;
-    const onFrameRendered = vi.fn();
-    client.onMessage(WorkerResponseType.FRAME_RENDERED, onFrameRendered);
-
-    const initializePromise = client.initialize(canvas, createConfig());
-    worker.onmessage?.({ data: createWorkerResponse(WorkerResponseType.READY, { backend: 'webgpu' }) } as MessageEvent);
-    await initializePromise;
-
-    const imageBitmap = { close: vi.fn() } as unknown as ImageBitmap;
-    expect(client.renderFrame(imageBitmap)).toBe(true);
-    worker.onmessage?.({ data: createWorkerResponse(WorkerResponseType.FRAME_RENDERED) } as MessageEvent);
-
-    expect(worker.postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ type: WorkerMessageType.FRAME }),
-      [imageBitmap]
-    );
-    expect(onFrameRendered).toHaveBeenCalledWith(undefined);
-  });
-
-  it('releases resources without terminating and fully terminates on dispose', async () => {
-    const canvas = createMockCanvas() as unknown as HTMLCanvasElement;
-    const initializePromise = client.initialize(canvas, createConfig());
-    worker.onmessage?.({ data: createWorkerResponse(WorkerResponseType.READY, { backend: 'webgpu' }) } as MessageEvent);
-    await initializePromise;
-
-    client.releaseResources();
-
-    expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: WorkerMessageType.RELEASE }));
-    expect(worker.terminate).not.toHaveBeenCalled();
-    expect(client.isReady()).toBe(false);
-
-    client.dispose();
-
-    expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: WorkerMessageType.DESTROY }));
+describe('worker resource ownership', () => {
+  it('creates and transfers frames only after readiness and disposes the worker once', async () => {
+    const { worker, client, canvas, start } = fixture();
+    const frame = { close: vi.fn() } as unknown as ImageBitmap;
+    const createBitmap = vi.fn(async () => frame);
+    vi.stubGlobal('createImageBitmap', createBitmap);
+    const video = {} as HTMLVideoElement;
+    await client.renderFrame(video);
+    expect(createBitmap).not.toHaveBeenCalled();
+    await start();
+    await client.renderFrame(video);
+    expect(worker.postMessage).toHaveBeenLastCalledWith({ type: 'frame', payload: { imageBitmap: frame } }, [frame]);
+    expect(frame.close).not.toHaveBeenCalled();
+    await expect(client.initialize(canvas, config)).rejects.toThrow('single-use');
+    await client.dispose();
+    await client.dispose();
     expect(worker.terminate).toHaveBeenCalledTimes(1);
-    expect(client.isCanvasTransferred()).toBe(false);
+  });
+
+  it('terminates timed out initialization and never reuses a transferred canvas', async () => {
+    vi.useFakeTimers();
+    const { worker, client, canvas } = fixture();
+    const ready = client.initialize(canvas, config, 10);
+    const rejected = expect(ready).rejects.toThrow('timed out');
+    await vi.advanceTimersByTimeAsync(10);
+    await rejected;
+    expect(worker.terminate).toHaveBeenCalledTimes(1);
+    await expect(client.captureFrame()).rejects.toThrow('not ready');
+    await expect(client.initialize(canvas, config)).rejects.toThrow('single-use');
+  });
+
+  it('rejects readiness and terminates when initialization transfer throws', async () => {
+    const { worker, client, canvas } = fixture();
+    vi.mocked(worker.postMessage).mockImplementation(() => { throw new Error('transfer failed'); });
+    await expect(client.initialize(canvas, config)).rejects.toThrow('transfer failed');
+    expect(worker.terminate).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects in-flight capture and disables further work after a worker crash', async () => {
+    const { worker, client, start, logger } = fixture();
+    await start();
+    const capture = client.captureFrame();
+    worker.onerror?.({ message: 'crashed' } as ErrorEvent);
+    await expect(capture).rejects.toThrow('crashed');
+    expect(logger.error).toHaveBeenCalledWith('Worker error:', 'crashed');
+    await expect(client.captureFrame()).rejects.toThrow('not ready');
+    await client.dispose();
+  });
+
+  it('keeps capture single-flight and ignores stale request errors', async () => {
+    const { client, worker, emit, start } = fixture();
+    await start();
+    const capture = client.captureFrame();
+    await expect(client.captureFrame()).rejects.toThrow('already in progress');
+    const { requestId } = vi.mocked(worker.postMessage).mock.calls.at(-1)![0].payload;
+    emit(createWorkerResponse('error', { message: 'old error', requestId: requestId - 1 }));
+    const bitmap = { close: vi.fn() } as unknown as ImageBitmap;
+    emit(createWorkerResponse('captureReady', { bitmap, requestId }));
+    await expect(capture).resolves.toBe(bitmap);
+    expect(bitmap.close).not.toHaveBeenCalled();
+    bitmap.close();
+    await client.dispose();
+  });
+
+  it('closes failed transfers and releases the frame reservation for the next frame', async () => {
+    const { client, worker, start } = fixture();
+    await start();
+    const failed = { close: vi.fn() } as unknown as ImageBitmap;
+    const next = { close: vi.fn() } as unknown as ImageBitmap;
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValueOnce(failed).mockResolvedValueOnce(next));
+    vi.mocked(worker.postMessage).mockImplementationOnce(() => { throw new Error('transfer failed'); });
+    await client.renderFrame({} as HTMLVideoElement);
+    expect(failed.close).toHaveBeenCalledOnce();
+    await client.renderFrame({} as HTMLVideoElement);
+    expect(worker.postMessage).toHaveBeenLastCalledWith({ type: 'frame', payload: { imageBitmap: next } }, [next]);
+    expect(next.close).not.toHaveBeenCalled();
+    await client.dispose();
+  });
+});
+
+describe('worker protocol', () => {
+  it('validates one canonical payload shape and rejects removed protocol fields', () => {
+    expect(isValidWorkerMessage(createWorkerMessage('resize', { width: 640, height: 576 }))).toBe(true);
+    expect(isValidWorkerMessage({ type: 'resize', payload: { width: '640', height: 576 } })).toBe(false);
+    expect(isValidWorkerMessage({ type: 'release' })).toBe(false);
+    expect(createWorkerMessage('capture', { requestId: 3 })).toEqual({ type: 'capture', payload: { requestId: 3 } });
+  });
+  it('requires a preset ID and correlated capture response', () => {
+    expect(isValidWorkerMessage(createWorkerMessage('setPreset', { presetId: 'pixel' }))).toBe(true);
+    expect(isValidWorkerMessage({ type: 'setPreset', payload: { preset: {} } })).toBe(false);
+    expect(isValidWorkerResponse({ type: 'captureReady', payload: { bitmap: { close() {} } } })).toBe(false);
+    expect(isValidWorkerResponse(createWorkerResponse('captureReady', { requestId: 2, bitmap: { close() {} } as ImageBitmap }))).toBe(true);
   });
 });

@@ -1,15 +1,16 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { downloadFile } from '@renderer/lib/file-download.utils';
 import { installBlobDownloadMock } from '../../../support/mocks/browser-api.installers.js';
 
 describe('fileDownload', () => {
   let downloadMock: ReturnType<typeof installBlobDownloadMock>;
-  let mockAnchor: ReturnType<typeof installBlobDownloadMock>['anchor'];
+  let lifecycle: { expect: Mock<(url: string) => Promise<unknown>>; cancel: Mock<(url: string) => Promise<unknown>> };
 
   beforeEach(() => {
     vi.useFakeTimers();
     downloadMock = installBlobDownloadMock({ objectUrl: 'blob:test' });
-    mockAnchor = downloadMock.anchor;
+    downloadMock.anchor.remove = vi.fn();
+    lifecycle = { expect: vi.fn().mockResolvedValue(undefined), cancel: vi.fn().mockResolvedValue(undefined) };
   });
 
   afterEach(() => {
@@ -17,45 +18,41 @@ describe('fileDownload', () => {
     vi.useRealTimers();
   });
 
-  it('should create object URL from blob', async () => {
+  it('registers the blob before clicking, preserving filename and delayed URL release', async () => {
+    const accepted = Promise.withResolvers<void>();
+    lifecycle.expect.mockReturnValue(accepted.promise);
     const blob = new Blob(['test']);
-    downloadFile(blob, 'test.txt');
+    const saving = downloadFile(blob, 'test.txt', lifecycle);
     expect(downloadMock.createObjectURL).toHaveBeenCalledWith(blob);
-  });
+    expect(lifecycle.expect).toHaveBeenCalledWith('blob:test');
+    expect(downloadMock.anchor.click).not.toHaveBeenCalled();
 
-  it('should set anchor href and download attributes', async () => {
-    const blob = new Blob(['test']);
-    downloadFile(blob, 'test.txt');
-    expect(mockAnchor.href).toBe('blob:test');
-    expect(mockAnchor.download).toBe('test.txt');
-  });
-
-  it('should click the anchor to trigger download', async () => {
-    const blob = new Blob(['test']);
-    downloadFile(blob, 'test.txt');
-    expect(mockAnchor.click).toHaveBeenCalled();
-  });
-
-  it('should cleanup after download with delay', async () => {
-    const blob = new Blob(['test']);
-    const promise = downloadFile(blob, 'test.txt');
-
-    expect(downloadMock.removeChild).toHaveBeenCalledWith(mockAnchor);
+    accepted.resolve();
+    await saving;
+    expect(downloadMock.anchor.href).toBe('blob:test');
+    expect(downloadMock.anchor.download).toBe('test.txt');
+    expect(downloadMock.anchor.click).toHaveBeenCalledOnce();
+    expect(downloadMock.anchor.remove).toHaveBeenCalledOnce();
     expect(downloadMock.revokeObjectURL).not.toHaveBeenCalled();
-    await expect(promise).resolves.toBeUndefined();
-
     await vi.advanceTimersByTimeAsync(5000);
-
     expect(downloadMock.revokeObjectURL).toHaveBeenCalledWith('blob:test');
   });
 
-  it('should return a promise that resolves after download starts', async () => {
-    const blob = new Blob(['test']);
-    const promise = downloadFile(blob, 'test.txt');
+  it('cancels the registration if the browser cannot start the download', async () => {
+    downloadMock.anchor.click.mockImplementation(() => { throw new Error('Click failed'); });
+    await expect(downloadFile(new Blob(['test']), 'test.txt', lifecycle)).rejects.toThrow('Click failed');
+    expect(lifecycle.cancel).toHaveBeenCalledWith('blob:test');
+    expect(downloadMock.anchor.remove).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(downloadMock.revokeObjectURL).toHaveBeenCalledWith('blob:test');
+  });
 
-    expect(promise).toBeInstanceOf(Promise);
-
-    await expect(promise).resolves.toBeUndefined();
-    expect(downloadMock.revokeObjectURL).not.toHaveBeenCalled();
+  it('does not start a download when registration fails', async () => {
+    lifecycle.expect.mockRejectedValue(new Error('Disconnected'));
+    await expect(downloadFile(new Blob(['test']), 'test.txt', lifecycle)).rejects.toThrow('Disconnected');
+    expect(downloadMock.anchor.click).not.toHaveBeenCalled();
+    expect(lifecycle.cancel).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(downloadMock.revokeObjectURL).toHaveBeenCalledWith('blob:test');
   });
 });

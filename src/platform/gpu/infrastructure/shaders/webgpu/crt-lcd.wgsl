@@ -11,17 +11,6 @@
  * All effects are tunable and can be disabled individually.
  */
 
-// Uniform buffer for CRT/LCD parameters
-struct CRTUniforms {
-  resolution: vec2<f32>,        // Output resolution
-  scaleFactor: f32,             // Integer scale factor
-  scanlineStrength: f32,        // Horizontal scanline intensity (0.0 - 0.5)
-  pixelMaskStrength: f32,       // RGB subpixel mask intensity (0.0 - 0.4)
-  bloomStrength: f32,           // Glow around bright areas (0.0 - 0.3)
-  curvature: f32,               // Barrel distortion amount (0.0 - 0.1)
-  vignetteStrength: f32         // Corner darkening (0.0 - 0.4)
-}
-
 @group(0) @binding(0) var<uniform> uniforms: CRTUniforms;
 @group(0) @binding(1) var inputTex: texture_2d<f32>;
 @group(0) @binding(2) var linearSampler: sampler;

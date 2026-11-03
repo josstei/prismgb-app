@@ -1,369 +1,167 @@
-/**
- * Transcode Service
- *
- * Main process service for video transcoding operations.
- * Manages transcode sessions, progress tracking, and cleanup.
- */
-
 import path from 'node:path';
 import fs from 'node:fs';
-import os from 'node:os';
-import nodeModule from 'node:module';
-import { BaseService, type EventBusLike, type LoggerFactoryLike, getElectronApp } from '@platform/core';
+import { BaseService, getErrorMessage, type LoggerFactoryLike } from '@platform/core';
 import { IPC_CHANNELS } from '@platform/ipc';
-import { TRANSCODE_CONFIG, TranscodeState } from './transcode.config.js';
-import { validateFfmpegBinaries } from './ffmpeg-path.utils.js';
-import {
-  createTempSession,
-  writeTempFile,
-  cleanupSession,
-  cleanupAllSessions,
-  SessionInfo
-} from './transcode-temp.utils.js';
-import { TranscodeProcess, probeDuration, TranscodeProgressData } from './transcode-process.js';
+import type { IpcPushPublisher, IpcPushPayloadMap, IpcPushArguments } from '@platform/ipc';
+import { TRANSCODE_CONFIG, type TranscodeFormat } from './transcode.config.js';
+import { getFfmpegPath, getOptionalFfprobePath, validateFfmpegBinaries, type FfmpegEnvironment } from './ffmpeg-path.utils.js';
+import { createTempSession, writeTempFile, cleanupSession } from './transcode-temp.utils.js';
+import { TranscodeProcess, probeDuration } from './transcode-process.js';
 
-/**
- * Transcode job info
- */
-export interface TranscodeJob {
-  id: string;
-  state: string;
-  progress: number;
-  outputPath: string | null;
-  error: string | null;
-  startTime: number;
-}
-
-/**
- * Transcode options
- */
-export interface TranscodeOptions {
+interface TranscodeOptions {
   inputBuffer: Buffer;
-  format: string;
+  format: TranscodeFormat;
   outputFilename: string;
   inputArgs?: string[];
-  interrupted?: boolean;
 }
 
-/**
- * Transcode result
- */
-export interface TranscodeResult {
-  success: boolean;
-  jobId?: string;
-  filePath?: string;
-  error?: string;
+interface TranscodeEnvironment extends FfmpegEnvironment {
+  downloadsDir: string;
+  tempDir: string;
 }
 
-/**
- * Cancel result
- */
-export interface CancelResult {
-  success: boolean;
-  error?: string;
-}
-
-/**
- * Status result
- */
-export interface StatusResult {
-  success: boolean;
-  jobs?: TranscodeJob[];
-  error?: string;
-}
-
-/**
- * Service dependencies
- */
 interface TranscodeServiceDependencies {
-  windowService: {
-    send: (channel: string, data: unknown) => void;
-  };
-  eventBus: EventBusLike;
+  pushPublisher: IpcPushPublisher;
   loggerFactory: LoggerFactoryLike;
+  environment: TranscodeEnvironment;
 }
 
-type TranscodeFormatKey = keyof typeof TRANSCODE_CONFIG.formats;
-const transcodeCleanupLifecycleKey = (jobId: string): string => `transcode-cleanup:${jobId}`;
-
-function isTranscodeFormat(value: string): value is TranscodeFormatKey {
-  return Object.prototype.hasOwnProperty.call(TRANSCODE_CONFIG.formats, value);
+interface ActiveJob {
+  process: TranscodeProcess;
+  completion: Promise<void>;
+}
+interface AcceptedJob {
+  jobId: string;
+  completion: Promise<void>;
 }
 
-class TranscodeService extends BaseService {
+/** Owns active conversion processes and their files until a terminal event or shutdown. */
+export class TranscodeService extends BaseService {
+  private readonly jobs = new Map<string, ActiveJob>();
+  private readonly starting = new Set<Promise<AcceptedJob>>();
+  private disposing = false;
+  private draining = false;
+  private readonly pushPublisher: IpcPushPublisher;
+  private readonly environment: TranscodeEnvironment;
 
-  private windowService: TranscodeServiceDependencies['windowService'];
-  private _jobs: Map<string, TranscodeJob> = new Map();
-  private _processes: Map<string, TranscodeProcess> = new Map();
-  private _sessions: Map<string, SessionInfo> = new Map();
-  private _isDisposing = false;
-
-  constructor(dependencies: TranscodeServiceDependencies) {
-    super(dependencies, 'TranscodeService');
-    this.windowService = dependencies.windowService;
+  constructor({ pushPublisher, loggerFactory, environment }: TranscodeServiceDependencies) {
+    super({ loggerFactory }, 'TranscodeService');
+    this.pushPublisher = pushPublisher;
+    this.environment = environment;
   }
 
-  /**
-   * Initialize the transcode service
-   */
   protected override onInitialize(): void {
-    this.logger.info('Initializing transcode service');
-    this._isDisposing = false;
-
-    // Validate ffmpeg binaries are available
+    this.disposing = false;
+    this.draining = false;
     try {
-      const { ffmpegPath, ffprobePath } = validateFfmpegBinaries();
-      this.logger.info('FFmpeg binaries validated', { ffmpegPath, ffprobePath: ffprobePath || 'optional-missing' });
+      this.logger.info('FFmpeg binaries validated', validateFfmpegBinaries(this.environment));
     } catch (error) {
-      this.logger.error('FFmpeg binary not found', { error: (error as Error).message });
-      // Don't throw - service can still be initialized, but transcode will fail
+      // Startup remains usable when conversion binaries are unavailable.
+      this.logger.error('FFmpeg binary not found', { error: getErrorMessage(error) });
     }
-
-    this.logger.info('TranscodeService initialized');
   }
 
-  async transcode({ inputBuffer, format, outputFilename, inputArgs }: TranscodeOptions): Promise<TranscodeResult> {
-    if (!this._initialized) {
-      return { success: false, error: 'TranscodeService not initialized' };
-    }
+  transcode(options: TranscodeOptions): Promise<{ jobId: string }> {
+    const pending = this.startTranscode(options);
+    this.starting.add(pending);
+    return pending.then(({ jobId }) => ({ jobId })).finally(() => this.starting.delete(pending));
+  }
 
-    // Validate format
-    if (!isTranscodeFormat(format)) {
-      return { success: false, error: `Unsupported format: ${format}` };
-    }
-    const formatConfig = TRANSCODE_CONFIG.formats[format];
+  private async startTranscode({ inputBuffer, format, outputFilename, inputArgs = [] }: TranscodeOptions): Promise<AcceptedJob> {
+    if (!this._initialized || this.disposing || this.draining) throw new Error('TranscodeService not initialized');
+    if (!Object.hasOwn(TRANSCODE_CONFIG.formats, format)) throw new Error(`Unsupported format: ${format}`);
+    if (!outputFilename || typeof outputFilename !== 'string') throw new Error('Output filename is required');
 
-    // Validate outputFilename
-    if (!outputFilename || typeof outputFilename !== 'string') {
-      return { success: false, error: 'Output filename is required' };
-    }
-
-    // Create temp session
-    const { sessionId, sessionDir } = createTempSession();
-    this.logger.info('Created transcode session', { sessionId, format });
-
+    const { sessionId, sessionDir } = createTempSession(this.environment.tempDir);
     try {
-      // Write input buffer to temp file (async to avoid blocking event loop)
-      const inputFilename = 'input.webm';
-      const inputPath = await writeTempFile(sessionDir, inputFilename, inputBuffer);
-
-      // Get video duration for progress tracking
-      let durationUs: number;
+      const inputPath = await writeTempFile(sessionDir, 'input.webm', inputBuffer);
+      let durationUs = 0;
       try {
-        durationUs = await probeDuration(inputPath);
-        this.logger.debug('Probed video duration', { sessionId, durationUs });
+        durationUs = await probeDuration(inputPath, getOptionalFfprobePath(this.environment));
       } catch {
         this.logger.debug('Duration unknown, will show spinner', { sessionId });
-        durationUs = 0;
       }
+      if (this.disposing) throw new Error('TranscodeService not initialized');
 
-      // Determine output path (save directly to Downloads)
-      const downloadsDir = getElectronApp()?.getPath('downloads') ?? path.join((typeof os.homedir === 'function' ? os.homedir() : nodeModule.createRequire(import.meta.url)('node:os').homedir()), 'Downloads');
-      const outputPath = path.join(downloadsDir, `${outputFilename}.${formatConfig.extension}`);
-
-      // Create job record
-      // Note: outputPath is set early so cleanup can delete partial files on cancel/error
-      const job: TranscodeJob = {
-        id: sessionId,
-        state: TranscodeState.TRANSCODING,
-        progress: 0,
-        outputPath: outputPath,
-        error: null,
-        startTime: Date.now()
-      };
-      this._jobs.set(sessionId, job);
-      this._sessions.set(sessionId, { sessionId, sessionDir });
-
-      // Create and start transcode process
-      const process = new TranscodeProcess(
-        inputPath,
-        outputPath,
-        formatConfig.ffmpegArgs,
-        durationUs,
-        Array.isArray(inputArgs) ? inputArgs : []
-      );
-      this._processes.set(sessionId, process);
-
-      // Set up event handlers
-      process.on('progress', (progressData: TranscodeProgressData) => {
-        job.progress = progressData.percent;
-        this._notifyRenderer(IPC_CHANNELS.TRANSCODE.PROGRESS, {
-          jobId: sessionId,
-          ...progressData
-        });
-      });
-
-      process.on('completed', () => {
-        job.state = TranscodeState.COMPLETED;
-        job.progress = 100;
-        // Note: outputPath was set early in job creation for cleanup purposes
-
-        this._notifyRenderer(IPC_CHANNELS.TRANSCODE.COMPLETED, {
-          jobId: sessionId,
-          filePath: job.outputPath
-        });
-
-        this.logger.info('Transcode completed', { sessionId, outputPath: job.outputPath });
-
-        // Cleanup temp files (not the output)
-        this._cleanupJob(sessionId);
-      });
-
-      process.on('cancelled', () => {
-        job.state = TranscodeState.CANCELLED;
-
-        this._notifyRenderer(IPC_CHANNELS.TRANSCODE.CANCELLED, {
-          jobId: sessionId
-        });
-
-        this.logger.info('Transcode cancelled', { sessionId });
-
-        // Cleanup temp files and partial output
-        this._cleanupJob(sessionId, true);
-      });
-
-      process.on('error', (error: Error) => {
-        job.state = TranscodeState.ERROR;
-        job.error = error.message;
-
-        this._notifyRenderer(IPC_CHANNELS.TRANSCODE.ERROR, {
-          jobId: sessionId,
-          error: error.message
-        });
-
-        this.logger.error('Transcode failed', { sessionId, error: error.message });
-
-        // Cleanup temp files and partial output
-        this._cleanupJob(sessionId, true);
-      });
-
-      // Start the process (non-blocking)
-      process.start().catch((error: Error) => {
-        // Error already handled via event
-        this.logger.debug('Transcode process rejected', { sessionId, error: error.message });
-      });
-
-      return { success: true, jobId: sessionId };
+      const config = TRANSCODE_CONFIG.formats[format];
+      const outputPath = path.join(this.environment.downloadsDir, `${outputFilename}.${config.extension}`);
+      // Keep the existing recording intact until replacement succeeds. This file
+      // shares the destination filesystem so promotion is an atomic rename.
+      const stagingPath = path.join(this.environment.downloadsDir, `.${sessionId}.${config.extension}`);
+      const process = new TranscodeProcess(inputPath, stagingPath, config.ffmpegArgs, durationUs, inputArgs, getFfmpegPath(this.environment));
+      const completion = Promise.resolve().then(() => this.finishJob(sessionId, process, sessionDir, stagingPath, outputPath));
+      this.jobs.set(sessionId, { process, completion });
+      // Drain observes failures; conversion errors are also delivered immediately
+      // through their correlated push without causing an unhandled rejection.
+      void completion.catch(() => {});
+      return { jobId: sessionId, completion };
     } catch (error) {
-      this.logger.error('Failed to start transcode', { sessionId, error: (error as Error).message });
-
-      // Cleanup on error
-      cleanupSession(sessionId, sessionDir);
-      this._jobs.delete(sessionId);
-      this._sessions.delete(sessionId);
-
-      return { success: false, error: (error as Error).message };
+      cleanupSession(sessionDir, this.logger);
+      throw error;
     }
   }
 
-  cancel(jobId: string): CancelResult {
-    const process = this._processes.get(jobId);
-    if (!process) {
-      return { success: false, error: 'Job not found or already completed' };
-    }
-
-    if (!process.isRunning) {
-      return { success: false, error: 'Job is not running' };
-    }
-
-    this.logger.info('Cancelling transcode', { jobId });
-    process.cancel();
-
-    return { success: true };
+  cancel(jobId: string): void {
+    const job = this.jobs.get(jobId);
+    if (!job) throw new Error('Job not found or already completed');
+    if (!job.process.cancel()) throw new Error('Job is not running');
   }
 
-  /**
-   * Get status of all tracked jobs.
-   */
-  getStatus(): StatusResult {
-    const jobs = Array.from(this._jobs.values());
-    return { success: true, jobs };
-  }
-
-  private _cleanupJob(jobId: string, removeOutput = false): void {
-    // Remove process reference
-    this._processes.delete(jobId);
-
-    // Get session info
-    const sessionInfo = this._sessions.get(jobId);
-    if (sessionInfo) {
-      cleanupSession(sessionInfo.sessionId, sessionInfo.sessionDir);
-      this._sessions.delete(jobId);
-    }
-
-    // Optionally remove output file (for cancelled/failed jobs)
-    if (removeOutput) {
-      const job = this._jobs.get(jobId);
-      if (job?.outputPath && fs.existsSync(job.outputPath)) {
-        try {
-          fs.unlinkSync(job.outputPath);
-        } catch (error) {
-          this.logger.warn('Failed to remove partial output file', {
-            jobId,
-            path: job.outputPath,
-            error: (error as Error).message
-          });
-        }
-      }
-    }
-
-    // Schedule job record cleanup after TTL (5 minutes)
-    // This allows status queries for recently completed jobs while preventing memory leaks
-    if (this._isDisposing) {
-      this._jobs.delete(jobId);
-      return;
-    }
-
-    const cleanupLifecycleKey = transcodeCleanupLifecycleKey(jobId);
-    this.schedule(cleanupLifecycleKey, () => {
-      if (this._jobs.has(jobId)) {
-        this._jobs.delete(jobId);
-        this.logger.debug('Removed stale job record', { jobId });
-      }
-    }, 5 * 60 * 1000);
-  }
-
-  private _notifyRenderer(channel: string, data: unknown): void {
+  private async finishJob(jobId: string, process: TranscodeProcess, sessionDir: string, stagingPath: string, outputPath: string): Promise<void> {
     try {
-      this.windowService?.send(channel, data);
+      const outcome = await process.start((progress) => this.publish(IPC_CHANNELS.TRANSCODE.PROGRESS, { jobId, ...progress }));
+      if (outcome === 'cancelled') {
+        this.publish(IPC_CHANNELS.TRANSCODE.CANCELLED, { jobId });
+      } else {
+        fs.renameSync(stagingPath, outputPath);
+        this.publish(IPC_CHANNELS.TRANSCODE.COMPLETED, { jobId, filePath: outputPath });
+      }
     } catch (error) {
-      this.logger.warn('Failed to notify renderer', { channel, error: (error as Error).message });
+      const message = getErrorMessage(error);
+      this.publish(IPC_CHANNELS.TRANSCODE.ERROR, { jobId, error: message });
+      this.logger.error('Transcode failed', { jobId, error: message });
+      throw error;
+    } finally {
+      this.jobs.delete(jobId);
+      cleanupSession(sessionDir, this.logger);
+      try {
+        fs.rmSync(stagingPath, { force: true });
+      } catch (error) {
+        this.logger.warn('Failed to remove partial output file', { jobId, path: stagingPath, error });
+      }
     }
   }
 
-  /**
-   * Dispose service resources
-   */
+  private publish<K extends keyof IpcPushPayloadMap>(...args: IpcPushArguments<K>): void {
+    try {
+      this.pushPublisher.emit<K>(...args);
+    } catch (error) {
+      this.logger.warn('Failed to notify renderer', { channel: args[0], error });
+    }
+  }
+
+  /** Stop accepting work and let accepted recordings finish before normal application exit. */
+  async drain(): Promise<void> {
+    this.draining = true;
+    const active = new Set([...this.jobs.values()].map((job) => job.completion));
+    const preparations = await Promise.allSettled([...this.starting]);
+    for (const preparation of preparations) {
+      if (preparation.status === 'fulfilled') active.add(preparation.value.completion);
+    }
+    const completed = await Promise.allSettled([...active]);
+    const errors = [...preparations, ...completed]
+      .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+      .map((result) => result.reason);
+    if (errors.length) throw new AggregateError(errors, 'Accepted recordings failed to finish saving');
+  }
+
   override async dispose(): Promise<void> {
-    this.logger.info('Disposing TranscodeService');
-    this._isDisposing = true;
-
-    await Promise.all(Array.from(this._processes.entries()).map(async ([jobId, process]) => {
-      process.cancel();
-      try {
-        await process.waitForExit();
-      } catch {
-        // Cancellation and shutdown errors are expected here; cleanup below owns final state.
-      }
-      if (this._processes.has(jobId)) {
-        this._cleanupJob(jobId, true);
-      }
-      process.removeAllListeners();
+    this.disposing = true;
+    await Promise.allSettled([...this.starting]);
+    await Promise.all([...this.jobs.values()].map(async (job) => {
+      job.process.cancel();
+      try { await job.completion; } catch { /* Failure was already published and cleaned up. */ }
     }));
-
     await super.dispose();
-
-    // Clean up all temp sessions
-    cleanupAllSessions();
-
-    // Clear all maps
-    this._jobs.clear();
-    this._processes.clear();
-    this._sessions.clear();
-
-    this._initialized = false;
-    this.logger.info('TranscodeService disposed');
   }
 }
-
-export { TranscodeService };

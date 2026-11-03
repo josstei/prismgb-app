@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { renderListboxOptions, updateListboxActiveState } from '@platform/ui-base';
+import { renderListboxOptions, updateListboxActiveState } from '../../../../../src/platform/ui-base/widgets/listbox.utils';
 
 describe('listbox helpers', () => {
   let container;

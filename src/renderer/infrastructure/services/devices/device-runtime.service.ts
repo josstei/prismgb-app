@@ -1,9 +1,9 @@
-import { injectable, inject } from 'inversify';
-import { BaseService, getErrorMessage } from '@platform/core';
+
+import { BaseService, disposeInOrder, getErrorMessage } from '@platform/core';
 import { EventChannels } from '@platform/events';
 import type { TypedEventBusLike } from '@platform/events';
-import type { LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { DisposableFunction, LoggerFactoryLike } from '@platform/core';
+
 import {
   getDeviceAcquisitionProfile,
   getDeviceStreamProfile
@@ -23,12 +23,11 @@ import {
   selectDevice
 } from './device-selection.utils.js';
 
-export interface RendererDeviceSnapshot {
+interface RendererDeviceSnapshot {
   status: DeviceStatus;
   supportedDevices: readonly MediaDeviceInfo[];
   selectedDeviceId: string | null;
   hasMediaPermission: boolean;
-  lastEnumerationAt: number | null;
 }
 
 export interface DeviceStreamingTarget {
@@ -39,19 +38,17 @@ export interface DeviceStreamingTarget {
   acquisition: DeviceAcquisitionProfile;
 }
 
-export type RendererDeviceRefreshReason =
+type RendererDeviceRefreshReason =
   | 'initial'
   | 'ipc-connected'
   | 'ipc-disconnected'
   | 'browser-devicechange'
-  | 'manual-refresh'
-  | 'stream-started';
+  | 'manual-refresh';
 
 const UNKNOWN_STATUS: DeviceStatus = Object.freeze({
   state: 'unknown',
   connected: false,
-  device: null,
-  updatedAt: 0
+  device: null
 });
 
 function statusChanged(previous: DeviceStatus, next: DeviceStatus): boolean {
@@ -73,16 +70,15 @@ function stopStreamTracks(stream: MediaStream | null): void {
   }
 }
 
-@injectable()
+type RendererDeviceRuntimeDependencies = {
+  deviceStatusPort: DeviceStatusPort;
+  mediaDevicesPort: MediaDevicesPort;
+  devicePreferenceStore: DevicePreferenceStore;
+  eventBus: TypedEventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 export class RendererDeviceRuntime extends BaseService {
-  private readonly knownSupportedDeviceIds = new Set<string>();
-  private refreshQueue: Promise<RendererDeviceSnapshot> = Promise.resolve({
-    status: UNKNOWN_STATUS,
-    supportedDevices: [],
-    selectedDeviceId: null,
-    hasMediaPermission: false,
-    lastEnumerationAt: null
-  });
   private acceptingRefreshes = true;
   private initializePromise: Promise<void> | null = null;
   private permissionProbeInFlight: Promise<void> | null = null;
@@ -91,34 +87,25 @@ export class RendererDeviceRuntime extends BaseService {
     status: UNKNOWN_STATUS,
     supportedDevices: [],
     selectedDeviceId: null,
-    hasMediaPermission: false,
-    lastEnumerationAt: null
+    hasMediaPermission: false
   };
+  private refreshQueue: Promise<RendererDeviceSnapshot> = Promise.resolve(this.currentSnapshot);
 
-  constructor(
-    @inject(TOKENS.deviceStatusPort) private readonly deviceStatusPort: DeviceStatusPort,
-    @inject(TOKENS.mediaDevicesPort) private readonly mediaDevicesPort: MediaDevicesPort,
-    @inject(TOKENS.devicePreferenceStore) private readonly devicePreferenceStore: DevicePreferenceStore,
-    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike,
-    private readonly now: () => number = Date.now
-  ) {
+  private readonly deviceStatusPort: DeviceStatusPort;
+  private readonly mediaDevicesPort: MediaDevicesPort;
+  private readonly devicePreferenceStore: DevicePreferenceStore;
+  private readonly eventBus: TypedEventBusLike;
+
+  constructor({ deviceStatusPort, mediaDevicesPort, devicePreferenceStore, eventBus, loggerFactory }: RendererDeviceRuntimeDependencies) {
     super({ loggerFactory, eventBus }, 'RendererDeviceRuntime');
+    this.deviceStatusPort = deviceStatusPort;
+    this.mediaDevicesPort = mediaDevicesPort;
+    this.devicePreferenceStore = devicePreferenceStore;
+    this.eventBus = eventBus;
   }
 
   get isConnected(): boolean {
     return this.currentSnapshot.status.connected;
-  }
-
-  get selectedDevice(): MediaDeviceInfo | null {
-    const selectedDeviceId = this.selectedDeviceId;
-    return selectedDeviceId
-      ? this.currentSnapshot.supportedDevices.find((device) => device.deviceId === selectedDeviceId) ?? null
-      : null;
-  }
-
-  get selectedDeviceId(): string | null {
-    return this.currentSnapshot.selectedDeviceId;
   }
 
   async initialize(): Promise<void> {
@@ -143,90 +130,66 @@ export class RendererDeviceRuntime extends BaseService {
       return;
     }
 
-    const releaseStatusSubscription = this.disposables.add(this.deviceStatusPort.subscribe((status) => {
-      if (!this.initialized || !this.acceptingRefreshes) {
-        return;
-      }
-
-      const reason: RendererDeviceRefreshReason = status.connected ? 'ipc-connected' : 'ipc-disconnected';
-      void this.refreshWithStatus(reason, status).catch((error) => {
-        this.logger.error('IPC device status refresh failed:', error);
-      });
-    }));
-
-    const releaseDeviceChangeSubscription = this.disposables.add(this.mediaDevicesPort.subscribeDeviceChange(() => {
-      if (!this.initialized || !this.acceptingRefreshes) {
-        return;
-      }
-
-      void this.refresh('browser-devicechange').catch((error) => {
-        this.logger.error('Browser devicechange refresh failed:', error);
-      });
-    }));
-
+    const subscriptions: DisposableFunction[] = [];
     try {
+      subscriptions.push(this.track(this.deviceStatusPort.subscribe((status) => {
+        if (!this.acceptingRefreshes) return;
+        const reason: RendererDeviceRefreshReason = status.connected ? 'ipc-connected' : 'ipc-disconnected';
+        void this.enqueueRefresh(() => this.performRefresh(reason, status), true).catch((error) => {
+          this.logger.error('IPC device status refresh failed:', error);
+        });
+      })));
+      subscriptions.push(this.track(this.mediaDevicesPort.subscribeDeviceChange(() => {
+        if (!this.acceptingRefreshes) return;
+        void this.enqueueRefresh(() => this.performRefresh('browser-devicechange'), true).catch((error) => {
+          this.logger.error('Browser devicechange refresh failed:', error);
+        });
+      })));
       await this.refresh('initial');
       if (this.acceptingRefreshes) {
         this.initialized = true;
+        // Events received during the initial query run after its snapshot, rather
+        // than being lost or overwriting a later observation with that snapshot.
+        await this.refreshQueue;
       }
     } catch (error) {
       this.initialized = false;
-      await Promise.all([
-        Promise.resolve(releaseDeviceChangeSubscription()),
-        Promise.resolve(releaseStatusSubscription())
-      ]);
+      await disposeInOrder(subscriptions.reverse()).catch((cleanupError) => {
+        this.logger.error('Device initialization rollback failed:', cleanupError);
+      });
       throw error;
     }
   }
 
-  refresh(reason: RendererDeviceRefreshReason): Promise<RendererDeviceSnapshot> {
+  private refresh(reason: RendererDeviceRefreshReason): Promise<RendererDeviceSnapshot> {
     return this.enqueueRefresh(() => this.performRefresh(reason));
   }
 
-  snapshot(): RendererDeviceSnapshot {
-    return this.currentSnapshot;
-  }
-
-  getStatus(): DeviceStatus {
-    return this.currentSnapshot.status;
-  }
-
-  async refreshStatus(): Promise<DeviceStatus> {
-    return (await this.refresh('manual-refresh')).status;
-  }
-
-  async enumerateDevices(): Promise<{ devices: readonly MediaDeviceInfo[]; connected: boolean }> {
+  async resolveStreamingTarget(deviceId: string | null = null, signal?: AbortSignal): Promise<DeviceStreamingTarget> {
+    this.assertAcceptingTarget(signal);
     const snapshot = await this.refresh('manual-refresh');
-    return {
-      devices: snapshot.supportedDevices,
-      connected: snapshot.status.connected
-    };
-  }
-
-  async resolveStreamingTarget(deviceId: string | null = null): Promise<DeviceStreamingTarget> {
-    if (!this.acceptingRefreshes) {
-      throw new Error('Device runtime is not accepting refreshes');
-    }
-
-    const snapshot = await this.refresh('manual-refresh');
+    this.assertAcceptingTarget(signal);
     const selectedDevice = deviceId
       ? this.findSupportedDevice(snapshot, deviceId)
       : this.findSelectedDevice(snapshot);
 
     if (selectedDevice) {
-      return this.createStreamingTarget(selectedDevice);
+      return this.createStreamingTarget(selectedDevice, signal);
     }
 
     if (!deviceId && snapshot.status.connected && !snapshot.hasMediaPermission) {
       await this.warmUpPermissions();
+      this.assertAcceptingTarget(signal);
       const permissionSnapshot = await this.refresh('manual-refresh');
+      this.assertAcceptingTarget(signal);
       const permissionDevice = this.findSelectedDevice(permissionSnapshot);
       if (permissionDevice) {
-        return this.createStreamingTarget(permissionDevice);
+        return this.createStreamingTarget(permissionDevice, signal);
       }
     }
 
     const devices = await this.enumerateMediaDevices('manual-refresh');
+    this.assertAcceptingTarget(signal);
     const videoDevices = devices.filter((device) => device.kind === 'videoinput');
     const requestedDevice = deviceId
       ? videoDevices.find((device) => device.deviceId === deviceId) ?? null
@@ -234,7 +197,7 @@ export class RendererDeviceRuntime extends BaseService {
 
     if (deviceId) {
       if (requestedDevice && getDeviceDescriptor(requestedDevice)) {
-        return this.createStreamingTarget(requestedDevice);
+        return this.createStreamingTarget(requestedDevice, signal);
       }
       throw new Error(`Device not found: ${deviceId}`);
     }
@@ -246,8 +209,9 @@ export class RendererDeviceRuntime extends BaseService {
     throw new Error('No supported device found');
   }
 
-  async cleanup(): Promise<void> {
-    await this.dispose();
+  private assertAcceptingTarget(signal?: AbortSignal): void {
+    signal?.throwIfAborted();
+    if (!this.acceptingRefreshes) throw new Error('Device runtime is not accepting refreshes');
   }
 
   override async dispose(): Promise<void> {
@@ -258,18 +222,14 @@ export class RendererDeviceRuntime extends BaseService {
     await this.refreshQueue.catch(() => undefined);
   }
 
-  private refreshWithStatus(reason: RendererDeviceRefreshReason, status: DeviceStatus): Promise<RendererDeviceSnapshot> {
-    return this.enqueueRefresh(() => this.performRefresh(reason, status));
-  }
-
-  private enqueueRefresh(operation: () => Promise<RendererDeviceSnapshot>): Promise<RendererDeviceSnapshot> {
+  private enqueueRefresh(operation: () => Promise<RendererDeviceSnapshot>, requiresInitialization = false): Promise<RendererDeviceSnapshot> {
     if (!this.acceptingRefreshes) {
       return Promise.resolve(this.currentSnapshot);
     }
 
     const next = this.refreshQueue
       .catch(() => this.currentSnapshot)
-      .then(() => this.acceptingRefreshes ? operation() : this.currentSnapshot);
+      .then(() => this.acceptingRefreshes && (!requiresInitialization || this.initialized) ? operation() : this.currentSnapshot);
 
     this.refreshQueue = next.catch(() => this.currentSnapshot);
     return next;
@@ -298,16 +258,15 @@ export class RendererDeviceRuntime extends BaseService {
       status,
       supportedDevices: selection.supportedDevices,
       selectedDeviceId: selection.selectedDevice?.deviceId ?? null,
-      hasMediaPermission,
-      lastEnumerationAt: this.now()
+      hasMediaPermission
     };
 
-    this.commitSnapshot(reason, nextSnapshot, selection.descriptor);
+    this.commitSnapshot(reason, nextSnapshot);
     return this.currentSnapshot;
   }
 
   private async getStatusForReason(reason: RendererDeviceRefreshReason): Promise<DeviceStatus> {
-    if (reason === 'manual-refresh' || reason === 'browser-devicechange' || reason === 'stream-started') {
+    if (reason === 'manual-refresh' || reason === 'browser-devicechange') {
       return this.deviceStatusPort.refreshStatus();
     }
 
@@ -332,8 +291,7 @@ export class RendererDeviceRuntime extends BaseService {
 
   private commitSnapshot(
     reason: RendererDeviceRefreshReason,
-    nextSnapshot: RendererDeviceSnapshot,
-    selectedDescriptor: DeviceDescriptor | null
+    nextSnapshot: RendererDeviceSnapshot
   ): void {
     if (!this.acceptingRefreshes) {
       return;
@@ -355,17 +313,12 @@ export class RendererDeviceRuntime extends BaseService {
     }
 
     for (const device of nextSnapshot.supportedDevices) {
-      if (!this.knownSupportedDeviceIds.has(device.deviceId)) {
-        this.knownSupportedDeviceIds.add(device.deviceId);
+      if (!previousSnapshot.supportedDevices.some((previous) => previous.deviceId === device.deviceId)) {
         this.eventBus.publish(EventChannels.DEVICE.SUPPORTED_DEVICE_AVAILABLE, {
           device,
           videoDevices: [...nextSnapshot.supportedDevices]
         });
       }
-    }
-
-    if (nextSnapshot.supportedDevices.length === 0 && !selectedDescriptor) {
-      this.knownSupportedDeviceIds.clear();
     }
   }
 
@@ -385,7 +338,6 @@ export class RendererDeviceRuntime extends BaseService {
 
   private commitStreamingSelection(device: MediaDeviceInfo, descriptor: DeviceDescriptor): void {
     this.devicePreferenceStore.storeDeviceId(device.deviceId, descriptor.id);
-    this.knownSupportedDeviceIds.add(device.deviceId);
     this.currentSnapshot = {
       ...this.currentSnapshot,
       supportedDevices: this.mergeSupportedDevice(device),
@@ -394,7 +346,7 @@ export class RendererDeviceRuntime extends BaseService {
     };
   }
 
-  private async createStreamingTarget(device: MediaDeviceInfo): Promise<DeviceStreamingTarget> {
+  private async createStreamingTarget(device: MediaDeviceInfo, signal?: AbortSignal): Promise<DeviceStreamingTarget> {
     if (!device.deviceId) {
       throw new Error('Streaming target requires a media device ID');
     }
@@ -404,11 +356,13 @@ export class RendererDeviceRuntime extends BaseService {
       throw new Error(`Unsupported device: ${device.label || device.deviceId || 'unknown'}`);
     }
 
+    const audioDevice = await this.resolvePairedAudioDevice(device);
+    this.assertAcceptingTarget(signal);
     this.commitStreamingSelection(device, descriptor);
 
     return {
       videoDevice: device,
-      audioDevice: await this.resolvePairedAudioDevice(device),
+      audioDevice,
       descriptor,
       profile: getDeviceStreamProfile(descriptor),
       acquisition: getDeviceAcquisitionProfile(descriptor)

@@ -189,25 +189,3 @@
   max-height: 0;
   opacity: 0;
 }
-
-/* Game tag on note items */
-.note-list-item-game-tag {
-  display: inline-block;
-  font-size: 8px;
-  font-weight: 500;
-  color: rgba(var(--color-info-rgb), 0.7);
-  background: rgba(var(--color-info-rgb), 0.1);
-  padding: 1px 4px;
-  border-radius: 3px;
-  margin-top: 2px;
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Hide game tag when viewing a filtered game or in grouped view */
-.notes-game-notes .note-list-item-game-tag,
-.notes-list[data-filtered] .note-list-item-game-tag {
-  display: none;
-}

@@ -10,23 +10,11 @@ Primary surfaces: live Mod Retro Chromatic streaming with GPU rendering and Canv
 
 ## Manifest Map
 
-This section is manually maintained from architecture, device, and settings manifests; no generator currently produces it.
+The tables below map manifest owners to application behavior. Counts are intentionally omitted so adding a definition does not require a parallel documentation edit.
 
-| Surface | Count |
-| --- | ---: |
-| IPC namespaces | 8 |
-| IPC channels | 29 |
-| Renderer events | 75 |
-| Main events | 3 |
-| Device descriptors | 1 |
-| Settings definitions | 10 |
-| Render passes | 4 |
-| Architecture aliases | 19 |
-| Platform targets | 5 |
-
-| Manifest surface | Generated facts |
+| Manifest surface | Defined behavior |
 | --- | --- |
-| Architecture paths | aliases: `@main`, `@renderer`, `@platform/config`, `@platform/core`, `@platform/devices`, `@platform/devices/runtime`, `@platform/devices/testkit`, `@platform/events`, `@platform/gpu`, `@platform/gpu/runtime`, `@platform/ipc`, `@platform/notes`, `@platform/transcode`, `@platform/transcode/service`, `@platform/ui-base`, `@platform/ui-base/reactive`, `@platform/updates`; layers: `main/entry`, `main/application`, `main/infrastructure`, `main/ipc`, `renderer/entry`, `renderer/application`, `renderer/infrastructure`, `renderer/presentation`, `preload`; retired: `@core`, `@shared`, `shared` |
+| Architecture paths | `scripts/lib/workspace-aliases.mjs` declares process and platform entrypoints; TypeScript paths are generated from it |
 | Devices | Mod Retro Chromatic (`0x374e:0x0101`, 160x144, fixture `Chromatic`) |
 | Settings UI | `launchOnLogin` -> `settingLaunchOnLogin`, `statusStripVisible` -> `settingStatusStrip`, `fullscreenOnStartup` -> `settingFullscreenOnStartup`, `autoStreamOnConnect` -> `settingAutoStreamOnConnect`, `minimalistFullscreen` -> `settingMinimalistFullscreen`, `performanceMode` -> `settingAnimationSaver`, `recordingFormat` -> `settingRecordingFormat` |
 | Startup preferences | `gameVolume`, `statusStripVisible`, `performanceMode`, `minimalistFullscreen` |
@@ -43,7 +31,7 @@ This section is manually maintained from architecture, device, and settings mani
 
 ## UI Flows (Renderer)
 
-UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrator.ts` from template action descriptors, and deferred component startup follows the generated component ID list in `src/renderer/presentation/primitives/template-dom.contract.ts`. UI updates are applied via `src/renderer/presentation/bridges/ui-event.bridge.ts`, `src/renderer/presentation/bridges/capture-ui.bridge.ts`, or `src/renderer/presentation/bridges/transcode-ui.bridge.ts`.
+UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrator.ts` from template action descriptors, and deferred component startup follows the derived component ID list in `src/renderer/presentation/primitives/template-dom.contract.ts`. UI updates are applied via `src/renderer/presentation/bridges/ui-event.bridge.ts`, `src/renderer/presentation/bridges/capture-ui.bridge.ts`, or `src/renderer/presentation/bridges/transcode-ui.bridge.ts`.
 
 | Flow | Event path |
 | --- | --- |
@@ -54,14 +42,14 @@ UI input is wired in `src/renderer/application/orchestrators/ui-setup.orchestrat
 | Recording format | Settings format dropdown -> `SettingsService.setSetting('recordingFormat', value)` -> `settings:recording-format-changed` persists and drives later saves |
 | Shader/brightness/volume | shader panel settings -> `settings:render-preset-changed`, `settings:brightness-changed`, and `settings:volume-changed` -> render pipeline and slider UI sync |
 | Performance mode | Settings toggle -> `settings:performance-mode-changed` -> `performance:render-mode-changed` -> `StreamingOrchestrator` switches to Canvas2D when enabled |
-| Device connect/disconnect | `DeviceConnectionService` reconciles USB status -> `DeviceIntegrationService` publishes EventBus/tray/window side effects -> `WindowService.send` emits to `IpcPushBridge` -> `appRouter` device subscriptions relay through `TrpcDeviceStatusPort` -> `RendererDeviceRuntime` refreshes renderer device events and UI state |
+| Device connect/disconnect | `DeviceConnectionService` reconciles USB status -> `DeviceIntegrationService` updates tray/window state and emits directly to `IpcPushBridge` -> `appRouter` device subscriptions relay through `TrpcDeviceStatusPort` -> `RendererDeviceRuntime` refreshes renderer device events and UI state |
 | Fullscreen/cinematic | fullscreen button -> `ui:fullscreen-toggle-requested` -> `ui:fullscreen-state`; cinematic toggle -> `ui:cinematic-toggle-requested` -> `settings:cinematic-mode-changed` |
 | Notes | notes button toggles `NotesPanelComponent`; create/update/delete actions call `NotesService` and emit `notes:note-*` |
 | Updates | Settings update action -> `UpdateService` check/download/install -> `trpcClient.update.*` procedures and subscriptions -> `update:*` events -> `UpdateSectionComponent` refreshes progress and state |
 
 ## Data and Storage
 
-Screenshots and recordings download to the OS downloads folder. Settings keys live in `src/renderer/lib/settings.definitions.json`, shared protected and notes keys live in `src/renderer/lib/storage-keys.config.ts`, stored media-device IDs are managed by `StorageDevicePreferenceStore` in `src/renderer/infrastructure/services/devices/storage-device-preference.store.ts`, and MP4/MOV transcode temp files are created in the system temp directory and cleaned up after completion or cancellation.
+Screenshots and recordings download to the OS downloads folder. Settings keys live in `src/renderer/lib/settings.definitions.ts`, shared protected and notes keys live in `src/renderer/lib/storage-keys.config.ts`, stored media-device IDs are managed by `StorageDevicePreferenceStore` in `src/renderer/infrastructure/services/devices/storage-device-preference.store.ts`, and MP4/MOV transcode temp files are created in the system temp directory and cleaned up after completion or cancellation.
 
 ## Screenshots
 
@@ -73,7 +61,7 @@ Screenshots will not be added to this repository.
 
 1. Register device metadata in `src/platform/devices/domain/catalog.json`.
 2. Extend `src/platform/devices/domain/types.ts` and `src/platform/devices/domain/catalog.ts` only if the catalog schema needs a new field.
-3. Use `DeviceCatalog`, `matchDevice`, and `toDeviceStatusPayload` from `@platform/devices`; individual hardware models should not get their own runtime classes.
+3. Use the shared `DeviceCatalog` and payload helpers from `@platform/devices`; individual hardware models should not get their own runtime classes.
 4. Update `tests/devices/*` so fixtures, media doubles, and E2E helpers read from `@platform/devices/testkit`.
 5. Update docs and tests if behavior changes.
 
@@ -92,12 +80,15 @@ Do not hand-write device fixture classes or duplicate catalog constants in indiv
 
 ### Add a New Setting
 
-1. Add the setting definition, storage key, default, type, and event in `src/renderer/lib/settings.definitions.json`.
-2. Update UI wiring in `src/renderer/presentation/features/settings`.
+1. Add a typed definition with its storage key, default, validation, optional event, and control metadata in `src/renderer/lib/settings.definitions.ts`.
+2. Use the inferred setting type through `SettingsService.getSetting`/`setSetting`; controls and E2E metadata derive from the same definitions.
+3. Preserve existing keys, defaults, and serialized values. OS-owned preferences such as login-item state remain backed by their platform API.
 
 ## Architecture Guardrails
 
 - Renderer infrastructure timing values come from `src/platform/config/timing.config.ts` (imported via `@platform/config`).
-- IPC handlers and renderer clients use `IPC_CHANNELS` plus payload contract types from `@platform/ipc`.
+- Requests derive from the tRPC router. `IPC_CHANNELS` and `IpcPushPublisher` describe only typed main-to-renderer push events.
 - Main IPC behavior is implemented in `src/main/ipc/router.ts` with schema validation in `src/main/ipc/schemas`.
-- Active runtime paths do not use `@core` imports.
+- `createMainRuntime` and `createRendererRuntime` construct process dependencies and own startup rollback and ordered disposal.
+- `StreamingRenderService` owns render-session replacement and cancellation; pass specifications derive uniform layouts and shader declarations.
+- Notes use one `NotesService.updateNote` mutation path; search selects matching notes while the list inserts highlighted text safely.

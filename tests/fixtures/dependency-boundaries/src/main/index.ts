@@ -1,1 +1,2 @@
-import './app-bootstrap';
+import './application/container';
+import './infrastructure/composition-reach';

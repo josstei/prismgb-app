@@ -1,19 +1,9 @@
 import { EventEmitter } from 'node:events';
-import { injectable } from 'inversify';
+import type { IpcPushPublisher, IpcPushPayloadMap, IpcPushArguments } from '@platform/ipc';
 
 type IpcPushChannelListener = (payload: unknown) => void;
 
-/**
- * In-process fan-out for main → renderer push channels.
- *
- * `WindowService.send` (and through it the device/update/transcode package emitters) publishes here
- * instead of calling `webContents.send` directly; the tRPC router's subscription procedures consume
- * the same channels via {@link IpcPushBridge.on} and relay payloads to renderer clients. Decoupling
- * the emit side from the transport preserves the existing single-funnel emit path while the tRPC
- * boundary owns delivery.
- */
-@injectable()
-export class IpcPushBridge {
+export class IpcPushBridge implements IpcPushPublisher {
   private static readonly MAX_LISTENERS_PER_CHANNEL = 50;
   private readonly emitter = new EventEmitter();
 
@@ -21,8 +11,17 @@ export class IpcPushBridge {
     this.emitter.setMaxListeners(IpcPushBridge.MAX_LISTENERS_PER_CHANNEL);
   }
 
-  emit(channel: string, payload?: unknown): void {
+  emit<K extends keyof IpcPushPayloadMap>(...args: IpcPushArguments<K>): void {
+    this.emitter.emit(args[0], args[1]);
+  }
+
+  /** Test-control ingress intentionally accepts malformed payloads to exercise IPC validation. */
+  emitUnchecked(channel: string, payload?: unknown): void {
     this.emitter.emit(channel, payload);
+  }
+
+  dispose(): void {
+    this.emitter.removeAllListeners();
   }
 
   on(channel: string, listener: IpcPushChannelListener): void {

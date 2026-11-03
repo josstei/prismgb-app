@@ -1,3 +1,5 @@
+import { createEventBus } from '../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../factories/logger.factory.js';
 /**
  * TranscodeUIBridge Unit Tests
  * Bridges transcode lifecycle events to record-button feedback. Toast display now
@@ -7,8 +9,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { TranscodeUIBridge } from '@renderer/presentation/bridges/transcode-ui.bridge';
 import { EventChannels } from '@platform/events';
-import { createEventBus } from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../support/service.harness.js';
 
 describe('TranscodeUIBridge', () => {
   let bridge;
@@ -22,14 +23,13 @@ describe('TranscodeUIBridge', () => {
 
   beforeEach(() => {
     subscribedHandlers = {};
-    h = createInjectableHarness(TranscodeUIBridge, {
-      overrides: {
-        eventBus: createEventBus({
+    h = createServiceHarness(TranscodeUIBridge, {
+      loggerFactory: createLoggerFactory(),
+      eventBus: createEventBus({
           onSubscribe: (event, handlerFn) => {
             subscribedHandlers[event] = handlerFn;
           },
         })
-      }
     });
     mockLogger = h.logger;
     ({ eventBus: mockEventBus, loggerFactory: mockLoggerFactory } = h.deps);
@@ -88,7 +88,7 @@ describe('TranscodeUIBridge', () => {
     });
 
     it('should call all unsubscribe functions on dispose', async () => {
-      const unsubscribers = [];
+      const unsubscribers: Array<ReturnType<typeof vi.fn>> = [];
       mockEventBus.subscribe.mockImplementation(() => {
         const unsub = vi.fn();
         unsubscribers.push(unsub);

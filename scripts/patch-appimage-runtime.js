@@ -39,6 +39,7 @@ const shouldPatchRuntime = async (filePath) => {
   return hasLibz && !hasLibz1;
 };
 
+/** @public Electron Builder invokes the package.json artifactBuildCompleted hook. */
 export default async function patchAppImageRuntime(artifact) {
   if (!artifact?.file?.endsWith('.AppImage')) {
     return;

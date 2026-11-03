@@ -1,3 +1,4 @@
+import { actionAttribute } from '@renderer/presentation/primitives/template-ref.utils.js';
 import { getIconSvg } from '@renderer/presentation/icons/icon.utils.js';
 import {
   getSettingsListboxOptions,
@@ -118,20 +119,20 @@ export function createSettingsMenuTemplate(): string {
 
         <footer class="settings-footer">
           <div class="settings-footer-links">
-            <a href="#" id="linkGithub" data-ref="linkGithub" data-action="external.github" class="settings-icon-link" aria-label="GitHub" title="GitHub">
+            <a href="#" id="linkGithub" data-ref="linkGithub" ${actionAttribute('external.github')} class="settings-icon-link" aria-label="GitHub" title="GitHub">
               ${getIconSvg('settings-github')}
             </a>
-            <a href="#" id="linkWebsite" data-ref="linkWebsite" data-action="external.website" class="settings-icon-link" aria-label="Website" title="Website">
+            <a href="#" id="linkWebsite" data-ref="linkWebsite" ${actionAttribute('external.website')} class="settings-icon-link" aria-label="Website" title="Website">
               ${getIconSvg('settings-website')}
             </a>
-            <a href="#" id="linkX" data-ref="linkX" data-action="external.x" class="settings-icon-link" aria-label="X" title="X">
+            <a href="#" id="linkX" data-ref="linkX" ${actionAttribute('external.x')} class="settings-icon-link" aria-label="X" title="X">
               ${getIconSvg('settings-x')}
             </a>
             <button id="disclaimerBtn" data-ref="disclaimerBtn" class="settings-icon-link settings-info-btn" aria-label="Disclaimer & Credits" title="Disclaimer & Credits" aria-expanded="false">
               ${getIconSvg('settings-disclaimer')}
             </button>
           </div>
-          <button id="linkKofi" data-ref="linkKofi" data-action="external.kofi" class="settings-support-btn" aria-label="Support the Developer">
+          <button id="linkKofi" data-ref="linkKofi" ${actionAttribute('external.kofi')} class="settings-support-btn" aria-label="Support the Developer">
             ${getIconSvg('settings-kofi')} Support the Developer
           </button>
         </footer>
@@ -139,7 +140,7 @@ export function createSettingsMenuTemplate(): string {
       <div class="disclaimer-tooltip popup-animated" id="disclaimerContent" data-ref="disclaimerContent">
         <p><strong>This is an unofficial, community-developed application.</strong></p>
         <p>PrismGB is not affiliated with, endorsed by, or sponsored by Mod Retro. The Chromatic is a product of Mod Retro.</p>
-        <p>For official Chromatic support and information, please visit <a href="#" id="linkModRetro" data-ref="linkModRetro" data-action="external.modretro" class="disclaimer-link">modretro.com</a>.</p>
+        <p>For official Chromatic support and information, please visit <a href="#" id="linkModRetro" data-ref="linkModRetro" ${actionAttribute('external.modretro')} class="disclaimer-link">modretro.com</a>.</p>
       </div>
     </div>
   `;

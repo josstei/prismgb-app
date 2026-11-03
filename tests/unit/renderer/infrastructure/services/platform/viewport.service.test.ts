@@ -1,15 +1,17 @@
+import { createMockCanvas } from '../../../../../factories/stream.factory.js';
+import { createMockElement } from '../../../../../factories/ui.factory.js';
+import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
 /**
  * StreamingViewportService Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { StreamingViewportService } from '@renderer/infrastructure/services/platform/viewport.service';
-import { createMockCanvas, createMockElement } from '../../../../../factories/index.js';
 import {
   installGetComputedStyleMock,
   installResizeObserverMock
 } from '../../../../../support/mocks/browser-api.installers.js';
-import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+import { createServiceHarness, type LoggerMockLike } from '../../../../../support/service.harness.js';
 
 interface ViewportComputedStyle {
   paddingLeft?: string;
@@ -47,7 +49,7 @@ type StreamingViewportServiceState = {
 
 describe('StreamingViewportService', () => {
   let service: StreamingViewportService;
-  let mockLogger: ReturnType<typeof createInjectableHarness<StreamingViewportService>>['logger'];
+  let mockLogger: LoggerMockLike;
   let mockCanvas: ReturnType<typeof createMockCanvas>;
   let mockContainer: ReturnType<typeof createMockElement>;
   let mockSection: ReturnType<typeof createMockElement>;
@@ -87,16 +89,16 @@ describe('StreamingViewportService', () => {
 
     // mainContent is the stable parent used for measurement
     mockMainContent = createMockElement('div');
-    mockMainContent.clientWidth = 800;
-    mockMainContent.clientHeight = 600;
+    Object.defineProperties(mockMainContent, {
+      clientWidth: { value: 800 }, clientHeight: { value: 600 }
+    });
 
     mockSection = createMockElement('section');
-    mockSection.clientWidth = 800;
-    mockSection.clientHeight = 600;
-    mockSection.children = [mockContainer]; // Only the container, no siblings
-    mockSection.parentElement = mockMainContent;
-
-    mockContainer.parentElement = mockSection;
+    Object.defineProperties(mockSection, {
+      clientWidth: { value: 800 }, clientHeight: { value: 600 }
+    });
+    mockMainContent.appendChild(mockSection);
+    mockSection.appendChild(mockContainer);
 
     mockCanvas = createMockCanvas();
     mockCanvas.width = 0;
@@ -106,7 +108,9 @@ describe('StreamingViewportService', () => {
     getComputedStyleMock = installGetComputedStyleMock(getViewportComputedStyle);
     resizeObserverMock = installResizeObserverMock();
 
-    const h = createInjectableHarness(StreamingViewportService);
+    const h = createServiceHarness(StreamingViewportService, {
+      loggerFactory: createLoggerFactory()
+    });
     service = h.subject;
     mockLogger = h.logger;
   });
@@ -187,7 +191,7 @@ describe('StreamingViewportService', () => {
 
       const dimensions = service.calculateDimensions(mockCanvas, nativeResolution);
 
-      expect(dimensions.scale).toBeGreaterThanOrEqual(1);
+      expect(dimensions?.scale).toBeGreaterThanOrEqual(1);
     });
 
     it('should return null if canvas is missing', () => {
@@ -210,7 +214,7 @@ describe('StreamingViewportService', () => {
 
     it('should return null if section is missing', () => {
       const nativeResolution = { width: 160, height: 144 };
-      mockContainer.parentElement = null;
+      mockContainer.remove();
 
       const dimensions = service.calculateDimensions(mockCanvas, nativeResolution);
 
@@ -230,8 +234,8 @@ describe('StreamingViewportService', () => {
 
       // Add a sibling element (e.g., controls)
       const mockControls = createMockElement('div');
-      mockControls.offsetHeight = 50;
-      mockSection.children = [mockContainer, mockControls];
+      Object.defineProperty(mockControls, 'offsetHeight', { value: 50 });
+      mockSection.appendChild(mockControls);
 
       getComputedStyleMock.cleanup();
       getComputedStyleMock = installGetComputedStyleMock((element?: unknown): ViewportComputedStyle => {
@@ -365,9 +369,7 @@ describe('StreamingViewportService', () => {
 
   describe('cleanup', () => {
     it('should disconnect ResizeObserver', () => {
-      const mockObserver = createMockElement('div');
-      mockObserver.observe = vi.fn();
-      mockObserver.disconnect = vi.fn();
+      const mockObserver = { observe: vi.fn(), disconnect: vi.fn() };
       serviceState()._resizeObserver = mockObserver as unknown as ResizeObserver;
 
       service.cleanup();
@@ -396,9 +398,7 @@ describe('StreamingViewportService', () => {
     });
 
     it('should log debug message', () => {
-      const mockObserver = createMockElement('div');
-      mockObserver.observe = vi.fn();
-      mockObserver.disconnect = vi.fn();
+      const mockObserver = { observe: vi.fn(), disconnect: vi.fn() };
       serviceState()._resizeObserver = mockObserver as unknown as ResizeObserver;
 
       service.cleanup();

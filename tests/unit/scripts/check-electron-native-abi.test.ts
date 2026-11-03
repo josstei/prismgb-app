@@ -50,7 +50,7 @@ function createTempRoot(electronVersion: string): string {
 
 afterEach(() => {
   while (tempRoots.length > 0) {
-    fs.rmSync(tempRoots.pop(), { recursive: true, force: true });
+    fs.rmSync(tempRoots.pop()!, { recursive: true, force: true });
   }
 });
 

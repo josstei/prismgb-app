@@ -3,13 +3,10 @@ import type {
   DeviceDescriptor,
   DeviceMatch,
   DeviceMatchReason,
-  ObservedMediaDevice,
   ObservedUsbDevice
 } from './types.js';
 
-type MatchableDevice = ObservedUsbDevice | ObservedMediaDevice;
-
-function noMatch(reason: DeviceMatchReason = 'none'): DeviceMatch {
+function noMatch(reason: DeviceMatchReason): DeviceMatch {
   return {
     matched: false,
     deviceId: null,
@@ -19,7 +16,7 @@ function noMatch(reason: DeviceMatchReason = 'none'): DeviceMatch {
   };
 }
 
-function createMatch(descriptor: DeviceDescriptor, reason: Exclude<DeviceMatchReason, 'none'>, confidence: number): DeviceMatch {
+function createMatch(descriptor: DeviceDescriptor, reason: DeviceMatchReason, confidence: number): DeviceMatch {
   return {
     matched: true,
     deviceId: descriptor.id,
@@ -27,13 +24,6 @@ function createMatch(descriptor: DeviceDescriptor, reason: Exclude<DeviceMatchRe
     reason,
     confidence
   };
-}
-
-function hasUsbIdentifiers(input: MatchableDevice): input is ObservedUsbDevice {
-  return 'vendorId' in input &&
-    'productId' in input &&
-    Number.isFinite(input.vendorId) &&
-    Number.isFinite(input.productId);
 }
 
 function normalizeLabel(label: string | null | undefined): string {
@@ -64,16 +54,4 @@ export function matchByLabel(label: string | null | undefined): DeviceMatch {
   );
 
   return descriptor ? createMatch(descriptor, 'label', 0.75) : noMatch('label');
-}
-
-export function matchDevice(input: MatchableDevice | null | undefined): DeviceMatch {
-  if (!input) {
-    return noMatch();
-  }
-
-  if (hasUsbIdentifiers(input)) {
-    return matchByUsb(input);
-  }
-
-  return matchByLabel(input.label);
 }

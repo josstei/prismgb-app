@@ -30,7 +30,8 @@ function toMatrixEntry(platform) {
     build_script: platform.buildScript,
     arch: platform.arch,
     name: platform.name,
-    label: platform.label
+    label: platform.label,
+    artifact_globs: platform.artifactGlobs.join("\n")
   };
 }
 
@@ -55,7 +56,7 @@ function resolveSmokePlatformIds(manifest, inputName) {
 
   const resolvedInput = manifest.smokeInputAliases?.[input] ?? input;
   const platform = manifest.platforms.find(
-    (entry) => entry.id === resolvedInput || entry.label === resolvedInput || entry.smokeInput === input
+    (entry) => entry.id === resolvedInput || entry.label === resolvedInput
   );
   if (!platform) {
     throw new Error(`Unsupported platform value: ${input}`);

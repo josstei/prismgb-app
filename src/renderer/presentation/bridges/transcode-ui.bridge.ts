@@ -1,21 +1,24 @@
-import { injectable, inject } from 'inversify';
+
 import { BaseService } from '@platform/core';
-import { EventChannels, OnEvent } from '@platform/events';
+import { EventChannels, OnEvent, type TypedEventBusLike } from '@platform/events';
 import type {
   TranscodeCompletedPayload,
   TranscodeErrorPayload,
   TranscodeStartedPayload
 } from '@platform/events';
-import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+import type { LoggerFactoryLike } from '@platform/core';
 
-@injectable()
+type TranscodeUIBridgeDependencies = {
+  eventBus: TypedEventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 class TranscodeUIBridge extends BaseService {
-  constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: EventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly eventBus: TypedEventBusLike;
+
+  constructor({ eventBus, loggerFactory }: TranscodeUIBridgeDependencies) {
     super({ loggerFactory, eventBus }, 'TranscodeUIBridge');
+    this.eventBus = eventBus;
   }
 
   initialize() {

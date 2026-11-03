@@ -29,39 +29,42 @@ export interface ListboxDropdownInitializeOptions {
   activeValue?: string;
 }
 
-const LISTBOX_DROPDOWN_DEFAULTS: Partial<ListboxDropdownControllerOptions> = {
-  optionSelector: '[role="option"]',
-  activeClass: 'active',
-  ignoreOutsideSelectors: [],
-  outsideEvent: 'click',
-  closeOnEscape: true,
-  closeOnClickOutside: true,
-  enableTriggerKeyboard: false,
-  focusOnTriggerOpen: false
-};
-
 class ListboxDropdownController extends PresentationComponent {
-  declare triggerElement: HTMLElement | null;
-  declare menuElement: HTMLElement | null;
-  declare labelElement: HTMLElement | null | undefined;
-  declare optionSelector: string;
-  declare activeClass: string;
-  declare ignoreOutsideSelectors: readonly string[];
-  declare outsideEvent: string;
-  declare closeOnEscape: boolean;
-  declare closeOnClickOutside: boolean;
-  declare onShow: ListboxDropdownCallback | null | undefined;
-  declare onHide: ListboxDropdownCallback | null | undefined;
-  declare enableTriggerKeyboard: boolean;
-  declare focusOnTriggerOpen: boolean;
-  declare onChange: ListboxDropdownChangeCallback | null | undefined;
-  declare logger: LoggerLike | null | undefined;
-  declare private _disclosure: DisclosureController | null;
+  triggerElement: HTMLElement | null;
+  menuElement: HTMLElement | null;
+  labelElement: HTMLElement | null | undefined;
+  optionSelector: string;
+  activeClass: string;
+  ignoreOutsideSelectors: readonly string[];
+  outsideEvent: string;
+  closeOnEscape: boolean;
+  closeOnClickOutside: boolean;
+  onShow: ListboxDropdownCallback | null | undefined;
+  onHide: ListboxDropdownCallback | null | undefined;
+  enableTriggerKeyboard: boolean;
+  focusOnTriggerOpen: boolean;
+  onChange: ListboxDropdownChangeCallback | null | undefined;
+  logger: LoggerLike | null | undefined;
+  private _disclosure: DisclosureController | null;
 
   constructor(options: ListboxDropdownControllerOptions) {
     super();
 
-    this.applyOptions<ListboxDropdownControllerOptions>(LISTBOX_DROPDOWN_DEFAULTS, options);
+    this.triggerElement = options.triggerElement;
+    this.menuElement = options.menuElement;
+    this.labelElement = options.labelElement;
+    this.optionSelector = options.optionSelector ?? '[role="option"]';
+    this.activeClass = options.activeClass ?? 'active';
+    this.ignoreOutsideSelectors = options.ignoreOutsideSelectors ?? [];
+    this.outsideEvent = options.outsideEvent ?? 'click';
+    this.closeOnEscape = options.closeOnEscape ?? true;
+    this.closeOnClickOutside = options.closeOnClickOutside ?? true;
+    this.onShow = options.onShow;
+    this.onHide = options.onHide;
+    this.enableTriggerKeyboard = options.enableTriggerKeyboard ?? false;
+    this.focusOnTriggerOpen = options.focusOnTriggerOpen ?? false;
+    this.onChange = options.onChange;
+    this.logger = options.logger;
     this._disclosure = null;
   }
 

@@ -1,126 +1,45 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createGpuRenderer } from '../../../../../src/platform/gpu/application/renderer.service';
-import { createMockCanvas, createRenderCapabilitiesFixture } from '@platform/gpu/testkit';
+import { resolvePreset } from '@platform/gpu';
+import { createMockCanvas } from '@platform/gpu/testkit';
 
-function createCanvas2DRenderFixture() {
-  const canvas2dContext = {
-    drawImage: vi.fn(),
-    fillRect: vi.fn(),
-    imageSmoothingEnabled: true
-  };
-  const canvas = createMockCanvas(160, 144, { '2d': canvas2dContext });
+afterEach(() => vi.unstubAllGlobals());
 
-  vi.spyOn(canvas, 'getContext');
-  return canvas;
-}
-
-describe('renderer service', () => {
-  beforeEach(() => {
-    vi.stubGlobal('performance', {
-      now: vi.fn(() => 0)
-    });
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  it('creates an explicit Canvas2D renderer without probing browser capabilities', async () => {
-    const canvas = createCanvas2DRenderFixture();
-    const renderer = await createGpuRenderer({
-      canvas,
-      nativeWidth: 160,
-      nativeHeight: 144,
-      preferredBackend: 'canvas2d',
-      capabilities: createRenderCapabilitiesFixture({
-        webgpu: false,
-        offscreenCanvas: false,
-        transferControlToOffscreen: false,
-        preferredBackend: 'canvas2d'
-      })
-    });
-
-    expect(canvas.getContext).toHaveBeenCalledWith('2d', {
-      alpha: false,
-      desynchronized: true
-    });
-    expect(renderer.isInitialized).toBe(true);
-
+describe('renderer backend initialization', () => {
+  it('initializes the requested Canvas2D backend without probing GPU capabilities', async () => {
+    const context = { drawImage: vi.fn(), imageSmoothingEnabled: true };
+    const canvas = createMockCanvas(160, 144, { '2d': context });
+    const requestAdapter = vi.fn();
+    vi.stubGlobal('navigator', { gpu: { requestAdapter } });
+    const renderer = await createGpuRenderer({ canvas, nativeWidth: 160, nativeHeight: 144, preset: resolvePreset('true-color'), backend: 'canvas2d' });
+    renderer.renderFrame({} as TexImageSource);
+    expect(context.drawImage).toHaveBeenCalledOnce();
+    expect(context.imageSmoothingEnabled).toBe(false);
+    expect(requestAdapter).not.toHaveBeenCalled();
+    // Resizing a canvas resets its context state; the factory-owned pipeline
+    // must restore pixel-perfect sampling through the real Canvas driver.
+    context.imageSmoothingEnabled = true;
+    renderer.resize(320, 288);
+    expect(canvas.width).toBe(320);
+    expect(canvas.height).toBe(288);
+    expect(context.imageSmoothingEnabled).toBe(false);
     await renderer.dispose();
+    expect(renderer.isActive).toBe(false);
   });
 
-  it('falls back to Canvas2D when no accelerated backend is available', async () => {
-    const canvas = createCanvas2DRenderFixture();
-    const renderer = await createGpuRenderer({
-      canvas,
-      nativeWidth: 160,
-      nativeHeight: 144,
-      capabilities: createRenderCapabilitiesFixture({
-        webgpu: false,
-        offscreenCanvas: false,
-        transferControlToOffscreen: false,
-        preferredBackend: 'canvas2d'
-      })
-    });
-
-    expect(renderer.isInitialized).toBe(true);
-    expect(renderer.backend).toBe('canvas2d');
-    expect(canvas.getContext).toHaveBeenCalledWith('2d', {
-      alpha: false,
-      desynchronized: true
-    });
-
-    await renderer.dispose();
+  it('reports unavailable WebGPU so the session owner can replace the canvas before fallback', async () => {
+    vi.stubGlobal('navigator', {});
+    const canvas = createMockCanvas();
+    vi.spyOn(canvas, 'getContext');
+    await expect(createGpuRenderer({ canvas, nativeWidth: 160, nativeHeight: 144, preset: resolvePreset('true-color'), backend: 'webgpu' })).rejects.toThrow('WebGPU not supported');
+    expect(canvas.getContext).not.toHaveBeenCalled();
   });
 
-  it('rejects Canvas2D fallback when accelerated-only rendering is requested', async () => {
-    const canvas = createCanvas2DRenderFixture();
-
-    await expect(createGpuRenderer({
-      canvas,
-      nativeWidth: 160,
-      nativeHeight: 144,
-      allowCanvas2D: false,
-      capabilities: createRenderCapabilitiesFixture({
-        webgpu: false,
-        offscreenCanvas: false,
-        transferControlToOffscreen: false,
-        preferredBackend: 'webgpu'
-      })
-    })).rejects.toThrow('No accelerated render backend available');
-
-    expect(canvas.getContext).not.toHaveBeenCalledWith('2d', expect.anything());
-  });
-
-  it('falls back when WebGPU device acquisition fails after capability detection', async () => {
-    const requestDevice = vi.fn(async () => {
-      throw new Error('requestDevice rejected');
-    });
-    vi.stubGlobal('navigator', {
-      gpu: {
-        requestAdapter: vi.fn(async () => ({ requestDevice }))
-      }
-    });
-    const canvas = createCanvas2DRenderFixture();
-
-    const renderer = await createGpuRenderer({
-      canvas,
-      nativeWidth: 160,
-      nativeHeight: 144,
-      capabilities: {
-        ...createRenderCapabilitiesFixture(),
-        webgpu: true,
-        preferredBackend: 'webgpu'
-      }
-    });
-
-    expect(requestDevice).toHaveBeenCalledTimes(1);
-    expect(canvas.getContext).toHaveBeenCalledWith('2d', {
-      alpha: false,
-      desynchronized: true
-    });
-    expect(renderer.isInitialized).toBe(true);
-
-    await renderer.dispose();
+  it('releases a partially initialized GPU device before rejecting', async () => {
+    const device = { destroy: vi.fn(), lost: new Promise(() => {}) };
+    vi.stubGlobal('navigator', { gpu: { requestAdapter: async () => ({ requestDevice: async () => device }) } });
+    const canvas = createMockCanvas();
+    await expect(createGpuRenderer({ canvas, nativeWidth: 160, nativeHeight: 144, preset: resolvePreset('true-color'), backend: 'webgpu' })).rejects.toThrow('WebGPU context not available');
+    expect(device.destroy).toHaveBeenCalledOnce();
   });
 });

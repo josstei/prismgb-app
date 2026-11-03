@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ListboxDropdownController, ComboboxListboxController } from '@platform/ui-base';
-import { createCallbackMap, createLogger } from '../../../../factories/index.js';
+import { createCallbackMap } from '../../../../factories/system.factory.js';
+import { createLogger } from '../../../../factories/logger.factory.js';
 
 describe('ListboxDropdownController', () => {
   let fixture;
@@ -252,7 +253,6 @@ describe('ComboboxListboxController', () => {
     expect(listboxElement.getAttribute('aria-hidden')).toBe('false');
     expect(listboxElement.hasAttribute('inert')).toBe(false);
     inputElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
-    expect(controller.getHighlightedIndex()).toBe(0);
     expect(inputElement.getAttribute('aria-activedescendant')).toBe('test-option-0');
     inputElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
     expect(callbacks.onSelect).toHaveBeenCalledWith('Alpha');

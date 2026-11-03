@@ -8,7 +8,7 @@
     "useDefineForClassFields": false,
     "strict": false,
     "noImplicitAny": false,
-    "strictNullChecks": false,
+    "strictNullChecks": true,
     "types": [
       "node",
       "@webgpu/types",
@@ -25,7 +25,6 @@
     "tests/devices/**/*.ts",
     "tests/unit/**/*.ts",
     "tests/integration/**/*.ts",
-    "tests/workflows/**/*.ts",
     "tests/factories/**/*.js",
     "tests/support/**/*.ts",
     "tests/support/**/*.js"

@@ -2,9 +2,6 @@ import { pruneUndefined } from '@platform/core';
 import type {
   DeviceDescriptor,
   DeviceInfo,
-  DeviceInfoPayload,
-  DeviceStatus,
-  DeviceStatusPayload,
   ObservedUsbDevice
 } from './types.js';
 
@@ -18,18 +15,5 @@ export function toDeviceInfo(descriptor: DeviceDescriptor, observed: ObservedUsb
     locationId: observed.locationId,
     deviceAddress: observed.deviceAddress,
     serialNumber: observed.serialNumber
-  });
-}
-
-export function toDeviceInfoPayload(info: DeviceInfo): DeviceInfoPayload {
-  return { ...info };
-}
-
-export function toDeviceStatusPayload(status: DeviceStatus): DeviceStatusPayload {
-  return pruneUndefined<DeviceStatusPayload>({
-    state: status.state,
-    connected: status.connected,
-    device: status.device ? toDeviceInfoPayload(status.device) : null,
-    error: status.error
   });
 }

@@ -1,3 +1,4 @@
+import { actionAttribute } from '@renderer/presentation/primitives/template-ref.utils.js';
 /**
  * Fullscreen Controls Template
  *
@@ -10,7 +11,7 @@ import { getIconSvg } from '@renderer/presentation/icons/icon.utils.js';
 export function createFullscreenControlsTemplate(): string {
   return `
     <div class="fullscreen-controls" id="fullscreenControls" data-ref="fullscreenControls">
-      <button class="fs-control-btn" id="fsExitBtn" data-ref="fsExitBtn" data-action="fullscreen.toggle" aria-label="Exit fullscreen">
+      <button class="fs-control-btn" id="fsExitBtn" data-ref="fsExitBtn" ${actionAttribute('fullscreen.toggle')} aria-label="Exit fullscreen">
         ${getIconSvg('overlay-fullscreen-exit')}
       </button>
     </div>

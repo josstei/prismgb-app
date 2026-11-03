@@ -12,7 +12,7 @@ type PlatformEntry = {
   os: string;
   arch: NodeJS.Architecture;
   buildScript: string;
-  smokeInput?: string;
+  artifactGlobs: string[];
   smokeExecutablePriority: string[];
 };
 
@@ -28,6 +28,7 @@ type MatrixEntry = {
   arch: string;
   name: string;
   label: string;
+  artifact_globs: string;
 };
 
 const projectRoot = process.cwd();
@@ -40,7 +41,7 @@ function createTempRoot(): string {
 }
 
 afterEach(() => {
-  while (tempRoots.length > 0) fs.rmSync(tempRoots.pop(), { recursive: true, force: true });
+  while (tempRoots.length > 0) fs.rmSync(tempRoots.pop()!, { recursive: true, force: true });
 });
 
 function loadManifest(): PlatformManifest {
@@ -68,8 +69,8 @@ function expectedMatrix(manifest: PlatformManifest, platformIds: string[]): Matr
     if (!platform) {
       throw new Error(`Missing manifest platform: ${id}`);
     }
-    const { os, buildScript, arch, name, label } = platform;
-    return { os, build_script: buildScript, arch, name, label };
+    const { os, buildScript, arch, name, label, artifactGlobs } = platform;
+    return { os, build_script: buildScript, arch, name, label, artifact_globs: artifactGlobs.join("\n") };
   });
 }
 
@@ -79,12 +80,12 @@ const syntheticManifest: PlatformManifest = {
   platforms: [
     {
       id: 'linux-x64', label: 'synthetic-linux', name: 'Synthetic Linux', os: 'linux-ci',
-      arch: 'x64', buildScript: 'build:synthetic-linux',
+      arch: 'x64', buildScript: 'build:synthetic-linux', artifactGlobs: ['release/custom/*.AppImage'],
       smokeExecutablePriority: ['release/custom-first/*.AppImage', 'release/custom-second/prismgb']
     },
     {
       id: 'plan9-x64', label: 'synthetic-plan9', name: 'Synthetic Plan9', os: 'plan9-ci',
-      arch: 'x64', buildScript: 'build:synthetic-plan9',
+      arch: 'x64', buildScript: 'build:synthetic-plan9', artifactGlobs: ['release/plan9/*'],
       smokeExecutablePriority: ['release/plan9/prismgb']
     }
   ]

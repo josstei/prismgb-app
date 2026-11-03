@@ -1,47 +1,46 @@
-import { app, ipcMain, shell } from 'electron';
+import { ipcMain, shell } from 'electron';
 import type { BrowserWindow } from 'electron';
-import { injectable, inject } from 'inversify';
+import { randomUUID } from 'node:crypto';
+
 import { BaseService, type LoggerFactoryLike } from '@platform/core';
 import { createIPCHandler } from 'electron-trpc/main';
 import { appRouter } from './router.js';
-import type {
-  IpcContext,
-  DeviceConnectionPort,
-  UpdateService,
-  WindowService,
-  LoginItemService,
-  TranscodeService
-} from './trpc.js';
-import type { IpcPushBridge } from './ipc-push.bridge.js';
+import type { IpcContext } from './trpc.js';
 import { TEST_CONTROL_CHANNELS } from './test-control.port.js';
-import type { MainProcessTestControlPort } from './test-control.port.js';
-import type { DeviceStatusPayload } from '@platform/ipc';
-import { TOKENS } from '@main/application/di/tokens.js';
+import { IPC_CHANNELS, type DeviceStatusPayload } from '@platform/ipc';
+import type { RendererShutdownResult } from './schemas/app.schemas.js';
 
 const ELECTRON_TRPC_CHANNEL = 'electron-trpc';
+const RENDERER_SHUTDOWN_TIMEOUT_MS = 30_000;
 
 /**
  * Owns the renderer↔main tRPC transport. `registerHandlers` installs the electron-trpc IPC handler
  * for {@link appRouter}; {@link attachWindow} binds the main window so per-frame subscriptions are
- * torn down on navigation/destroy. The per-request {@link IpcContext} supplies the same dependency
- * set the retired manifest registry injected, plus the {@link IpcPushBridge}.
+ * torn down on navigation/destroy. Renderer shutdown is acknowledged before main services and
+ * this transport are disposed, allowing notes and recording buffers to finish saving.
  */
-@injectable()
+type ContextDependencies = Omit<IpcContext, 'shell' | 'logger' | 'onRendererShutdownComplete'>;
+type IpcHandlerRegistryDependencies = ContextDependencies & { loggerFactory: LoggerFactoryLike };
+
 class IpcHandlerRegistry extends BaseService {
   private handler: ReturnType<typeof createIPCHandler> | null = null;
   private attachedWindow: BrowserWindow | null = null;
+  private detachWindowListeners: (() => void) | null = null;
+  private rendererReady = false;
+  private rendererFailure: Error | null = null;
+  private rendererShutdown: Promise<void> | null = null;
+  private pendingShutdown: {
+    requestId: string;
+    resolve: () => void;
+    reject: (error: Error) => void;
+    timeout: ReturnType<typeof setTimeout>;
+  } | null = null;
 
-  constructor(
-    @inject(TOKENS.deviceConnectionService) private readonly deviceConnectionService: DeviceConnectionPort,
-    @inject(TOKENS.mainProcessTestControl) private readonly mainProcessTestControl: MainProcessTestControlPort,
-    @inject(TOKENS.updateService) private readonly updateService: UpdateService,
-    @inject(TOKENS.windowService) private readonly windowService: WindowService,
-    @inject(TOKENS.transcodeService) private readonly transcodeService: TranscodeService,
-    @inject(TOKENS.loginItemService) private readonly loginItemService: LoginItemService,
-    @inject(TOKENS.ipcPushBridge) private readonly ipcPushBridge: IpcPushBridge,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly dependencies: ContextDependencies;
+
+  constructor({ loggerFactory, ...dependencies }: IpcHandlerRegistryDependencies) {
     super({ loggerFactory }, 'IpcHandlerRegistry');
+    this.dependencies = dependencies;
   }
 
   registerHandlers(): void {
@@ -55,12 +54,75 @@ class IpcHandlerRegistry extends BaseService {
   }
 
   attachWindow(window: BrowserWindow): void {
+    this.detachWindowListeners?.();
     this.attachedWindow = window;
+    const rendererGone = () => this.failRendererShutdown(new Error('Renderer exited before shutdown completed'));
+    const navigationStarted = ({ isMainFrame, isSameDocument }: { isMainFrame: boolean; isSameDocument: boolean }) => {
+      if (!isMainFrame || isSameDocument) return;
+      this.rendererReady = false;
+      if (this.pendingShutdown) {
+        this.failRendererShutdown(new Error('Renderer navigated during shutdown'));
+      } else {
+        this.rendererFailure = null;
+        this.rendererShutdown = null;
+      }
+    };
+    window.webContents.on('render-process-gone', rendererGone);
+    window.webContents.on('destroyed', rendererGone);
+    window.webContents.on('did-start-navigation', navigationStarted);
+    this.detachWindowListeners = () => {
+      window.webContents.off('render-process-gone', rendererGone);
+      window.webContents.off('destroyed', rendererGone);
+      window.webContents.off('did-start-navigation', navigationStarted);
+    };
     this.handler?.attachWindow(window);
+  }
+
+  shutdownRenderer(): Promise<void> {
+    if (this.rendererShutdown) return this.rendererShutdown;
+    if (!this.rendererReady) return Promise.resolve();
+    if (this.rendererFailure) return Promise.reject(this.rendererFailure);
+
+    const requestId = randomUUID();
+    this.rendererShutdown = new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.failRendererShutdown(new Error('Renderer shutdown timed out'));
+      }, RENDERER_SHUTDOWN_TIMEOUT_MS);
+      this.pendingShutdown = { requestId, resolve, reject, timeout };
+    });
+    try {
+      this.dependencies.ipcPushBridge.emit(IPC_CHANNELS.APP.SHUTDOWN_REQUESTED, { requestId });
+    } catch (error) {
+      this.failRendererShutdown(error instanceof Error ? error : new Error(String(error)));
+    }
+    return this.rendererShutdown;
+  }
+
+  private completeRendererShutdown({ requestId, error }: RendererShutdownResult): void {
+    const pending = this.pendingShutdown;
+    if (!pending || pending.requestId !== requestId) return;
+    clearTimeout(pending.timeout);
+    this.pendingShutdown = null;
+    if (error) pending.reject(new Error(`Renderer shutdown failed: ${error}`));
+    else pending.resolve();
+  }
+
+  private failRendererShutdown(error: Error): void {
+    this.rendererFailure = error;
+    const pending = this.pendingShutdown;
+    if (!pending) return;
+    clearTimeout(pending.timeout);
+    this.pendingShutdown = null;
+    pending.reject(error);
   }
 
   dispose(): void {
     this.logger.info('Removing IPC handlers');
+    if (this.pendingShutdown) {
+      this.failRendererShutdown(new Error('IPC transport disposed before renderer shutdown completed'));
+    }
+    this.detachWindowListeners?.();
+    this.detachWindowListeners = null;
     // Tear down active subscriptions explicitly rather than relying on the window's `destroyed`
     // event (which may not have fired yet on hot-reload / error-recovery / test teardown). On the
     // normal shutdown path the window is already destroyed and the cleanup has run, so skip it.
@@ -77,28 +139,27 @@ class IpcHandlerRegistry extends BaseService {
 
   private registerTestControlHandlers(): void {
     ipcMain.on(TEST_CONTROL_CHANNELS.SET_DEVICE_STATUS, (_event, payload: DeviceStatusPayload) => {
-      this.mainProcessTestControl.setDeviceStatusOverride(payload);
+      this.dependencies.mainProcessTestControl.setDeviceStatusOverride(payload);
     });
     ipcMain.on(TEST_CONTROL_CHANNELS.CLEAR_DEVICE_STATUS, () => {
-      this.mainProcessTestControl.setDeviceStatusOverride(null);
+      this.dependencies.mainProcessTestControl.setDeviceStatusOverride(null);
     });
     ipcMain.on(TEST_CONTROL_CHANNELS.EMIT_PUSH, (_event, payload: { channel: string; data?: unknown }) => {
-      this.mainProcessTestControl.emitPush(payload.channel, payload.data);
+      this.dependencies.mainProcessTestControl.emitPush(payload.channel, payload.data);
     });
   }
 
   private createContext(): IpcContext {
     return {
-      deviceConnectionService: this.deviceConnectionService,
-      mainProcessTestControl: this.mainProcessTestControl,
-      updateService: this.updateService,
-      windowService: this.windowService,
-      transcodeService: this.transcodeService,
-      loginItemService: this.loginItemService,
-      app,
+      ...this.dependencies,
       shell,
       logger: this.logger,
-      ipcPushBridge: this.ipcPushBridge
+      onRendererReady: () => {
+        this.rendererReady = true;
+        this.rendererFailure = null;
+        this.dependencies.onRendererReady();
+      },
+      onRendererShutdownComplete: (result) => this.completeRendererShutdown(result)
     };
   }
 }

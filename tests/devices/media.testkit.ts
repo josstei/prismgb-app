@@ -8,22 +8,27 @@ import {
 } from '@platform/devices/testkit';
 import type {
   DeviceInfoPayload,
-  DeviceStatusPayload,
-  ObservedUsbDevice
+  DeviceStatusPayload
 } from '@platform/devices';
 
+function requireFixtureValue<T>(value: T | null | undefined, name: string): T {
+  if (value === null || value === undefined) {
+    throw new Error(`Chromatic fixture must define ${name}`);
+  }
+  return value;
+}
+
 const CHROMATIC_PROFILE = getDeviceFixtureProfile();
+type ObservedUsbDevice = typeof CHROMATIC_PROFILE.usbDeviceInfo;
 
 export const CHROMATIC_DESCRIPTOR = CHROMATIC_PROFILE.descriptor;
 export const CHROMATIC_FIXTURE = CHROMATIC_PROFILE.fixture;
 
 export const CHROMATIC_SPECS = CHROMATIC_PROFILE.specs;
 export const CHROMATIC_VIDEO_DEVICE_INFO = CHROMATIC_PROFILE.videoDevice;
-export const CHROMATIC_AUDIO_DEVICE_INFO = CHROMATIC_PROFILE.audioDevice;
+export const CHROMATIC_AUDIO_DEVICE_INFO = requireFixtureValue(CHROMATIC_PROFILE.audioDevice, 'a paired audio device');
 export const CHROMATIC_VIDEO_TRACK_SETTINGS = CHROMATIC_PROFILE.trackSettings.video;
-export const CHROMATIC_AUDIO_TRACK_SETTINGS = CHROMATIC_PROFILE.trackSettings.audio ?? (() => {
-  throw new Error('Chromatic fixture must expose audio track settings');
-})();
+export const CHROMATIC_AUDIO_TRACK_SETTINGS = requireFixtureValue(CHROMATIC_PROFILE.trackSettings.audio, 'audio track settings');
 export const CHROMATIC_STREAM_CAPABILITIES = Object.freeze({
   ...CHROMATIC_PROFILE.streamProfile,
   hasVideo: true,
@@ -165,7 +170,10 @@ function defaultSettings(kind: 'audio' | 'video'): MediaTrackSettings {
     : { ...CHROMATIC_VIDEO_TRACK_SETTINGS };
 }
 
-const range = (value: number) => ({ min: value, max: value });
+const range = (value: number | undefined) => {
+  const limit = requireFixtureValue(value, 'the track capability limit');
+  return { min: limit, max: limit };
+};
 
 function defaultCapabilities(kind: 'audio' | 'video'): MediaTrackCapabilities {
   if (kind === 'audio') {
@@ -351,16 +359,6 @@ export function createMediaStream(options: MediaStreamOptions = {}): MediaStream
   };
 
   return stream as unknown as MediaStreamDouble;
-}
-
-export function createChromaticMediaStream(options: MediaStreamOptions & { includeAudio?: boolean } = {}): MediaStreamDouble {
-  const videoTrack = createChromaticVideoTrack();
-  const audioTracks = options.includeAudio === false ? [] : [createChromaticAudioTrack()];
-
-  return createMediaStream({
-    ...options,
-    tracks: options.tracks ?? [videoTrack, ...audioTracks]
-  });
 }
 
 export function createChromaticMediaDevices(options: { includeAudio?: boolean } = {}): MediaDeviceInfoDouble[] {

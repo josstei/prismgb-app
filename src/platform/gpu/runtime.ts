@@ -9,5 +9,3 @@ export async function detectBrowserGpuCapabilities(): Promise<RenderCapabilities
   const { detectBrowserGpuCapabilities: detect } = await import('./infrastructure/capabilities.browser');
   return detect();
 }
-
-export type { GpuVideoRendererStats } from './domain/types';

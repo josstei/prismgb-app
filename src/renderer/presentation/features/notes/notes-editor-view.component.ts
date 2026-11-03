@@ -1,25 +1,15 @@
+import type { UserNote } from '@platform/notes';
 import { PresentationComponent } from '@platform/ui-base';
 import { NotesPanelConfig } from '@renderer/presentation/config/notes-panel.config';
-import type { LoggerLike } from '@platform/core';
 
 const SAVE_DEBOUNCE_MS = NotesPanelConfig.AUTOSAVE_DEBOUNCE_MS;
 const SAVE_DEBOUNCE_TIMEOUT = Symbol('notesEditorSaveDebounceTimeout');
 const DELETE_HOLD_TIMEOUT = Symbol('notesEditorDeleteHoldTimeout');
 const EDITOR_SETUP_LIFECYCLE = Symbol('notesEditorSetupLifecycle');
 
-interface UserNoteLike {
-  id?: string;
-  gameName?: string;
-  title?: string;
-  content?: string;
-}
+
 
 type EditorCallback = () => void;
-
-export interface NotesEditorViewComponentOptions {
-  notesService?: unknown;
-  logger?: LoggerLike | null;
-}
 
 export interface NotesEditorViewInitializeOptions {
   editorElement?: HTMLElement | null;
@@ -32,34 +22,23 @@ export interface NotesEditorViewInitializeOptions {
   gameAddBtn?: HTMLElement | null;
   onSave?: EditorCallback | null;
   onDelete?: EditorCallback | null;
-  onGameInputChange?: EditorCallback | null;
-  onShowGameInput?: EditorCallback | null;
 }
 
 class NotesEditorViewComponent extends PresentationComponent {
-  declare notesService: unknown;
-  declare logger: LoggerLike | null | undefined;
-  declare currentNoteId: string | null | undefined;
-  declare hasNote: boolean;
-  declare editorElement: HTMLElement | null | undefined;
-  declare titleInput: HTMLInputElement | null | undefined;
-  declare contentArea: HTMLTextAreaElement | null | undefined;
-  declare deleteBtn: HTMLButtonElement | null | undefined;
-  declare gameTagRow: HTMLElement | null | undefined;
-  declare gameTag: HTMLElement | null | undefined;
-  declare gameInput: HTMLInputElement | null | undefined;
-  declare gameAddBtn: HTMLElement | null | undefined;
-  declare onSave: EditorCallback | null | undefined;
-  declare onDelete: EditorCallback | null | undefined;
-  declare onGameInputChange: EditorCallback | null | undefined;
-  declare onShowGameInput: EditorCallback | null | undefined;
+  editorElement: HTMLElement | null | undefined;
+  titleInput: HTMLInputElement | null | undefined;
+  contentArea: HTMLTextAreaElement | null | undefined;
+  deleteBtn: HTMLButtonElement | null | undefined;
+  gameTagRow: HTMLElement | null | undefined;
+  gameTag: HTMLElement | null | undefined;
+  gameInput: HTMLInputElement | null | undefined;
+  gameAddBtn: HTMLElement | null | undefined;
+  onSave: EditorCallback | null | undefined;
+  onDelete: EditorCallback | null | undefined;
   private _hasPendingSave: boolean;
 
-  constructor(options: NotesEditorViewComponentOptions) {
+  constructor() {
     super();
-    this.applyOptions<NotesEditorViewComponentOptions>({}, options);
-    this.currentNoteId = null;
-    this.hasNote = false;
     this.editorElement = null;
     this.titleInput = null;
     this.contentArea = null;
@@ -75,7 +54,16 @@ class NotesEditorViewComponent extends PresentationComponent {
     this.flushSave();
     this.cancelManaged(EDITOR_SETUP_LIFECYCLE);
     this._cancelDeleteHold();
-    this.applyOptions<NotesEditorViewInitializeOptions>({}, options);
+    this.editorElement = options.editorElement;
+    this.titleInput = options.titleInput;
+    this.contentArea = options.contentArea;
+    this.deleteBtn = options.deleteBtn;
+    this.gameTagRow = options.gameTagRow;
+    this.gameTag = options.gameTag;
+    this.gameInput = options.gameInput;
+    this.gameAddBtn = options.gameAddBtn;
+    this.onSave = options.onSave;
+    this.onDelete = options.onDelete;
 
     const setupDisposers: Array<() => void> = [];
     this._setupEditor(setupDisposers);
@@ -86,11 +74,9 @@ class NotesEditorViewComponent extends PresentationComponent {
     });
   }
 
-  loadNote(note: UserNoteLike | null | undefined): void {
+  loadNote(note: UserNote | null | undefined): void {
     if (!note) return;
 
-    this.currentNoteId = note.id;
-    this.hasNote = true;
     this.editorElement?.classList.add('has-note');
     if (this.gameInput) this.gameInput.value = note.gameName || '';
     if (this.titleInput) this.titleInput.value = note.title || '';
@@ -100,8 +86,6 @@ class NotesEditorViewComponent extends PresentationComponent {
   }
 
   clear(): void {
-    this.currentNoteId = null;
-    this.hasNote = false;
     if (this.gameInput) this.gameInput.value = '';
     if (this.titleInput) this.titleInput.value = '';
     if (this.contentArea) this.contentArea.value = '';
@@ -150,25 +134,21 @@ class NotesEditorViewComponent extends PresentationComponent {
     this._hasPendingSave = false;
   }
 
-  scheduleSave(): void {
-    this._scheduleSave();
-  }
-
   _setupEditor(setupDisposers: Array<() => void>): void {
     if (this.titleInput) {
-      setupDisposers.push(this.listen(this.titleInput, 'input', () => this._scheduleSave()));
+      setupDisposers.push(this.listen(this.titleInput, 'input', () => this.scheduleSave()));
     }
     if (this.contentArea) {
-      setupDisposers.push(this.listen(this.contentArea, 'input', () => this._scheduleSave()));
+      setupDisposers.push(this.listen(this.contentArea, 'input', () => this.scheduleSave()));
     }
   }
 
   _setupGameTagUI(setupDisposers: Array<() => void>): void {
     if (this.gameAddBtn) {
-      setupDisposers.push(this.listen(this.gameAddBtn, 'click', () => this.onShowGameInput?.()));
+      setupDisposers.push(this.listen(this.gameAddBtn, 'click', () => this.showGameInput()));
     }
     if (this.gameTag) {
-      setupDisposers.push(this.listen(this.gameTag, 'click', () => this.onShowGameInput?.()));
+      setupDisposers.push(this.listen(this.gameTag, 'click', () => this.showGameInput()));
     }
   }
 
@@ -212,7 +192,7 @@ class NotesEditorViewComponent extends PresentationComponent {
     this.deleteBtn?.classList.remove('holding');
   }
 
-  _scheduleSave(): void {
+  scheduleSave(): void {
     this._hasPendingSave = true;
     this.replaceTimeout(SAVE_DEBOUNCE_TIMEOUT, () => {
       this._hasPendingSave = false;
@@ -233,10 +213,6 @@ class NotesEditorViewComponent extends PresentationComponent {
     this.gameAddBtn = null;
     this.onSave = null;
     this.onDelete = null;
-    this.onGameInputChange = null;
-    this.onShowGameInput = null;
-    this.notesService = null;
-    this.logger = null;
     return disposed;
   }
 }

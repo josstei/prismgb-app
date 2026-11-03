@@ -5,12 +5,10 @@
  * Keeps streaming orchestration free of direct DOM manipulation.
  */
 
-import { injectable, inject } from 'inversify';
 import { BaseService } from '@platform/core';
 import type {
   LoggerFactoryLike
 } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
 
 type UiControllerLike = {
   elements: {
@@ -20,13 +18,17 @@ type UiControllerLike = {
   setStreamCanvas(canvas: HTMLCanvasElement): void;
 };
 
-@injectable()
+type StreamingViewServiceDependencies = {
+  uiController: UiControllerLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 class StreamingViewService extends BaseService {
-  constructor(
-    @inject(TOKENS.uiController) private readonly uiController: UiControllerLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly uiController: UiControllerLike;
+
+  constructor({ uiController, loggerFactory }: StreamingViewServiceDependencies) {
     super({ loggerFactory }, 'StreamingViewService');
+    this.uiController = uiController;
   }
 
   attachMutedStream(stream: MediaStream): void {

@@ -1,19 +1,9 @@
-import { getRendererDefaultPreset } from '../application/catalog';
+import { resolvePreset } from '../application/catalog';
 import type {
-  RenderCapabilities,
   RenderCanvas,
-  RenderPreset,
-  RenderStats
+  RenderPreset
 } from '../domain/types';
 import type { PipelineUniforms } from '../domain/uniforms';
-import { WorkerRendererClient } from '../worker/client';
-import { WorkerResponseType } from '../worker/protocol';
-import type {
-  WorkerMessagePayloadMap,
-  WorkerMessageTypeValue,
-  WorkerResponsePayloadMap,
-  WorkerResponseTypeValue
-} from '../worker/protocol';
 
 type DeepPartial<T> = {
   [Key in keyof T]?: T[Key] extends readonly unknown[]
@@ -23,43 +13,16 @@ type DeepPartial<T> = {
       : T[Key];
 };
 
-export type MockCanvasContextMap = Partial<Record<string, unknown>>;
+type MockCanvasContextMap = Partial<Record<string, unknown>>;
 
-export type MockRenderCanvas = RenderCanvas & {
+type MockRenderCanvas = RenderCanvas & {
   transferControlToOffscreen(): OffscreenCanvas;
 };
-
-export type WorkerRendererClientMock = WorkerRendererClient & {
-  emit<K extends WorkerResponseTypeValue>(type: K, payload: WorkerResponsePayloadMap[K]): void;
-};
-
-export function createRenderStatsFixture(overrides: Partial<RenderStats> = {}): RenderStats {
-  return {
-    fps: 0,
-    frameTime: 0,
-    framesRendered: 0,
-    framesDropped: 0,
-    ...overrides
-  };
-}
-
-export function createRenderCapabilitiesFixture(
-  overrides: Partial<RenderCapabilities> = {}
-): RenderCapabilities {
-  return {
-    webgpu: false,
-    offscreenCanvas: true,
-    transferControlToOffscreen: true,
-    preferredBackend: 'canvas2d',
-    maxTextureSize: 4096,
-    ...overrides
-  };
-}
 
 export function createRenderPresetFixture(
   overrides: DeepPartial<RenderPreset> = {}
 ): RenderPreset {
-  const preset = getRendererDefaultPreset();
+  const preset = resolvePreset();
 
   return {
     ...preset,
@@ -138,7 +101,7 @@ export function createPipelineUniformsFixture(
   };
 }
 
-export function createMockOffscreenCanvas(
+function createMockOffscreenCanvas(
   width = 160,
   height = 144,
   contexts: MockCanvasContextMap = {}
@@ -163,58 +126,4 @@ export function createMockCanvas(
     getContext: (contextType: string) => contexts[contextType] ?? null,
     transferControlToOffscreen: () => offscreenCanvas
   };
-}
-
-export function createWorkerRendererClientMock(
-  overrides: Partial<WorkerRendererClientMock> = {}
-): WorkerRendererClientMock {
-  const handlers = new Map<WorkerResponseTypeValue, (payload: unknown) => void>();
-
-  const onMessage = <K extends WorkerResponseTypeValue>(
-    type: K,
-    handler: (payload: WorkerResponsePayloadMap[K]) => void
-  ): (() => void) => {
-    handlers.set(type, handler as (payload: unknown) => void);
-
-    return () => {
-      handlers.delete(type);
-    };
-  };
-  const sendCommand = <K extends WorkerMessageTypeValue>(
-    _type: K,
-    _payload?: WorkerMessagePayloadMap[K],
-    _transferables: Transferable[] = []
-  ): boolean => true;
-
-  const mock = {
-    isReady: () => false,
-    isCanvasTransferred: () => false,
-    initialize: async () => true,
-    renderFrame: () => true,
-    setPreset: () => true,
-    resize: () => true,
-    requestCapture: () => true,
-    requestCapturedFrame: () => true,
-    sendCommand,
-    onMessage,
-    onReady: (handler) => onMessage(WorkerResponseType.READY, handler),
-    onFrameRendered: (handler) => onMessage(WorkerResponseType.FRAME_RENDERED, handler),
-    onStats: (handler) => onMessage(WorkerResponseType.STATS, handler),
-    onError: (handler) => onMessage(WorkerResponseType.ERROR, handler),
-    onCaptureRequested: (handler) => onMessage(WorkerResponseType.CAPTURE_REQUESTED, handler),
-    onCaptureReady: (handler) => onMessage(WorkerResponseType.CAPTURE_READY, handler),
-    onReleased: (handler) => onMessage(WorkerResponseType.RELEASED, handler),
-    onDestroyed: (handler) => onMessage(WorkerResponseType.DESTROYED, handler),
-    releaseResources: () => undefined,
-    terminate: () => undefined,
-    dispose: () => undefined,
-    emit: <K extends WorkerResponseTypeValue>(type: K, payload: WorkerResponsePayloadMap[K]) => {
-      handlers.get(type)?.(payload);
-    }
-  } satisfies Omit<WorkerRendererClientMock, keyof WorkerRendererClient> & Partial<WorkerRendererClientMock>;
-
-  return {
-    ...mock,
-    ...overrides
-  } as WorkerRendererClientMock;
 }

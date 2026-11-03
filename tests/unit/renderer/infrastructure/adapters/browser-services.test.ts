@@ -3,12 +3,11 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { BrowserMediaAdapter } from '@renderer/infrastructure/adapters/browser-media.adapter.js';
+import { BrowserMediaDevicesPort } from '@renderer/infrastructure/services/devices/browser-media-devices.port.js';
 import { BrowserStorageAdapter } from '@renderer/infrastructure/adapters/browser-storage.adapter.js';
 import type { LoggerLike } from '@platform/core';
-import { createLogger } from '../../../../factories/index.js';
+import { createLogger } from '../../../../factories/logger.factory.js';
 import {
-  installClipboardMock,
   installLocalStorageMock,
   installMediaMocks,
   installNavigatorMock
@@ -68,33 +67,12 @@ describe('installMediaMocks', () => {
   });
 });
 
-describe('installClipboardMock', () => {
-  it('should install clipboard behavior explicitly and restore the previous descriptor', async () => {
-    const originalClipboard = navigator.clipboard;
-    const clipboardMock = installClipboardMock({ text: 'initial' });
-
-    try {
-      expect(navigator.clipboard).toBe(clipboardMock.clipboard);
-      expect(await navigator.clipboard.readText()).toBe('initial');
-
-      await navigator.clipboard.writeText('updated');
-
-      expect(clipboardMock.writeText).toHaveBeenCalledWith('updated');
-      expect(await navigator.clipboard.readText()).toBe('updated');
-      expect(clipboardMock.getText()).toBe('updated');
-    } finally {
-      clipboardMock.cleanup();
-    }
-
-    expect(navigator.clipboard).toBe(originalClipboard);
-  });
-});
-
-describe('BrowserMediaAdapter', () => {
-  let service: BrowserMediaAdapter;
+describe('BrowserMediaDevicesPort', () => {
+  let service: BrowserMediaDevicesPort;
   let mediaMock: ReturnType<typeof installMediaMocks>;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     mediaMock = installMediaMocks({
       devices: [
         { kind: 'videoinput', deviceId: 'camera1', label: 'Camera' },
@@ -102,192 +80,66 @@ describe('BrowserMediaAdapter', () => {
       ],
       stream: { id: 'mock-stream' }
     });
-    service = new BrowserMediaAdapter();
+    service = new BrowserMediaDevicesPort(undefined, undefined, 50);
   });
 
   afterEach(() => {
     mediaMock.cleanup();
+    vi.useRealTimers();
   });
 
-  describe('enumerateDevices', () => {
-    it('should delegate to navigator.mediaDevices.enumerateDevices', async () => {
-      const devices = await service.enumerateDevices();
-
-      expect(navigator.mediaDevices.enumerateDevices).toHaveBeenCalled();
-      expect(devices).toHaveLength(2);
-      expect(devices[0].kind).toBe('videoinput');
-    });
+  it('enumerates and acquires media through the browser API', async () => {
+    const devices = await service.enumerateDevices();
+    expect(devices).toHaveLength(2);
+    expect(devices[0].kind).toBe('videoinput');
+    const constraints = { video: true, audio: true };
+    const stream = await service.getUserMedia(constraints);
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith(constraints);
+    expect(stream.id).toBe('mock-stream');
   });
 
-  describe('getUserMedia', () => {
-    it('should delegate to navigator.mediaDevices.getUserMedia', async () => {
-      const constraints = { video: true, audio: true };
-
-      const stream = await service.getUserMedia(constraints);
-
-      expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledWith(constraints);
-      expect(stream.id).toBe('mock-stream');
-    });
-  });
-
-  describe('addEventListener', () => {
-    it('should delegate to navigator.mediaDevices.addEventListener', () => {
-      const handler = vi.fn();
-
-      service.addEventListener('devicechange', handler);
-
-      expect(navigator.mediaDevices.addEventListener).toHaveBeenCalledWith('devicechange', handler);
+  it('supports an injected media source without accessing navigator', async () => {
+    const injected = new BrowserMediaDevicesPort(mediaMock.mediaDevices);
+    await withNavigatorMockAsync(undefined, async () => {
+      await expect(injected.enumerateDevices()).resolves.toHaveLength(2);
+      await expect(injected.getUserMedia({ video: true })).resolves.toHaveProperty('id', 'mock-stream');
     });
   });
 
-  describe('removeEventListener', () => {
-    it('should delegate to navigator.mediaDevices.removeEventListener', () => {
-      const handler = vi.fn();
-
-      service.removeEventListener('devicechange', handler);
-
-      expect(navigator.mediaDevices.removeEventListener).toHaveBeenCalledWith('devicechange', handler);
-    });
-
-    it('should remove handler from tracking map', () => {
-      const handler = vi.fn();
-      service.addEventListener('devicechange', handler);
-
-      service.removeEventListener('devicechange', handler);
-
-      expect(service._listeners.get('devicechange')).toBeUndefined();
-    });
-
-    it('should handle removing non-existent handler gracefully', () => {
-      const handler = vi.fn();
-
-      expect(() => service.removeEventListener('devicechange', handler)).not.toThrow();
-    });
-
-    it('should remove only the specific handler from tracking', () => {
-      const handler1 = vi.fn();
-      const handler2 = vi.fn();
-      service.addEventListener('devicechange', handler1);
-      service.addEventListener('devicechange', handler2);
-
-      service.removeEventListener('devicechange', handler1);
-
-      expect(service._listeners.get('devicechange').size).toBe(1);
-      expect(service._listeners.get('devicechange').has(handler2)).toBe(true);
-    });
+  it('debounces device changes and cancels pending callbacks when unsubscribed', () => {
+    const onChange = vi.fn();
+    const unsubscribe = service.subscribeDeviceChange(onChange);
+    mediaMock.mediaDevices._emitDeviceChange();
+    mediaMock.mediaDevices._emitDeviceChange();
+    expect(onChange).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(50);
+    expect(onChange).toHaveBeenCalledOnce();
+    mediaMock.mediaDevices._emitDeviceChange();
+    unsubscribe();
+    mediaMock.mediaDevices._emitDeviceChange();
+    vi.runAllTimers();
+    expect(onChange).toHaveBeenCalledOnce();
   });
 
-  describe('isAvailable', () => {
-    it('should return true when mediaDevices is available', () => {
-      expect(service.isAvailable()).toBe(true);
-    });
-
-    it('should return false when navigator is undefined', () => {
-      withNavigatorMock(undefined, () => {
-        const newService = new BrowserMediaAdapter();
-
-        expect(newService.isAvailable()).toBe(false);
-      });
-    });
-
-    it('should return false when mediaDevices is undefined', () => {
-      withNavigatorMock({}, () => {
-        const newService = new BrowserMediaAdapter();
-
-        expect(newService.isAvailable()).toBe(false);
-      });
-    });
+  it('releases each subscription independently against its original source', () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const releaseFirst = service.subscribeDeviceChange(first);
+    const releaseSecond = service.subscribeDeviceChange(second);
+    withNavigatorMock(undefined, releaseFirst);
+    mediaMock.mediaDevices._emitDeviceChange();
+    vi.runAllTimers();
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledOnce();
+    releaseSecond();
   });
 
-  describe('_ensureAvailable', () => {
-    it('should throw when MediaDevices API is not available', () => {
-      withNavigatorMock(undefined, () => {
-        const newService = new BrowserMediaAdapter();
-
-        expect(() => newService._ensureAvailable()).toThrow('MediaDevices API not available');
-      });
-    });
-
-    it('should not throw when MediaDevices API is available', () => {
-      expect(() => service._ensureAvailable()).not.toThrow();
-    });
-  });
-
-  describe('error handling', () => {
-    it('should throw when enumerateDevices is called without API', async () => {
-      await withNavigatorMockAsync(undefined, async () => {
-        const newService = new BrowserMediaAdapter();
-
-        await expect(newService.enumerateDevices()).rejects.toThrow('MediaDevices API not available');
-      });
-    });
-
-    it('should throw when getUserMedia is called without API', async () => {
-      await withNavigatorMockAsync(undefined, async () => {
-        const newService = new BrowserMediaAdapter();
-
-        await expect(newService.getUserMedia({ video: true })).rejects.toThrow('MediaDevices API not available');
-      });
-    });
-
-    it('should throw when addEventListener is called without API', () => {
-      withNavigatorMock(undefined, () => {
-        const newService = new BrowserMediaAdapter();
-        const handler = vi.fn();
-
-        expect(() => newService.addEventListener('devicechange', handler)).toThrow('MediaDevices API not available');
-      });
-    });
-
-    it('should throw when removeEventListener is called without API', () => {
-      withNavigatorMock(undefined, () => {
-        const newService = new BrowserMediaAdapter();
-        const handler = vi.fn();
-
-        expect(() => newService.removeEventListener('devicechange', handler)).toThrow('MediaDevices API not available');
-      });
-    });
-  });
-
-  describe('dispose', () => {
-    it('should remove tracked event listeners', () => {
-      const handler1 = vi.fn();
-      const handler2 = vi.fn();
-      service.addEventListener('devicechange', handler1);
-      service.addEventListener('devicechange', handler2);
-
-      service.dispose();
-
-      expect(navigator.mediaDevices.removeEventListener).toHaveBeenCalledWith('devicechange', handler1);
-      expect(navigator.mediaDevices.removeEventListener).toHaveBeenCalledWith('devicechange', handler2);
-      expect(service._listeners.size).toBe(0);
-    });
-
-    it('should handle multiple event types', () => {
-      const handler1 = vi.fn();
-      const handler2 = vi.fn();
-      service.addEventListener('devicechange', handler1);
-      service.addEventListener('someevent', handler2);
-
-      service.dispose();
-
-      expect(navigator.mediaDevices.removeEventListener).toHaveBeenCalledWith('devicechange', handler1);
-      expect(navigator.mediaDevices.removeEventListener).toHaveBeenCalledWith('someevent', handler2);
-      expect(service._listeners.size).toBe(0);
-    });
-
-    it('should do nothing when API is not available', () => {
-      const handler = vi.fn();
-      service.addEventListener('devicechange', handler);
-
-      withNavigatorMock(undefined, () => {
-        expect(() => service.dispose()).not.toThrow();
-      });
-    });
-
-    it('should do nothing when no listeners registered', () => {
-      expect(() => service.dispose()).not.toThrow();
-      expect(service._listeners.size).toBe(0);
+  it.each([undefined, {}])('rejects operations when the browser API is absent (%s)', async (value) => {
+    await withNavigatorMockAsync(value, async () => {
+      const unavailable = new BrowserMediaDevicesPort();
+      await expect(unavailable.enumerateDevices()).rejects.toThrow('MediaDevices API not available');
+      await expect(unavailable.getUserMedia({ video: true })).rejects.toThrow('MediaDevices API not available');
+      expect(() => unavailable.subscribeDeviceChange(vi.fn())).toThrow('MediaDevices API not available');
     });
   });
 });
@@ -348,7 +200,7 @@ describe('BrowserStorageAdapter', () => {
 
     it('should return null and log warning on error', () => {
       const error = new Error('Storage access denied');
-      localStorageMock.setGetItemImplementation(() => { throw error; });
+      localStorageMock.getItem.mockImplementation(() => { throw error; });
 
       const value = service.getItem('testKey');
 
@@ -370,7 +222,7 @@ describe('BrowserStorageAdapter', () => {
 
     it('should attempt cleanup on QuotaExceededError and retry', () => {
       let attempts = 0;
-      localStorageMock.setSetItemImplementation(() => {
+      localStorageMock.setItem.mockImplementation(() => {
         attempts++;
         if (attempts === 1) {
           const error = new Error('Quota exceeded');
@@ -389,7 +241,7 @@ describe('BrowserStorageAdapter', () => {
 
     it('should attempt cleanup on quota error code 22 and retry', () => {
       let attempts = 0;
-      localStorageMock.setSetItemImplementation(() => {
+      localStorageMock.setItem.mockImplementation(() => {
         attempts++;
         if (attempts === 1) {
           const error = Object.assign(new Error('Quota exceeded'), { code: 22 }) as unknown as Error & { code: string };
@@ -405,7 +257,7 @@ describe('BrowserStorageAdapter', () => {
     it('should return false if quota exceeded after cleanup', () => {
       const error = new Error('Quota exceeded');
       error.name = 'QuotaExceededError';
-      localStorageMock.setSetItemImplementation(() => { throw error; });
+      localStorageMock.setItem.mockImplementation(() => { throw error; });
 
       const result = service.setItem('myKey', 'myValue');
 
@@ -417,7 +269,7 @@ describe('BrowserStorageAdapter', () => {
 
     it('should return false and log error for other errors', () => {
       const error = new Error('Unknown storage error');
-      localStorageMock.setSetItemImplementation(() => { throw error; });
+      localStorageMock.setItem.mockImplementation(() => { throw error; });
 
       const result = service.setItem('myKey', 'myValue');
 
@@ -438,7 +290,7 @@ describe('BrowserStorageAdapter', () => {
 
     it('should log warning on error', () => {
       const error = new Error('Remove failed');
-      localStorageMock.setRemoveItemImplementation(() => { throw error; });
+      localStorageMock.removeItem.mockImplementation(() => { throw error; });
 
       service.removeItem('testKey');
 
@@ -482,11 +334,11 @@ describe('BrowserStorageAdapter', () => {
     });
 
     it('should handle null keys gracefully', () => {
-      localStorageMock.setKeyImplementation((index) => {
+      localStorageMock.key.mockImplementation((index) => {
         if (index === 0) return null;
         return 'temp1';
       });
-      localStorageMock.setLengthImplementation(2);
+      vi.spyOn(localStorageMock.localStorage, 'length', 'get').mockReturnValue(2);
 
       expect(() => service._cleanupOldEntries()).not.toThrow();
     });
@@ -494,7 +346,7 @@ describe('BrowserStorageAdapter', () => {
     it('should ignore removal errors', () => {
       storageData['temp1'] = 'value1';
       storageData['temp2'] = 'value2';
-      localStorageMock.setRemoveItemImplementation(() => {
+      localStorageMock.removeItem.mockImplementation(() => {
         throw new Error('Remove failed');
       });
 

@@ -40,9 +40,6 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "@vitest/*"
         update-types: ["version-update:semver-major"]
-      # @inversifyjs/core must be the exact core inversify depends on, which Dependabot cannot
-      # derive. tests/unit/scripts/dependency-singletons.test.ts fails when the two diverge.
-      - dependency-name: "@inversifyjs/core"
 
     # A dependency matching several groups joins the most specific one: an exact name outranks
     # a dependency-type group, which outranks a wildcard pattern. The dependency-type groups

@@ -17,6 +17,24 @@ describe('PresentationComponent', () => {
     expect(disposeSpy).toHaveBeenCalled();
   });
 
+  it('reports cleanup failure after attempting every tracked disposer', async () => {
+    const failure = new Error('unsubscribe failed');
+    const onError = vi.fn();
+    const released = vi.fn();
+    const component = new (class extends PresentationComponent {
+      constructor() {
+        super();
+        this.track(released);
+        this.track(() => { throw failure; });
+      }
+      protected override onDisposeError(error: unknown): void { onError(error); }
+    })();
+
+    await expect(component.dispose()).rejects.toBe(failure);
+    expect(released).toHaveBeenCalledOnce();
+    expect(onError).toHaveBeenCalledWith(failure);
+  });
+
   it('listens to DOM events and removes them on dispose', async () => {
     const el = document.createElement('div');
     const handler = vi.fn();
@@ -77,46 +95,4 @@ describe('PresentationComponent', () => {
     expect(order).toEqual(['second', 'first', 'fresh']);
   });
 
-  describe('applyOptions', () => {
-    interface WidgetOptions {
-      label?: string;
-      debounceMs?: number;
-      trigger: HTMLElement | null;
-    }
-
-    class WidgetHarness extends PresentationComponent {
-      declare label: string;
-      declare debounceMs: number;
-      declare trigger: HTMLElement | null;
-
-      constructor(options: WidgetOptions) {
-        super();
-        this.applyOptions<WidgetOptions>({ label: 'default-label', debounceMs: 100 }, options);
-      }
-    }
-
-    it('assigns defaults for options the caller omits', () => {
-      const harness = new WidgetHarness({ trigger: null });
-
-      expect(harness.label).toBe('default-label');
-      expect(harness.debounceMs).toBe(100);
-      expect(harness.trigger).toBeNull();
-    });
-
-    it('lets explicit constructor options override defaults', () => {
-      const trigger = document.createElement('button');
-      const harness = new WidgetHarness({ trigger, label: 'custom', debounceMs: 250 });
-
-      expect(harness.label).toBe('custom');
-      expect(harness.debounceMs).toBe(250);
-      expect(harness.trigger).toBe(trigger);
-    });
-
-    it('exposes assigned fields as own enumerable properties for white-box reads', () => {
-      const harness = new WidgetHarness({ trigger: null });
-
-      expect(Object.prototype.hasOwnProperty.call(harness, 'label')).toBe(true);
-      expect(Object.prototype.hasOwnProperty.call(harness, 'debounceMs')).toBe(true);
-    });
-  });
 });

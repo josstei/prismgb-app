@@ -40,6 +40,6 @@ export class MainProcessTestControl implements MainProcessTestControlPort {
       return;
     }
 
-    this.ipcPushBridge.emit(channel, payload);
+    this.ipcPushBridge.emitUnchecked(channel, payload);
   }
 }

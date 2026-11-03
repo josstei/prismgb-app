@@ -15,6 +15,11 @@ import { z } from 'zod';
  */
 export const enabledFlagSchema = z.object({ enabled: z.boolean() });
 
+/** Identify a renderer-owned blob before its browser download starts. */
+export const localBlobDownloadSchema = z.object({
+  url: z.string().url().max(4096).startsWith('blob:')
+}).strict();
+
 /**
  * An external-URL input boxed per the scalar-boxing rule above; only http and
  * https URLs pass the trust boundary.

@@ -2,61 +2,11 @@
  * Streaming Pipeline Factory
  *
  * Creates mock services for the renderer streaming pipeline:
- * render loops, GPU pipeline, canvas lifecycle, and viewport.
- * Extracted from tests/factories/index.js as part of the factory-split refactor.
+ * render loops, GPU capture, audio, and view state.
  */
 
 import { vi } from 'vitest';
-import { createMockCanvas, createMockVideo } from './stream.factory.js';
 import { createMockElement } from './ui.factory.js';
-
-/**
- * Creates a mock StreamingViewController.
- *
- * @param {Object} [overrides={}] - Mock overrides.
- * @returns {Object} Mock StreamingViewController.
- */
-export function createStreamingViewControllerMock(overrides = {}) {
-  const {
-    streamVideo,
-    streamCanvas,
-    elements,
-    setStreamCanvas,
-    ...componentOverrides
-  } = overrides;
-
-  const mergedElements = {
-    streamVideo: streamVideo ?? createMockVideo(),
-    streamCanvas: streamCanvas ?? createMockCanvas(),
-    ...elements,
-  };
-
-  return {
-    elements: mergedElements,
-    setStreamCanvas: setStreamCanvas ?? vi.fn((canvas) => {
-      mergedElements.streamCanvas = canvas;
-    }),
-    ...componentOverrides
-  };
-}
-
-/**
- * @typedef {import('@renderer/infrastructure/services/streaming/audio-pipeline.service').StreamingAudioPipelineService} StreamingAudioPipelineService
- */
-
-/**
- * Creates a mock StreamingAudioPipelineService.
- *
- * @param {Partial<import('vitest').Mocked<StreamingAudioPipelineService>>} [overrides={}] - Mock property and overrides.
- * @returns {import('vitest').Mocked<StreamingAudioPipelineService>} A strongly-typed mock StreamingAudioPipelineService.
- */
-export function createStreamingAudioPipelineServiceMock(overrides = {}) {
-  return /** @type {any} */ ({
-    start: vi.fn().mockResolvedValue(true),
-    stop: vi.fn(),
-    ...overrides
-  });
-}
 
 /**
  * @typedef {import('@renderer/infrastructure/services/streaming/streaming-view.service').StreamingViewService} StreamingViewService
@@ -99,59 +49,10 @@ export function createStreamingViewElementsMock(overrides = {}) {
   const baseStreamCanvas = createMockElement('canvas');
 
   return {
-    streamVideo: {
-      ...baseStreamVideo,
-      ...streamVideo
-    },
-    streamCanvas: {
-      ...baseStreamCanvas,
-      ...streamCanvas
-    },
+    streamVideo: Object.assign(baseStreamVideo, streamVideo),
+    streamCanvas: Object.assign(baseStreamCanvas, streamCanvas),
     ...rest,
   };
-}
-
-/**
- * @typedef {import('@renderer/infrastructure/services/platform/viewport.service').StreamingViewportService} StreamingViewportService
- */
-
-/**
- * Creates a mock ViewportService.
- *
- * @param {Partial<import('vitest').Mocked<StreamingViewportService>>} [overrides={}] - Mock overrides.
- * @returns {import('vitest').Mocked<StreamingViewportService>} A strongly-typed mock ViewportService.
- */
-export function createViewportServiceMock(overrides = {}) {
-  return /** @type {any} */ ({
-    calculateDimensions: vi.fn(() => ({ width: 640, height: 576 })),
-    initialize: vi.fn(),
-    isInitialized: vi.fn().mockReturnValue(false),
-    forceResize: vi.fn(),
-    resetDimensions: vi.fn(),
-    cleanup: vi.fn(),
-    _resizeObserver: null,
-    ...overrides
-  });
-}
-
-/**
- * @typedef {import('@renderer/infrastructure/services/platform/health.service').StreamingHealthService} StreamingHealthService
- */
-
-/**
- * Creates a mock HealthService.
- *
- * @param {Partial<import('vitest').Mocked<StreamingHealthService>>} [overrides={}] - Mock overrides.
- * @returns {import('vitest').Mocked<StreamingHealthService>} A strongly-typed mock HealthService.
- */
-export function createStreamHealthServiceMock(overrides = {}) {
-  return /** @type {any} */ ({
-    checkStreamHealth: vi.fn((videoEl, onHealthy) => {
-      onHealthy({ frameTime: 100 });
-    }),
-    cleanup: vi.fn(),
-    ...overrides
-  });
 }
 
 /**
@@ -162,16 +63,7 @@ export function createStreamHealthServiceMock(overrides = {}) {
  */
 export function createGpuRendererServiceMock(overrides = {}) {
   return /** @type {any} */ ({
-    initialize: vi.fn().mockResolvedValue(false),
-    renderFrame: vi.fn().mockResolvedValue(undefined),
-    setPreset: vi.fn(),
-    getPresetId: vi.fn(() => 'vibrant'),
     isActive: vi.fn().mockReturnValue(false),
-    isCanvasTransferred: vi.fn().mockReturnValue(false),
-    terminateAndReset: vi.fn(),
-    releaseGpuResources: vi.fn(),
-    resize: vi.fn(),
-    cleanup: vi.fn(),
     captureFrame: vi.fn(),
     getTargetDimensions: vi.fn(() => ({ width: 640, height: 576 })),
     ...overrides
@@ -211,35 +103,12 @@ export function createStreamingServiceFacadeMock(overrides = {}) {
 export function createStreamingRenderServiceMock(overrides = {}) {
   return /** @type {any} */ ({
     initialize: vi.fn(),
-    handleCanvasExpired: vi.fn(),
     handlePerformanceStateChanged: vi.fn(),
     handleRenderPresetChanged: vi.fn(),
     handlePerformanceModeChanged: vi.fn(),
     handleFullscreenChange: vi.fn(),
     startPipeline: vi.fn().mockResolvedValue(undefined),
     stopPipeline: vi.fn(),
-    cleanup: vi.fn(),
-    ...overrides
-  });
-}
-
-/**
- * @typedef {import('@renderer/infrastructure/services/streaming/canvas-lifecycle.service').StreamingCanvasLifecycleService} StreamingCanvasLifecycleService
- */
-
-/**
- * Creates a mock CanvasLifecycleService.
- *
- * @param {Partial<import('vitest').Mocked<StreamingCanvasLifecycleService>>} [overrides={}] - Mock overrides.
- * @returns {import('vitest').Mocked<StreamingCanvasLifecycleService>} A strongly-typed mock CanvasLifecycleService.
- */
-export function createCanvasLifecycleServiceMock(overrides = {}) {
-  return /** @type {any} */ ({
-    initialize: vi.fn(),
-    handleCanvasExpired: vi.fn(),
-    handleFullscreenChange: vi.fn(),
-    setupCanvasSize: vi.fn(),
-    recreateCanvas: vi.fn(),
     cleanup: vi.fn(),
     ...overrides
   });

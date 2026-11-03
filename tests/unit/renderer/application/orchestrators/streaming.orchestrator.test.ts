@@ -1,20 +1,25 @@
+import { createAppState } from '../../../../factories/app-state.factory.js';
+import {
+  createCaptureStreamMock,
+  createStreamStartedPayloadMock,
+  createSupportedDevicePayloadMock
+} from '../../../../factories/stream.factory.js';
+import { createCaptureGpuRecordingServiceMock } from '../../../../factories/capture.factory.js';
+import {
+  createStreamingServiceFacadeMock,
+  createStreamingViewServiceMock,
+  createStreamingRenderServiceMock
+} from '../../../../factories/streaming-pipeline.factory.js';
+import { createSettingsServiceMock } from '../../../../factories/settings.factory.js';
+import { createEventBus } from '../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../factories/logger.factory.js';
 /**
  * StreamingOrchestrator Unit Tests
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { StreamingOrchestrator } from '@renderer/application/orchestrators/streaming.orchestrator';
-import {
-  createAppState,
-  createCaptureStreamMock,
-  createStreamStartedPayloadMock,
-  createSupportedDevicePayloadMock,
-  createCaptureGpuRecordingServiceMock,
-  createStreamingServiceFacadeMock,
-  createStreamingViewServiceMock,
-  createSettingsServiceMock
-} from '../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../support/service.harness.js';
 
 describe('StreamingOrchestrator', () => {
   let orchestrator;
@@ -28,35 +33,36 @@ describe('StreamingOrchestrator', () => {
   let mockSettingsService;
 
   beforeEach(() => {
-    const h = createInjectableHarness(StreamingOrchestrator, {
-      overrides: {
-        streamingService: createStreamingServiceFacadeMock({
+    const h = createServiceHarness(StreamingOrchestrator, {
+      streamingRenderService: createStreamingRenderServiceMock(),
+      eventBus: createEventBus(),
+      loggerFactory: createLoggerFactory(),
+      streamingService: createStreamingServiceFacadeMock({
           start: vi.fn().mockResolvedValue({}),
           stop: vi.fn().mockResolvedValue(undefined),
           getStream: vi.fn(),
           isActive: vi.fn()
         }),
-        appState: createAppState({
+      appState: createAppState({
           initialState: {
             isStreaming: false,
             deviceConnected: false
           }
         }),
-        streamViewService: createStreamingViewServiceMock({
+      streamViewService: createStreamingViewServiceMock({
           attachMutedStream: vi.fn(),
           clearStream: vi.fn(),
           setMuted: vi.fn()
         }),
-        gpuRecordingService: createCaptureGpuRecordingServiceMock({
+      gpuRecordingService: createCaptureGpuRecordingServiceMock({
           isActive: vi.fn().mockReturnValue(false),
           stop: vi.fn()
         }),
-        settingsService: createSettingsServiceMock({
+      settingsService: createSettingsServiceMock({
           values: {
             autoStreamOnConnect: false
           }
         })
-      }
     });
     orchestrator = h.subject;
     mockLogger = h.logger;
@@ -80,23 +86,6 @@ describe('StreamingOrchestrator', () => {
       expect(mockEventBus.subscribe).toHaveBeenCalledWith('stream:error', expect.any(Function));
     });
 
-    it('routes canvas expiry to the streaming render service', async () => {
-      await orchestrator.initialize();
-
-      const canvasExpiredSubscription = mockEventBus.subscribe.mock.calls
-        .find(([channel]) => channel === 'render:canvas-expired');
-      expect(canvasExpiredSubscription).toBeDefined();
-
-      await canvasExpiredSubscription[1]();
-
-      expect(mockStreamingRenderService.handleCanvasExpired).toHaveBeenCalledTimes(1);
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('performance:render-mode-changed', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('performance:state-changed', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('device:disconnected-during-session', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('device:supported-device-available', expect.any(Function));
-      expect(mockEventBus.subscribe).toHaveBeenCalledWith('render:canvas-expired', expect.any(Function));
-      expect(mockStreamingRenderService.initialize).toHaveBeenCalled();
-    });
   });
 
   describe('start', () => {
@@ -197,17 +186,17 @@ describe('StreamingOrchestrator', () => {
   });
 
   describe('_handleStreamStopped', () => {
-    it('should stop render pipeline and clear video', () => {
-      orchestrator._handleStreamStopped();
+    it('should stop render pipeline and clear video', async () => {
+      await orchestrator._handleStreamStopped();
 
       expect(mockStreamingRenderService.stopPipeline).toHaveBeenCalled();
       expect(mockStreamingViewService.clearStream).toHaveBeenCalled();
     });
 
-    it('should update UI', () => {
+    it('should update UI', async () => {
       mockAppState._forceSet('deviceConnected', true);
 
-      orchestrator._handleStreamStopped();
+      await orchestrator._handleStreamStopped();
 
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:streaming-mode', { enabled: false });
       expect(mockEventBus.publish).toHaveBeenCalledWith('ui:overlay-message', { deviceConnected: true });

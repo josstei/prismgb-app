@@ -1,9 +1,9 @@
-import { injectable, inject } from 'inversify';
+
 import { BaseOrchestrator } from '@platform/core';
 import { EventChannels, OnEvent } from '@platform/events';
 import type { StreamStartedPayload } from '@platform/events';
 import type { EventBusLike, LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
+
 import type { AppState } from '@renderer/application/state/app-state.js';
 
 type StreamingAudioPipelineServiceLike = {
@@ -17,19 +17,27 @@ type StreamViewServiceLike = {
 
 type AppStateLike = Pick<AppState, 'isStreaming'>;
 
-@injectable()
+type StreamingAudioOrchestratorDependencies = {
+  streamingAudioPipelineService: StreamingAudioPipelineServiceLike;
+  streamViewService: StreamViewServiceLike;
+  appState: AppStateLike;
+  eventBus: EventBusLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 export class StreamingAudioOrchestrator extends BaseOrchestrator {
   private _activeStream: MediaStream | null;
   private _fallbackUnmuted: boolean;
 
-  constructor(
-    @inject(TOKENS.streamingAudioPipelineService) private readonly streamingAudioPipelineService: StreamingAudioPipelineServiceLike,
-    @inject(TOKENS.streamViewService) private readonly streamViewService: StreamViewServiceLike,
-    @inject(TOKENS.appState) private readonly appState: AppStateLike,
-    @inject(TOKENS.eventBus) eventBus: EventBusLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly streamingAudioPipelineService: StreamingAudioPipelineServiceLike;
+  private readonly streamViewService: StreamViewServiceLike;
+  private readonly appState: AppStateLike;
+
+  constructor({ streamingAudioPipelineService, streamViewService, appState, eventBus, loggerFactory }: StreamingAudioOrchestratorDependencies) {
     super({ loggerFactory, eventBus }, 'StreamingAudioOrchestrator');
+    this.streamingAudioPipelineService = streamingAudioPipelineService;
+    this.streamViewService = streamViewService;
+    this.appState = appState;
 
     this._activeStream = null;
     this._fallbackUnmuted = false;

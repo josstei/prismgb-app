@@ -1,8 +1,6 @@
 import type { PipelineState, RenderDriver } from './pipeline-controller';
 
 export class CanvasDriver implements RenderDriver {
-  readonly backend = 'canvas2d' as const;
-
   private ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null = null;
 
   async initialize(state: PipelineState): Promise<void> {
@@ -21,8 +19,6 @@ export class CanvasDriver implements RenderDriver {
   renderFrame(source: TexImageSource, state: PipelineState): void {
     if (!state.isActive || !this.ctx) return;
 
-    const startTime = performance.now();
-
     this.ctx.drawImage(
       source as CanvasImageSource,
       0, 0,
@@ -30,19 +26,10 @@ export class CanvasDriver implements RenderDriver {
       0, 0,
       state.outputWidth, state.outputHeight
     );
-
-    state.recordFrame(performance.now() - startTime);
   }
 
   async captureFrame(state: PipelineState): Promise<ImageBitmap> {
     return createImageBitmap(state.canvas as ImageBitmapSource);
-  }
-
-  clearFrame(state: PipelineState): void {
-    if (!this.ctx) return;
-
-    this.ctx.fillStyle = '#000000';
-    this.ctx.fillRect(0, 0, state.outputWidth, state.outputHeight);
   }
 
   onUniformsChanged(): void {

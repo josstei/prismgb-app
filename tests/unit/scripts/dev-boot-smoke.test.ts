@@ -27,17 +27,6 @@ describe('dev-boot smoke log evaluator', () => {
     });
   });
 
-  it('fails when a DI container resolution error appears', () => {
-    const result = evaluateStartupChunk(
-      'Error: Could not resolve "missingToken" for service "appOrchestrator".'
-    );
-    expect(result).toMatchObject({
-      status: 'failure',
-      reason: 'DI container token resolution failure',
-      matchedPattern: 'di-resolution'
-    });
-  });
-
   it('fails when Vite JSON import-attribute warnings appear', () => {
     const result = evaluateStartupChunk(
       'Warning: [plugin: vite:import-analysis] import-attribute warning: use import attributes for JSON modules'

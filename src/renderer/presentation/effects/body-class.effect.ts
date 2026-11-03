@@ -1,4 +1,5 @@
-import { injectable } from 'inversify';
+import { EventChannels, type TypedEventBusLike } from '@platform/events';
+
 import { TIMING } from '@platform/config';
 import { CSSClasses } from '@renderer/presentation/config/css-classes.config';
 import { PresentationComponent, bindClass, effect } from '@platform/ui-base';
@@ -6,9 +7,15 @@ import type { PresentationModeStore } from '@renderer/presentation/state/present
 
 const MINIMALIST_TRANSITION_TIMEOUT = Symbol('minimalist-transition-timeout');
 
-
-@injectable()
 export class BodyClassManager extends PresentationComponent {
+  bindPerformanceState(eventBus: TypedEventBusLike): void {
+    this.replaceManaged('performanceState', eventBus.subscribe(EventChannels.PERFORMANCE.STATE_CHANGED, (state) => {
+      this.setIdle(Boolean(state.idle));
+      this.setHidden(Boolean(state.hidden));
+      this.setAnimationsOff(Boolean(state.performanceModeEnabled || state.reducedMotion));
+    }));
+  }
+
   setIdle(isIdle: boolean) {
     document.body.classList.toggle(CSSClasses.APP_IDLE, isIdle);
   }
@@ -28,10 +35,9 @@ export class BodyClassManager extends PresentationComponent {
   /**
    * Bind the gated presentation-mode composites to body classes. Cinematic/fullscreen are
    * plain class toggles; minimalist-fullscreen runs through {@link setMinimalistFullscreen}
-   * so its change-guard and transition timing are preserved. The store is tracked for teardown.
+   * so its change-guard and transition timing are preserved.
    */
   bindPresentationMode(store: PresentationModeStore) {
-    this.track(store);
     this.track(bindClass(document.body, CSSClasses.CINEMATIC_ACTIVE, store.cinematicActive));
     this.track(bindClass(document.body, CSSClasses.FULLSCREEN_ACTIVE, store.fullscreenActive));
     this.track(effect(() => this.setMinimalistFullscreen(store.minimalistActive.value)));

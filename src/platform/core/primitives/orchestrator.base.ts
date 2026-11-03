@@ -1,38 +1,36 @@
-import { ManagedLifecycleHost } from './managed-lifecycle-host.js';
+import { disposeInOrder } from './application-lifecycle.js';
+import { ManagedLifecycleHost, type EventTargetLike } from './managed-lifecycle-host.js';
 import { getEventHandlerBindings } from './event-decorator.js';
-import type { Disposable, DisposableBag, DisposableFunction, DisposableKey, EventTargetLike } from './disposable-bag.js';
-import type { EventBusLike, LoggerFactoryLike, LoggerLike } from './service.base.js';
+import type { DisposableFunction } from './disposable-bag.js';
+import type { EventBusLike, LifecycleDependencies, LoggerLike } from './service.base.js';
 
-export class BaseOrchestrator {
+export class BaseOrchestrator extends ManagedLifecycleHost {
   protected logger!: LoggerLike;
-  protected eventBus!: EventBusLike;
+  protected eventBus: EventBusLike | undefined;
   isInitialized: boolean;
-  protected _isCleanedUp: boolean;
-  protected _isCleaningUp: boolean;
+  private _initialization: Promise<void> | null = null;
+  private _cleanup: Promise<void> | null = null;
   protected readonly _orchestratorName: string;
-  readonly disposables: DisposableBag;
-  private readonly _lifecycle: ManagedLifecycleHost;
 
-  constructor(dependencies: object, name: string | null = null) {
+  constructor({ eventBus, loggerFactory }: LifecycleDependencies, name: string | null = null) {
+    super();
     const orchestratorName = name || this.constructor.name;
-    const dependencyMap = dependencies as Record<string, unknown>;
-
-    Object.assign(this, dependencyMap);
-
-    const loggerFactory = dependencyMap.loggerFactory as LoggerFactoryLike | undefined;
+    this.eventBus = eventBus ?? undefined;
     if (loggerFactory) {
       this.logger = loggerFactory.create(orchestratorName);
     }
 
     this.isInitialized = false;
-    this._isCleanedUp = false;
-    this._isCleaningUp = false;
     this._orchestratorName = orchestratorName;
-    this._lifecycle = new ManagedLifecycleHost();
-    this.disposables = this._lifecycle.disposables;
   }
 
-  async initialize(): Promise<void> {
+  initialize(): Promise<void> {
+    if (this._initialization) return this._initialization;
+    this._initialization = this._initialize().finally(() => { this._initialization = null; });
+    return this._initialization;
+  }
+
+  private async _initialize(): Promise<void> {
     if (this.isInitialized) {
       this.logger?.warn(`${this._orchestratorName} already initialized`);
       return;
@@ -45,36 +43,30 @@ export class BaseOrchestrator {
       await this.onInitialize();
 
       this.isInitialized = true;
-      this._isCleanedUp = false;
+      this._cleanup = null;
       this.logger?.info(`${this._orchestratorName} initialized`);
     } catch (error) {
       this.logger?.error(`${this._orchestratorName} initialization failed`, error);
+      await this._cleanupLifecycle();
       throw error;
     }
   }
 
   async onInitialize(): Promise<void> {}
 
-  async cleanup(): Promise<void> {
-    if (this._isCleanedUp || this._isCleaningUp) {
-      this.logger?.debug(`${this._orchestratorName} already cleaned up`);
-      return;
-    }
+  cleanup(): Promise<void> {
+    return this._cleanup ??= Promise.resolve().then(async () => {
+      this.logger?.info(`Cleaning up ${this._orchestratorName}`);
+      try {
+        await disposeInOrder([() => this.onCleanup(), () => super.dispose()]);
+      } finally {
+        this.isInitialized = false;
+      }
+    });
+  }
 
-    this._isCleaningUp = true;
-    this.logger?.info(`Cleaning up ${this._orchestratorName}`);
-
-    try {
-      await this.onCleanup();
-    } catch (error) {
-      this.logger?.error(`${this._orchestratorName} cleanup failed`, error);
-    }
-
-    await this._cleanupLifecycle();
-
-    this.isInitialized = false;
-    this._isCleanedUp = true;
-    this._isCleaningUp = false;
+  override dispose(): Promise<void> {
+    return this.cleanup();
   }
 
   private _subscribeDeclaredEventHandlers(): void {
@@ -101,24 +93,12 @@ export class BaseOrchestrator {
     listener: EventListenerOrEventListenerObject,
     options?: AddEventListenerOptions | boolean
   ): DisposableFunction {
-    return this._lifecycle.subscribeEvent(target, type, listener, options);
-  }
-
-  protected track(disposable: Disposable): DisposableFunction {
-    return this._lifecycle.track(disposable);
-  }
-
-  protected replaceManaged(key: DisposableKey, disposable: Disposable): DisposableFunction {
-    return this._lifecycle.replaceManaged(key, disposable);
-  }
-
-  protected cancelManaged(key: DisposableKey): void | Promise<void> {
-    return this._lifecycle.cancelManaged(key);
+    return this.subscribeEvent(target, type, listener, options);
   }
 
   protected async _cleanupLifecycle(): Promise<void> {
     try {
-      await this._lifecycle.dispose();
+      await super.dispose();
     } catch (error) {
       this.logger?.error(`${this._orchestratorName} lifecycle cleanup failed`, error);
     }

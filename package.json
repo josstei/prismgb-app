@@ -17,9 +17,9 @@
     "build:linux": "npm run build:vite && electron-builder --linux",
     "preview": "vite preview",
     "start": "electron dist/main/index.js",
-    "lint": "eslint \"src/**/*.ts\" && depcruise --config .dependency-cruiser.cjs src",
+    "lint": "npm run check:generated && eslint \"src/**/*.ts\" && depcruise --config .dependency-cruiser.cjs src",
     "lint:fix": "eslint \"src/**/*.ts\" --fix && depcruise --config .dependency-cruiser.cjs src",
-    "lint:dead-code": "knip",
+    "lint:dead-code": "knip && knip --production",
     "packaging:check-native-abi": "node scripts/check-electron-native-abi.js",
     "clean:generated": "node scripts/clean-generated.js",
     "clean:build": "node scripts/clean-generated.js --build",
@@ -32,6 +32,7 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
     "test:run": "vitest run",
+    "test:related": "vitest related --run --passWithNoTests",
     "test:integration": "vitest run tests/integration",
     "test:integration:watch": "vitest tests/integration",
     "test:unit": "vitest run tests/unit",
@@ -43,7 +44,9 @@
     "test:e2e:debug": "npm run build:vite && playwright test --debug",
     "prepare": "husky",
     "postinstall": "patch-package",
-    "generate-icons": "node scripts/generate-icons.js"
+    "generate-icons": "node scripts/generate-icons.js",
+    "generate:paths": "node scripts/generate-workspace-paths.mjs",
+    "check:generated": "node scripts/generate-workspace-paths.mjs --check"
   },
   "keywords": [
     "electron",
@@ -67,7 +70,6 @@
     "eventemitter3": "^5.0.4",
     "ffmpeg-static": "^5.2.0",
     "ffprobe-static": "^3.1.0",
-    "inversify": "^8.2.3",
     "usb": "^2.16.0",
     "zod": "^4.6.7"
   },
@@ -76,9 +78,7 @@
     "@commitlint/config-conventional": "^21.0.2",
     "@electron/notarize": "^2.5.0",
     "@eslint/js": "^10.0.1",
-    "@inversifyjs/core": "^15.0.1",
     "@playwright/test": "^1.63.0",
-    "@testing-library/dom": "^10.4.2",
     "@types/node": "^26.5.1",
     "@typescript-eslint/eslint-plugin": "^8.70.0",
     "@typescript-eslint/parser": "^8.54.0",
@@ -99,20 +99,14 @@
     "picomatch": "^4.0.7",
     "png2icons": "^2.0.1",
     "sharp": "^0.35.4",
-    "type-fest": "^5.10.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.6",
     "vite-plugin-electron": "^1.1.2",
-    "vite-plugin-electron-renderer": "^1.0.0",
-    "vite-plugin-static-copy": "^4.1.1",
     "vitest": "^4.0.14"
   },
   "lint-staged": {
     "src/**/*.ts": [
       "eslint"
-    ],
-    "*.{js,ts}": [
-      "vitest related --run --passWithNoTests"
     ]
   },
   "build": {
@@ -127,20 +121,7 @@
       "releaseType": "draft"
     },
     "files": [
-      "dist/**/*",
-      "!dist/*-unpacked/**/*",
-      "!dist/*.AppImage",
-      "!dist/*.deb",
-      "!dist/*.tar.gz",
-      "!dist/*.dmg",
-      "!dist/*.exe",
-      "!dist/*.msi",
-      "!dist/*.pkg",
-      "!dist/*.zip",
-      "!dist/*.snap",
-      "!dist/*.blockmap",
-      "!dist/latest-*.yml",
-      "!dist/builder-debug.yml"
+      "dist/**/*"
     ],
     "asarUnpack": [
       "node_modules/ffmpeg-static/**/*",
@@ -151,7 +132,7 @@
     "artifactBuildCompleted": "./scripts/patch-appimage-runtime.js",
     "directories": {
       "output": "release",
-      "buildResources": "assets"
+      "buildResources": "build-resources"
     },
     "mac": {
       "category": "public.app-category.utilities",
@@ -159,12 +140,12 @@
         "dmg",
         "zip"
       ],
-      "icon": "assets/icon.icns",
+      "icon": "build-resources/icon.icns",
       "artifactName": "${productName}-${version}-mac-${arch}.${ext}",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
-      "entitlements": "assets/entitlements.mac.plist",
-      "entitlementsInherit": "assets/entitlements.mac.plist",
+      "entitlements": "build-resources/entitlements.mac.plist",
+      "entitlementsInherit": "build-resources/entitlements.mac.plist",
       "notarize": true
     },
     "dmg": {
@@ -220,7 +201,7 @@
           ]
         }
       ],
-      "icon": "assets/icon.ico",
+      "icon": "build-resources/icon.ico",
       "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "nsis": {
@@ -232,8 +213,8 @@
       "perMachine": false,
       "runAfterFinish": true,
       "license": "LICENSE",
-      "installerIcon": "assets/icon.ico",
-      "uninstallerIcon": "assets/icon.ico"
+      "installerIcon": "build-resources/icon.ico",
+      "uninstallerIcon": "build-resources/icon.ico"
     },
     "portable": {
       "artifactName": "${productName}-${version}-portable.exe"

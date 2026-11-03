@@ -37,18 +37,6 @@ describe('ManagedLifecycleHost', () => {
     });
   });
 
-  describe('interval', () => {
-    it('fires repeatedly and stops on dispose', async () => {
-      const handler = vi.fn();
-      host.interval(handler, 50);
-      vi.advanceTimersByTime(150);
-      expect(handler).toHaveBeenCalledTimes(3);
-      await host.dispose();
-      vi.advanceTimersByTime(100);
-      expect(handler).toHaveBeenCalledTimes(3);
-    });
-  });
-
   describe('schedule', () => {
     it('replaces a pending timer registered under the same key', () => {
       const first = vi.fn();
@@ -60,10 +48,10 @@ describe('ManagedLifecycleHost', () => {
       expect(second).toHaveBeenCalledTimes(1);
     });
 
-    it('cancelScheduled cancels a pending keyed timer', () => {
+    it('cancelManaged cancels a pending keyed timer', () => {
       const handler = vi.fn();
       host.schedule('key', handler, 100);
-      host.cancelScheduled('key');
+      host.cancelManaged('key');
       vi.advanceTimersByTime(100);
       expect(handler).not.toHaveBeenCalled();
     });
@@ -73,7 +61,7 @@ describe('ManagedLifecycleHost', () => {
       host.schedule('key', handler, 100);
       vi.advanceTimersByTime(100);
       expect(handler).toHaveBeenCalledTimes(1);
-      expect(() => host.cancelScheduled('key')).not.toThrow();
+      expect(() => host.cancelManaged('key')).not.toThrow();
       expect(host.disposables.size).toBe(0);
     });
   });
@@ -86,6 +74,9 @@ describe('ManagedLifecycleHost', () => {
       host.scheduleInterval('key', second, 50);
       vi.advanceTimersByTime(100);
       expect(first).not.toHaveBeenCalled();
+      expect(second).toHaveBeenCalledTimes(2);
+      host.cancelManaged('key');
+      vi.advanceTimersByTime(100);
       expect(second).toHaveBeenCalledTimes(2);
     });
   });
@@ -109,6 +100,25 @@ describe('ManagedLifecycleHost', () => {
       expect(stale).toHaveBeenCalledTimes(1);
       host.cancelManaged('group');
       expect(fresh).toHaveBeenCalledTimes(1);
+    });
+
+    it('starts every group cleanup despite failure and awaits pending members before rejecting', async () => {
+      const order: string[] = [];
+      const failure = new Error('group cleanup failed');
+      let finish!: () => void;
+      host.replaceManagedGroup('group', [
+        () => { order.push('first'); },
+        () => new Promise<void>((resolve) => { order.push('pending'); finish = resolve; }),
+        () => { order.push('last'); throw failure; }
+      ]);
+      const cleanup = host.cancelManaged('group');
+      expect(order).toEqual(['last', 'pending', 'first']);
+      let settled = false;
+      const result = Promise.resolve(cleanup).finally(() => { settled = true; });
+      await Promise.resolve();
+      expect(settled).toBe(false);
+      finish();
+      await expect(result).rejects.toBe(failure);
     });
 
     it('supports async members and settles the disposal promise', async () => {

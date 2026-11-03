@@ -1,3 +1,14 @@
+import {
+  createCaptureStreamMock,
+  createMediaTrackMock,
+  createDeviceMediaAcquirerMock
+} from '../../../../../factories/stream.factory.js';
+import {
+  createDeviceInfo,
+  createRendererDeviceRuntimeMock
+} from '../../../../../factories/device.factory.js';
+import { createEventBus } from '../../../../../factories/event-bus.factory.js';
+import { createLoggerFactory } from '../../../../../factories/logger.factory.js';
 /**
  * StreamingService Unit Tests
  */
@@ -10,13 +21,7 @@ import {
 } from '@platform/devices';
 import { StreamingService } from '@renderer/infrastructure/services/streaming/streaming.service';
 import type { DeviceMediaAcquireResult } from '@renderer/infrastructure/services/streaming/device-media-acquirer.service';
-import {
-  createCaptureStreamMock,
-  createDeviceInfo,
-  createRendererDeviceRuntimeMock,
-  createMediaTrackMock,
-} from '../../../../../factories/index.js';
-import { createInjectableHarness } from '../../../../../support/di/injectable.harness.js';
+import { createServiceHarness } from '../../../../../support/service.harness.js';
 import { createDeferred } from '../../../../../support/deferred.testkit.js';
 
 function createStreamingTarget(overrides = {}) {
@@ -44,12 +49,13 @@ describe('StreamingService', () => {
   beforeEach(() => {
     mockTarget = createStreamingTarget();
 
-    const h = createInjectableHarness(StreamingService, {
-      overrides: {
-        rendererDeviceRuntime: createRendererDeviceRuntimeMock({
+    const h = createServiceHarness(StreamingService, {
+      deviceMediaAcquirer: createDeviceMediaAcquirerMock(),
+      eventBus: createEventBus(),
+      loggerFactory: createLoggerFactory(),
+      rendererDeviceRuntime: createRendererDeviceRuntimeMock({
           resolveStreamingTarget: vi.fn().mockResolvedValue(mockTarget)
         })
-      }
     });
     service = h.subject;
     mockLogger = h.logger;
@@ -101,8 +107,8 @@ describe('StreamingService', () => {
     it('should start streaming with a runtime-resolved target for a specific device ID', async () => {
       const result = await service.start('device-1');
 
-      expect(mockRendererDeviceRuntime.resolveStreamingTarget).toHaveBeenCalledWith('device-1');
-      expect(mockDeviceMediaAcquirer.acquire).toHaveBeenCalledWith(mockTarget);
+      expect(mockRendererDeviceRuntime.resolveStreamingTarget).toHaveBeenCalledWith('device-1', expect.any(AbortSignal));
+      expect(mockDeviceMediaAcquirer.acquire).toHaveBeenCalledWith(mockTarget, expect.any(AbortSignal));
       expect(result.stream).toBe(mockStream);
       expect(result.device).toBe(mockTarget.videoDevice);
       expect(service.isStreaming).toBe(true);
@@ -111,7 +117,7 @@ describe('StreamingService', () => {
     it('should resolve an automatic target when no ID is provided', async () => {
       const result = await service.start();
 
-      expect(mockRendererDeviceRuntime.resolveStreamingTarget).toHaveBeenCalledWith(null);
+      expect(mockRendererDeviceRuntime.resolveStreamingTarget).toHaveBeenCalledWith(null, expect.any(AbortSignal));
       expect(result.device).toBe(mockTarget.videoDevice);
     });
 
@@ -144,15 +150,19 @@ describe('StreamingService', () => {
       await service.start('device-1');
 
       expect(mockDeviceMediaAcquirer.release).toHaveBeenCalledWith(mockStream);
-      expect(mockDeviceMediaAcquirer.acquire).toHaveBeenCalledWith(mockTarget);
+      expect(mockDeviceMediaAcquirer.acquire).toHaveBeenCalledWith(mockTarget, expect.any(AbortSignal));
     });
 
-    it('should wait for start to finish when stop is called while starting', async () => {
+    it('cancels pending start immediately and releases a late acquisition', async () => {
       const pendingAcquire = createDeferred<DeviceMediaAcquireResult>();
       mockDeviceMediaAcquirer.acquire.mockReturnValue(pendingAcquire.promise);
 
       const startPromise = service.start('device-1');
+      const cancelled = expect(startPromise).rejects.toMatchObject({ name: 'AbortError' });
+      await vi.waitFor(() => expect(mockDeviceMediaAcquirer.acquire).toHaveBeenCalledOnce());
       const stopPromise = service.stop();
+      await expect(stopPromise).resolves.toBeUndefined();
+      await cancelled;
 
       pendingAcquire.resolve({
         stream: mockStream,
@@ -160,10 +170,21 @@ describe('StreamingService', () => {
         capabilities
       });
 
-      await expect(startPromise).resolves.toMatchObject({ stream: mockStream });
-      await expect(stopPromise).resolves.toBeUndefined();
-      expect(mockDeviceMediaAcquirer.release).toHaveBeenCalledWith(mockStream);
+      await vi.waitFor(() => expect(mockDeviceMediaAcquirer.release).toHaveBeenCalledWith(mockStream));
       expect(service.isStreaming).toBe(false);
+      expect(mockEventBus.publish).not.toHaveBeenCalledWith('stream:started', expect.anything());
+    });
+
+    it('disposes while target resolution is pending without starting acquisition afterward', async () => {
+      const target = createDeferred<ReturnType<typeof createStreamingTarget>>();
+      mockRendererDeviceRuntime.resolveStreamingTarget.mockReturnValueOnce(target.promise);
+      const cancelled = expect(service.start()).rejects.toMatchObject({ name: 'AbortError' });
+      await service.dispose();
+      await cancelled;
+      target.resolve(mockTarget);
+      await Promise.resolve();
+      expect(mockDeviceMediaAcquirer.acquire).not.toHaveBeenCalled();
+      await expect(service.start()).rejects.toMatchObject({ name: 'AbortError' });
     });
 
     it('should wait for stop to finish when start is called while stopping', async () => {
@@ -180,7 +201,33 @@ describe('StreamingService', () => {
 
       await expect(stopPromise).resolves.toBeUndefined();
       await expect(startPromise).resolves.toMatchObject({ stream: mockStream });
-      expect(mockDeviceMediaAcquirer.acquire).toHaveBeenCalledWith(mockTarget);
+      expect(mockDeviceMediaAcquirer.acquire).toHaveBeenCalledWith(mockTarget, expect.any(AbortSignal));
+    });
+
+    it('publishes started only after its owned state is visible to subscribers', async () => {
+      const observed = vi.fn();
+      mockEventBus.subscribe('stream:started', () => observed(service.isStreaming, service.getStream(), service.currentCapabilities));
+      await service.start();
+      expect(observed).toHaveBeenCalledWith(true, mockStream, capabilities);
+      await service.stop();
+    });
+
+    it('joins a stop requested synchronously by a started subscriber', async () => {
+      const released = createDeferred();
+      mockDeviceMediaAcquirer.release.mockReturnValue(released.promise);
+      let stopped: Promise<void> | undefined;
+      mockEventBus.subscribe('stream:started', () => { stopped = service.stop(); });
+      await service.start();
+      expect(service.isStreaming).toBe(false);
+      const joined = service.stop();
+      const settled = vi.fn();
+      void joined.then(settled);
+      await Promise.resolve();
+      expect(settled).not.toHaveBeenCalled();
+      released.resolve();
+      await Promise.all([stopped, joined]);
+      expect(mockDeviceMediaAcquirer.release).toHaveBeenCalledOnce();
+      expect(service.getStream()).toBeNull();
     });
 
     it('should publish stream:started event with settings, capabilities, and strategy', async () => {

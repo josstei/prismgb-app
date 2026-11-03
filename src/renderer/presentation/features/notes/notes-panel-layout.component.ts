@@ -3,15 +3,10 @@ import {
   calculateAnchoredDisclosureLayout,
   type AnchoredLayoutSizeDefaults
 } from '@platform/ui-base';
-import type { LoggerLike } from '@platform/core';
 
 const RESIZE_DEBOUNCE_MS = 100;
 const RESIZE_DEBOUNCE_TIMEOUT = Symbol('notesPanelLayoutResizeDebounceTimeout');
 const LAYOUT_SETUP_LIFECYCLE = Symbol('notesPanelLayoutSetupLifecycle');
-
-export interface NotesPanelLayoutComponentOptions {
-  logger?: LoggerLike | null;
-}
 
 export interface NotesPanelLayoutInitializeOptions {
   panelElement?: HTMLElement | null;
@@ -20,16 +15,14 @@ export interface NotesPanelLayoutInitializeOptions {
 }
 
 class NotesPanelLayoutComponent extends PresentationComponent {
-  declare logger: LoggerLike | null | undefined;
-  declare _resizeObserver: ResizeObserver | null;
-  declare _panelSizeDefaults: AnchoredLayoutSizeDefaults | null;
-  declare panelElement: HTMLElement | null | undefined;
-  declare toolbarElement: HTMLElement | null | undefined;
-  declare streamContainer: HTMLElement | null | undefined;
+  _resizeObserver: ResizeObserver | null;
+  _panelSizeDefaults: AnchoredLayoutSizeDefaults | null;
+  panelElement: HTMLElement | null | undefined;
+  toolbarElement: HTMLElement | null | undefined;
+  streamContainer: HTMLElement | null | undefined;
 
-  constructor(options: NotesPanelLayoutComponentOptions) {
+  constructor() {
     super();
-    this.applyOptions<NotesPanelLayoutComponentOptions>({}, options);
     this._resizeObserver = null;
     this._panelSizeDefaults = null;
     this.panelElement = null;
@@ -41,7 +34,9 @@ class NotesPanelLayoutComponent extends PresentationComponent {
     this.cancelManaged(LAYOUT_SETUP_LIFECYCLE);
     this.cancelManaged(RESIZE_DEBOUNCE_TIMEOUT);
     this._resizeObserver = null;
-    this.applyOptions<NotesPanelLayoutInitializeOptions>({}, options);
+    this.panelElement = options.panelElement;
+    this.toolbarElement = options.toolbarElement;
+    this.streamContainer = options.streamContainer;
 
     if (!this.panelElement || !this.toolbarElement) return;
 

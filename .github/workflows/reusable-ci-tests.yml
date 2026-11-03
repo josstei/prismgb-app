@@ -48,11 +48,12 @@ jobs:
       - name: Run tests
         run: npm run test:run
 
+      - name: Run built application E2E tests
+        run: xvfb-run -a npm run test:e2e:built
+
       - name: Run dev boot preflight
         run: xvfb-run -a npm run dev:smoke
 
-      - name: Run integration tests
-        run: npm run test:integration
 
   validate-linux-arm64:
     name: Test (ubuntu-24.04-arm)
@@ -67,6 +68,10 @@ jobs:
       - name: Setup Node and dependencies
         uses: ./.github/actions/setup-node-deps
 
+      # ffprobe-static does not include a Linux ARM64 binary.
+      - name: Install media verification tools
+        run: sudo apt-get install -y ffmpeg
+
       - name: Check native packaging ABI
         run: npm run packaging:check-native-abi
 
@@ -79,8 +84,6 @@ jobs:
       - name: Run tests (no coverage)
         run: npm run test:run
 
-      - name: Run integration tests
-        run: npm run test:integration
 
   validate-matrix:
     name: Test (${{ matrix.os }})
@@ -107,6 +110,3 @@ jobs:
 
       - name: Run tests (no coverage)
         run: npm run test:run
-
-      - name: Run integration tests
-        run: npm run test:integration

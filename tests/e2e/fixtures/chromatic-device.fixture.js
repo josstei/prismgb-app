@@ -19,7 +19,7 @@ export class ChromaticDeviceFixture {
     this.electronApp = electronApp;
     this.page = page;
     this.appShell = new AppShellPage(page);
-    this.streamPage = new StreamPage(page);
+    this.streamPage = new StreamPage(page, electronApp);
     this.fixture = CHROMATIC_MEDIA_FIXTURE;
     this.mediaEnvironment = null;
   }
@@ -37,22 +37,6 @@ export class ChromaticDeviceFixture {
 
   async disconnectMediaOnly() {
     await this.mediaEnvironment?.disconnect();
-  }
-
-  async setMediaConnected(connected) {
-    await this.page.evaluate(
-      ({ connected: nextConnected, usbDeviceInfo }) => {
-        const state = window.__chromaticMediaEnvironment;
-        if (!state) {
-          throw new Error('Chromatic media environment has not been installed');
-        }
-
-        state.isConnected = nextConnected;
-        state.deviceInfo = nextConnected ? { ...usbDeviceInfo } : null;
-        state.dispatchDeviceChange();
-      },
-      { connected, usbDeviceInfo: this.fixture.usbDeviceInfo }
-    );
   }
 
   async connect(options = {}) {
@@ -80,10 +64,7 @@ export class ChromaticDeviceFixture {
   }
 
   async expectConnected() {
-    await expect(async () => {
-      const classes = await this.appShell.statusIndicator.getAttribute('class');
-      expect(classes).toContain('connected');
-    }).toPass({ timeout: 5000 });
+    await expect(this.appShell.statusIndicator).toHaveClass(/(?:^|\s)connected(?:\s|$)/);
 
     await expect(async () => {
       const devices = await this.page.evaluate(async () => {
@@ -110,12 +91,8 @@ export class ChromaticDeviceFixture {
   }
 
   async expectDisconnected() {
-    await expect(async () => {
-      const classes = await this.appShell.statusIndicator.getAttribute('class');
-      const classList = classes?.split(/\s+/) ?? [];
-      expect(classList).toContain('disconnected');
-      expect(classList).not.toContain('connected');
-    }).toPass({ timeout: 5000 });
+    await expect(this.appShell.statusIndicator).toHaveClass(/disconnected/);
+    await expect(this.appShell.statusIndicator).not.toHaveClass(/(?:^|\s)connected(?:\s|$)/);
   }
 
   async getMediaEnvironmentStatus() {
@@ -150,18 +127,4 @@ export class ChromaticDeviceFixture {
     return this.page.evaluate(() => Boolean(window.__chromaticMediaEnvironment));
   }
 
-  async getMediaStreamInfo(constraints = { video: true, audio: true }) {
-    return this.page.evaluate(async (mediaConstraints) => {
-      const stream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
-      const videoTrack = stream.getVideoTracks()[0] ?? null;
-      const audioTrack = stream.getAudioTracks()[0] ?? null;
-
-      return {
-        hasVideo: Boolean(videoTrack),
-        hasAudio: Boolean(audioTrack),
-        videoSettings: videoTrack?.getSettings() ?? null,
-        audioSettings: audioTrack?.getSettings() ?? null,
-      };
-    }, constraints);
-  }
 }

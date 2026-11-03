@@ -15,7 +15,7 @@ runs:
       shell: bash
       run: |
         echo "=== Auto-update YAML files ==="
-        ls -la "${{ inputs.release-dir }}/latest*.yml" 2>/dev/null || echo "Warning: No latest*.yml files found"
+        ls -la "${{ inputs.release-dir }}"/latest*.yml 2>/dev/null || echo "Warning: No latest*.yml files found"
         for yml in "${{ inputs.release-dir }}"/latest*.yml; do
           if [ -f "$yml" ]; then
             echo ""

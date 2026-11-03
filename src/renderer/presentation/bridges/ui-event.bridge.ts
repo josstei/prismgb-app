@@ -1,4 +1,4 @@
-import { injectable, inject } from 'inversify';
+
 import { BaseService } from '@platform/core';
 import { EventChannels, OnEvent } from '@platform/events';
 import type {
@@ -7,28 +7,13 @@ import type {
   UiStreamingModePayload
 } from '@platform/events';
 import type { LoggerFactoryLike } from '@platform/core';
-import { TOKENS } from '@renderer/application/di/tokens.js';
 
-type UiControllerLike = {
-  updateDeviceStatus(status: unknown): void;
-  updateOverlayMessage(deviceConnected?: boolean): void;
-  showErrorOverlay(message: string): void;
-  updateStreamInfo(settings: unknown): void;
-  triggerShutterFlash(): void;
-  triggerRecordButtonPop(): void;
-  triggerRecordButtonPress(): void;
-  triggerButtonFeedback(elementKey: string, className: string, duration: number): void;
-  updateRecordingButtonState(active: boolean): void;
-  setRecordButtonDisabled(disabled: boolean): void;
-  deviceStatus?: {
-    setOverlayVisible(visible: boolean): void;
-  } | null;
-};
+import type { UIController } from '@renderer/presentation/controller/ui.controller.js';
 
-type PresentationModeServiceLike = {
-  handleStreamingMode(enabled: boolean): void;
-  handleFullscreenState(active: boolean): void;
-};
+type UiControllerLike = Pick<UIController,
+  'setStreamingMode' | 'updateFullscreenButton' | 'enableControlsAutoHide' | 'disableControlsAutoHide'
+  | 'triggerShutterFlash' | 'triggerRecordButtonPop' | 'triggerRecordButtonPress' | 'triggerButtonFeedback'
+  | 'updateRecordingButtonState' | 'setRecordButtonDisabled'>;
 
 function getBooleanPayloadValue(data: unknown, key: string): boolean | null {
   if (typeof data !== 'object' || data === null || !(key in data)) {
@@ -39,15 +24,20 @@ function getBooleanPayloadValue(data: unknown, key: string): boolean | null {
   return typeof value === 'boolean' ? value : null;
 }
 
-@injectable()
+type UIEventBridgeDependencies = {
+  eventBus: TypedEventBusLike;
+  uiController: UiControllerLike;
+  loggerFactory: LoggerFactoryLike;
+};
+
 export class UIEventBridge extends BaseService {
-  constructor(
-    @inject(TOKENS.eventBus) private readonly eventBus: TypedEventBusLike,
-    @inject(TOKENS.uiController) private readonly uiController: UiControllerLike,
-    @inject(TOKENS.presentationModeService) private readonly presentationModeService: PresentationModeServiceLike,
-    @inject(TOKENS.loggerFactory) loggerFactory: LoggerFactoryLike
-  ) {
+  private readonly eventBus: TypedEventBusLike;
+  private readonly uiController: UiControllerLike;
+
+  constructor({ eventBus, uiController, loggerFactory }: UIEventBridgeDependencies) {
     super({ loggerFactory, eventBus }, 'UIEventBridge');
+    this.eventBus = eventBus;
+    this.uiController = uiController;
   }
 
   initialize(): void {
@@ -57,7 +47,7 @@ export class UIEventBridge extends BaseService {
 
   @OnEvent(EventChannels.UI.STREAMING_MODE)
   private _handleStreamingMode(data: UiStreamingModePayload): void {
-    this.presentationModeService.handleStreamingMode(data.enabled);
+    this.uiController.setStreamingMode(data.enabled);
   }
 
   @OnEvent(EventChannels.UI.SHUTTER_FLASH)
@@ -129,7 +119,9 @@ export class UIEventBridge extends BaseService {
       this.logger.warn('Ignoring invalid fullscreen state payload');
       return;
     }
-    this.presentationModeService.handleFullscreenState(active);
+    this.uiController.updateFullscreenButton(active);
+    if (active) this.uiController.enableControlsAutoHide();
+    else this.uiController.disableControlsAutoHide();
   }
 
   override dispose(): void | Promise<void> {

@@ -45,60 +45,20 @@ export interface RenderPreset {
 
 export type RenderPresetSummary = Pick<RenderPreset, 'id' | 'name' | 'description'>;
 
-export interface ShaderPresetCatalog {
-  readonly presets: readonly RenderPreset[];
-  readonly packageDefaultPresetId: string;
-  readonly rendererDefaultPresetId: string;
-  readonly uiPresetIds: readonly string[];
-}
-
 export interface RenderPipelineConfig {
   canvas: RenderCanvas;
   nativeWidth: number;
   nativeHeight: number;
-  preset?: RenderPreset;
-  preferredBackend?: RenderBackend;
-  allowCanvas2D?: boolean;
-}
-
-export interface WebGPULimits {
-  maxTextureDimension2D: number;
-  maxBindGroups: number;
+  preset: RenderPreset;
+  backend: RenderBackend;
 }
 
 export interface RenderCapabilities {
   webgpu: boolean;
-  offscreenCanvas: boolean;
   transferControlToOffscreen: boolean;
-  preferredBackend: RenderBackend;
-  maxTextureSize: number;
-  webgpuLimits?: WebGPULimits;
-}
-
-export interface RenderStats {
-  fps: number;
-  frameTime: number;
-  gpuTime?: number;
-  framesRendered: number;
-  framesDropped: number;
-}
-
-export interface GpuVideoRendererStats {
-  fps: number;
-  frameTime: number;
-  gpuTime?: number;
-  uploadTime?: number;
-}
-
-export interface GpuVideoRendererError {
-  message: string;
-  code?: string;
-  stack?: string;
 }
 
 export interface RenderPipeline {
-  readonly backend: RenderBackend;
-  readonly isInitialized: boolean;
   readonly isActive: boolean;
 
   initialize(): Promise<void>;
@@ -106,18 +66,10 @@ export interface RenderPipeline {
   resize(width: number, height: number): void;
 
   setPreset(preset: RenderPreset): void;
-  getPreset(): RenderPreset;
 
   setBrightness(value: number): void;
 
   captureFrame(): Promise<ImageBitmap>;
-  clearFrame(): void;
 
-  pause(): void;
-  resume(): void;
-
-  getStats(): RenderStats;
-
-  releaseResources(): void;
   dispose(): Promise<void>;
 }

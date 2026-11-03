@@ -1,12 +1,9 @@
+import type { DeviceInfoPayload, DeviceStatusPayload } from './payload.schemas.js';
+export type { DeviceInfoPayload, DeviceStatusPayload } from './payload.schemas.js';
+
 export type DeviceId = string;
 
-export type DeviceConnectionState =
-  | 'unknown'
-  | 'connected'
-  | 'disconnected'
-  | 'error';
-
-export type DeviceMatchReason = 'usb' | 'label' | 'none';
+export type DeviceMatchReason = 'usb' | 'label';
 
 export type DeviceMediaFallbackStrategy = 'audio-simple' | 'video-only' | 'strict';
 
@@ -40,13 +37,6 @@ export interface ObservedUsbDevice {
   serialNumber?: string;
   deviceClass?: number;
   busNumber?: number;
-}
-
-export interface ObservedMediaDevice {
-  deviceId: string;
-  groupId?: string;
-  kind: MediaDeviceKind;
-  label: string;
 }
 
 export interface DeviceDisplayProfile {
@@ -152,98 +142,5 @@ export interface DeviceMatch {
   confidence: number;
 }
 
-export interface DeviceInfo {
-  id: DeviceId;
-  name: string;
-  manufacturer: string;
-  vendorId: number;
-  productId: number;
-  locationId?: number;
-  deviceAddress?: number;
-  serialNumber?: string;
-}
-
-export interface DeviceStatus {
-  state: DeviceConnectionState;
-  connected: boolean;
-  device: DeviceInfo | null;
-  error?: string;
-  updatedAt: number;
-}
-
-export interface DeviceInfoPayload {
-  id: string;
-  name: string;
-  manufacturer: string;
-  vendorId: number;
-  productId: number;
-  locationId?: number;
-  deviceAddress?: number;
-  serialNumber?: string;
-}
-
-export interface DeviceStatusPayload {
-  state: DeviceConnectionState;
-  connected: boolean;
-  device: DeviceInfoPayload | null;
-  error?: string;
-}
-
-export interface DeviceFixtureTrackSettings {
-  video: MediaTrackSettings;
-  audio?: MediaTrackSettings;
-}
-
-export interface DeviceFixtureFrameData {
-  width: number;
-  height: number;
-  data: Uint8ClampedArray;
-  timestamp: number;
-}
-
-export interface DeviceFixtureSpecs {
-  id: DeviceId;
-  vendorId: number;
-  productId: number;
-  deviceClass?: number;
-  alternateDeviceClass?: number;
-  hexVendorId: `0x${string}`;
-  hexProductId: `0x${string}`;
-  name: string;
-  label: string;
-  manufacturer: string;
-  nativeWidth: number;
-  nativeHeight: number;
-  aspectRatio: number;
-  frameRates: readonly number[];
-  supportedFrameRates: readonly number[];
-  defaultFrameRate: number;
-  audioSampleRate: number;
-  audioChannels: number;
-  deviceId: string;
-  audioDeviceId: string;
-  groupId: string;
-  labelPatterns: readonly string[];
-}
-
-export interface DeviceFixtureProfile {
-  descriptor: DeviceDescriptor;
-  fixture: DeviceFixtureDescriptor;
-  specs: DeviceFixtureSpecs;
-  usbDeviceInfo: ObservedUsbDevice;
-  deviceInfoPayload: DeviceInfoPayload;
-  videoDevice: ObservedMediaDevice;
-  audioDevice: ObservedMediaDevice | null;
-  trackSettings: DeviceFixtureTrackSettings;
-  streamProfile: DeviceStreamProfile;
-}
-
-export interface DeviceCatalogApi {
-  all(): readonly DeviceDescriptor[];
-  enabled(): readonly DeviceDescriptor[];
-  get(id: DeviceId): DeviceDescriptor | null;
-  default(): DeviceDescriptor;
-  nativeResolution(id?: DeviceId): DeviceNativeResolution;
-  streamProfile(id?: DeviceId): DeviceStreamProfile;
-  acquisitionProfile(id?: DeviceId): DeviceAcquisitionProfile;
-}
+export type DeviceInfo = DeviceInfoPayload;
+export type DeviceStatus = DeviceStatusPayload;
