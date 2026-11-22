@@ -303,14 +303,12 @@ export class StreamingRenderService extends BaseService {
     return new Promise<void>((resolve, reject) => {
       this.streamHealthService.checkStreamHealth(
         videoElement,
-        (frameData) => {
+        () => {
           this.logger.info('Stream verified healthy - first frame received');
-          this.eventBus.publish(EventChannels.STREAM.HEALTH_OK, frameData);
           resolve();
         },
         (errorData) => {
           this.logger.warn(`Stream unhealthy: ${errorData.reason}`);
-          this.eventBus.publish(EventChannels.STREAM.HEALTH_TIMEOUT, errorData);
           const error = new Error(`No frames received: ${errorData.reason}`) as Error & { reason?: string };
           error.reason = errorData.reason;
           reject(error);

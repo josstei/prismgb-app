@@ -26,8 +26,6 @@ export type {
   RecordingReadyPayload,
   ScreenshotReadyPayload,
   StreamErrorPayload,
-  StreamHealthOkPayload,
-  StreamHealthTimeoutPayload,
   StreamStartedPayload,
   SupportedDeviceAvailablePayload,
   NativeResolution

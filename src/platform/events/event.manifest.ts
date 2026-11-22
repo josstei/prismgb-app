@@ -19,8 +19,6 @@ export const EventManifest = {
         { domain: 'stream', name: 'started', value: 'stream:started', payload: 'StreamStartedPayload' },
         { domain: 'stream', name: 'stopped', value: 'stream:stopped', payload: 'void' },
         { domain: 'stream', name: 'error', value: 'stream:error', payload: 'StreamErrorPayload' },
-        { domain: 'stream', name: 'health-ok', value: 'stream:health-ok', payload: 'StreamHealthOkPayload' },
-        { domain: 'stream', name: 'health-timeout', value: 'stream:health-timeout', payload: 'StreamHealthTimeoutPayload' },
         { domain: 'capture', name: 'screenshot-triggered', value: 'capture:screenshot-triggered', payload: 'void' },
         { domain: 'capture', name: 'screenshot-ready', value: 'capture:screenshot-ready', payload: 'ScreenshotReadyPayload' },
         { domain: 'capture', name: 'recording-started', value: 'capture:recording-started', payload: 'void' },

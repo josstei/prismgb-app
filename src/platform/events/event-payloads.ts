@@ -95,18 +95,6 @@ export type StreamErrorPayload = {
   message: string;
 };
 
-export type StreamHealthOkPayload = {
-  frameCount?: number;
-  elapsedMs?: number;
-  [key: string]: unknown;
-};
-
-export type StreamHealthTimeoutPayload = {
-  reason: string;
-  elapsedMs?: number;
-  [key: string]: unknown;
-};
-
 export type PerformanceStatePayload = {
   hidden?: boolean;
   idle?: boolean;
@@ -223,8 +211,6 @@ type EventPayloadOverrides = {
   [EventChannels.DEVICE.ENUMERATION_FAILED]: DeviceEnumerationFailedPayload;
   [EventChannels.STREAM.STARTED]: StreamStartedPayload;
   [EventChannels.STREAM.ERROR]: StreamErrorPayload;
-  [EventChannels.STREAM.HEALTH_OK]: StreamHealthOkPayload;
-  [EventChannels.STREAM.HEALTH_TIMEOUT]: StreamHealthTimeoutPayload;
   [EventChannels.CAPTURE.SCREENSHOT_READY]: ScreenshotReadyPayload;
   [EventChannels.CAPTURE.RECORDING_READY]: RecordingReadyPayload;
   [EventChannels.CAPTURE.RECORDING_ERROR]: RecordingErrorPayload;
