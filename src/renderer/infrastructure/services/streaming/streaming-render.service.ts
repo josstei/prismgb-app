@@ -10,7 +10,7 @@ import type {
   StreamingCapabilities
 } from '@renderer/infrastructure/services/streaming/streaming.contract.js';
 import { createGpuVideoRendererSession, detectBrowserGpuCapabilities } from '@platform/gpu/runtime';
-import type { GpuVideoRendererSession, GpuVideoRendererStats } from '@platform/gpu/runtime';
+import type { GpuVideoRendererSession } from '@platform/gpu/runtime';
 import type { RenderCapabilities } from '@platform/gpu';
 import { TOKENS } from '@renderer/application/di/tokens.js';
 
@@ -375,9 +375,6 @@ export class StreamingRenderService extends BaseService {
           this.logger.info(`Session ready (backend: ${event.backend})`);
           this.eventBus.publish(EventChannels.RENDER.PIPELINE_READY, event);
         },
-        onStats: (payload) => {
-          this._publishRenderStats(payload);
-        },
         onError: (payload) => {
           this.logger.error('Session error:', payload.message);
           this.eventBus.publish(EventChannels.RENDER.PIPELINE_ERROR, payload);
@@ -453,9 +450,6 @@ export class StreamingRenderService extends BaseService {
         onReady: (event) => {
           this.logger.info(`Session ready (backend: ${event.backend})`);
           this.eventBus.publish(EventChannels.RENDER.PIPELINE_READY, event);
-        },
-        onStats: (payload) => {
-          this._publishRenderStats(payload);
         },
         onError: (payload) => {
           this.logger.error('Session error:', payload.message);
@@ -556,15 +550,6 @@ export class StreamingRenderService extends BaseService {
       return { width: native.width, height: native.height };
     }
     return this._session.getTargetDimensions();
-  }
-
-  private _publishRenderStats(stats: GpuVideoRendererStats): void {
-    this.eventBus.publish(EventChannels.RENDER.STATS_UPDATE, {
-      fps: stats.fps,
-      frameTime: stats.frameTime,
-      gpuTime: stats.gpuTime,
-      uploadTime: stats.uploadTime
-    });
   }
 
   private _startRenderLoop(video: HTMLVideoElement): void {

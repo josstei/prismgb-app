@@ -137,14 +137,6 @@ export type SupportedDeviceAvailablePayload = {
 
 export type DeviceEnumerationFailedPayload = { reason?: string; error?: string };
 
-export type RenderStatsPayload = {
-  fps?: number;
-  frameTime?: number | string;
-  gpuTime?: number;
-  uploadTime?: number;
-  [key: string]: unknown;
-};
-
 export type RenderPipelineReadyPayload = {
   backend: RenderBackend | string;
   [key: string]: unknown;
@@ -156,8 +148,6 @@ export type RenderPipelineErrorPayload = {
   code?: string;
   adapterInfo?: object | null;
 };
-
-export type CanvasRecreatedPayload = { oldCanvas: HTMLCanvasElement; newCanvas: HTMLCanvasElement };
 
 export type RecordingReadyPayload = { blob: Blob; filename: string };
 
@@ -243,8 +233,6 @@ type EventPayloadOverrides = {
   [EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED]: MemorySnapshotRequestPayload;
   [EventChannels.RENDER.PIPELINE_READY]: RenderPipelineReadyPayload;
   [EventChannels.RENDER.PIPELINE_ERROR]: RenderPipelineErrorPayload;
-  [EventChannels.RENDER.STATS_UPDATE]: RenderStatsPayload;
-  [EventChannels.RENDER.CANVAS_RECREATED]: CanvasRecreatedPayload;
   [EventChannels.UI.STATUS_MESSAGE]: UiStatusMessagePayload;
   [EventChannels.UI.DEVICE_STATUS]: UiDeviceStatusPayload;
   [EventChannels.UI.OVERLAY_MESSAGE]: UiOverlayMessagePayload;
