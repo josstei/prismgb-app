@@ -7,10 +7,6 @@ import { IPC_CHANNELS as channels } from '@platform/ipc';
 
 describe('IPC Channels', () => {
   describe('DEVICE channels', () => {
-    it('should define GET_STATUS channel', () => {
-      expect(channels.DEVICE.GET_STATUS).toBe('device:get-status');
-    });
-
     it('should define CONNECTED channel', () => {
       expect(channels.DEVICE.CONNECTED).toBe('device:connected');
     });
@@ -28,7 +24,7 @@ describe('IPC Channels', () => {
 
     it('should have expected channel count', () => {
       const deviceChannels = Object.keys(channels.DEVICE) as Array<keyof typeof channels.DEVICE>;
-      expect(deviceChannels.length).toBe(3);
+      expect(deviceChannels.length).toBe(2);
     });
   });
 });

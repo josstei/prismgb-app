@@ -30,47 +30,24 @@ describe('IPC channel baseline', () => {
         "DEVICE": {
           "CONNECTED": "device:connected",
           "DISCONNECTED": "device:disconnected",
-          "GET_STATUS": "device:get-status",
-        },
-        "GPU": {
-          "GET_POLICY": "gpu:get-policy",
-        },
-        "LOGIN_ITEM": {
-          "GET": "login-item:get",
-          "SET": "login-item:set",
-        },
-        "PERFORMANCE": {
-          "GET_METRICS": "performance:get-metrics",
-        },
-        "SHELL": {
-          "OPEN_EXTERNAL": "shell:open-external",
         },
         "TRANSCODE": {
-          "CANCEL": "transcode:cancel",
           "CANCELLED": "transcode:cancelled",
           "COMPLETED": "transcode:completed",
           "ERROR": "transcode:error",
-          "GET_STATUS": "transcode:get-status",
           "PROGRESS": "transcode:progress",
-          "START": "transcode:start",
         },
         "UPDATE": {
           "AVAILABLE": "update:available",
-          "CHECK": "update:check",
-          "DOWNLOAD": "update:download",
           "DOWNLOADED": "update:downloaded",
           "ERROR": "update:error",
-          "GET_STATUS": "update:get-status",
-          "INSTALL": "update:install",
           "NOT_AVAILABLE": "update:not-available",
           "PROGRESS": "update:progress",
         },
         "WINDOW": {
           "ENTER_FULLSCREEN": "window:enter-fullscreen",
-          "IS_FULLSCREEN": "window:is-fullscreen",
           "LEAVE_FULLSCREEN": "window:leave-fullscreen",
           "RESIZED": "window:resized",
-          "SET_FULLSCREEN": "window:set-fullscreen",
         },
       }
     `);
