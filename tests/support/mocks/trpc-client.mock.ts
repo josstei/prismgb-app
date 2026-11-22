@@ -81,7 +81,6 @@ export function createTrpcClientMock() {
     transcode: {
       start: mutation(),
       cancel: mutation(),
-      getStatus: query(),
       onProgress: subscription(),
       onCompleted: subscription(),
       onError: subscription(),

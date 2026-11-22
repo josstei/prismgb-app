@@ -64,15 +64,6 @@ export interface CancelResult {
 }
 
 /**
- * Status result
- */
-export interface StatusResult {
-  success: boolean;
-  jobs?: TranscodeJob[];
-  error?: string;
-}
-
-/**
  * Service dependencies
  */
 interface TranscodeServiceDependencies {
@@ -270,14 +261,6 @@ class TranscodeService extends BaseService {
     process.cancel();
 
     return { success: true };
-  }
-
-  /**
-   * Get status of all tracked jobs.
-   */
-  getStatus(): StatusResult {
-    const jobs = Array.from(this._jobs.values());
-    return { success: true, jobs };
   }
 
   private _cleanupJob(jobId: string, removeOutput = false): void {

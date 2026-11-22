@@ -60,10 +60,6 @@ export interface TranscodeStartPayload {
   filePath?: string;
 }
 
-export interface TranscodeStatusPayload {
-  jobs: TranscodeJobPayload[];
-}
-
 export interface ProcessMetricPayload {
   type: string;
   pid: number;

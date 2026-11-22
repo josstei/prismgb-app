@@ -15,7 +15,6 @@ export type {
   TranscodeCancelledPayload,
   TranscodeErrorPayload,
   TranscodeStartPayload,
-  TranscodeStatusPayload,
   ProcessMetricPayload,
   ProcessMetricsPayload
 } from './ipc-payloads.contract.js';

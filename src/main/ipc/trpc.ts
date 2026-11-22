@@ -4,7 +4,7 @@ import { getErrorMessage } from '@platform/core';
 import type { LoggerLike } from '@platform/core';
 import type { DeviceStatus } from '@platform/devices';
 import type { UpdateStatusPayload, TranscodeFormat } from '@platform/ipc';
-import type { TranscodeResult, CancelResult, StatusResult } from '@platform/transcode/service';
+import type { TranscodeResult, CancelResult } from '@platform/transcode/service';
 import type { IpcPushBridge } from './ipc-push.bridge.js';
 import type { MainProcessTestControlPort } from './test-control.port.js';
 
@@ -39,7 +39,6 @@ export interface TranscodeService {
     interrupted: boolean;
   }): Promise<TranscodeResult>;
   cancel(jobId: string): CancelResult;
-  getStatus(): StatusResult;
 }
 
 /**

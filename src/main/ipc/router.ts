@@ -12,7 +12,6 @@ import type {
   UpdateErrorPayload,
   TranscodeFormat,
   TranscodeStartPayload,
-  TranscodeStatusPayload,
   TranscodeProgressPayload,
   TranscodeCompletedPayload,
   TranscodeErrorPayload,
@@ -233,15 +232,6 @@ const transcodeRouter = router({
       if (!result.success) {
         throw new Error(result.error ?? 'Failed to cancel transcode');
       }
-    })
-  ),
-  getStatus: publicProcedure.query(({ ctx }) =>
-    rethrowAsTrpcError('Failed to get transcode status', ctx.logger, () => {
-      const result = ctx.transcodeService.getStatus();
-      if (!result.success) {
-        throw new Error(result.error ?? 'Failed to get transcode status');
-      }
-      return { jobs: result.jobs ?? [] } as TranscodeStatusPayload;
     })
   ),
   onProgress: publicProcedure.subscription(({ ctx }) =>

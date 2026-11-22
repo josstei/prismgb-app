@@ -38,8 +38,7 @@ function createContext(overrides: Partial<Record<string, unknown>> = {}) {
     windowService: { setFullScreen: vi.fn(), isFullScreen: vi.fn(() => true) },
     transcodeService: {
       transcode: vi.fn(async () => ({ success: true, jobId: 'job-1' })),
-      cancel: vi.fn(() => ({ success: true })),
-      getStatus: vi.fn(() => ({ success: true }))
+      cancel: vi.fn(() => ({ success: true }))
     },
     loginItemService: { isEnabled: vi.fn(() => true), setEnabled: vi.fn() },
     app: { getAppMetrics: vi.fn(() => []) },
@@ -298,8 +297,7 @@ describe('appRouter — queries / mutations', () => {
     const context = createContext({
       transcodeService: {
         transcode: vi.fn(async () => ({ success: false, error: 'Unsupported format' })),
-        cancel: vi.fn(() => ({ success: true })),
-        getStatus: vi.fn(() => ({ success: true }))
+        cancel: vi.fn(() => ({ success: true }))
       }
     });
 
@@ -314,8 +312,7 @@ describe('appRouter — queries / mutations', () => {
         transcode: vi.fn(async () => {
           throw new Error('ffmpeg crashed');
         }),
-        cancel: vi.fn(() => ({ success: true })),
-        getStatus: vi.fn(() => ({ success: true }))
+        cancel: vi.fn(() => ({ success: true }))
       }
     });
 
@@ -333,42 +330,13 @@ describe('appRouter — queries / mutations', () => {
     const context = createContext({
       transcodeService: {
         transcode: vi.fn(async () => ({ success: true, jobId: 'job-1' })),
-        cancel: vi.fn(() => ({ success: false, error: 'Job not found or already completed' })),
-        getStatus: vi.fn(() => ({ success: true }))
+        cancel: vi.fn(() => ({ success: false, error: 'Job not found or already completed' }))
       }
     });
 
     await expect(caller(context).transcode.cancel({ jobId: 'job-1' })).rejects.toMatchObject({
       code: 'INTERNAL_SERVER_ERROR',
       message: 'Job not found or already completed'
-    });
-  });
-
-  it('transcode.getStatus returns the payload-only jobs shape on service success', async () => {
-    const job = { id: 'job-1', state: 'running', progress: 50, outputPath: null, error: null, startTime: 1 };
-    const context = createContext({
-      transcodeService: {
-        transcode: vi.fn(async () => ({ success: true, jobId: 'job-1' })),
-        cancel: vi.fn(() => ({ success: true })),
-        getStatus: vi.fn(() => ({ success: true, jobs: [job] }))
-      }
-    });
-
-    await expect(caller(context).transcode.getStatus()).resolves.toEqual({ jobs: [job] });
-  });
-
-  it('transcode.getStatus rethrows an INTERNAL_SERVER_ERROR TRPCError when the service reports a business failure', async () => {
-    const context = createContext({
-      transcodeService: {
-        transcode: vi.fn(async () => ({ success: true, jobId: 'job-1' })),
-        cancel: vi.fn(() => ({ success: true })),
-        getStatus: vi.fn(() => ({ success: false, error: 'Status unavailable' }))
-      }
-    });
-
-    await expect(caller(context).transcode.getStatus()).rejects.toMatchObject({
-      code: 'INTERNAL_SERVER_ERROR',
-      message: 'Status unavailable'
     });
   });
 
