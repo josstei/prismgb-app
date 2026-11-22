@@ -1,11 +1,9 @@
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { createRequire } from 'node:module';
 
 const APP_NAME = 'PrismGB';
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-const plistPath = path.join(__dirname, '..', 'node_modules', 'electron', 'dist', 'Electron.app', 'Contents', 'Info.plist');
+const require = createRequire(import.meta.url);
 
 const updatePlistValue = (plistContent, key, value) => {
   const pattern = new RegExp(`(<key>${key}</key>\\s*<string>)([^<]+)(</string>)`);
@@ -25,6 +23,9 @@ const main = () => {
     return;
   }
 
+  // Electron 42+ downloads its binary on first use rather than during npm ci.
+  const electronPath = require('electron');
+  const plistPath = path.resolve(path.dirname(electronPath), '..', 'Info.plist');
   if (!fs.existsSync(plistPath)) {
     console.warn(`[patch-mac-app-name] Info.plist not found at ${plistPath}`);
     return;
