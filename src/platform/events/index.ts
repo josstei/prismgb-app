@@ -34,6 +34,6 @@ export type {
 } from './event-payloads.js';
 export type { DeviceInfoPayload, DeviceStatus } from '@platform/devices';
 
-export { getEventManifestScopeEvents, getEventManifestScopeValues } from './event.manifest.js';
+export { getEventManifestScopeEvents } from './event.manifest.js';
 export { MainEventChannels } from './main-event-channels.js';
 export type { MainEventChannel } from './main-event-channels.js';

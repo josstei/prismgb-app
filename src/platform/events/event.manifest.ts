@@ -121,7 +121,3 @@ export function getEventManifestScopeEvents<TScope extends EventManifestScopeNam
 ): ReadonlyArray<EventManifestEntryForScope<TScope>> {
   return getEventManifestScope(scopeName).events as ReadonlyArray<EventManifestEntryForScope<TScope>>;
 }
-
-export function getEventManifestScopeValues(scopeName: EventManifestScopeName): string[] {
-  return getEventManifestScopeEvents(scopeName).map((entry) => entry.value);
-}
