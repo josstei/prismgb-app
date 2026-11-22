@@ -37,7 +37,6 @@ export const EventManifest = {
         { domain: 'settings', name: 'preferences-loaded', value: 'settings:preferences-loaded', payload: 'Record<string, unknown>' },
         { domain: 'settings', name: 'recording-format-changed', value: 'settings:recording-format-changed', payload: 'string' },
         { domain: 'performance', name: 'state-changed', value: 'performance:state-changed', payload: 'PerformanceStatePayload' },
-        { domain: 'performance', name: 'ui-mode-changed', value: 'performance:ui-mode-changed', payload: 'PerformanceUiModePayload' },
         { domain: 'performance', name: 'render-mode-changed', value: 'performance:render-mode-changed', payload: 'boolean' },
         { domain: 'performance', name: 'memory-snapshot-requested', value: 'performance:memory-snapshot-requested', payload: 'MemorySnapshotRequestPayload' },
         { domain: 'render', name: 'pipeline-ready', value: 'render:pipeline-ready', payload: 'RenderPipelineReadyPayload' },

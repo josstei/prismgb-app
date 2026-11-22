@@ -117,11 +117,6 @@ export type PerformanceStatePayload = {
   [key: string]: unknown;
 };
 
-export type PerformanceUiModePayload = {
-  enabled: boolean;
-  weakGpuDetected: boolean;
-};
-
 export type MemorySnapshotRequestPayload = {
   reason?: string;
   label?: string;
@@ -238,7 +233,6 @@ type EventPayloadOverrides = {
   [EventChannels.SETTINGS.PREFERENCES_LOADED]: Record<string, unknown>;
   [EventChannels.SETTINGS.RECORDING_FORMAT_CHANGED]: string;
   [EventChannels.PERFORMANCE.STATE_CHANGED]: PerformanceStatePayload;
-  [EventChannels.PERFORMANCE.UI_MODE_CHANGED]: PerformanceUiModePayload;
   [EventChannels.PERFORMANCE.RENDER_MODE_CHANGED]: boolean;
   [EventChannels.PERFORMANCE.MEMORY_SNAPSHOT_REQUESTED]: MemorySnapshotRequestPayload;
   [EventChannels.RENDER.PIPELINE_READY]: RenderPipelineReadyPayload;

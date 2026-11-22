@@ -17,7 +17,6 @@ export type {
   TranscodeStartedPayload,
   UiButtonFeedbackPayload,
   UiStreamingModePayload,
-  PerformanceUiModePayload,
   PerformanceStatePayload,
   MemorySnapshotRequestPayload,
   StreamingCapabilities,
