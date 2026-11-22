@@ -26,7 +26,6 @@ export { ManagedLifecycleHost } from './primitives/managed-lifecycle-host.js';
 export { BaseService, type EventPublisherLike, type LoggerLike, type EventBusLike, type LoggerFactoryLike, type StorageServiceLike, type LogLevel } from './primitives/service.base.js';
 export { BaseOrchestrator } from './primitives/orchestrator.base.js';
 export { createOnEventDecorator, getEventHandlerBindings } from './primitives/event-decorator.js';
-export type { EventHandlerBinding } from './primitives/event-decorator.js';
 export { ConsoleLoggerFactory } from './primitives/console-logger.js';
 export { safeDispose, safeDisposeAll } from './primitives/safe-disposer.utils.js';
 export { applyBindingOverrides } from './primitives/binding-override.utils.js';

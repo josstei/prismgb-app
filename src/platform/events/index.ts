@@ -3,7 +3,6 @@ export type { IEventBus } from './event-bus.js';
 export { EventChannels } from './event-channels.js';
 export { OnEvent } from './on-event.js';
 export type {
-  EventPayloadMap,
   TypedEventBusLike,
   Dimensions,
   DeviceEnumerationFailedPayload,
@@ -26,13 +25,10 @@ export type {
   RecordingReadyPayload,
   ScreenshotReadyPayload,
   StreamErrorPayload,
-  StreamHealthOkPayload,
-  StreamHealthTimeoutPayload,
   StreamStartedPayload,
-  SupportedDeviceAvailablePayload,
-  NativeResolution
+  SupportedDeviceAvailablePayload
 } from './event-payloads.js';
-export type { DeviceInfoPayload, DeviceStatus } from '@platform/devices';
+export type { DeviceStatus } from '@platform/devices';
 
 export { getEventManifestScopeEvents, getEventManifestScopeValues } from './event.manifest.js';
 export { MainEventChannels } from './main-event-channels.js';

@@ -9,7 +9,6 @@ export type {
   UpdateCheckPayload,
   TranscodeFormat,
   TranscodeStartOptions,
-  TranscodeJobPayload,
   TranscodeProgressPayload,
   TranscodeCompletedPayload,
   TranscodeCancelledPayload,
