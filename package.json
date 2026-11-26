@@ -62,7 +62,7 @@
     "@trpc/client": "^10.45.4",
     "@trpc/server": "^10.45.4",
     "electron-log": "^5.4.4",
-    "electron-trpc": "^0.7.1",
+    "electron-trpc": "^1.0.0",
     "electron-updater": "^6.8.11",
     "eventemitter3": "^5.0.4",
     "ffmpeg-static": "^5.2.0",
